@@ -1,18 +1,18 @@
 import {App, PluginSettingTab, Setting} from "obsidian";
-import MyPlugin from "./main";
+import TaskTimeTracker from "./main";
 
-export interface MyPluginSettings {
+export interface TaskTimeTrackerSettings {
 	mySetting: string;
 }
 
-export const DEFAULT_SETTINGS: MyPluginSettings = {
+export const DEFAULT_SETTINGS: TaskTimeTrackerSettings = {
 	mySetting: 'default'
 }
 
 export class SampleSettingTab extends PluginSettingTab {
-	plugin: MyPlugin;
+	plugin: TaskTimeTracker;
 
-	constructor(app: App, plugin: MyPlugin) {
+	constructor(app: App, plugin: TaskTimeTracker) {
 		super(app, plugin);
 		this.plugin = plugin;
 	}

@@ -1,11 +1,11 @@
 {
-	"id": "sample-plugin",
-	"name": "Sample Plugin",
-	"version": "1.0.0",
+	"id": "obsidian-task-time-tracker",
+	"name": "Task Timer Tracker",
+	"version": "0.0.1",
 	"minAppVersion": "0.15.0",
-	"description": "Demonstrates some of the capabilities of the Obsidian API.",
+	"description": "An obsidian plugin for effortlessly tracking your tasks and built helpful stats out of it.",
 	"author": "Obsidian",
-	"authorUrl": "https://obsidian.md",
-	"fundingUrl": "https://obsidian.md/pricing",
+	"authorUrl": "https://github.com/a-mannered-bird/",
+	"fundingUrl": "https://github.com/a-mannered-bird/",
 	"isDesktopOnly": false
 }
