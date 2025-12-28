@@ -1,36 +1,38 @@
-import {App, PluginSettingTab, Setting} from "obsidian";
-import TaskTimeTracker from "./main";
+import { App, PluginSettingTab, Setting } from 'obsidian'
+import TaskTimeTracker from './main'
 
 export interface TaskTimeTrackerSettings {
-	mySetting: string;
+	mySetting: string
 }
 
 export const DEFAULT_SETTINGS: TaskTimeTrackerSettings = {
-	mySetting: 'default'
+	mySetting: 'default',
 }
 
 export class SampleSettingTab extends PluginSettingTab {
-	plugin: TaskTimeTracker;
+	plugin: TaskTimeTracker
 
 	constructor(app: App, plugin: TaskTimeTracker) {
-		super(app, plugin);
-		this.plugin = plugin;
+		super(app, plugin)
+		this.plugin = plugin
 	}
 
 	display(): void {
-		const {containerEl} = this;
+		const { containerEl } = this
 
-		containerEl.empty();
+		containerEl.empty()
 
 		new Setting(containerEl)
 			.setName('Settings #1')
-			.setDesc('It\'s a secret')
-			.addText(text => text
-				.setPlaceholder('Enter your secret')
-				.setValue(this.plugin.settings.mySetting)
-				.onChange(async (value) => {
-					this.plugin.settings.mySetting = value;
-					await this.plugin.saveSettings();
-				}));
+			.setDesc("It's a secret")
+			.addText((text) =>
+				text
+					.setPlaceholder('Enter your secret')
+					.setValue(this.plugin.settings.mySetting)
+					.onChange(async (value) => {
+						this.plugin.settings.mySetting = value
+						await this.plugin.saveSettings()
+					})
+			)
 	}
 }

@@ -21,6 +21,7 @@
 		"eslint-plugin-obsidianmd": "0.1.9",
 		"globals": "14.0.0",
 		"jiti": "2.6.1",
+		"prettier": "3.7.4",
 		"svelte": "^5.46.0",
 		"svelte-check": "^4.3.5",
 		"svelte-preprocess": "^6.0.3",
