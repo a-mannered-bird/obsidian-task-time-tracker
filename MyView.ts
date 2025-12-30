@@ -23,10 +23,11 @@ export class ExampleView extends ItemView {
 	}
 
 	async onOpen() {
-		// Attach the Svelte component to the ItemViews content element and provide the needed props.
 		this.dailyView = mount(DailyView, {
 			target: this.contentEl,
-			props: {},
+			props: {
+				app: this.app,
+			},
 		})
 	}
 
