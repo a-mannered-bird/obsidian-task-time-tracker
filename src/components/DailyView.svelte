@@ -63,11 +63,14 @@
 
 	onMount(() => {
 		app.workspace.on('active-leaf-change', loadDatas)
+		loadDatas(app.workspace.getMostRecentLeaf())
 	})
 
 	async function loadDatas(leaf: WorkspaceLeaf | null) {
 		const view = leaf?.view
 		if (view instanceof FileView && view.file) {
+			// TODO: Add settings to what qualifies as an appropriate file
+			if (!view.file.path.includes('Journal')) return
 			todaysFile = view.file
 			yesterdaysFile = await getFileByPath(
 				app,
@@ -90,31 +93,30 @@
 	}
 </script>
 
-<h2>Daily view</h2>
 {#if hasAllContents}
-	<b>⌛️ Time Loggable: </b>
-	<br />
-	<span>{formatTime(loggableTime, 1440)}</span>
-	<br />
-	<b>⏱ Total Time logged: </b>
-	<br />
-	<span>{formatTime(totalTime, loggableTime)}</span>
-	<br />
-	<b>⏳ Remaining Time: </b>
-	<br />
-	<span>{formatTime(remainingTime, loggableTime)}</span>
-	<br />
-	<b>💤 Time Slept: </b>
-	<br />
-	<span>{formatTime(sleepTime, 1440)}</span>
-	<br />
-	<b>🍃 Time Unlogged (so far): </b>
-	<br />
-	<span>{formatTime(unloggedTime, loggableTime)}</span>
-	<br />
+	<h2>Daily view - {todaysFile?.basename}</h2>
+	<div class="stats-item">
+		<b>⌛️ Time Loggable: </b>
+		<span>{formatTime(loggableTime, 1440)}</span>
+	</div>
+	<div class="stats-item">
+		<b>⏱ Total Time logged: </b>
+		<span>{formatTime(totalTime, loggableTime)}</span>
+	</div>
+	<div class="stats-item">
+		<b>⏳ Remaining Time: </b>
+		<span>{formatTime(remainingTime, loggableTime)}</span>
+	</div>
+	<div class="stats-item">
+		<b>💤 Time Slept: </b>
+		<span>{formatTime(sleepTime, 1440)}</span>
+	</div>
+	<div class="stats-item">
+		<b>🍃 Time Unlogged (so far): </b>
+		<span>{formatTime(unloggedTime, loggableTime)}</span>
+	</div>
 
 	<h3>Tasks by Time Spent</h3>
-	<i>Underline = Project / Bold = Tracker / Italic = Routine</i>
 
 	<table>
 		<thead>
@@ -153,6 +155,8 @@
 			{/each}
 		</tbody>
 	</table>
+	<br />
+	<i>Underline = Project / Bold = Tracker / Italic = Routine</i>
 {:else if todaysFile === undefined || todaysContents === undefined}
 	Loading
 {:else}
