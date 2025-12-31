@@ -1,4 +1,3 @@
-import type { CachedMetadata } from 'obsidian'
 import type { Interval, TagTimes, Task } from 'types/tasks'
 
 export const boldTags = [
@@ -12,51 +11,55 @@ export const boldTags = [
 export const italicTags = ['#chores', '#routine']
 export const underlineTags = ['#project'] // Whatever is a big project
 
+// FIXME: Remove every typescript !
+
 // TODO: Refactor this function
-function initProjectTracking(datas, projectPage) {
-	const workDays = datas
-		.map((data) => {
-			return {
-				file: data.file,
-				// Keep only project tasks
-				tasks: parseTasks(data.content).filter(
-					(task) => task.name === projectPage.project_name
-				),
-			}
-		})
-		// filter out days where the project was not worked on
-		.filter((data) => {
-			return data.tasks.length > 0
-		})
+// function initProjectTracking(datas, projectPage) {
+// 	const workDays = datas
+// 		.map((data) => {
+// 			return {
+// 				file: data.file,
+// 				// Keep only project tasks
+// 				tasks: parseTasks(data.content).filter(
+// 					(task) => task.name === projectPage.project_name
+// 				),
+// 			}
+// 		})
+// 		// filter out days where the project was not worked on
+// 		.filter((data) => {
+// 			return data.tasks.length > 0
+// 		})
 
-	const allWorkSessions = workDays.map((day) => day.tasks).flat()
-	const totalWorkedMinutes = calculateTasksTotalTime(allWorkSessions)
+// 	const allWorkSessions = workDays.map((day) => day.tasks).flat()
+// 	const totalWorkedMinutes = calculateTasksTotalTime(allWorkSessions)
 
-	// Get objective
-	const projectStart = new Date(projectPage.project_start.ts)
-	const today = new Date()
-	const totalWorkDays =
-		getNumberOfWorkDays(projectStart, today, projectPage.project_days) -
-		projectPage.project_holidays
-	const totalWorkMinutes = totalWorkDays * projectPage.project_time_per_day
-	const workBalance = totalWorkedMinutes - totalWorkMinutes
+// 	// Get objective
+// 	const projectStart = new Date(projectPage.project_start.ts)
+// 	const today = new Date()
+// 	const totalWorkDays =
+// 		getNumberOfWorkDays(projectStart, today, projectPage.project_days) -
+// 		projectPage.project_holidays
+// 	const totalWorkMinutes = totalWorkDays * projectPage.project_time_per_day
+// 	const workBalance = totalWorkedMinutes - totalWorkMinutes
 
-	// Display results
-	const rootDiv = document.getElementById(`root-${projectPage.project_name}`)
-	displayItem(rootDiv, `📆  Total days due: `, `${totalWorkDays} days`)
-	displayItem(rootDiv, `🎯  Time objective: `, formatTime(totalWorkMinutes))
-	displayItem(
-		rootDiv,
-		`💪  Total time worked: `,
-		formatTime(totalWorkedMinutes, totalWorkMinutes)
-	)
-	displayItem(rootDiv, `⚖️  Work balance: `, formatTime(workBalance))
-}
+// Display results
+// displayItem(`📆  Total days due: `, `${totalWorkDays} days`)
+// displayItem(`🎯  Time objective: `, formatTime(totalWorkMinutes))
+// displayItem(
+// 	`💪  Total time worked: `,
+// 	formatTime(totalWorkedMinutes, totalWorkMinutes)
+// )
+// displayItem(`⚖️  Work balance: `, formatTime(workBalance))
+// }
 
 /**
  * Get number of workdays between two dates (including those dates)
  */
-function getNumberOfWorkDays(startDate, endDate, workdays = [1, 2, 3, 4, 5]) {
+function getNumberOfWorkDays(
+	startDate: string,
+	endDate: string,
+	workdays = [1, 2, 3, 4, 5]
+) {
 	// Ensure we’re working with Date objects
 	let start = new Date(startDate)
 	let end = new Date(endDate)
@@ -69,7 +72,7 @@ function getNumberOfWorkDays(startDate, endDate, workdays = [1, 2, 3, 4, 5]) {
 
 	while (current <= end) {
 		const day = current.getDay() // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
-		if (workdays.includes(day.toString())) count++
+		if (workdays.includes(day)) count++
 		current.setDate(current.getDate() + 1)
 	}
 
@@ -78,8 +81,6 @@ function getNumberOfWorkDays(startDate, endDate, workdays = [1, 2, 3, 4, 5]) {
 
 /**
  * Parses the content to extract tasks and their associated time intervals.
- * @param {string} content - The content to be parsed.
- * @returns {Array} - An array of task objects with their names, tags, and total minutes.
  */
 export function parseTasks(content: string): Task[] {
 	const taskRegex = /- \[.\] (.+?) (#.+?)(\n\s+\[clock::(.+?)--(.+?)\])+/g
@@ -103,9 +104,6 @@ export function parseTasks(content: string): Task[] {
 
 /**
  * Extracts time intervals from a task's content using a regular expression.
- * @param {string} taskContent - The content of the task.
- * @param {RegExp} clockRegex - The regular expression to match time intervals.
- * @returns {Array} - An array of time intervals.
  */
 function extractIntervals(taskContent: string, clockRegex: RegExp) {
 	const intervals = []
@@ -118,8 +116,6 @@ function extractIntervals(taskContent: string, clockRegex: RegExp) {
 
 /**
  * Parses time intervals and calculates the total time in minutes.
- * @param {Array} intervals - An array of time intervals.
- * @returns {number} - The total time in minutes.
  */
 function parseTimeIntervals(textIntervals: string[]) {
 	let totalMinutes = 0
@@ -137,8 +133,6 @@ function parseTimeIntervals(textIntervals: string[]) {
 
 /**
  * Sorts tasks by the total time spent in descending order.
- * @param {Array} tasks - An array of task objects.
- * @returns {Array} - The sorted array of task objects.
  */
 export function sortTasksByTime(tasks: Task[]) {
 	return tasks.sort((a, b) => b.totalMinutes - a.totalMinutes)
@@ -146,8 +140,6 @@ export function sortTasksByTime(tasks: Task[]) {
 
 /**
  * Aggregates the total time spent by tags.
- * @param {Array} tasks - An array of task objects.
- * @returns {Object} - A map of tags to total minutes.
  */
 export function aggregateTimeByTags(tasks: Task[]) {
 	const tagTimeMap: TagTimes = {}
@@ -249,10 +241,11 @@ export function getAvailableIntervals(
 /**
  *
  */
-function getTasksOverlappingMinutes(tasks) {
-	let allIntervals = []
+function getTasksOverlappingMinutes(tasks: Task[]) {
+	let allIntervals: Interval[] = []
 	let totalOverlapping = 0
 
+	// FIXME: Refactor this part so that taskName is always present on every interval and we don't have to reconfigure them
 	tasks.forEach((t) => {
 		allIntervals = allIntervals.concat(
 			t.intervals.map((i) => ({ ...i, taskName: t.name }))
@@ -262,39 +255,42 @@ function getTasksOverlappingMinutes(tasks) {
 	for (let t = 0; t < tasks.length; t++) {
 		let totalTaskOverlapping = 0
 
-		for (let i = 0; i < tasks[t].intervals.length; i++) {
-			const current = tasks[t].intervals[i]
+		for (let i = 0; i < tasks[t]!.intervals.length; i++) {
+			const current = tasks[t]!.intervals[i]!
 			let overlapMillis = 0
 
 			for (let j = 0; j < allIntervals.length; j++) {
-				const other = allIntervals[j]
+				const other = allIntervals[j]!
 
-				if (allIntervals[j].taskName === tasks[t].name) continue
+				if (allIntervals[j]!.taskName === tasks[t]!.name) continue
 
 				const overlapStart = new Date(
-					Math.max(current.startTime, other.startTime)
+					Math.max(current.startTime.valueOf(), other.startTime.valueOf())
 				)
-				const overlapEnd = new Date(Math.min(current.endTime, other.endTime))
+				const overlapEnd = new Date(
+					Math.min(current.endTime.valueOf(), other.endTime.valueOf())
+				)
 
 				if (overlapStart < overlapEnd) {
-					overlapMillis += overlapEnd - overlapStart
+					overlapMillis += overlapEnd.valueOf() - overlapStart.valueOf()
 				}
 			}
 
 			// To prevent counting overlapping time multiple times (e.g., with 3+ overlapping intervals),
 			// we cap the overlap duration to the duration of the current interval
-			const intervalDuration = current.endTime - current.startTime
+			const intervalDuration =
+				current.endTime.valueOf() - current.startTime.valueOf()
 			const clampedMillis = Math.min(overlapMillis, intervalDuration)
 			const overlappingMinutes = Math.floor(clampedMillis / 60000)
 			totalTaskOverlapping += overlappingMinutes
 
-			tasks[t].intervals[i] = {
+			tasks[t]!.intervals[i] = {
 				...current,
 				overlappingMinutes,
 			}
 		}
 
-		tasks[t].totalOverlapping = totalTaskOverlapping
+		tasks[t]!.totalOverlapping = totalTaskOverlapping
 		totalOverlapping += totalTaskOverlapping
 	}
 
@@ -302,9 +298,7 @@ function getTasksOverlappingMinutes(tasks) {
 }
 
 export function calculateTasksTotalTime(tasks: Task[]) {
-	return Math.floor(
-		tasks.reduce((pre, cur) => cur.totalMinutes + (pre.totalMinutes || pre), 0)
-	)
+	return Math.floor(tasks.reduce((pre, cur) => cur.totalMinutes + pre, 0))
 }
 
 export function getMinutesBetween(date1: Date, date2: Date) {
@@ -314,10 +308,8 @@ export function getMinutesBetween(date1: Date, date2: Date) {
 
 /**
  * Formats minutes into a string representing hours and minutes.
- * @param {number} minutes - The total minutes.
- * @returns {string} - The formatted time string.
  */
-export function formatTime(minutes, total) {
+export function formatTime(minutes: number, total: number) {
 	const hours = Math.floor(minutes / 60)
 	const mins = Math.floor(minutes % 60)
 	const percentage = total
@@ -327,33 +319,16 @@ export function formatTime(minutes, total) {
 }
 
 /**
- * Creates and appends an element to a parent element.
- * @param {string} type - The type of the element.
- * @param {string} text - The text content of the element.
- * @param {HTMLElement} parent - The parent element to append the element to.
- */
-function createElement(type, parent, text) {
-	const el = document.createElement(type)
-	if (text) el.textContent = text
-	parent.appendChild(el)
-}
-
-/**
  * Check if any element in array1 is included in array2, returning true if there's a match
- * @param {Array<string>} array1
- * @param {Array<string>} array2
  */
-function hasCommonString(array1, array2) {
+function hasCommonString(array1: string[], array2: string[]) {
 	return array1.some((str) => array2.includes(str))
 }
 
 /**
  * Identifies if the name of a label should be emphasized in any way
- * @param {string} name - The name of the label
- * @param {Array<string>} tags - The text content of the element.
- *
  */
-export function formatName(name, tags = []) {
+export function formatName(name: string, tags: string[] = []) {
 	let formatElements = []
 	if (italicTags.contains(name) || hasCommonString(tags, italicTags)) {
 		formatElements.push('i')
@@ -370,8 +345,8 @@ export function formatName(name, tags = []) {
 /**
  * Display a simple text with a label and a value, before adding a breaking row
  */
-function displayItem(rootDiv, label, value) {
-	createElement('b', rootDiv, label)
-	createElement('span', rootDiv, value)
-	createElement('br', rootDiv)
-}
+// function displayItem(rootDiv, label, value) {
+// 	createElement('b', rootDiv, label)
+// 	createElement('span', rootDiv, value)
+// 	createElement('br', rootDiv)
+// }
