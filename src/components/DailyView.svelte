@@ -2,8 +2,18 @@
 	import type { TFile, App, WorkspaceLeaf, CachedMetadata } from 'obsidian'
 	import { FileView } from 'obsidian'
 	import { onMount } from 'svelte'
+	import type { Interval } from 'types/tasks'
 	import { getFileByPath } from 'utils/obsidian'
-	import { formatTime, init } from 'utils/tracker'
+	import {
+		aggregateTimeByTags,
+		calculateTasksTotalTime,
+		formatTime,
+		getAvailableIntervals,
+		getMinutesBetween,
+		parseTasks,
+		sortTagTimeArray,
+		sortTasksByTime,
+	} from 'utils/tracker'
 
 	type Props = {
 		app: App
@@ -17,12 +27,39 @@
 	let todaysMetadata: CachedMetadata | null | undefined = $state()
 	let yesterdaysMetadata: CachedMetadata | null | undefined = $state()
 	let hasAllContents = $derived(todaysFile && yesterdaysFile && todaysContents)
+	let tasks = $derived.by(() => {
+		if (!todaysContents) return []
+		return sortTasksByTime(parseTasks(todaysContents))
+	})
+	let tagTimes = $derived(sortTagTimeArray(aggregateTimeByTags(tasks)))
 
-	let datas = $derived(
-		hasAllContents
-			? init({ content: todaysContents, todaysMetadata, yesterdaysMetadata })
-			: undefined
+	// Stats
+	const oldBedTime = $derived(
+		new Date(yesterdaysMetadata?.frontmatter?.bed_time)
 	)
+	const newBedTime = $derived(new Date(todaysMetadata?.frontmatter?.bed_time))
+	const wakeTime = $derived(new Date(todaysMetadata?.frontmatter?.wake_time))
+	let totalTime = $derived(calculateTasksTotalTime(tasks))
+	let sleepTime = $derived(getMinutesBetween(oldBedTime, wakeTime))
+	let loggableTime = $derived(getMinutesBetween(wakeTime, newBedTime))
+	let nowBedDifference = $derived(getMinutesBetween(new Date(), newBedTime))
+	let remainingTime = $derived(nowBedDifference < 0 ? 0 : nowBedDifference)
+	let unloggedTime = $derived.by(() => {
+		const dayInterval = {
+			startTime: new Date(wakeTime),
+			endTime: nowBedDifference < 0 ? new Date(newBedTime) : new Date(),
+		}
+
+		let tasksIntervals: Interval[] = []
+		tasks.forEach((t) => {
+			tasksIntervals = tasksIntervals.concat([...t.intervals])
+		})
+		const notLoggedIntervals = getAvailableIntervals(
+			tasksIntervals,
+			dayInterval
+		)
+		return notLoggedIntervals.totalAvailable
+	})
 
 	onMount(() => {
 		app.workspace.on('active-leaf-change', loadDatas)
@@ -54,26 +91,26 @@
 </script>
 
 <h2>Daily view</h2>
-{#if datas}
+{#if hasAllContents}
 	<b>⌛️ Time Loggable: </b>
 	<br />
-	<span>{formatTime(datas.stats.loggableTime, 1440)}</span>
+	<span>{formatTime(loggableTime, 1440)}</span>
 	<br />
 	<b>⏱ Total Time logged: </b>
 	<br />
-	<span>{formatTime(datas.stats.totalTime, datas.stats.loggableTime)}</span>
+	<span>{formatTime(totalTime, loggableTime)}</span>
 	<br />
 	<b>⏳ Remaining Time: </b>
 	<br />
-	<span>{formatTime(datas.stats.remainingTime, datas.stats.loggableTime)}</span>
+	<span>{formatTime(remainingTime, loggableTime)}</span>
 	<br />
 	<b>💤 Time Slept: </b>
 	<br />
-	<span>{formatTime(datas.stats.sleepTime, 1440)}</span>
+	<span>{formatTime(sleepTime, 1440)}</span>
 	<br />
 	<b>🍃 Time Unlogged (so far): </b>
 	<br />
-	<span>{formatTime(datas.stats.unloggedTime, datas.stats.loggableTime)}</span>
+	<span>{formatTime(unloggedTime, loggableTime)}</span>
 	<br />
 
 	<h3>Tasks by Time Spent</h3>
@@ -87,11 +124,11 @@
 			</tr>
 		</thead>
 		<tbody>
-			{#each datas.sortedTasks as task}
+			{#each tasks as task}
 				<tr>
 					<!-- <td>{formatName(task.name, task.tags)}</td> TODO: Format according to tags -->
 					<td>{task.name}</td>
-					<td>{formatTime(task.totalMinutes, datas.stats.loggableTime)}</td>
+					<td>{formatTime(task.totalMinutes, loggableTime)}</td>
 				</tr>
 			{/each}
 		</tbody>
@@ -107,11 +144,11 @@
 			</tr>
 		</thead>
 		<tbody>
-			{#each datas.sortedTagTimeArray as [tag, totalMinutes]}
+			{#each tagTimes as [tag, totalMinutes]}
 				<tr>
 					<!-- <td>{formatName(tag)}</td> TODO: Format according to tags -->
 					<td>{tag}</td>
-					<td>{formatTime(totalMinutes, datas.stats.loggableTime)}</td>
+					<td>{formatTime(totalMinutes, loggableTime)}</td>
 				</tr>
 			{/each}
 		</tbody>

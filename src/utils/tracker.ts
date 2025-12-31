@@ -1,3 +1,6 @@
+import type { CachedMetadata } from 'obsidian'
+import type { Interval, TagTimes, Task } from 'types/tasks'
+
 export const boldTags = [
 	'#project',
 	'#languages',
@@ -8,24 +11,6 @@ export const boldTags = [
 ] // Whatever is an investment in myself
 export const italicTags = ['#chores', '#routine']
 export const underlineTags = ['#project'] // Whatever is a big project
-
-/**
- * Initializes the TrackStats instance and processes the content.
- */
-// TODO: Refactor name to initDailyTrackers
-export function init(datas) {
-	const tasks = parseTasks(datas.content)
-	// console.log(getTasksOverlappingMinutes(tasks))
-
-	const sortedTasks = sortTasksByTime(tasks)
-	const tagTimeMap = aggregateTimeByTags(tasks)
-	const sortedTagTimeArray = sortTagTimeArray(tagTimeMap)
-
-	console.log(datas.yesterdaysMetadata.frontmatter.wake_time)
-	const stats = calculateDailyStats(sortedTasks, datas)
-	console.log({ sortedTasks, sortedTagTimeArray, stats })
-	return { sortedTasks, sortedTagTimeArray, stats }
-}
 
 // TODO: Refactor this function
 function initProjectTracking(datas, projectPage) {
@@ -96,18 +81,18 @@ function getNumberOfWorkDays(startDate, endDate, workdays = [1, 2, 3, 4, 5]) {
  * @param {string} content - The content to be parsed.
  * @returns {Array} - An array of task objects with their names, tags, and total minutes.
  */
-function parseTasks(content) {
+export function parseTasks(content: string): Task[] {
 	const taskRegex = /- \[.\] (.+?) (#.+?)(\n\s+\[clock::(.+?)--(.+?)\])+/g
 	const clockRegex = /\[clock::(.+?)--(.+?)\]/g
 	const tasks = []
 	let match
 
 	while ((match = taskRegex.exec(content)) !== null) {
-		const taskName = match[1].trim()
-		const tags = match[2]
+		const taskName = (match[1] || '').trim()
+		const tags = (match[2] || '')
 			.split(' ')
 			.map((tag) => tag.trim())
-			.filter((tag) => tag)
+			.filter(Boolean)
 		const textIntervals = extractIntervals(match[0], clockRegex)
 		const { totalMinutes, intervals } = parseTimeIntervals(textIntervals)
 		tasks.push({ name: taskName, tags, totalMinutes, intervals })
@@ -122,7 +107,7 @@ function parseTasks(content) {
  * @param {RegExp} clockRegex - The regular expression to match time intervals.
  * @returns {Array} - An array of time intervals.
  */
-function extractIntervals(taskContent, clockRegex) {
+function extractIntervals(taskContent: string, clockRegex: RegExp) {
 	const intervals = []
 	let clockMatch
 	while ((clockMatch = clockRegex.exec(taskContent)) !== null) {
@@ -136,13 +121,13 @@ function extractIntervals(taskContent, clockRegex) {
  * @param {Array} intervals - An array of time intervals.
  * @returns {number} - The total time in minutes.
  */
-function parseTimeIntervals(textIntervals) {
+function parseTimeIntervals(textIntervals: string[]) {
 	let totalMinutes = 0
-	const intervals = []
+	const intervals: Interval[] = []
 	textIntervals.forEach((interval) => {
 		const [start, end] = interval.split('--')
-		const startTime = new Date(start)
-		const endTime = new Date(end)
+		const startTime = new Date(start || '')
+		const endTime = new Date(end || '')
 		const diff = getMinutesBetween(startTime, endTime) // Difference in minutes
 		totalMinutes += diff
 		intervals.push({ startTime, endTime, minutes: diff })
@@ -155,7 +140,7 @@ function parseTimeIntervals(textIntervals) {
  * @param {Array} tasks - An array of task objects.
  * @returns {Array} - The sorted array of task objects.
  */
-function sortTasksByTime(tasks) {
+export function sortTasksByTime(tasks: Task[]) {
 	return tasks.sort((a, b) => b.totalMinutes - a.totalMinutes)
 }
 
@@ -164,8 +149,8 @@ function sortTasksByTime(tasks) {
  * @param {Array} tasks - An array of task objects.
  * @returns {Object} - A map of tags to total minutes.
  */
-function aggregateTimeByTags(tasks) {
-	const tagTimeMap = {}
+export function aggregateTimeByTags(tasks: Task[]) {
+	const tagTimeMap: TagTimes = {}
 	tasks.forEach((task) => {
 		task.tags.forEach((tag) => {
 			if (!tagTimeMap[tag]) {
@@ -182,7 +167,7 @@ function aggregateTimeByTags(tasks) {
  * @param {Object} tagTimeMap - A map of tags to total minutes.
  * @returns {Array} - The sorted array of tag time entries.
  */
-function sortTagTimeArray(tagTimeMap) {
+export function sortTagTimeArray(tagTimeMap: TagTimes) {
 	const tagTimeArray = Object.entries(tagTimeMap)
 	return tagTimeArray.sort((a, b) => b[1] - a[1])
 }
@@ -191,24 +176,30 @@ function sortTagTimeArray(tagTimeMap) {
  * Return intervals in a period of time (totalTime) that was not overlapping
  * with an array of time intervals (myIntervals)
  */
-function getAvailableIntervals(myIntervals, totalTime) {
+export function getAvailableIntervals(
+	myIntervals: Interval[],
+	dayInterval: { startTime: Date; endTime: Date }
+) {
 	// Step 1: Normalize and sort the input intervals by startTime
 	const sortedIntervals = [...myIntervals]
 		.filter((i) => i.endTime > i.startTime) // Ignore invalid intervals
-		.sort((a, b) => a.startTime - b.startTime)
+		.sort((a, b) => a.startTime.valueOf() - b.startTime.valueOf())
 
 	// Step 2: Merge overlapping intervals
 	const merged = []
 	for (const interval of sortedIntervals) {
 		if (
 			merged.length === 0 ||
-			interval.startTime > merged[merged.length - 1].endTime
+			interval.startTime > merged[merged.length - 1]!.endTime
 		) {
 			merged.push({ ...interval })
 		} else {
 			// If overlapping
-			merged[merged.length - 1].endTime = new Date(
-				Math.max(merged[merged.length - 1].endTime, interval.endTime)
+			merged[merged.length - 1]!.endTime = new Date(
+				Math.max(
+					merged[merged.length - 1]!.endTime.valueOf(),
+					interval.endTime.valueOf()
+				)
 			)
 		}
 	}
@@ -216,14 +207,18 @@ function getAvailableIntervals(myIntervals, totalTime) {
 	// Step 3: Clip merged intervals to the bounds of totalTime
 	const clipped = merged
 		.map((i) => ({
-			startTime: new Date(Math.max(i.startTime, totalTime.startTime)),
-			endTime: new Date(Math.min(i.endTime, totalTime.endTime)),
+			startTime: new Date(
+				Math.max(i.startTime.valueOf(), dayInterval.startTime.valueOf())
+			),
+			endTime: new Date(
+				Math.min(i.endTime.valueOf(), dayInterval.endTime.valueOf())
+			),
 		}))
 		.filter((i) => i.endTime > i.startTime) // Keep only intervals within totalTime
 
 	// Step 4: Compute the complement intervals within totalTime
 	const available = []
-	let cursor = totalTime.startTime
+	let cursor = dayInterval.startTime
 
 	for (const interval of clipped) {
 		if (cursor < interval.startTime) {
@@ -232,14 +227,14 @@ function getAvailableIntervals(myIntervals, totalTime) {
 				endTime: new Date(interval.startTime),
 			})
 		}
-		cursor = new Date(Math.max(cursor, interval.endTime))
+		cursor = new Date(Math.max(cursor.valueOf(), interval.endTime.valueOf()))
 	}
 
 	// Add final available slot if any
-	if (cursor < totalTime.endTime) {
+	if (cursor < dayInterval.endTime) {
 		available.push({
 			startTime: new Date(cursor),
-			endTime: new Date(totalTime.endTime),
+			endTime: new Date(dayInterval.endTime),
 		})
 	}
 
@@ -306,56 +301,14 @@ function getTasksOverlappingMinutes(tasks) {
 	return { tasks, totalOverlapping }
 }
 
-function calculateTasksTotalTime(tasks) {
+export function calculateTasksTotalTime(tasks: Task[]) {
 	return Math.floor(
 		tasks.reduce((pre, cur) => cur.totalMinutes + (pre.totalMinutes || pre), 0)
 	)
 }
 
-function calculateDailyStats(tasks, datas) {
-	const stats = {}
-
-	// Total time logged today
-	stats.totalTime = calculateTasksTotalTime(tasks)
-
-	// Time slept
-	const oldBedTime = new Date(
-		datas.yesterdaysMetadata.frontmatter.bed_time
-	).valueOf()
-	const wakeTime = new Date(
-		datas.todaysMetadata.frontmatter.wake_time
-	).valueOf()
-	stats.sleepTime = getMinutesBetween(oldBedTime, wakeTime)
-
-	// Time loggable from waking up to going to bed
-	const newBedTime = new Date(
-		datas.todaysMetadata.frontmatter.bed_time
-	).valueOf()
-	stats.loggableTime = getMinutesBetween(wakeTime, newBedTime)
-
-	// Time that remains for today
-	const now = new Date().valueOf()
-	const nowBedDifference = getMinutesBetween(now, newBedTime)
-	stats.remainingTime = nowBedDifference < 0 ? 0 : nowBedDifference
-
-	// Time passed that was not logged
-	const dayInterval = {
-		startTime: new Date(wakeTime),
-		endTime: nowBedDifference < 0 ? new Date(newBedTime) : new Date(now),
-	}
-
-	let tasksIntervals = []
-	tasks.forEach((t) => {
-		tasksIntervals = tasksIntervals.concat([...t.intervals])
-	})
-	const notLoggedIntervals = getAvailableIntervals(tasksIntervals, dayInterval)
-	stats.unloggedTime = notLoggedIntervals.totalAvailable
-
-	return stats
-}
-
-function getMinutesBetween(date1, date2) {
-	const diffInMs = date2 - date1 // difference in milliseconds
+export function getMinutesBetween(date1: Date, date2: Date) {
+	const diffInMs = date2.valueOf() - date1.valueOf() // difference in milliseconds
 	return Math.floor(diffInMs / 60000) // convert ms to minutes
 }
 
