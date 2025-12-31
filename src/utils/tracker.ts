@@ -1,5 +1,6 @@
 import type { Interval, TagTimes, Task } from 'types/tasks'
 
+// TODO: Replace by hashtags in settings
 export const boldTags = [
 	'#project',
 	'#languages',
@@ -325,21 +326,16 @@ function hasCommonString(array1: string[], array2: string[]) {
 	return array1.some((str) => array2.includes(str))
 }
 
-/**
- * Identifies if the name of a label should be emphasized in any way
- */
-export function formatName(name: string, tags: string[] = []) {
-	let formatElements = []
-	if (italicTags.contains(name) || hasCommonString(tags, italicTags)) {
-		formatElements.push('i')
+export function getStyleByTag(
+	name: string,
+	tags: string[] = []
+): Record<string, boolean> {
+	return {
+		italic: italicTags.contains(name) || hasCommonString(tags, italicTags),
+		bold: boldTags.contains(name) || hasCommonString(tags, boldTags),
+		underline:
+			underlineTags.contains(name) || hasCommonString(tags, underlineTags),
 	}
-	if (boldTags.contains(name) || hasCommonString(tags, boldTags)) {
-		formatElements.push('b')
-	}
-	if (underlineTags.contains(name) || hasCommonString(tags, underlineTags)) {
-		formatElements.push('u')
-	}
-	return { name, formatElements }
 }
 
 /**

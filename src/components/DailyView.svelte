@@ -10,10 +10,12 @@
 		formatTime,
 		getAvailableIntervals,
 		getMinutesBetween,
+		getStyleByTag,
 		parseTasks,
 		sortTagTimeArray,
 		sortTasksByTime,
 	} from 'utils/tracker'
+	import KeyValueTable from './KeyValueTable.svelte'
 
 	type Props = {
 		app: App
@@ -118,43 +120,25 @@
 
 	<h3>Tasks by Time Spent</h3>
 
-	<table>
-		<thead>
-			<tr>
-				<th>Task</th>
-				<th>Time Spent</th>
-			</tr>
-		</thead>
-		<tbody>
-			{#each tasks as task}
-				<tr>
-					<!-- <td>{formatName(task.name, task.tags)}</td> TODO: Format according to tags -->
-					<td>{task.name}</td>
-					<td>{formatTime(task.totalMinutes, loggableTime)}</td>
-				</tr>
-			{/each}
-		</tbody>
-	</table>
+	<KeyValueTable
+		columns={[{ label: 'Task' }, { label: 'Time Spent' }]}
+		rows={tasks.map((task) => [
+			task.name,
+			formatTime(task.totalMinutes, loggableTime),
+		])}
+		rowClasses={tasks.map((task) => getStyleByTag(task.name, task.tags))}
+	/>
 
 	<h3>Tags by Total Time Spent</h3>
 
-	<table>
-		<thead>
-			<tr>
-				<th>Tag</th>
-				<th>Total Time Spent</th>
-			</tr>
-		</thead>
-		<tbody>
-			{#each tagTimes as [tag, totalMinutes]}
-				<tr>
-					<!-- <td>{formatName(tag)}</td> TODO: Format according to tags -->
-					<td>{tag}</td>
-					<td>{formatTime(totalMinutes, loggableTime)}</td>
-				</tr>
-			{/each}
-		</tbody>
-	</table>
+	<KeyValueTable
+		columns={[{ label: 'Tag' }, { label: 'Total Time Spent' }]}
+		rows={tagTimes.map(([tag, totalMinutes]) => [
+			tag,
+			formatTime(totalMinutes, loggableTime),
+		])}
+		rowClasses={tagTimes.map(([tag]) => getStyleByTag(tag))}
+	/>
 	<br />
 	<i>Underline = Project / Bold = Tracker / Italic = Routine</i>
 {:else if todaysFile === undefined || todaysContents === undefined}
