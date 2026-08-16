@@ -1,90 +1,108 @@
-# Obsidian Sample Plugin
+# Task Time Tracker
 
-This is a sample plugin for Obsidian (https://obsidian.md).
+An [Obsidian](https://obsidian.md) plugin to track the time you spend on your tasks directly in your daily notes, and to build statistics out of that data.
 
-This project uses TypeScript to provide type checking and documentation.
-The repo depends on the latest plugin API (obsidian.d.ts) in TypeScript Definition format, which contains TSDoc comments describing what it does.
+Everything is stored as plain text in your daily notes: a task is a checkbox line with tags, and every work session is a `[clock::start--end]` line under it. No database, no external service, and the data stays readable and editable by hand.
 
-This sample plugin demonstrates some of the basic functionality the plugin API can do.
-- Adds a ribbon icon, which shows a Notice when clicked.
-- Adds a command "Open modal (simple)" which opens a Modal.
-- Adds a plugin setting tab to the settings page.
-- Registers a global click event and output 'click' to the console.
-- Registers a global interval which logs 'setInterval' to the console.
+> **Status:** early development. The daily statistics view works; the tracking commands and the flexible statistics views are being ported/built. See [PLAN.md](PLAN.md) for the roadmap.
 
-## First time developing plugins?
+## The daily note format
 
-Quick starting guide for new plugin devs:
+```markdown
+---
+wake_time: 2026-08-16T07:12:00
+bed_time: 2026-08-16T23:40:00
+---
 
-- Check if [someone already developed a plugin for what you want](https://obsidian.md/plugins)! There might be an existing plugin similar enough that you can partner up with.
-- Make a copy of this repo as a template with the "Use this template" button (login to GitHub if you don't see it).
-- Clone your repo to a local development folder. For convenience, you can place this folder in your `.obsidian/plugins/your-plugin-name` folder.
-- Install NodeJS, then run `npm i` in the command line under your repo folder.
-- Run `npm run dev` to compile your plugin from `main.ts` to `main.js`.
-- Make changes to `main.ts` (or create new `.ts` files). Those changes should be automatically compiled into `main.js`.
-- Reload Obsidian to load the new version of your plugin.
-- Enable plugin in settings window.
-- For updates to the Obsidian API run `npm update` in the command line under your repo folder.
-
-## Releasing new releases
-
-- Update your `manifest.json` with your new version number, such as `1.0.1`, and the minimum Obsidian version required for your latest release.
-- Update your `versions.json` file with `"new-plugin-version": "minimum-obsidian-version"` so older versions of Obsidian can download an older version of your plugin that's compatible.
-- Create new GitHub release using your new version number as the "Tag version". Use the exact version number, don't include a prefix `v`. See here for an example: https://github.com/obsidianmd/obsidian-sample-plugin/releases
-- Upload the files `manifest.json`, `main.js`, `styles.css` as binary attachments. Note: The manifest.json file must be in two places, first the root path of your repository and also in the release.
-- Publish the release.
-
-> You can simplify the version bump process by running `npm version patch`, `npm version minor` or `npm version major` after updating `minAppVersion` manually in `manifest.json`.
-> The command will bump version in `manifest.json` and `package.json`, and add the entry for the new version to `versions.json`
-
-## Adding your plugin to the community plugin list
-
-- Check the [plugin guidelines](https://docs.obsidian.md/Plugins/Releasing/Plugin+guidelines).
-- Publish an initial version.
-- Make sure you have a `README.md` file in the root of your repo.
-- Make a pull request at https://github.com/obsidianmd/obsidian-releases to add your plugin.
-
-## How to use
-
-- Clone this repo.
-- Make sure your NodeJS is at least v16 (`node --version`).
-- `npm i` or `yarn` to install dependencies.
-- `npm run dev` to start compilation in watch mode.
-
-## Manually installing the plugin
-
-- Copy over `main.js`, `styles.css`, `manifest.json` to your vault `VaultFolder/.obsidian/plugins/your-plugin-id/`.
-
-## Improve code quality with eslint
-- [ESLint](https://eslint.org/) is a tool that analyzes your code to quickly find problems. You can run ESLint against your plugin to find common bugs and ways to improve your code. 
-- This project already has eslint preconfigured, you can invoke a check by running`npm run lint`
-- Together with a custom eslint [plugin](https://github.com/eslint-plugin) for Obsidan specific code guidelines.
-- A GitHub action is preconfigured to automatically lint every commit on all branches.
-
-## Funding URL
-
-You can include funding URLs where people who use your plugin can financially support it.
-
-The simple way is to set the `fundingUrl` field to your link in your `manifest.json` file:
-
-```json
-{
-    "fundingUrl": "https://buymeacoffee.com"
-}
+- [ ] Write obsidian plugin #project #selfDev
+      [clock::2026-08-16T09:00:00--2026-08-16T10:15:00]
+      [clock::2026-08-16T14:00:00]
+- [x] Walk the dog #routine
+      [clock::2026-08-16T08:00:00--2026-08-16T08:30:00]
+- [ ] Unassigned
 ```
 
-If you have multiple URLs, you can also do:
+- A **task** is a top-level checkbox line: `- [ ]` / `- [x]`, followed by the task name and any number of `#tags`.
+- A **clock line** is an indented `[clock::START]` (running) or `[clock::START--END]` (finished) line right below its task. Timestamps are local `YYYY-MM-DDTHH:mm:ss`.
+- A task can have several clock lines (several sessions in a day). Several tasks can be running at the same time; overlapping time is detected in the statistics.
+- `wake_time` and `bed_time` frontmatter properties bound the "loggable" part of the day and are used for sleep / unlogged-time statistics.
+- The plugin only looks at files inside the configured daily notes folder whose name matches the configured date format (defaults: `Journal`, `YYYY-MM-DD`).
 
-```json
-{
-    "fundingUrl": {
-        "Buy Me a Coffee": "https://buymeacoffee.com",
-        "GitHub Sponsor": "https://github.com/sponsors",
-        "Patreon": "https://www.patreon.com/"
-    }
-}
+## Tracking commands
+
+All commands act on the daily note you are currently in, or on today's daily note if the active file is not a daily note. Task pickers use Obsidian's fuzzy search and sort running tasks first, then unticked, then most recently worked on.
+
+| Command                    | What it does                                                                                                            |
+| -------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| Toggle task                | Pick a task; starts a clock on it if it is off, closes the running clock if it is on.                                   |
+| Toggle task from…          | Same, but asks how many minutes ago (or ahead, with a negative value) the toggle happened.                              |
+| Toggle task from last      | Same, but the toggle happens at the moment the last finished task ended (no gap between tasks).                         |
+| Toggle and tick task       | Toggle, and mark the task as done (`- [x]`).                                                                            |
+| Toggle and tick task from… | Toggle and tick, at a chosen time in the past.                                                                          |
+| Switch task                | Close every running clock and start the picked task.                                                                    |
+| Switch task from…          | Switch, at a chosen time in the past.                                                                                   |
+| Switch and tick task       | Close and tick every running task, then start the picked one.                                                           |
+| Switch and tick task from… | Same, at a chosen time in the past.                                                                                     |
+| Switch to previous task(s) | Close every running clock and restart the task(s) that ended last.                                                      |
+| Log interruption from…     | "I was interrupted N minutes ago by X": switch to X at that time, then switch back to what was running before.          |
+| Toggle quick interruption  | Start the `Unassigned` task; run again to stop it and pick which task the time actually belongs to.                     |
+| Migrate current task       | Move the running clock line to another task (you clocked the wrong task).                                               |
+| Set task duration          | For a running task, close its clock so that the session lasted the given number of minutes.                             |
+| Set wake time              | Set the `wake_time` property to now (with an optional minute offset, default -3).                                       |
+| Set bed time               | Set the `bed_time` property to now (with an optional minute offset).                                                    |
+| Complete journal entry     | End-of-day cleanup: close still-running clocks, tick every task that has a clock, remove tasks that were never clocked. |
+
+Bind any of them to a hotkey in Obsidian's settings.
+
+## Statistics
+
+### Daily view
+
+A side panel (ribbon icon or command "Open daily view") that follows the daily note you are looking at and shows:
+
+- loggable time (wake → bed), total logged, remaining, slept, unlogged so far;
+- tasks by time spent;
+- tags by time spent.
+
+Rows are styled (bold / italic / underline / emoji) according to the tag mapping in the settings.
+
+### Flexible views (planned)
+
+A `task-stats` code block that renders statistics for a date range inside any note, so a weekly or monthly review template can embed its own charts:
+
+````markdown
+```task-stats
+range: last-7-days      # today | this-week | last-7-days | this-month | last-month | last-3-months | this-year | last-year | all | 2026-08-01..2026-08-16
+groupBy: tag            # task | tag
+filter: ["#project"]    # optional, only these tasks/tags
+metrics: [total, average, per-day, time-of-day]
+skipEmptyDays: true     # average only over days where something was logged
+```
+````
+
+Metrics: total time, per-day average, per-day breakdown as charts (bars per day, stacked by task/tag), and time-of-day info (sleep, unlogged, average wake and bed time). Weeks start on Monday.
+
+## Settings
+
+- Daily notes folder and date format.
+- Tag mapping: for each tag, an emoji shown in pickers and a text style (bold / italic / underline) used in the statistics tables.
+- Frontmatter property names for wake and bed time.
+- Name of the "unassigned" task used by quick interruptions.
+
+## Development
+
+```bash
+npm install
+npm run dev      # watch build to main.js
+npm run build    # type-check + production build
+npm run lint
+npm test
 ```
 
-## API Documentation
+Clone the repository into `<vault>/.obsidian/plugins/obsidian-task-time-tracker`, run `npm run dev`, then enable the plugin in Obsidian and reload it after changes.
 
-See https://docs.obsidian.md
+Stack: TypeScript, Svelte 5 for views, esbuild, Vitest for the pure logic (parser, interval math, aggregation, range resolution).
+
+## License
+
+0-BSD, see [LICENSE](LICENSE).
