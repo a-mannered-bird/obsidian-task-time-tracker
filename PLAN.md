@@ -8,7 +8,7 @@ Roadmap and todo lists for the Task Time Tracker plugin. Decisions recorded here
 - Commands: one Obsidian command per flag combination actually used (hotkey-friendly), all thin wrappers over a single `toggleTasks(options)` core. A button panel on top of the same core is a later phase.
 - Task picker: Obsidian `FuzzySuggestModal`; minutes prompts: small `Modal`. No dependency on QuickAdd.
 - Tag → emoji / text-style mapping is one setting, replacing the hardcoded lists in `tracker.ts` and the emoji flags in the script.
-- Target file: the active file if it is a daily note, otherwise today's daily note. Daily-note detection = plugin settings `dailyNotesFolder` (default `Journal`) + `dateFormat` (default `YYYY-MM-DD`). Inheriting from the core Daily Notes plugin is a follow-up.
+- Target file: the active file if it is a daily note, otherwise today's daily note. Daily-note detection = plugin settings `dailyNotesFolder` (default: vault root, like the core Daily Notes plugin) + `dateFormat` (default `YYYY-MM-DD`). Inheriting from the core Daily Notes plugin is a follow-up.
 - Wake/bed time via `app.fileManager.processFrontMatter`, property names configurable, wake offset default -3 min.
 - "Getting up" macro is split: "Set wake time" is a pure command; the "also toggle task X" part becomes a per-task quick action later.
 - "Complete journal entry": close still-open clocks (same timestamp as bed time), tick clocked tasks, remove unclocked ones, with a confirm modal listing what will be deleted.
@@ -22,12 +22,12 @@ Roadmap and todo lists for the Task Time Tracker plugin. Decisions recorded here
 
 ## Phase 0: Housekeeping
 
-- [ ] Strip sample-plugin code from `src/main.ts` (sample commands, modal, status bar, interval, dom event) and `src/settings.ts`.
-- [ ] Move `MyView.ts` to `src/views/DailyView.ts`; rename `ExampleView` → `DailyItemView`.
-- [ ] Fix `manifest.json` (`author`, `id`/`name` consistency) and `versions.json`.
-- [ ] Add Vitest (`npm test`) and wire it into the GitHub workflow.
-- [ ] Settings: `dailyNotesFolder`, `dateFormat`, `wakeTimeProperty`, `bedTimeProperty`, `unassignedTaskName`, `tagMappings: { tag, emoji, bold, italic, underline }[]`.
-- [ ] Replace `boldTags` / `italicTags` / `underlineTags` in `tracker.ts` with the tag mapping setting.
+- [x] Strip sample-plugin code from `src/main.ts` (sample commands, modal, status bar, interval, dom event) and `src/settings.ts`.
+- [x] Move `MyView.ts` to `src/views/DailyView.ts`; rename `ExampleView` → `DailyItemView`.
+- [x] Fix `manifest.json` (`author`, `id`/`name` consistency) and `versions.json`.
+- [x] Add Vitest (`npm test`) and wire it into the GitHub workflow.
+- [x] Settings: `dailyNotesFolder`, `dateFormat`, `wakeTimeProperty`, `bedTimeProperty`, `unassignedTaskName`, `tagMappings: { tag, emoji, bold, italic, underline }[]`.
+- [x] Replace `boldTags` / `italicTags` / `underlineTags` in `tracker.ts` with the tag mapping setting.
 
 ## Phase 1: Core (parser + data layer)
 
@@ -70,3 +70,5 @@ Roadmap and todo lists for the Task Time Tracker plugin. Decisions recorded here
 - [ ] Clocks spanning midnight / previous-day time travel.
 - [ ] Charts: tooltips, donut for tag share, if needed.
 - [ ] Release pipeline: build `main.js` in CI, GitHub release, community plugin submission.
+- [ ] Improve the daily view's tag legend (currently a plain list of styled tag names; needs a clearer layout/design).
+- [ ] Add a custom color per tag mapping in the settings, used in the legend (and by extension in table rows / charts).

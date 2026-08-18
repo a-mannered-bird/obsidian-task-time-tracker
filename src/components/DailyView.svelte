@@ -10,18 +10,24 @@
 		formatTime,
 		getAvailableIntervals,
 		getMinutesBetween,
-		getStyleByTag,
+		getStyleByTags,
 		parseTasks,
 		sortTagTimeArray,
 		sortTasksByTime,
 	} from 'utils/tracker'
 	import KeyValueTable from './KeyValueTable.svelte'
+	import type TaskTimeTracker from '../main'
 
 	type Props = {
 		app: App
+		plugin: TaskTimeTracker
 	}
 
-	const { app }: Props = $props()
+	const { app, plugin }: Props = $props()
+	const tagMappings = $derived(plugin.settings.tagMappings)
+	const styledMappings = $derived(
+		tagMappings.filter((m) => m.bold || m.italic || m.underline)
+	)
 
 	let todaysFile: TFile | null | undefined = $state()
 	let yesterdaysFile: TFile | null | undefined = $state()
@@ -126,7 +132,7 @@
 			task.name,
 			formatTime(task.totalMinutes, loggableTime),
 		])}
-		rowClasses={tasks.map((task) => getStyleByTag(task.name, task.tags))}
+		rowClasses={tasks.map((task) => getStyleByTags(task.tags, tagMappings))}
 	/>
 
 	<h3>Tags by Total Time Spent</h3>
@@ -137,10 +143,17 @@
 			tag,
 			formatTime(totalMinutes, loggableTime),
 		])}
-		rowClasses={tagTimes.map(([tag]) => getStyleByTag(tag))}
+		rowClasses={tagTimes.map(([tag]) => getStyleByTags([tag], tagMappings))}
 	/>
-	<br />
-	<i>Underline = Project / Bold = Tracker / Italic = Routine</i>
+	{#if styledMappings.length}
+		<p class="legend">
+			{#each styledMappings as mapping (mapping.tag)}
+				<span class={getStyleByTags([mapping.tag], tagMappings)}
+					>{mapping.tag}</span
+				>
+			{/each}
+		</p>
+	{/if}
 {:else if todaysFile === undefined || todaysContents === undefined}
 	Loading
 {:else}
@@ -148,4 +161,22 @@
 {/if}
 
 <style>
+	.legend {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.75em;
+		color: var(--text-muted);
+	}
+
+	.italic {
+		font-style: italic;
+	}
+
+	.bold {
+		font-weight: bold;
+	}
+
+	.underline {
+		text-decoration: underline;
+	}
 </style>

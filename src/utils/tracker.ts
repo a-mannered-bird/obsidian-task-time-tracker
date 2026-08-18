@@ -1,16 +1,5 @@
+import type { TagMapping, TagStyle } from 'types/tags'
 import type { Interval, TagTimes, Task } from 'types/tasks'
-
-// TODO: Replace by hashtags in settings
-export const boldTags = [
-	'#project',
-	'#languages',
-	'#trackers',
-	'#sport',
-	'#selfDev',
-	'#learn',
-] // Whatever is an investment in myself
-export const italicTags = ['#chores', '#routine']
-export const underlineTags = ['#project'] // Whatever is a big project
 
 // FIXME: Remove every typescript !
 
@@ -44,13 +33,13 @@ export const underlineTags = ['#project'] // Whatever is a big project
 // 	const workBalance = totalWorkedMinutes - totalWorkMinutes
 
 // Display results
-// displayItem(`📆  Total days due: `, `${totalWorkDays} days`)
-// displayItem(`🎯  Time objective: `, formatTime(totalWorkMinutes))
+// displayItem(`📆 Total days due: `, `${totalWorkDays} days`)
+// displayItem(`🎯 Time objective: `, formatTime(totalWorkMinutes))
 // displayItem(
-// 	`💪  Total time worked: `,
+// 	`💪 Total time worked: `,
 // 	formatTime(totalWorkedMinutes, totalWorkMinutes)
 // )
-// displayItem(`⚖️  Work balance: `, formatTime(workBalance))
+// displayItem(`⚖️ Work balance: `, formatTime(workBalance))
 // }
 
 /**
@@ -320,21 +309,18 @@ export function formatTime(minutes: number, total: number) {
 }
 
 /**
- * Check if any element in array1 is included in array2, returning true if there's a match
+ * Combine the styles of every mapping matching one of the given tags.
+ * A tag row (e.g. in the "tags by time" table) passes its own tag as the only tag.
  */
-function hasCommonString(array1: string[], array2: string[]) {
-	return array1.some((str) => array2.includes(str))
-}
-
-export function getStyleByTag(
-	name: string,
-	tags: string[] = []
-): Record<string, boolean> {
+export function getStyleByTags(
+	tags: string[],
+	mappings: TagMapping[]
+): TagStyle {
+	const matching = mappings.filter((mapping) => tags.includes(mapping.tag))
 	return {
-		italic: italicTags.contains(name) || hasCommonString(tags, italicTags),
-		bold: boldTags.contains(name) || hasCommonString(tags, boldTags),
-		underline:
-			underlineTags.contains(name) || hasCommonString(tags, underlineTags),
+		bold: matching.some((mapping) => mapping.bold),
+		italic: matching.some((mapping) => mapping.italic),
+		underline: matching.some((mapping) => mapping.underline),
 	}
 }
 

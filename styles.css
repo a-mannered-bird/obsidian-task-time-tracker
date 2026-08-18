@@ -1,8 +1,29 @@
-/*
+.task-time-tracker-tag-mapping .setting-item-info {
+	display: none;
+}
 
-This CSS file will be included with your plugin, and
-available in the app when your plugin is enabled.
+.task-time-tracker-tag-mapping .setting-item-control {
+	justify-content: flex-start;
+	flex-wrap: wrap;
+}
 
-If your plugin does not need CSS, delete this file.
+.task-time-tracker-emoji-input {
+	width: 4em;
+}
 
-*/
+.task-time-tracker-style-label {
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+}
+
+.task-time-tracker-bold {
+	font-weight: bold;
+}
+
+.task-time-tracker-italic {
+	font-style: italic;
+}
+
+.task-time-tracker-underline {
+	text-decoration: underline;
+}

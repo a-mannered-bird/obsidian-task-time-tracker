@@ -1,12 +1,12 @@
 <script lang="ts">
-	import { getStyleByTag } from 'utils/tracker'
+	import type { TagStyle } from 'types/tags'
 
 	type Props = {
 		columns: {
 			label: string
 		}[]
 		rows: string[][]
-		rowClasses: Record<string, boolean>[]
+		rowClasses: TagStyle[]
 	}
 
 	const { columns, rows, rowClasses }: Props = $props()

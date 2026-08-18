@@ -26,7 +26,7 @@ bed_time: 2026-08-16T23:40:00
 - A **clock line** is an indented `[clock::START]` (running) or `[clock::START--END]` (finished) line right below its task. Timestamps are local `YYYY-MM-DDTHH:mm:ss`.
 - A task can have several clock lines (several sessions in a day). Several tasks can be running at the same time; overlapping time is detected in the statistics.
 - `wake_time` and `bed_time` frontmatter properties bound the "loggable" part of the day and are used for sleep / unlogged-time statistics.
-- The plugin only looks at files inside the configured daily notes folder whose name matches the configured date format (defaults: `Journal`, `YYYY-MM-DD`).
+- The plugin only looks at files inside the configured daily notes folder whose name matches the configured date format (defaults: vault root, `YYYY-MM-DD`, same as the core Daily Notes plugin).
 
 ## Tracking commands
 
