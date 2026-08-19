@@ -22,6 +22,10 @@ export function getMinutesBetween(from: Date, to: Date): number {
 	return Math.floor((to.valueOf() - from.valueOf()) / 60000)
 }
 
+export function addMinutes(date: Date, minutes: number): Date {
+	return new Date(date.valueOf() + minutes * 60000)
+}
+
 /**
  * "125m - (2h 5m)" plus " - 12.5%" of `total` when a positive total is given.
  */

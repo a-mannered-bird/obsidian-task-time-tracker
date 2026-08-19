@@ -27,6 +27,13 @@ export default tseslint.config(
 			'import/no-extraneous-dependencies': 'off',
 		},
 	},
+	{
+		// Test stubs build fake Obsidian objects; casting is the point there.
+		files: ['src/**/*.test.ts'],
+		rules: {
+			'obsidianmd/no-tfile-tfolder-cast': 'off',
+		},
+	},
 	globalIgnores([
 		'node_modules',
 		'dist',

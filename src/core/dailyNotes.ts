@@ -54,3 +54,17 @@ export function getDailyNoteFile(
 ): TFile | null {
 	return app.vault.getFileByPath(getDailyNotePath(config, date))
 }
+
+/**
+ * File the tracking commands act on: the active file when it is a daily
+ * note, otherwise today's daily note (null when it does not exist).
+ */
+export function resolveTargetFile(
+	app: App,
+	config: DailyNotesConfig,
+	now = new Date()
+): TFile | null {
+	const active = app.workspace.getActiveFile()
+	if (active && isDailyNote(config, active)) return active
+	return getDailyNoteFile(app, config, now)
+}

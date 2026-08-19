@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest'
-import { addDays, getDailyNoteDate, getDailyNotePath } from './dailyNotes'
+import type { App, TFile } from 'obsidian'
+import {
+	addDays,
+	getDailyNoteDate,
+	getDailyNotePath,
+	resolveTargetFile,
+} from './dailyNotes'
 
 const date = new Date(2026, 7, 16, 13, 0, 0)
+const config = { folder: 'Journal', format: 'YYYY-MM-DD' }
 
 describe('getDailyNotePath', () => {
 	it('joins folder, formatted date and extension', () => {
@@ -21,8 +28,6 @@ describe('getDailyNotePath', () => {
 })
 
 describe('getDailyNoteDate', () => {
-	const config = { folder: 'Journal', format: 'YYYY-MM-DD' }
-
 	it('parses the date of a note inside the folder', () => {
 		expect(getDailyNoteDate(config, 'Journal/2026-08-16.md')).toEqual(
 			new Date(2026, 7, 16)
@@ -46,5 +51,39 @@ describe('addDays', () => {
 	it('crosses month boundaries', () => {
 		expect(addDays(new Date(2026, 7, 31), 1)).toEqual(new Date(2026, 8, 1))
 		expect(addDays(new Date(2026, 8, 1), -1)).toEqual(new Date(2026, 7, 31))
+	})
+})
+
+function file(path: string): TFile {
+	return { path } as TFile
+}
+
+/** Only the two calls resolveTargetFile makes. */
+function appStub(activeFile: TFile | null, vaultFiles: string[]): App {
+	return {
+		workspace: { getActiveFile: () => activeFile },
+		vault: {
+			getFileByPath: (path: string) =>
+				vaultFiles.includes(path) ? file(path) : null,
+		},
+	} as unknown as App
+}
+describe('resolveTargetFile', () => {
+	it('returns the active file when it is a daily note', () => {
+		const active = file('Journal/2026-08-10.md')
+		const app = appStub(active, ['Journal/2026-08-16.md'])
+		expect(resolveTargetFile(app, config, date)).toBe(active)
+	})
+
+	it("falls back to today's daily note when the active file is not one", () => {
+		const app = appStub(file('Projects/plugin.md'), ['Journal/2026-08-16.md'])
+		expect(resolveTargetFile(app, config, date)?.path).toBe(
+			'Journal/2026-08-16.md'
+		)
+	})
+
+	it('returns null when there is no active daily note and no note for today', () => {
+		const app = appStub(null, [])
+		expect(resolveTargetFile(app, config, date)).toBeNull()
 	})
 })
