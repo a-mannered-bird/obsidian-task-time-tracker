@@ -27,3 +27,9 @@
 .task-time-tracker-underline {
 	text-decoration: underline;
 }
+
+.task-time-tracker-prompt-error {
+	color: var(--text-error);
+	min-height: 1.5em;
+	margin: 0;
+}
