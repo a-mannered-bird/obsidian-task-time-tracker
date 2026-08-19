@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { TagMapping } from 'types/tags'
-import { getStyleByTags } from './tracker'
+import { getStyleByTags } from './tags'
 
 const mappings: TagMapping[] = [
 	{ tag: '#project', emoji: '⭐️', bold: true, italic: false, underline: true },

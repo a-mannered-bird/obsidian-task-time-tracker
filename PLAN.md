@@ -12,7 +12,7 @@ Roadmap and todo lists for the Task Time Tracker plugin. Decisions recorded here
 - Wake/bed time via `app.fileManager.processFrontMatter`, property names configurable, wake offset default -3 min.
 - "Getting up" macro is split: "Set wake time" is a pure command; the "also toggle task X" part becomes a per-task quick action later.
 - "Complete journal entry": close still-open clocks (same timestamp as bed time), tick clocked tasks, remove unclocked ones, with a confirm modal listing what will be deleted.
-- One shared data layer (`loadDays(range) → Day[]`, cached, invalidated on vault events) and one line-based parser used for both reading stats and rewriting the note. Prerequisite for the flexible views.
+- One shared data layer (`DailyLogStore.loadRange → DailyLog[]`, cached, invalidated on vault events) and one line-based parser used for both reading stats and rewriting the note. Prerequisite for the flexible views.
 - Flexible views: `task-stats` code block first (saved view = code block in a note), sidebar controls later, both on the same Svelte components.
 - Ranges: today, this week (Monday start), last 7 days, this month, last month, last 3 months, this year, last year, all, custom `from..to`.
 - Group by: task name, tag. Metrics: total, per-day average (option to skip empty days), per-day breakdown as charts, time-of-day (sleep, unlogged, average wake and bed time). Loading a range also loads the day before `range.start` (previous bed time).
@@ -31,16 +31,17 @@ Roadmap and todo lists for the Task Time Tracker plugin. Decisions recorded here
 
 ## Phase 1: Core (parser + data layer)
 
-- [ ] `src/core/parser.ts`: line-based parser producing `Task { name, tags, ticked, lineIndex, clocks: Clock[] }` and `Clock { start, end?, lineIndex }`; keeps line indexes so the same model can be written back. Replace `parseTasks` regex.
-- [ ] `src/core/serializer.ts`: mutations on the parsed model (open clock, close clock, tick, move clock line, remove task) that rewrite lines, replacing the ad-hoc splices of the script.
-- [ ] `src/core/dailyNotes.ts`: `isDailyNote(file)`, `getDailyNotePath(date)`, `resolveTargetFile()` (active daily note or today's), `getYesterday(date)`.
-- [ ] `src/core/days.ts`: `loadDays(range) → Day[]` with `Day { date, file, tasks, wakeTime, bedTime }`, cache keyed by file path + mtime, invalidation on `vault.modify` / `metadataCache.changed`.
-- [ ] Move interval math (`getAvailableIntervals`, overlaps, `getMinutesBetween`) into `src/core/intervals.ts`; aggregation into `src/core/aggregate.ts`.
-- [ ] Unit tests for parser round-trip, interval math, aggregation.
-- [ ] Rewire `DailyView.svelte` on `loadDays([yesterday, today])`; remove the `path.includes('Journal')` hardcode.
+- [x] `src/core/parser.ts`: line-based parser producing `Task { name, tags, ticked, lineIndex, clocks: Clock[] }` and `Clock { start, end, lineIndex }`; keeps line indexes so the same model can be written back. Replaces the `parseTasks` regex.
+- [x] `src/core/note.ts`: `TaskNote` editor (start/stop clock, tick, move last clock line, remove task) rewriting lines and re-parsing, replacing the ad-hoc splices of the script.
+- [x] `src/core/dailyNotes.ts` (moment from `obsidian`): `getDailyNotePath`, `getDailyNoteDate`, `isDailyNote`, `getDailyNoteFile`, `addDays`.
+- [x] `src/core/dailyLogs.ts`: `DailyLogStore` with `loadByDate` / `loadFile` → `DailyLog { date, file, tasks, wakeTime, bedTime }`, cache keyed by path + mtime, refreshed on `metadataCache.changed`, dropped on delete/rename, `onChange` listeners; `refreshViews()` clears it.
+- [x] Interval math in `src/core/intervals.ts`, aggregation in `src/core/aggregate.ts`, time helpers in `src/core/time.ts`, tag styles in `src/core/tags.ts`; `src/utils/` removed.
+- [x] Unit tests: parser round-trip, note editor, intervals, aggregation, daily-note paths (`obsidian` aliased to `src/test/obsidian-mock.ts` in Vitest).
+- [x] `DailyView.svelte` rewired on `DailyLogStore` (no `Journal` hardcode; live reload on note changes; `now` ticks every minute; running clocks count up to now; missing wake/bed/yesterday show `n/a`).
 
 ## Phase 2: Tracking commands
 
+- [ ] `resolveTargetFile(app, config)` in `core/dailyNotes.ts` (active daily note or today's), `getLastEnd(task)` in `core/note.ts`, `addMinutes` in `core/time.ts` (removed from Phase 1 as unused until here).
 - [ ] `src/commands/toggleTasks.ts`: port of the script engine with typed options `{ taskName?, isSwitching, isTicking, isTimeTravelling, fromLastTask, isQuickInterruption, isMigrating, taskValue?, isTaskDuration }`, plus the Notice messages.
 - [ ] `src/ui/TaskSuggestModal.ts` (FuzzySuggestModal, ordering: running → unticked → last ended, emoji prefixes from tag mapping) and `src/ui/MinutesPromptModal.ts`.
 - [ ] Register commands: Toggle task; Toggle task from…; Toggle task from last; Toggle and tick; Toggle and tick from…; Switch task; Switch task from…; Switch and tick; Switch and tick from…; Switch to previous; Log interruption from…; Toggle quick interruption; Migrate current task; Set task duration.
@@ -52,6 +53,7 @@ Roadmap and todo lists for the Task Time Tracker plugin. Decisions recorded here
 ## Phase 3: Flexible statistics views
 
 - [ ] `src/core/ranges.ts`: resolve range presets and `from..to` to `[start, end]` (Monday weeks); tests.
+- [ ] `DailyLogStore.loadRange(from, to)`, `minutesByTask` in `core/aggregate.ts`, `coveredMinutes` / `overlappingMinutes` in `core/intervals.ts` (removed from Phase 1 as unused until here).
 - [ ] `src/core/stats.ts`: total, per-day average (with/without empty days), per-day series by task/tag, time-of-day (sleep, unlogged, average wake/bed).
 - [ ] `task-stats` code block processor (YAML params: `range`, `groupBy`, `filter`, `metrics`, `skipEmptyDays`) mounting a Svelte `StatsView`.
 - [ ] Svelte chart components: `BarChart` (per day), `StackedBarChart` (per day by task/tag), horizontal bar list for totals; Obsidian CSS variables.

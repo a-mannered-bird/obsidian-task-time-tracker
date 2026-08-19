@@ -1,4 +1,5 @@
 import { Plugin, type WorkspaceLeaf } from 'obsidian'
+import { DailyLogStore, type DailyLogStoreConfig } from './core/dailyLogs'
 import {
 	DEFAULT_SETTINGS,
 	TaskTimeTrackerSettingTab,
@@ -8,9 +9,13 @@ import { DailyItemView, DAILY_VIEW } from './views/DailyItemView'
 
 export default class TaskTimeTracker extends Plugin {
 	settings: TaskTimeTrackerSettings = DEFAULT_SETTINGS
+	dailyLogs: DailyLogStore = new DailyLogStore(this.app, () =>
+		this.getDailyLogStoreConfig()
+	)
 
 	async onload() {
 		await this.loadSettings()
+		this.dailyLogs.register(this)
 
 		this.registerView(DAILY_VIEW, (leaf) => new DailyItemView(leaf, this))
 
@@ -41,8 +46,19 @@ export default class TaskTimeTracker extends Plugin {
 		await this.saveData(this.settings)
 	}
 
-	/** Re-mount every open daily view so it reflects the current settings. */
+	getDailyLogStoreConfig(): DailyLogStoreConfig {
+		const { dailyNotesFolder, dateFormat, wakeTimeProperty, bedTimeProperty } =
+			this.settings
+		return {
+			dailyNotes: { folder: dailyNotesFolder, format: dateFormat },
+			wakeTimeProperty,
+			bedTimeProperty,
+		}
+	}
+
+	/** Drop cached data and re-mount every open daily view. */
 	async refreshViews() {
+		this.dailyLogs.clear()
 		const views = this.app.workspace
 			.getLeavesOfType(DAILY_VIEW)
 			.map((leaf) => leaf.view)

@@ -1,20 +1,18 @@
 <script lang="ts">
-	import type { TFile, App, WorkspaceLeaf, CachedMetadata } from 'obsidian'
+	import type { App, WorkspaceLeaf } from 'obsidian'
 	import { FileView } from 'obsidian'
 	import { onMount } from 'svelte'
-	import type { Interval } from 'types/tasks'
-	import { getFileByPath } from 'utils/obsidian'
 	import {
-		aggregateTimeByTags,
-		calculateTasksTotalTime,
-		formatTime,
-		getAvailableIntervals,
-		getMinutesBetween,
-		getStyleByTags,
-		parseTasks,
-		sortTagTimeArray,
-		sortTasksByTime,
-	} from 'utils/tracker'
+		minutesByTag,
+		sortByMinutes,
+		taskMinutes,
+		totalMinutes,
+	} from 'core/aggregate'
+	import { addDays, isDailyNote } from 'core/dailyNotes'
+	import type { DailyLog } from 'core/dailyLogs'
+	import { tasksToIntervals, uncoveredMinutes } from 'core/intervals'
+	import { getStyleByTags } from 'core/tags'
+	import { formatDuration, getMinutesBetween } from 'core/time'
 	import KeyValueTable from './KeyValueTable.svelte'
 	import type TaskTimeTracker from '../main'
 
@@ -24,124 +22,132 @@
 	}
 
 	const { app, plugin }: Props = $props()
+	const MINUTES_PER_DAY = 24 * 60
+
 	const tagMappings = $derived(plugin.settings.tagMappings)
 	const styledMappings = $derived(
 		tagMappings.filter((m) => m.bold || m.italic || m.underline)
 	)
 
-	let todaysFile: TFile | null | undefined = $state()
-	let yesterdaysFile: TFile | null | undefined = $state()
-	let todaysContents: string | null | undefined = $state()
-	let todaysMetadata: CachedMetadata | null | undefined = $state()
-	let yesterdaysMetadata: CachedMetadata | null | undefined = $state()
-	let hasAllContents = $derived(todaysFile && yesterdaysFile && todaysContents)
-	let tasks = $derived.by(() => {
-		if (!todaysContents) return []
-		return sortTasksByTime(parseTasks(todaysContents))
-	})
-	let tagTimes = $derived(sortTagTimeArray(aggregateTimeByTags(tasks)))
+	let today = $state<DailyLog | null>(null)
+	let yesterday = $state<DailyLog | null>(null)
+	let loading = $state(true)
+	let now = $state(new Date())
 
-	// Stats
-	const oldBedTime = $derived(
-		new Date(yesterdaysMetadata?.frontmatter?.bed_time)
+	const tasks = $derived(
+		(today?.tasks ?? [])
+			.filter((task) => task.clocks.length > 0)
+			.sort((a, b) => taskMinutes(b, now) - taskMinutes(a, now))
 	)
-	const newBedTime = $derived(new Date(todaysMetadata?.frontmatter?.bed_time))
-	const wakeTime = $derived(new Date(todaysMetadata?.frontmatter?.wake_time))
-	let totalTime = $derived(calculateTasksTotalTime(tasks))
-	let sleepTime = $derived(getMinutesBetween(oldBedTime, wakeTime))
-	let loggableTime = $derived(getMinutesBetween(wakeTime, newBedTime))
-	let nowBedDifference = $derived(getMinutesBetween(new Date(), newBedTime))
-	let remainingTime = $derived(nowBedDifference < 0 ? 0 : nowBedDifference)
-	let unloggedTime = $derived.by(() => {
-		const dayInterval = {
-			startTime: new Date(wakeTime),
-			endTime: nowBedDifference < 0 ? new Date(newBedTime) : new Date(),
-		}
+	const tagTimes = $derived(sortByMinutes(minutesByTag(tasks, now)))
 
-		let tasksIntervals: Interval[] = []
-		tasks.forEach((t) => {
-			tasksIntervals = tasksIntervals.concat([...t.intervals])
+	const wakeTime = $derived(today?.wakeTime ?? null)
+	const bedTime = $derived(today?.bedTime ?? null)
+	const previousBedTime = $derived(yesterday?.bedTime ?? null)
+
+	const totalTime = $derived(totalMinutes(tasks, now))
+	const loggableTime = $derived(
+		wakeTime && bedTime ? getMinutesBetween(wakeTime, bedTime) : null
+	)
+	const sleepTime = $derived(
+		previousBedTime && wakeTime
+			? getMinutesBetween(previousBedTime, wakeTime)
+			: null
+	)
+	const remainingTime = $derived(
+		bedTime ? Math.max(0, getMinutesBetween(now, bedTime)) : null
+	)
+	const unloggedTime = $derived.by(() => {
+		if (!wakeTime) return null
+		const end = bedTime && bedTime < now ? bedTime : now
+		return uncoveredMinutes(tasksToIntervals(tasks, now), {
+			start: wakeTime,
+			end,
 		})
-		const notLoggedIntervals = getAvailableIntervals(
-			tasksIntervals,
-			dayInterval
-		)
-		return notLoggedIntervals.totalAvailable
 	})
+
+	function format(minutes: number | null, total?: number | null) {
+		return minutes === null
+			? 'n/a'
+			: formatDuration(minutes, total ?? undefined)
+	}
+
+	async function loadFromLeaf(leaf: WorkspaceLeaf | null) {
+		const view = leaf?.view
+		if (!(view instanceof FileView) || !view.file) return
+		if (!isDailyNote(plugin.getDailyLogStoreConfig().dailyNotes, view.file))
+			return
+
+		loading = true
+		const log = await plugin.dailyLogs.loadFile(view.file)
+		today = log
+		yesterday = log
+			? await plugin.dailyLogs.loadByDate(addDays(log.date, -1))
+			: null
+		loading = false
+	}
+
+	function reload() {
+		void loadFromLeaf(app.workspace.getMostRecentLeaf())
+	}
 
 	onMount(() => {
-		app.workspace.on('active-leaf-change', loadDatas)
-		loadDatas(app.workspace.getMostRecentLeaf())
-	})
+		const leafRef = app.workspace.on('active-leaf-change', (leaf) => {
+			void loadFromLeaf(leaf)
+		})
+		const unsubscribe = plugin.dailyLogs.onChange(reload)
+		const tick = window.setInterval(() => (now = new Date()), 60 * 1000)
+		reload()
 
-	async function loadDatas(leaf: WorkspaceLeaf | null) {
-		const view = leaf?.view
-		if (view instanceof FileView && view.file) {
-			// TODO: Add settings to what qualifies as an appropriate file
-			if (!view.file.path.includes('Journal')) return
-			todaysFile = view.file
-			yesterdaysFile = await getFileByPath(
-				app,
-				`Journal/${getYesterdaysStringDate()}.md`
-			)
-			todaysMetadata = app.metadataCache.getFileCache(todaysFile)
-			yesterdaysMetadata = app.metadataCache.getFileCache(yesterdaysFile)
-			todaysContents = await app.vault.read(view.file)
+		return () => {
+			app.workspace.offref(leafRef)
+			unsubscribe()
+			window.clearInterval(tick)
 		}
-	}
-
-	function getYesterdaysStringDate() {
-		if (!todaysFile) return ''
-		const y = new Date(todaysFile.basename) // First date
-		y.setDate(y.getDate() - 1)
-		const year = y.getFullYear()
-		const month = String(y.getMonth() + 1).padStart(2, '0')
-		const day = String(y.getDate()).padStart(2, '0')
-		return `${year}-${month}-${day}`
-	}
+	})
 </script>
 
-{#if hasAllContents}
-	<h2>Daily view - {todaysFile?.basename}</h2>
+{#if today}
+	<h2>Daily view - {today.file.basename}</h2>
 	<div class="stats-item">
-		<b>⌛️ Time Loggable: </b>
-		<span>{formatTime(loggableTime, 1440)}</span>
+		<b>⌛️ Time loggable: </b>
+		<span>{format(loggableTime, MINUTES_PER_DAY)}</span>
 	</div>
 	<div class="stats-item">
-		<b>⏱ Total Time logged: </b>
-		<span>{formatTime(totalTime, loggableTime)}</span>
+		<b>⏱ Total time logged: </b>
+		<span>{format(totalTime, loggableTime)}</span>
 	</div>
 	<div class="stats-item">
-		<b>⏳ Remaining Time: </b>
-		<span>{formatTime(remainingTime, loggableTime)}</span>
+		<b>⏳ Remaining time: </b>
+		<span>{format(remainingTime, loggableTime)}</span>
 	</div>
 	<div class="stats-item">
-		<b>💤 Time Slept: </b>
-		<span>{formatTime(sleepTime, 1440)}</span>
+		<b>💤 Time slept: </b>
+		<span>{format(sleepTime, MINUTES_PER_DAY)}</span>
 	</div>
 	<div class="stats-item">
-		<b>🍃 Time Unlogged (so far): </b>
-		<span>{formatTime(unloggedTime, loggableTime)}</span>
+		<b>🍃 Time unlogged (so far): </b>
+		<span>{format(unloggedTime, loggableTime)}</span>
 	</div>
 
-	<h3>Tasks by Time Spent</h3>
+	<h3>Tasks by time spent</h3>
 
 	<KeyValueTable
-		columns={[{ label: 'Task' }, { label: 'Time Spent' }]}
+		columns={[{ label: 'Task' }, { label: 'Time spent' }]}
 		rows={tasks.map((task) => [
 			task.name,
-			formatTime(task.totalMinutes, loggableTime),
+			format(taskMinutes(task, now), loggableTime),
 		])}
 		rowClasses={tasks.map((task) => getStyleByTags(task.tags, tagMappings))}
 	/>
 
-	<h3>Tags by Total Time Spent</h3>
+	<h3>Tags by total time spent</h3>
 
 	<KeyValueTable
-		columns={[{ label: 'Tag' }, { label: 'Total Time Spent' }]}
-		rows={tagTimes.map(([tag, totalMinutes]) => [
+		columns={[{ label: 'Tag' }, { label: 'Total time spent' }]}
+		rows={tagTimes.map(([tag, minutes]) => [
 			tag,
-			formatTime(totalMinutes, loggableTime),
+			format(minutes, loggableTime),
 		])}
 		rowClasses={tagTimes.map(([tag]) => getStyleByTags([tag], tagMappings))}
 	/>
@@ -154,10 +160,10 @@
 			{/each}
 		</p>
 	{/if}
-{:else if todaysFile === undefined || todaysContents === undefined}
+{:else if loading}
 	Loading
 {:else}
-	Select a file
+	Open a daily note
 {/if}
 
 <style>

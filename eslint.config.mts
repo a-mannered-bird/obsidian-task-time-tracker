@@ -19,6 +19,14 @@ export default tseslint.config(
 		},
 	},
 	...obsidianmd.configs.recommended,
+	{
+		// Test stand-in for the `obsidian` package: it must import moment directly.
+		files: ['src/test/obsidian-mock.ts'],
+		rules: {
+			'no-restricted-imports': 'off',
+			'import/no-extraneous-dependencies': 'off',
+		},
+	},
 	globalIgnores([
 		'node_modules',
 		'dist',

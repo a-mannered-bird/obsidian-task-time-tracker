@@ -1,17 +1,22 @@
+/** A work session on a task. `end` is null while the clock is running. */
+export type Clock = {
+	start: Date
+	end: Date | null
+	lineIndex: number
+}
+
 export type Task = {
+	/** Task label without checkbox and tags. */
 	name: string
 	tags: string[]
-	totalMinutes: number
-	intervals: Interval[]
-	totalOverlapping?: number
+	ticked: boolean
+	lineIndex: number
+	clocks: Clock[]
 }
 
-export type TagTimes = Record<string, number>
-
+/** A closed time span, used for all interval arithmetic. */
 export type Interval = {
-	startTime: Date
-	endTime: Date
-	minutes: number
-	taskName?: string
-	overlappingMinutes?: number
+	start: Date
+	end: Date
 }
+export type MinutesByKey = Record<string, number>
