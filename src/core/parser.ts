@@ -72,3 +72,7 @@ export function formatClockLine(
 	const endPart = end ? `--${formatLocalDateTime(end)}` : ''
 	return `${indent}[clock::${formatLocalDateTime(start)}${endPart}]`
 }
+
+export function getIndent(line: string): string {
+	return /^\s*/.exec(line)?.[0] ?? ''
+}
