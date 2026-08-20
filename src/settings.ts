@@ -8,6 +8,7 @@ export interface TaskTimeTrackerSettings {
 	wakeTimeProperty: string
 	bedTimeProperty: string
 	unassignedTaskName: string
+	defaultToggleHotkey: string
 	tagMappings: TagMapping[]
 }
 
@@ -17,6 +18,7 @@ export const DEFAULT_SETTINGS: TaskTimeTrackerSettings = {
 	wakeTimeProperty: 'wake_time',
 	bedTimeProperty: 'bed_time',
 	unassignedTaskName: 'Unassigned',
+	defaultToggleHotkey: '@',
 	tagMappings: [
 		{
 			tag: '#project',
@@ -148,6 +150,10 @@ export class TaskTimeTrackerSettingTab extends PluginSettingTab {
 		this.addTextSetting(containerEl, 'unassignedTaskName', {
 			name: 'Unassigned task name',
 			desc: 'Task used by quick interruptions until the time gets assigned to a real task.',
+		})
+		this.addTextSetting(containerEl, 'defaultToggleHotkey', {
+			name: 'Tracking hotkey characters',
+			desc: 'Characters combined with modifiers in the default hotkeys of the tracking commands; each character becomes an alternative hotkey. Useful when Alt or Shift changes the character your key produces: add each produced character (restart the plugin to apply). Individual hotkeys can still be changed in the Hotkeys settings.',
 		})
 	}
 
