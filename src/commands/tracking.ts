@@ -1,12 +1,10 @@
 import { Notice, type Hotkey, type Modifier } from 'obsidian'
-import { resolveTargetFile } from 'core/dailyNotes'
 import { TaskNote } from 'core/note'
 import { toggleTasks, type Prompts, type ToggleOptions } from 'core/toggle'
 import { pickTask } from 'ui/TaskSuggestModal'
 import { promptMinutes } from 'ui/MinutesPromptModal'
 import type TaskTimeTracker from '../main'
-
-const NOTICE_DURATION = 5000
+import { NOTICE_DURATION, resolveTargetFileOrNotify } from './target'
 
 type TrackingCommand = {
 	id: string
@@ -184,17 +182,8 @@ async function runTrackingCommand(
 	steps: ToggleOptions[]
 ) {
 	const { app, settings } = plugin
-	const file = resolveTargetFile(
-		app,
-		plugin.getDailyLogStoreConfig().dailyNotes
-	)
-	if (!file) {
-		new Notice(
-			"No daily note to act on: the active file is not a daily note, and today's daily note does not exist.",
-			NOTICE_DURATION
-		)
-		return
-	}
+	const file = resolveTargetFileOrNotify(plugin)
+	if (!file) return
 
 	const prompts: Prompts = {
 		pickTask: (tasks, placeholder) =>
