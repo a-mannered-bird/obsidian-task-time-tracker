@@ -10,6 +10,7 @@ export function registerCompleteJournalCommand(plugin: TaskTimeTracker) {
 	plugin.addCommand({
 		id: 'complete-journal-entry',
 		name: 'Complete journal entry',
+		icon: 'book-check',
 		callback: () => void completeJournal(plugin),
 	})
 }

@@ -29,6 +29,7 @@ export default class TaskTimeTracker extends Plugin {
 		this.addCommand({
 			id: 'open-daily-view',
 			name: 'Open daily view',
+			icon: 'timer',
 			callback: () => {
 				void this.activateDailyView()
 			},
