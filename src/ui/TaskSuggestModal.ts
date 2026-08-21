@@ -50,6 +50,10 @@ class TaskSuggestModal extends FuzzySuggestModal<Task> {
 
 	onClose(): void {
 		super.onClose()
-		if (!this.chosen) this.resolve(null)
+		// Obsidian closes the modal before calling onChooseItem, so decide
+		// whether this was a dismissal only after the current tick.
+		window.setTimeout(() => {
+			if (!this.chosen) this.resolve(null)
+		})
 	}
 }
