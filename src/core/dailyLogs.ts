@@ -7,7 +7,7 @@ import {
 	type DailyNotesConfig,
 } from './dailyNotes'
 import { parseTasks } from './parser'
-import { parseLocalDateTime } from './time'
+import { readFrontmatterTime } from './time'
 
 export type DailyLog = {
 	date: Date
@@ -100,8 +100,8 @@ export class DailyLogStore {
 			date: getDailyNoteDate(dailyNotes, file.path) ?? new Date(NaN),
 			file,
 			tasks: parseTasks(content.split('\n')),
-			wakeTime: readTime(frontmatter[wakeTimeProperty]),
-			bedTime: readTime(frontmatter[bedTimeProperty]),
+			wakeTime: readFrontmatterTime(frontmatter[wakeTimeProperty]),
+			bedTime: readFrontmatterTime(frontmatter[bedTimeProperty]),
 		}
 	}
 
@@ -112,8 +112,4 @@ export class DailyLogStore {
 	private notifyListeners() {
 		this.listeners.forEach((listener) => listener())
 	}
-}
-
-function readTime(value: unknown): Date | null {
-	return typeof value === 'string' ? parseLocalDateTime(value) : null
 }

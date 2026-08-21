@@ -5,6 +5,7 @@ import {
 	formatLocalDateTime,
 	getMinutesBetween,
 	parseLocalDateTime,
+	readFrontmatterTime,
 } from './time'
 
 describe('formatLocalDateTime / parseLocalDateTime', () => {
@@ -17,6 +18,22 @@ describe('formatLocalDateTime / parseLocalDateTime', () => {
 
 	it('returns null for an invalid timestamp', () => {
 		expect(parseLocalDateTime('yesterday')).toBeNull()
+	})
+})
+
+describe('readFrontmatterTime', () => {
+	const date = new Date(2026, 7, 16, 7, 12, 0)
+
+	it('accepts a Date or a timestamp string', () => {
+		expect(readFrontmatterTime(date)).toEqual(date)
+		expect(readFrontmatterTime('2026-08-16T07:12:00')).toEqual(date)
+	})
+
+	it('returns null for missing, invalid or unexpected values', () => {
+		expect(readFrontmatterTime(undefined)).toBeNull()
+		expect(readFrontmatterTime('soon')).toBeNull()
+		expect(readFrontmatterTime(new Date('nope'))).toBeNull()
+		expect(readFrontmatterTime(42)).toBeNull()
 	})
 })
 

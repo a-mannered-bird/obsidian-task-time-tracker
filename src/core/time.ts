@@ -18,6 +18,17 @@ export function parseLocalDateTime(text: string): Date | null {
 	return isNaN(date.valueOf()) ? null : date
 }
 
+/**
+ * Frontmatter value of a "Date & time" property. Depending on how the YAML
+ * was parsed it is either a Date or the timestamp string; anything else
+ * (missing, wrong type, unparsable) is null.
+ */
+export function readFrontmatterTime(value: unknown): Date | null {
+	if (value instanceof Date) return isNaN(value.valueOf()) ? null : value
+	if (typeof value === 'string') return parseLocalDateTime(value)
+	return null
+}
+
 export function getMinutesBetween(from: Date, to: Date): number {
 	return Math.floor((to.valueOf() - from.valueOf()) / 60000)
 }
