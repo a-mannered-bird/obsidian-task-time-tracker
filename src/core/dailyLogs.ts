@@ -1,6 +1,13 @@
-import type { App, CachedMetadata, Plugin, TFile } from 'obsidian'
+import {
+	TFile,
+	Vault,
+	type App,
+	type CachedMetadata,
+	type Plugin,
+} from 'obsidian'
 import type { Task } from 'types/tasks'
 import {
+	addDays,
 	getDailyNoteDate,
 	getDailyNoteFile,
 	isDailyNote,
@@ -73,6 +80,37 @@ export class DailyLogStore {
 	async loadByDate(date: Date): Promise<DailyLog | null> {
 		const file = getDailyNoteFile(this.app, this.getConfig().dailyNotes, date)
 		return file ? this.loadFile(file) : null
+	}
+
+	/** Existing daily notes between the two dates, inclusive, oldest first. */
+	async loadRange(from: Date, to: Date): Promise<DailyLog[]> {
+		const logs: DailyLog[] = []
+		for (let date = from; date <= to; date = addDays(date, 1)) {
+			const log = await this.loadByDate(date)
+			if (log) logs.push(log)
+		}
+		return logs
+	}
+
+	/**
+	 * Date of the oldest daily note, or null when there is none. Only the
+	 * daily notes folder is walked (recursively, as the format may contain
+	 * sub folders); with the vault root as folder that is the whole vault.
+	 */
+	earliestDate(): Date | null {
+		const config = this.getConfig().dailyNotes
+		const folder = config.folder
+			? this.app.vault.getFolderByPath(config.folder)
+			: this.app.vault.getRoot()
+		if (!folder) return null
+
+		let earliest: Date | null = null
+		Vault.recurseChildren(folder, (file) => {
+			if (!(file instanceof TFile)) return
+			const date = getDailyNoteDate(config, file.path)
+			if (date && (!earliest || date < earliest)) earliest = date
+		})
+		return earliest
 	}
 
 	async loadFile(file: TFile): Promise<DailyLog | null> {

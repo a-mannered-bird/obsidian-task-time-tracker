@@ -13,6 +13,14 @@ export function totalMinutes(tasks: Task[], now: Date): number {
 	return tasks.reduce((sum, task) => sum + taskMinutes(task, now), 0)
 }
 
+export function minutesByTask(tasks: Task[], now: Date): MinutesByKey {
+	const result: MinutesByKey = {}
+	for (const task of tasks) {
+		result[task.name] = (result[task.name] ?? 0) + taskMinutes(task, now)
+	}
+	return result
+}
+
 /** A task's minutes count once for each of its tags. */
 export function minutesByTag(tasks: Task[], now: Date): MinutesByKey {
 	const result: MinutesByKey = {}
