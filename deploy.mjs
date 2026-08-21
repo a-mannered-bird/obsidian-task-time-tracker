@@ -3,25 +3,22 @@ import { join, resolve } from 'path'
 import process from 'process'
 
 const ASSETS = ['main.js', 'manifest.json', 'styles.css']
-const TARGET_FILE = '.deploy-target'
+const ENV_FILE = '.env'
 
 function fail(message) {
 	console.error(`deploy: ${message}`)
 	process.exit(1)
 }
 
-function readVaultPath() {
-	if (process.env.OBSIDIAN_VAULT) return process.env.OBSIDIAN_VAULT
-	if (existsSync(TARGET_FILE)) {
-		const path = readFileSync(TARGET_FILE, 'utf8').trim()
-		if (path) return path
-	}
-	fail(
-		`no target vault. Set OBSIDIAN_VAULT, or write the vault path into ${TARGET_FILE}.`
-	)
+// Values already in the shell win: loadEnvFile skips variables that are set.
+if (existsSync(ENV_FILE)) process.loadEnvFile(ENV_FILE)
+
+const vaultPath = process.env.OBSIDIAN_VAULT
+if (!vaultPath) {
+	fail(`no target vault. Set OBSIDIAN_VAULT in ${ENV_FILE} or in your shell.`)
 }
 
-const vault = resolve(readVaultPath().replace(/^~/, process.env.HOME ?? '~'))
+const vault = resolve(vaultPath.replace(/^~/, process.env.HOME ?? '~'))
 if (!existsSync(join(vault, '.obsidian'))) {
 	fail(`${vault} has no .obsidian folder, so it is not a vault.`)
 }

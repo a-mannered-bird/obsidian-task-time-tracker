@@ -21,7 +21,4 @@ data.json
 # Exclude macOS Finder (System Explorer) View States
 .DS_Store
 
-# Local deploy target (per-machine vault path)
-.deploy-target
-
 .env
