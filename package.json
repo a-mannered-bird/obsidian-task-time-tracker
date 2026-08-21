@@ -6,6 +6,7 @@
 	"type": "module",
 	"scripts": {
 		"build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
+		"deploy": "npm run build && node deploy.mjs",
 		"dev": "node esbuild.config.mjs",
 		"lint": "eslint .",
 		"svelte-check": "svelte-check --tsconfig tsconfig.json",

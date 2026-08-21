@@ -1,4 +1,5 @@
 import { Plugin, type WorkspaceLeaf } from 'obsidian'
+import { registerCompleteJournalCommand } from './commands/completeJournal'
 import { registerFrontmatterTimeCommands } from './commands/frontmatterTime'
 import { registerTrackingCommands } from './commands/tracking'
 import { DailyLogStore, type DailyLogStoreConfig } from './core/dailyLogs'
@@ -35,6 +36,7 @@ export default class TaskTimeTracker extends Plugin {
 
 		registerTrackingCommands(this)
 		registerFrontmatterTimeCommands(this)
+		registerCompleteJournalCommand(this)
 
 		this.addSettingTab(new TaskTimeTrackerSettingTab(this.app, this))
 	}

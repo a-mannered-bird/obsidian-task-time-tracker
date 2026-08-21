@@ -41,13 +41,13 @@ Roadmap and todo lists for the Task Time Tracker plugin. Decisions recorded here
 
 ## Phase 2: Tracking commands
 
-- [ ] `resolveTargetFile(app, config)` in `core/dailyNotes.ts` (active daily note or today's), `getLastEnd(task)` in `core/note.ts`, `addMinutes` in `core/time.ts` (removed from Phase 1 as unused until here).
-- [ ] `src/commands/toggleTasks.ts`: port of the script engine with typed options `{ taskName?, isSwitching, isTicking, isTimeTravelling, fromLastTask, isQuickInterruption, isMigrating, taskValue?, isTaskDuration }`, plus the Notice messages.
-- [ ] `src/ui/TaskSuggestModal.ts` (FuzzySuggestModal, ordering: running → unticked → last ended, emoji prefixes from tag mapping) and `src/ui/MinutesPromptModal.ts`.
-- [ ] Register commands: Toggle task; Toggle task from…; Toggle task from last; Toggle and tick; Toggle and tick from…; Switch task; Switch task from…; Switch and tick; Switch and tick from…; Switch to previous; Log interruption from…; Toggle quick interruption; Migrate current task; Set task duration.
-- [ ] `src/commands/frontmatterTime.ts`: Set wake time (offset default -3), Set bed time, via `processFrontMatter`.
-- [ ] `src/commands/completeJournal.ts`: close open clocks at bed time, tick clocked tasks, remove unclocked tasks, confirm modal listing removals.
-- [ ] Unit tests on the serializer-level effects of each option combination (start/stop/switch/tick/migrate/duration/previous).
+- [x] `resolveTargetFile` (`core/dailyNotes.ts`), `getLastEnd` (`core/note.ts`), `addMinutes` (`core/time.ts`) with tests.
+- [x] `src/core/toggle.ts`: engine ported from the script with typed `ToggleOptions` (`taskName`, `previous`, `switch`, `tick`, `timeTravel`, `fromLastTask`, `targetState`, `interruption`, `migrate`, `setDuration`), user interaction behind a `Prompts` interface; 13 scripted tests.
+- [x] `src/core/taskPicker.ts` (picker order + emoji labels, tested), `src/ui/TaskSuggestModal.ts` (FuzzySuggestModal), `src/ui/MinutesPromptModal.ts`, `src/ui/ConfirmModal.ts`.
+- [x] `src/commands/tracking.ts`: 14 commands as `{ id, name, modifiers?, key?, steps }`; "Log interruption from…" = two engine runs. Default hotkeys built from the `defaultToggleHotkey` characters setting (one alternative per character; no default when `modifiers` is omitted).
+- [x] `src/commands/frontmatterTime.ts`: Set wake time (default offset -3) / Set bed time via `processFrontMatter`.
+- [x] `src/commands/completeJournal.ts` + `src/core/complete.ts` (tested): close running clocks at the bed time (or now), tick clocked tasks, delete unclocked ones after a confirm modal listing them.
+- [x] `src/commands/target.ts`: shared target-file resolution + notice.
 - [ ] Manual check against the QuickAdd macros list; then remove those macros from the vault.
 
 ## Phase 3: Flexible statistics views
