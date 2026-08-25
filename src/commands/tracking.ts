@@ -176,7 +176,7 @@ export function registerTrackingCommands(plugin: TaskTimeTracker) {
 			// settings. Revisit before a community-plugin submission.
 			// eslint-disable-next-line obsidianmd/commands/no-default-hotkeys
 			hotkeys: defaultHotkeys(command, plugin.settings.defaultToggleHotkey),
-			callback: () => void runTrackingCommand(plugin, command.steps),
+			callback: () => void runTrackingSteps(plugin, command.steps),
 		})
 	}
 }
@@ -194,7 +194,8 @@ function defaultHotkeys(command: TrackingCommand, mainKeys: string): Hotkey[] {
 	return keys.map((key) => ({ modifiers, key }))
 }
 
-async function runTrackingCommand(
+/** Run engine steps on the target daily note; also used by the tracker tab. */
+export async function runTrackingSteps(
 	plugin: TaskTimeTracker,
 	steps: ToggleOptions[]
 ) {
@@ -220,4 +221,19 @@ async function runTrackingCommand(
 			})) || changed
 	}
 	if (changed) await app.vault.modify(file, note.toString())
+}
+
+/** Tick or untick one task without touching its clocks. */
+export async function setTaskTicked(
+	plugin: TaskTimeTracker,
+	taskName: string,
+	ticked: boolean
+) {
+	const file = resolveTargetFileOrNotify(plugin)
+	if (!file) return
+	const note = new TaskNote(await plugin.app.vault.read(file))
+	const task = note.findTask(taskName)
+	if (!task) return
+	note.setTicked(task, ticked)
+	await plugin.app.vault.modify(file, note.toString())
 }

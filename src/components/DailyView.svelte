@@ -17,6 +17,7 @@
 		{ id: 'stats', label: 'Stats' },
 	]
 
+	// svelte-ignore state_referenced_locally -- deliberately only the initial value
 	let active = $state<DailyViewTab>(plugin.settings.lastDailyViewTab)
 
 	function select(tab: DailyViewTab) {

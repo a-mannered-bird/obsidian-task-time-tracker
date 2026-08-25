@@ -108,7 +108,7 @@
 </script>
 
 {#if today}
-	<h2>Daily view - {today.file.basename}</h2>
+	<h2>{today.file.basename}</h2>
 	<div class="stats-item">
 		<b>⌛️ Time loggable: </b>
 		<span>{format(loggableTime, MINUTES_PER_DAY)}</span>
