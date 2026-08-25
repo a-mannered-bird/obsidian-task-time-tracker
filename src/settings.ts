@@ -10,7 +10,11 @@ export interface TaskTimeTrackerSettings {
 	unassignedTaskName: string
 	defaultToggleHotkey: string
 	tagMappings: TagMapping[]
+	/** UI state, not shown in the settings tab. */
+	lastDailyViewTab: DailyViewTab
 }
+
+export type DailyViewTab = 'tracker' | 'stats'
 
 export const DEFAULT_SETTINGS: TaskTimeTrackerSettings = {
 	dailyNotesFolder: '',
@@ -19,6 +23,7 @@ export const DEFAULT_SETTINGS: TaskTimeTrackerSettings = {
 	bedTimeProperty: 'bed_time',
 	unassignedTaskName: 'Unassigned',
 	defaultToggleHotkey: '@',
+	lastDailyViewTab: 'tracker',
 	tagMappings: [
 		{
 			tag: '#project',
@@ -51,8 +56,9 @@ export const DEFAULT_SETTINGS: TaskTimeTrackerSettings = {
 	],
 }
 
+/** Fields holding free text; union-typed fields like the tab are excluded. */
 type StringSettingKey = {
-	[K in keyof TaskTimeTrackerSettings]: TaskTimeTrackerSettings[K] extends string
+	[K in keyof TaskTimeTrackerSettings]: string extends TaskTimeTrackerSettings[K]
 		? K
 		: never
 }[keyof TaskTimeTrackerSettings]
