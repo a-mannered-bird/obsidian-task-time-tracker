@@ -1,6 +1,10 @@
 import { Plugin, type WorkspaceLeaf } from 'obsidian'
 import { registerCompleteJournalCommand } from './commands/completeJournal'
 import { registerFrontmatterTimeCommands } from './commands/frontmatterTime'
+import {
+	normalizeQuickAction,
+	registerQuickActionCommands,
+} from './commands/quickActions'
 import { registerTrackingCommands } from './commands/tracking'
 import { DailyLogStore, type DailyLogStoreConfig } from './core/dailyLogs'
 import {
@@ -39,6 +43,7 @@ export default class TaskTimeTracker extends Plugin {
 		registerTrackingCommands(this)
 		registerFrontmatterTimeCommands(this)
 		registerCompleteJournalCommand(this)
+		registerQuickActionCommands(this)
 		registerStatsCodeBlock(this)
 
 		this.addSettingTab(new TaskTimeTrackerSettingTab(this.app, this))
@@ -50,6 +55,8 @@ export default class TaskTimeTracker extends Plugin {
 			DEFAULT_SETTINGS,
 			(await this.loadData()) as Partial<TaskTimeTrackerSettings>
 		)
+		this.settings.quickActions =
+			this.settings.quickActions.map(normalizeQuickAction)
 	}
 
 	async saveSettings() {

@@ -19,7 +19,7 @@ export function registerCompleteJournalCommand(plugin: TaskTimeTracker) {
  * End-of-day cleanup: close running clocks (at the bed time when set), tick
  * every clocked task, delete tasks that were never clocked.
  */
-async function completeJournal(plugin: TaskTimeTracker) {
+export async function completeJournal(plugin: TaskTimeTracker) {
 	const { app } = plugin
 	const file = resolveTargetFileOrNotify(plugin)
 	if (!file) return

@@ -1,4 +1,10 @@
 import { App, Notice, PluginSettingTab, Setting } from 'obsidian'
+import {
+	emptyQuickAction,
+	isQuickActionVerb,
+	QUICK_ACTION_VERBS,
+	type QuickAction,
+} from './commands/quickActions'
 import type TaskTimeTracker from './main'
 import type { TagMapping } from './types/tags'
 
@@ -10,6 +16,7 @@ export interface TaskTimeTrackerSettings {
 	unassignedTaskName: string
 	defaultToggleHotkey: string
 	tagMappings: TagMapping[]
+	quickActions: QuickAction[]
 	/** UI state, not shown in the settings tab. */
 	lastDailyViewTab: DailyViewTab
 }
@@ -24,6 +31,7 @@ export const DEFAULT_SETTINGS: TaskTimeTrackerSettings = {
 	unassignedTaskName: 'Unassigned',
 	defaultToggleHotkey: '@',
 	lastDailyViewTab: 'tracker',
+	quickActions: [],
 	tagMappings: [
 		{
 			tag: '#project',
@@ -81,6 +89,7 @@ export class TaskTimeTrackerSettingTab extends PluginSettingTab {
 
 		this.displayDailyNotesSection(containerEl)
 		this.displayTrackingSection(containerEl)
+		this.displayQuickActionsSection(containerEl)
 		this.displayTagMappingsSection(containerEl)
 
 		new Setting(containerEl)
@@ -160,6 +169,121 @@ export class TaskTimeTrackerSettingTab extends PluginSettingTab {
 		this.addTextSetting(containerEl, 'defaultToggleHotkey', {
 			name: 'Tracking hotkey characters',
 			desc: 'Characters combined with modifiers in the default hotkeys of the tracking commands; each character becomes an alternative hotkey. Useful when Alt or Shift changes the character your key produces: add each produced character (restart the plugin to apply). Individual hotkeys can still be changed in the Hotkeys settings.',
+		})
+	}
+
+	private displayQuickActionsSection(containerEl: HTMLElement) {
+		new Setting(containerEl)
+			.setName('Quick actions')
+			.setDesc(
+				'One-click actions on a fixed task, shown in the tracker tab and registered as commands (restart the plugin to update the commands). The ensure verbs only act when the task is not already in that state.'
+			)
+			.setHeading()
+			.addButton((button) =>
+				button
+					.setButtonText('Add action')
+					.setCta()
+					.onClick(async () => {
+						this.plugin.settings.quickActions.push(emptyQuickAction())
+						await this.plugin.saveSettings()
+						this.display()
+					})
+			)
+
+		this.plugin.settings.quickActions.forEach((action, index) => {
+			const setting = new Setting(containerEl)
+			setting.settingEl.addClass('task-time-tracker-tag-mapping')
+
+			setting
+				.addText((text) =>
+					text
+						.setPlaceholder('Action name')
+						.setValue(action.name)
+						.onChange(async (value) => {
+							action.name = value.trim()
+							await this.plugin.saveSettings()
+						})
+				)
+				.addText((text) =>
+					text
+						.setPlaceholder('Task name')
+						.setValue(action.taskName)
+						.onChange(async (value) => {
+							action.taskName = value.trim()
+							await this.plugin.saveSettings()
+						})
+				)
+				.addDropdown((dropdown) => {
+					for (const verb of QUICK_ACTION_VERBS) dropdown.addOption(verb, verb)
+					dropdown.setValue(action.verb).onChange(async (value) => {
+						if (!isQuickActionVerb(value)) return
+						action.verb = value
+						await this.plugin.saveSettings()
+					})
+				})
+
+			const toggles: {
+				label: string
+				tooltip: string
+				key:
+					| 'timeTravel'
+					| 'showInTracker'
+					| 'setWakeTime'
+					| 'setBedTime'
+					| 'completeJournal'
+			}[] = [
+				{
+					label: 'custom time',
+					tooltip: 'Ask at what time the action happened',
+					key: 'timeTravel',
+				},
+				{
+					label: 'tracker',
+					tooltip: 'Show as a button in the tracker tab',
+					key: 'showInTracker',
+				},
+				{
+					label: 'wake',
+					tooltip: 'Also set the wake time',
+					key: 'setWakeTime',
+				},
+				{
+					label: 'bed',
+					tooltip: 'Also set the bed time',
+					key: 'setBedTime',
+				},
+				{
+					label: 'complete',
+					tooltip: 'Then complete the journal entry',
+					key: 'completeJournal',
+				},
+			]
+			for (const { label, tooltip, key } of toggles) {
+				setting.controlEl.createSpan({
+					text: label,
+					cls: 'task-time-tracker-style-label',
+				})
+				setting.addToggle((toggle) =>
+					toggle
+						.setTooltip(tooltip)
+						.setValue(action[key])
+						.onChange(async (value) => {
+							action[key] = value
+							await this.plugin.saveSettings()
+						})
+				)
+			}
+
+			setting.addExtraButton((button) =>
+				button
+					.setIcon('trash')
+					.setTooltip('Remove')
+					.onClick(async () => {
+						this.plugin.settings.quickActions.splice(index, 1)
+						await this.plugin.saveSettings()
+						this.display()
+					})
+			)
 		})
 	}
 

@@ -1,6 +1,9 @@
 <script lang="ts">
 	import { setIcon, type App, type IconName } from 'obsidian'
 	import { onMount } from 'svelte'
+	import { completeJournal } from 'commands/completeJournal'
+	import { runTimeCommand, TIME_COMMANDS } from 'commands/frontmatterTime'
+	import { runQuickAction } from 'commands/quickActions'
 	import { runTrackingSteps, setTaskTicked } from 'commands/tracking'
 	import { resolveTargetFile } from 'core/dailyNotes'
 	import type { DailyLog } from 'core/dailyLogs'
@@ -22,11 +25,18 @@
 	let log = $state<DailyLog | null>(null)
 	let loading = $state(true)
 	let now = $state(new Date())
+	/** When on, the action buttons ask how many minutes ago it happened. */
+	let timeTravel = $state(false)
 
 	const tasks = $derived(sortForPicker(log?.tasks ?? []))
 	const running = $derived(tasks.filter(isRunning))
 	const interruptionActive = $derived(
 		running.some((task) => task.name === plugin.settings.unassignedTaskName)
+	)
+	const trackerActions = $derived(
+		plugin.settings.quickActions.filter(
+			(action) => action.showInTracker && action.name && action.taskName
+		)
 	)
 
 	function runningSince(task: Task): string {
@@ -97,7 +107,7 @@
 						class="icon-button"
 						aria-label="Stop"
 						use:icon={'square'}
-						onclick={() => void run([{ taskName: task.name }])}
+						onclick={() => void run([{ taskName: task.name, timeTravel }])}
 					></button>
 				</div>
 			{/each}
@@ -107,14 +117,37 @@
 	<div class="actions">
 		<button
 			onclick={() =>
-				void run([{ switch: true, placeholder: 'Which task to switch to?' }])}
+				void run([
+					{
+						switch: true,
+						placeholder: 'Which task to switch to?',
+						timeTravel,
+					},
+				])}
 		>
 			Switch…
 		</button>
-		<button onclick={() => void run([{ switch: true, interruption: true }])}>
+		<button
+			onclick={() =>
+				void run([{ switch: true, interruption: true, timeTravel }])}
+		>
 			{interruptionActive ? 'End interruption' : 'Interruption'}
 		</button>
+		<label class="time-travel">
+			<input type="checkbox" bind:checked={timeTravel} />
+			Custom time
+		</label>
 	</div>
+
+	{#if trackerActions.length}
+		<div class="actions">
+			{#each trackerActions as action (action.name)}
+				<button onclick={() => void runQuickAction(plugin, action)}>
+					⚡ {action.name}
+				</button>
+			{/each}
+		</div>
+	{/if}
 
 	<ul class="tasks">
 		{#each tasks as task (task.name)}
@@ -125,7 +158,7 @@
 					class:bold={rowStyle(task).bold}
 					class:italic={rowStyle(task).italic}
 					class:underline={rowStyle(task).underline}
-					onclick={() => void run([{ taskName: task.name }])}
+					onclick={() => void run([{ taskName: task.name, timeTravel }])}
 					aria-label={isRunning(task)
 						? `Stop ${task.name}`
 						: `Start ${task.name}`}
@@ -144,6 +177,17 @@
 			</li>
 		{/each}
 	</ul>
+
+	<div class="actions footer">
+		{#each TIME_COMMANDS as command (command.id)}
+			<button onclick={() => void runTimeCommand(plugin, command)}>
+				{command.name}
+			</button>
+		{/each}
+		<button onclick={() => void completeJournal(plugin)}>
+			Complete journal
+		</button>
+	</div>
 {/if}
 
 <style>
@@ -167,8 +211,24 @@
 
 	.actions {
 		display: flex;
+		flex-wrap: wrap;
 		gap: 0.5em;
 		margin-bottom: 0.75em;
+	}
+
+	.time-travel {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.3em;
+		color: var(--text-muted);
+		font-size: var(--font-ui-smaller);
+		cursor: pointer;
+	}
+
+	.footer {
+		margin-top: 1em;
+		padding-top: 0.75em;
+		border-top: 1px solid var(--background-modifier-border);
 	}
 
 	.tasks {

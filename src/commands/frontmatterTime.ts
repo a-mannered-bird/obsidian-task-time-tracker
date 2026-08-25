@@ -4,7 +4,7 @@ import { promptMinutes } from 'ui/MinutesPromptModal'
 import type TaskTimeTracker from '../main'
 import { NOTICE_DURATION, resolveTargetFileOrNotify } from './target'
 
-type TimeCommand = {
+export type TimeCommand = {
 	id: string
 	name: string
 	icon: IconName
@@ -13,7 +13,7 @@ type TimeCommand = {
 	defaultOffset: number
 }
 
-const TIME_COMMANDS: TimeCommand[] = [
+export const TIME_COMMANDS: TimeCommand[] = [
 	{
 		id: 'set-wake-time',
 		name: 'Set wake time',
@@ -42,7 +42,10 @@ export function registerFrontmatterTimeCommands(plugin: TaskTimeTracker) {
 	}
 }
 
-async function runTimeCommand(plugin: TaskTimeTracker, command: TimeCommand) {
+export async function runTimeCommand(
+	plugin: TaskTimeTracker,
+	command: TimeCommand
+) {
 	const { app } = plugin
 	const file = resolveTargetFileOrNotify(plugin)
 	if (!file) return
