@@ -49,3 +49,19 @@ export function formatDuration(minutes: number, total?: number): string {
 		: ''
 	return `${rounded}m - (${hours}h ${mins}m)${percentage}`
 }
+
+/** `07:30` for 450 minutes; values past 24h wrap (1470 → `00:30`). */
+export function formatClockMinutes(minutes: number): string {
+	const rounded = Math.round(minutes) % (24 * 60)
+	const h = Math.floor(rounded / 60)
+	const m = rounded % 60
+	return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
+}
+
+/** `2h 05m`, or `45m` under an hour. */
+export function formatHoursMinutes(minutes: number): string {
+	const rounded = Math.round(minutes)
+	const h = Math.floor(rounded / 60)
+	const m = rounded % 60
+	return h ? `${h}h ${String(m).padStart(2, '0')}m` : `${m}m`
+}

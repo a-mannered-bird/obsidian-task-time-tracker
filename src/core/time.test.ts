@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
 	addMinutes,
+	formatClockMinutes,
 	formatDuration,
+	formatHoursMinutes,
 	formatLocalDateTime,
 	getMinutesBetween,
 	parseLocalDateTime,
@@ -54,5 +56,17 @@ describe('formatDuration', () => {
 	it('shows minutes, hours/minutes and an optional share of a total', () => {
 		expect(formatDuration(125)).toBe('125m - (2h 5m)')
 		expect(formatDuration(30, 240)).toBe('30m - (0h 30m) - 12.5%')
+	})
+})
+
+describe('formatClockMinutes / formatHoursMinutes', () => {
+	it('renders minutes since midnight as a clock time, wrapping past 24h', () => {
+		expect(formatClockMinutes(450)).toBe('07:30')
+		expect(formatClockMinutes(1470)).toBe('00:30')
+	})
+
+	it('renders a duration compactly', () => {
+		expect(formatHoursMinutes(125)).toBe('2h 05m')
+		expect(formatHoursMinutes(45)).toBe('45m')
 	})
 })

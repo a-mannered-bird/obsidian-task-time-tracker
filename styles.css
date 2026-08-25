@@ -33,3 +33,10 @@
 	min-height: 1.5em;
 	margin: 0;
 }
+
+.task-time-tracker-block-error {
+	color: var(--text-error);
+	border: 1px solid var(--background-modifier-error);
+	border-radius: var(--radius-s);
+	padding: 0.5em 1em;
+}

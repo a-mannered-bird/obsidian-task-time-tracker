@@ -72,7 +72,9 @@ export function computeRangeStats(
 			date,
 			minutes,
 			total: Object.values(minutes).reduce((sum, m) => sum + m, 0),
-			...timeOfDay(log, previous, tasks, now),
+			// Time-of-day facts describe the whole day, so the filter does not
+			// apply: "unlogged" stays "no clock at all", not "not on <filter>".
+			...timeOfDay(log, previous, log?.tasks ?? [], now),
 		})
 	}
 

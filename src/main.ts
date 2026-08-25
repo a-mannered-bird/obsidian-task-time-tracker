@@ -9,6 +9,7 @@ import {
 	type TaskTimeTrackerSettings,
 } from './settings'
 import { DailyItemView, DAILY_VIEW } from './views/DailyItemView'
+import { registerStatsCodeBlock } from './views/statsCodeBlock'
 
 export default class TaskTimeTracker extends Plugin {
 	settings: TaskTimeTrackerSettings = DEFAULT_SETTINGS
@@ -38,6 +39,7 @@ export default class TaskTimeTracker extends Plugin {
 		registerTrackingCommands(this)
 		registerFrontmatterTimeCommands(this)
 		registerCompleteJournalCommand(this)
+		registerStatsCodeBlock(this)
 
 		this.addSettingTab(new TaskTimeTrackerSettingTab(this.app, this))
 	}

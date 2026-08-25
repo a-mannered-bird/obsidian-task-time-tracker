@@ -118,6 +118,16 @@ describe('computeRangeStats', () => {
 		expect(filtered.byKey).toEqual([['Walk the dog', 30]])
 		expect(filtered.totalMinutes).toBe(30)
 	})
+
+	it('computes time-of-day stats from all tasks even when a filter is set', () => {
+		const filtered = computeRangeStats(logs, {
+			range,
+			groupBy: 'task',
+			filter: ['#routine'],
+			now,
+		})
+		expect(filtered.perDay[0]!.unlogged).toBe(stats.perDay[0]!.unlogged)
+	})
 })
 
 describe('filterTasks', () => {
