@@ -4,7 +4,7 @@ An [Obsidian](https://obsidian.md) plugin to track the time you spend on your ta
 
 Everything is stored as plain text in your daily notes: a task is a checkbox line with tags, and every work session is a `[clock::start--end]` line under it. No database, no external service, and the data stays readable and editable by hand.
 
-> **Status:** early development. The daily statistics view works; the tracking commands and the flexible statistics views are being ported/built. See [PLAN.md](PLAN.md) for the roadmap.
+> **Status:** early development. Tracking commands, the daily view and the `task-stats` range statistics work. See [PLAN.md](PLAN.md) for the roadmap.
 
 ## The daily note format
 
@@ -52,7 +52,7 @@ All commands act on the daily note you are currently in, or on today's daily not
 | Set bed time               | Set the `bed_time` property to now (with an optional minute offset).                                                    |
 | Complete journal entry     | End-of-day cleanup: close still-running clocks, tick every task that has a clock, remove tasks that were never clocked. |
 
-Bind any of them to a hotkey in Obsidian's settings.
+Most commands ship default hotkeys built around one configurable key (Alt = toggle, Cmd = switch, Shift = tick, Ctrl = time travel; see the "Tracking hotkey characters" setting). Every binding can be changed in Obsidian's Hotkeys settings. On mobile, each command has an icon for the toolbar.
 
 ## Statistics
 
@@ -66,28 +66,38 @@ A side panel (ribbon icon or command "Open daily view") that follows the daily n
 
 Rows are styled (bold / italic / underline / emoji) according to the tag mapping in the settings.
 
-### Flexible views (planned)
+### Range statistics
 
-A `task-stats` code block that renders statistics for a date range inside any note, so a weekly or monthly review template can embed its own charts:
+A `task-stats` code block renders statistics for a date range inside any note, so a weekly or monthly review template can embed its own charts. All options are optional; invalid ones are listed in an error box in the note.
 
 ````markdown
 ```task-stats
-range: last-7-days      # today | this-week | last-7-days | this-month | last-month | last-3-months | this-year | last-year | all | 2026-08-01..2026-08-16
-groupBy: tag            # task | tag
-filter: ["#project"]    # optional, only these tasks/tags
-metrics: [total, average, per-day, time-of-day]
+range: last-7-days      # today | yesterday | this-week | last-week | last-7-days | this-month | last-month | last-3-months | this-year | last-year | all | 2026-08-01..2026-08-16
+groupBy: tag            # task (default) | tag
+filter: ["#project"]    # only these task names / #tags
+metrics: [total, average, per-day, time-of-day]   # default: all
 skipEmptyDays: true     # average only over days where something was logged
+top: 5                  # keep the N biggest entries, fold the rest into "Other"
 ```
 ````
 
-Metrics: total time, per-day average, per-day breakdown as charts (bars per day, stacked by task/tag), and time-of-day info (sleep, unlogged, average wake and bed time). Weeks start on Monday.
+The metrics:
+
+- **total**: total time over the range, plus a table of tasks (or tags) with time spent and share.
+- **average**: per-day average, or per-logged-day with `skipEmptyDays`.
+- **per-day**: a stacked bar chart, one bar per calendar day, colored by task/tag with the theme's colors; hover a bar for the full date and its per-task breakdown. A plain per-day table sits underneath, collapsed.
+- **time-of-day**: average sleep, unlogged time (awake time with no clock running, always computed from all tasks even with a `filter`), wake and bed times.
+
+Weeks start on Monday. The `all` range starts at your oldest daily note. Everything refreshes live when a note changes.
 
 ## Settings
 
-- Daily notes folder and date format.
+- Daily notes folder (empty = vault root) and date format (any Moment format, sub-folders allowed).
 - Tag mapping: for each tag, an emoji shown in pickers and a text style (bold / italic / underline) used in the statistics tables.
 - Frontmatter property names for wake and bed time.
 - Name of the "unassigned" task used by quick interruptions.
+- Tracking hotkey characters: the key(s) combined with modifiers in the default hotkeys; add one character per Alt/Shift-modified variant your keyboard layout produces.
+- An Apply button reloads the open views after changing settings.
 
 ## Development
 

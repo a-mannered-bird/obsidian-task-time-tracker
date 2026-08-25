@@ -57,8 +57,6 @@ Roadmap and todo lists for the Task Time Tracker plugin. Decisions recorded here
 - [x] `src/core/stats.ts`: `computeRangeStats` — totals by key (zero keys omitted), per-day points (calendar-continuous), averages per day / per logged day, time-of-day (sleep, unlogged, wake/bed as minutes since midnight; always unfiltered); `core/loadRangeStats.ts` glue; tests.
 - [x] `task-stats` code block processor (`core/statsOptions.ts` validation with per-key error messages rendered in the note) mounting `StatsView.svelte` via `MarkdownRenderChild`.
 - [x] `StackedBarChart.svelte`: per-day stacked SVG bars (theme `--color-*` variables in a fixed order validated for color-vision separation on the default themes: blue, orange, purple, green, red, cyan, yellow, pink; >8 keys cycle the same order through deterministic color-mix variants toward the surface then the ink), hover tooltip with per-key breakdown, legend, HTML axis labels, per-day table kept as fallback under a details element.
-- [ ] Sidebar variant with range picker + group-by controls reusing `StatsView`.
-
 ## Phase 4: User-friendly command access
 
 - [ ] Panel / ribbon menu with buttons calling the same `toggleTasks` core (current running tasks, one-click stop/switch, quick interruption).
