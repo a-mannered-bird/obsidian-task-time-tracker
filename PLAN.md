@@ -48,15 +48,15 @@ Roadmap and todo lists for the Task Time Tracker plugin. Decisions recorded here
 - [x] `src/commands/frontmatterTime.ts`: Set wake time (default offset -3) / Set bed time via `processFrontMatter`.
 - [x] `src/commands/completeJournal.ts` + `src/core/complete.ts` (tested): close running clocks at the bed time (or now), tick clocked tasks, delete unclocked ones after a confirm modal listing them.
 - [x] `src/commands/target.ts`: shared target-file resolution + notice.
-- [ ] Manual check against the QuickAdd macros list; then remove those macros from the vault.
+- [x] Manual check against the QuickAdd macros list; then remove those macros from the vault.
 
 ## Phase 3: Flexible statistics views
 
-- [ ] `src/core/ranges.ts`: resolve range presets and `from..to` to `[start, end]` (Monday weeks); tests.
-- [ ] `DailyLogStore.loadRange(from, to)`, `minutesByTask` in `core/aggregate.ts`, `coveredMinutes` / `overlappingMinutes` in `core/intervals.ts` (removed from Phase 1 as unused until here).
-- [ ] `src/core/stats.ts`: total, per-day average (with/without empty days), per-day series by task/tag, time-of-day (sleep, unlogged, average wake/bed).
-- [ ] `task-stats` code block processor (YAML params: `range`, `groupBy`, `filter`, `metrics`, `skipEmptyDays`) mounting a Svelte `StatsView`.
-- [ ] Svelte chart components: `BarChart` (per day), `StackedBarChart` (per day by task/tag), horizontal bar list for totals; Obsidian CSS variables.
+- [x] `src/core/ranges.ts`: resolve range presets (incl. `yesterday`, `last-week`) and `from..to` to `[start, end]` (Monday weeks); tests.
+- [x] `DailyLogStore.loadRange(from, to)` + `earliestDate()` (walks only the daily notes folder; resolves the `all` preset), `minutesByTask` in `core/aggregate.ts`.
+- [x] `src/core/stats.ts`: `computeRangeStats` — totals by key (zero keys omitted), per-day points (calendar-continuous), averages per day / per logged day, time-of-day (sleep, unlogged, wake/bed as minutes since midnight; always unfiltered); `core/loadRangeStats.ts` glue; tests.
+- [x] `task-stats` code block processor (`core/statsOptions.ts` validation with per-key error messages rendered in the note) mounting `StatsView.svelte` via `MarkdownRenderChild`.
+- [x] `StackedBarChart.svelte`: per-day stacked SVG bars (theme `--color-*` variables in a fixed order validated for color-vision separation on the default themes: blue, orange, purple, green, red, cyan, yellow, pink; >8 keys cycle the same order through deterministic color-mix variants toward the surface then the ink), hover tooltip with per-key breakdown, legend, HTML axis labels, per-day table kept as fallback under a details element.
 - [ ] Sidebar variant with range picker + group-by controls reusing `StatsView`.
 
 ## Phase 4: User-friendly command access

@@ -17,6 +17,7 @@ describe('normalizeStatsOptions', () => {
 				filter: '#project',
 				metrics: ['total', 'per-day'],
 				skipEmptyDays: true,
+				top: 5,
 			})
 		).toEqual({
 			ok: true,
@@ -26,6 +27,7 @@ describe('normalizeStatsOptions', () => {
 				filter: ['#project'],
 				metrics: ['total', 'per-day'],
 				skipEmptyDays: true,
+				top: 5,
 			},
 		})
 	})
@@ -36,13 +38,15 @@ describe('normalizeStatsOptions', () => {
 			groupBy: 'project',
 			metrics: ['total', 'median'],
 			skipEmptyDays: 'yes',
+			top: 0,
 			colour: 'red',
 		})
 		expect(result.ok).toBe(false)
 		if (result.ok) return
-		expect(result.errors).toHaveLength(5)
+		expect(result.errors).toHaveLength(6)
+		expect(result.errors[4]).toBe('top: expected a positive whole number.')
 		expect(result.errors[0]).toMatch(/^range: "fortnight"/)
-		expect(result.errors[4]).toBe('Unknown option "colour".')
+		expect(result.errors[5]).toBe('Unknown option "colour".')
 	})
 
 	it('rejects a block that is not a mapping', () => {

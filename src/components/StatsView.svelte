@@ -1,10 +1,15 @@
 <script lang="ts">
+	import { moment } from 'obsidian'
 	import { onMount } from 'svelte'
 	import { loadRangeStats, type LoadedRangeStats } from 'core/loadRangeStats'
 	import type { StatsBlockOptions } from 'core/statsOptions'
 	import { getStyleByTags } from 'core/tags'
 	import { formatClockMinutes, formatHoursMinutes } from 'core/time'
 	import KeyValueTable from './KeyValueTable.svelte'
+	import StackedBarChart, {
+		type ChartPoint,
+		type ChartSeries,
+	} from './StackedBarChart.svelte'
 	import type TaskTimeTracker from '../main'
 
 	type Props = {
@@ -21,6 +26,82 @@
 	const tagMappings = $derived(plugin.settings.tagMappings)
 	const show = (metric: StatsBlockOptions['metrics'][number]) =>
 		options.metrics.includes(metric)
+
+	// Fixed assignment order, validated for color-vision separation on the
+	// default themes (see PLAN); the user's theme provides the actual colors.
+	const CHART_COLORS = [
+		'var(--color-blue)',
+		'var(--color-orange)',
+		'var(--color-purple)',
+		'var(--color-green)',
+		'var(--color-red)',
+		'var(--color-cyan)',
+		'var(--color-yellow)',
+		'var(--color-pink)',
+	]
+	/**
+	 * Beyond the theme colors, cycle the same hue order through deterministic
+	 * variants: paler (mixed with the surface), then deeper (mixed with the
+	 * ink), mixing harder on each round. Adapts to light and dark themes.
+	 */
+	function seriesColor(index: number): string {
+		const base = CHART_COLORS[index % CHART_COLORS.length]!
+		const round = Math.floor(index / CHART_COLORS.length)
+		if (round === 0) return base
+		const towards =
+			round % 2 === 1 ? 'var(--background-primary)' : 'var(--text-normal)'
+		const amount = Math.min(35 + Math.floor((round - 1) / 2) * 15, 70)
+		return `color-mix(in srgb, ${base} ${100 - amount}%, ${towards})`
+	}
+
+	const OTHER = 'Other'
+
+	/** Totals with everything below the `top` biggest keys folded into Other. */
+	const byKey = $derived.by<[string, number][]>(() => {
+		if (!stats) return []
+		if (options.top === null || stats.byKey.length <= options.top) {
+			return stats.byKey
+		}
+		const kept = stats.byKey.slice(0, options.top)
+		const folded = stats.byKey
+			.slice(options.top)
+			.reduce((sum, [, minutes]) => sum + minutes, 0)
+		return [...kept, [OTHER, folded]]
+	})
+
+	const keptKeys = $derived(new Set(byKey.map(([key]) => key)))
+
+	const series = $derived.by<ChartSeries[]>(() =>
+		byKey.map(([key], index) => ({
+			key,
+			color: key === OTHER ? 'var(--text-faint)' : seriesColor(index),
+		}))
+	)
+
+	const chartPoints = $derived.by<ChartPoint[]>(() => {
+		if (!stats) return []
+		return stats.perDay.map((point) => {
+			const minutes: Record<string, number> = {}
+			for (const [key, value] of Object.entries(point.minutes)) {
+				const slot = keptKeys.has(key) ? key : OTHER
+				minutes[slot] = (minutes[slot] ?? 0) + value
+			}
+			return {
+				label: shortDay(point.date),
+				// Full date, in the same format as the daily note names.
+				tooltipLabel: moment(point.date).format(plugin.settings.dateFormat),
+				minutes,
+				total: point.total,
+			}
+		})
+	})
+
+	function shortDay(date: Date) {
+		return date.toLocaleDateString(undefined, {
+			day: 'numeric',
+			month: 'numeric',
+		})
+	}
 
 	const average = $derived(
 		stats
@@ -90,19 +171,19 @@
 		</div>
 	{/if}
 
-	{#if show('total') && stats.byKey.length}
+	{#if show('total') && byKey.length}
 		<KeyValueTable
 			columns={[
 				{ label: options.groupBy === 'tag' ? 'Tag' : 'Task' },
 				{ label: 'Time spent' },
 				{ label: 'Share' },
 			]}
-			rows={stats.byKey.map(([key, minutes]) => [
+			rows={byKey.map(([key, minutes]) => [
 				key,
 				formatHoursMinutes(minutes),
 				`${Math.round((minutes / stats.totalMinutes) * 100)}%`,
 			])}
-			rowClasses={stats.byKey.map(([key]) => rowStyle(key))}
+			rowClasses={byKey.map(([key]) => rowStyle(key))}
 		/>
 	{/if}
 
@@ -118,14 +199,18 @@
 	{/if}
 
 	{#if show('per-day')}
-		<KeyValueTable
-			columns={[{ label: 'Day' }, { label: 'Logged' }]}
-			rows={stats.perDay.map((point) => [
-				formatDay(point.date),
-				formatHoursMinutes(point.total),
-			])}
-			rowClasses={stats.perDay.map(() => rowStyle(''))}
-		/>
+		<StackedBarChart points={chartPoints} {series} />
+		<details>
+			<summary class="muted">Per-day table</summary>
+			<KeyValueTable
+				columns={[{ label: 'Day' }, { label: 'Logged' }]}
+				rows={stats.perDay.map((point) => [
+					formatDay(point.date),
+					formatHoursMinutes(point.total),
+				])}
+				rowClasses={stats.perDay.map(() => rowStyle(''))}
+			/>
+		</details>
 	{/if}
 {/if}
 

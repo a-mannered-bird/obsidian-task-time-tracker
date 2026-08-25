@@ -11,6 +11,8 @@ export type StatsBlockOptions = {
 	filter: string[]
 	metrics: Metric[]
 	skipEmptyDays: boolean
+	/** Keep only the N biggest keys and fold the rest into "Other"; null = all. */
+	top: number | null
 }
 
 export const DEFAULT_STATS_OPTIONS: StatsBlockOptions = {
@@ -19,6 +21,7 @@ export const DEFAULT_STATS_OPTIONS: StatsBlockOptions = {
 	filter: [],
 	metrics: [...METRICS],
 	skipEmptyDays: false,
+	top: null,
 }
 
 export type NormalizedOptions =
@@ -78,6 +81,11 @@ export function normalizeStatsOptions(raw: unknown): NormalizedOptions {
 			case 'skipEmptyDays':
 				if (typeof value === 'boolean') options.skipEmptyDays = value
 				else errors.push('skipEmptyDays: expected true or false.')
+				break
+			case 'top':
+				if (typeof value === 'number' && Number.isInteger(value) && value > 0)
+					options.top = value
+				else errors.push('top: expected a positive whole number.')
 				break
 			default:
 				errors.push(`Unknown option "${key}".`)
