@@ -55,9 +55,25 @@ export function getDailyNoteFile(
 	return app.vault.getFileByPath(getDailyNotePath(config, date))
 }
 
+/** Most recent daily note in the vault, ignoring notes dated in the future. */
+export function getLatestDailyNoteFile(
+	app: App,
+	config: DailyNotesConfig,
+	now = new Date()
+): TFile | null {
+	let latest: { date: Date; file: TFile } | null = null
+	for (const file of app.vault.getMarkdownFiles()) {
+		const date = getDailyNoteDate(config, file.path)
+		if (!date || date > now) continue
+		if (!latest || date > latest.date) latest = { date, file }
+	}
+	return latest?.file ?? null
+}
+
 /**
- * File the tracking commands act on: the active file when it is a daily
- * note, otherwise today's daily note (null when it does not exist).
+ * File the daily view and tracking commands act on: the active file when it
+ * is a daily note, otherwise the most recent daily note (null when there is
+ * none).
  */
 export function resolveTargetFile(
 	app: App,
@@ -66,5 +82,5 @@ export function resolveTargetFile(
 ): TFile | null {
 	const active = app.workspace.getActiveFile()
 	if (active && isDailyNote(config, active)) return active
-	return getDailyNoteFile(app, config, now)
+	return getLatestDailyNoteFile(app, config, now)
 }

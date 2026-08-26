@@ -14,7 +14,7 @@ export function resolveTargetFileOrNotify(
 	)
 	if (!file) {
 		new Notice(
-			"No daily note to act on: the active file is not a daily note, and today's daily note does not exist.",
+			'No daily note to act on: the active file is not a daily note, and the vault has no daily note.',
 			NOTICE_DURATION
 		)
 	}

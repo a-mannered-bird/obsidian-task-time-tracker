@@ -1,11 +1,10 @@
 <script lang="ts">
-	import { setIcon, type App, type IconName } from 'obsidian'
+	import { setIcon, type IconName } from 'obsidian'
 	import { onMount } from 'svelte'
 	import { completeJournal } from 'commands/completeJournal'
 	import { runTimeCommand, TIME_COMMANDS } from 'commands/frontmatterTime'
 	import { runQuickAction } from 'commands/quickActions'
 	import { runTrackingSteps, setTaskTicked } from 'commands/tracking'
-	import { resolveTargetFile } from 'core/dailyNotes'
 	import type { DailyLog } from 'core/dailyLogs'
 	import { taskMinutes } from 'core/aggregate'
 	import { isRunning } from 'core/note'
@@ -16,14 +15,13 @@
 	import type TaskTimeTracker from '../main'
 
 	type Props = {
-		app: App
 		plugin: TaskTimeTracker
+		log: DailyLog | null
+		loading: boolean
 	}
 
-	const { app, plugin }: Props = $props()
+	const { plugin, log, loading }: Props = $props()
 
-	let log = $state<DailyLog | null>(null)
-	let loading = $state(true)
 	let now = $state(new Date())
 	/** When on, the action buttons ask how many minutes ago it happened. */
 	let timeTravel = $state(false)
@@ -53,28 +51,16 @@
 		await runTrackingSteps(plugin, steps)
 	}
 
-	async function reload() {
-		const file = resolveTargetFile(
-			app,
-			plugin.getDailyLogStoreConfig().dailyNotes
-		)
-		log = file ? await plugin.dailyLogs.loadFile(file) : null
-		// Clock math compares against `now`; a stale value would make a clock
-		// started after the last minute tick look negative.
+	// Clock math compares against `now`; a stale value would make a clock
+	// started after the last minute tick look negative.
+	$effect(() => {
+		void log
 		now = new Date()
-		loading = false
-	}
+	})
 
 	onMount(() => {
-		const unsubscribe = plugin.dailyLogs.onChange(() => void reload())
-		const leafRef = app.workspace.on('active-leaf-change', () => void reload())
 		const tick = window.setInterval(() => (now = new Date()), 60 * 1000)
-		void reload()
-		return () => {
-			unsubscribe()
-			app.workspace.offref(leafRef)
-			window.clearInterval(tick)
-		}
+		return () => window.clearInterval(tick)
 	})
 
 	/** Renders an Obsidian (Lucide) icon inside the element. */

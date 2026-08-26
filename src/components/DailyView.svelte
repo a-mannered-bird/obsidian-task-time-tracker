@@ -1,5 +1,8 @@
 <script lang="ts">
-	import type { App } from 'obsidian'
+	import { moment, type App } from 'obsidian'
+	import { onMount } from 'svelte'
+	import { resolveTargetFile } from 'core/dailyNotes'
+	import type { DailyLog } from 'core/dailyLogs'
 	import type { DailyViewTab } from '../settings'
 	import DailyStats from './DailyStats.svelte'
 	import TrackerTab from './TrackerTab.svelte'
@@ -19,13 +22,38 @@
 
 	// svelte-ignore state_referenced_locally -- deliberately only the initial value
 	let active = $state<DailyViewTab>(plugin.settings.lastDailyViewTab)
+	let log = $state<DailyLog | null>(null)
+	let loading = $state(true)
 
 	function select(tab: DailyViewTab) {
 		active = tab
 		plugin.settings.lastDailyViewTab = tab
 		void plugin.saveSettings()
 	}
+
+	async function reload() {
+		const file = resolveTargetFile(
+			app,
+			plugin.getDailyLogStoreConfig().dailyNotes
+		)
+		log = file ? await plugin.dailyLogs.loadFile(file) : null
+		loading = false
+	}
+
+	onMount(() => {
+		const unsubscribe = plugin.dailyLogs.onChange(() => void reload())
+		const leafRef = app.workspace.on('active-leaf-change', () => void reload())
+		void reload()
+		return () => {
+			unsubscribe()
+			app.workspace.offref(leafRef)
+		}
+	})
 </script>
+
+{#if log}
+	<div class="note-date">{moment(log.date).format('dddd, LL')}</div>
+{/if}
 
 <div class="tabs" role="tablist">
 	{#each TABS as tab (tab.id)}
@@ -42,12 +70,17 @@
 </div>
 
 {#if active === 'tracker'}
-	<TrackerTab {app} {plugin} />
+	<TrackerTab {plugin} {log} {loading} />
 {:else}
-	<DailyStats {app} {plugin} />
+	<DailyStats {plugin} {log} {loading} />
 {/if}
 
 <style>
+	.note-date {
+		color: var(--text-muted);
+		font-size: var(--font-ui-smaller);
+	}
+
 	.tabs {
 		display: flex;
 		gap: 1.25em;

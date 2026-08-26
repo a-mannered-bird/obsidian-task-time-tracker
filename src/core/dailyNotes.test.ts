@@ -63,8 +63,7 @@ function appStub(activeFile: TFile | null, vaultFiles: string[]): App {
 	return {
 		workspace: { getActiveFile: () => activeFile },
 		vault: {
-			getFileByPath: (path: string) =>
-				vaultFiles.includes(path) ? file(path) : null,
+			getMarkdownFiles: () => vaultFiles.map(file),
 		},
 	} as unknown as App
 }
@@ -75,14 +74,28 @@ describe('resolveTargetFile', () => {
 		expect(resolveTargetFile(app, config, date)).toBe(active)
 	})
 
-	it("falls back to today's daily note when the active file is not one", () => {
-		const app = appStub(file('Projects/plugin.md'), ['Journal/2026-08-16.md'])
+	it('falls back to the most recent daily note when the active file is not one', () => {
+		const app = appStub(file('Projects/plugin.md'), [
+			'Journal/2026-08-12.md',
+			'Journal/2026-08-15.md',
+			'Journal/tasks-dictionary.md',
+		])
 		expect(resolveTargetFile(app, config, date)?.path).toBe(
-			'Journal/2026-08-16.md'
+			'Journal/2026-08-15.md'
 		)
 	})
 
-	it('returns null when there is no active daily note and no note for today', () => {
+	it('ignores daily notes dated in the future', () => {
+		const app = appStub(null, [
+			'Journal/2026-08-15.md',
+			'Journal/2026-08-20.md',
+		])
+		expect(resolveTargetFile(app, config, date)?.path).toBe(
+			'Journal/2026-08-15.md'
+		)
+	})
+
+	it('returns null when there is no active daily note and none in the vault', () => {
 		const app = appStub(null, [])
 		expect(resolveTargetFile(app, config, date)).toBeNull()
 	})

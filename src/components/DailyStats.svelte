@@ -1,6 +1,4 @@
 <script lang="ts">
-	import type { App, WorkspaceLeaf } from 'obsidian'
-	import { FileView } from 'obsidian'
 	import { onMount } from 'svelte'
 	import {
 		minutesByTag,
@@ -8,7 +6,7 @@
 		taskMinutes,
 		totalMinutes,
 	} from 'core/aggregate'
-	import { addDays, isDailyNote } from 'core/dailyNotes'
+	import { addDays } from 'core/dailyNotes'
 	import type { DailyLog } from 'core/dailyLogs'
 	import { tasksToIntervals, uncoveredMinutes } from 'core/intervals'
 	import { getStyleByTags } from 'core/tags'
@@ -17,11 +15,12 @@
 	import type TaskTimeTracker from '../main'
 
 	type Props = {
-		app: App
 		plugin: TaskTimeTracker
+		log: DailyLog | null
+		loading: boolean
 	}
 
-	const { app, plugin }: Props = $props()
+	const { plugin, log, loading }: Props = $props()
 	const MINUTES_PER_DAY = 24 * 60
 
 	const tagMappings = $derived(plugin.settings.tagMappings)
@@ -29,10 +28,22 @@
 		tagMappings.filter((m) => m.bold || m.italic || m.underline)
 	)
 
-	let today = $state<DailyLog | null>(null)
+	const today = $derived(log)
 	let yesterday = $state<DailyLog | null>(null)
-	let loading = $state(true)
 	let now = $state(new Date())
+
+	$effect(() => {
+		const current = log
+		yesterday = null
+		if (!current) return
+		let cancelled = false
+		void plugin.dailyLogs.loadByDate(addDays(current.date, -1)).then((prev) => {
+			if (!cancelled) yesterday = prev
+		})
+		return () => {
+			cancelled = true
+		}
+	})
 
 	const tasks = $derived(
 		(today?.tasks ?? [])
@@ -72,43 +83,13 @@
 			: formatDuration(minutes, total ?? undefined)
 	}
 
-	async function loadFromLeaf(leaf: WorkspaceLeaf | null) {
-		const view = leaf?.view
-		if (!(view instanceof FileView) || !view.file) return
-		if (!isDailyNote(plugin.getDailyLogStoreConfig().dailyNotes, view.file))
-			return
-
-		loading = true
-		const log = await plugin.dailyLogs.loadFile(view.file)
-		today = log
-		yesterday = log
-			? await plugin.dailyLogs.loadByDate(addDays(log.date, -1))
-			: null
-		loading = false
-	}
-
-	function reload() {
-		void loadFromLeaf(app.workspace.getMostRecentLeaf())
-	}
-
 	onMount(() => {
-		const leafRef = app.workspace.on('active-leaf-change', (leaf) => {
-			void loadFromLeaf(leaf)
-		})
-		const unsubscribe = plugin.dailyLogs.onChange(reload)
 		const tick = window.setInterval(() => (now = new Date()), 60 * 1000)
-		reload()
-
-		return () => {
-			app.workspace.offref(leafRef)
-			unsubscribe()
-			window.clearInterval(tick)
-		}
+		return () => window.clearInterval(tick)
 	})
 </script>
 
 {#if today}
-	<h2>{today.file.basename}</h2>
 	<div class="stats-item">
 		<b>⌛️ Time loggable: </b>
 		<span>{format(loggableTime, MINUTES_PER_DAY)}</span>
@@ -163,7 +144,7 @@
 {:else if loading}
 	Loading
 {:else}
-	Open a daily note
+	No daily note found
 {/if}
 
 <style>
