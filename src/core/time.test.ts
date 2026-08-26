@@ -53,9 +53,9 @@ describe('getMinutesBetween / addMinutes', () => {
 })
 
 describe('formatDuration', () => {
-	it('shows minutes, hours/minutes and an optional share of a total', () => {
-		expect(formatDuration(125)).toBe('125m - (2h 5m)')
-		expect(formatDuration(30, 240)).toBe('30m - (0h 30m) - 12.5%')
+	it('shows hours/minutes and an optional share of a total', () => {
+		expect(formatDuration(125)).toBe('2h 05m')
+		expect(formatDuration(30, 240)).toBe('30m - 12.5%')
 	})
 })
 

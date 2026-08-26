@@ -38,16 +38,15 @@ export function addMinutes(date: Date, minutes: number): Date {
 }
 
 /**
- * "125m - (2h 5m)" plus " - 12.5%" of `total` when a positive total is given.
+ * `2h 05m` (`45m` under an hour) plus ` - 12.5%` of `total` when a positive
+ * total is given.
  */
 export function formatDuration(minutes: number, total?: number): string {
 	const rounded = Math.floor(minutes)
-	const hours = Math.floor(rounded / 60)
-	const mins = rounded % 60
 	const percentage = total
 		? ` - ${Math.floor((rounded / total) * 1000) / 10}%`
 		: ''
-	return `${rounded}m - (${hours}h ${mins}m)${percentage}`
+	return `${formatHoursMinutes(rounded)}${percentage}`
 }
 
 /** `07:30` for 450 minutes; values past 24h wrap (1470 → `00:30`). */
