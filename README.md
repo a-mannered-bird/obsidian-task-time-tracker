@@ -52,7 +52,7 @@ All commands act on the daily note you are currently in, or on today's daily not
 | Set bed time               | Set the `bed_time` property to now (with an optional minute offset).                                                    |
 | Complete journal entry     | End-of-day cleanup: close still-running clocks, tick every task that has a clock, remove tasks that were never clocked. |
 
-Most commands ship default hotkeys built around one configurable key (Alt = toggle, Cmd = switch, Shift = tick, Ctrl = time travel; see the "Tracking hotkey characters" setting). Every binding can be changed in Obsidian's Hotkeys settings. On mobile, each command has an icon for the toolbar.
+Commands ship without default hotkeys; assign your own in Obsidian's Hotkeys settings. On mobile, each command has an icon for the toolbar.
 
 ## Statistics
 
@@ -92,11 +92,10 @@ Weeks start on Monday. The `all` range starts at your oldest daily note. Everyth
 
 ## Settings
 
-- Daily notes folder (empty = vault root) and date format (any Moment format, sub-folders allowed).
+- The daily notes folder and date format are inherited from the core Daily notes plugin.
 - Tag mapping: for each tag, an emoji shown in pickers and a text style (bold / italic / underline) used in the statistics tables.
 - Frontmatter property names for wake and bed time.
 - Name of the "unassigned" task used by quick interruptions.
-- Tracking hotkey characters: the key(s) combined with modifiers in the default hotkeys; add one character per Alt/Shift-modified variant your keyboard layout produces.
 - An Apply button reloads the open views after changing settings.
 
 ## Development

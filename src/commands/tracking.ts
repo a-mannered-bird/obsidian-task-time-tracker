@@ -1,4 +1,4 @@
-import { Notice, type Hotkey, type IconName, type Modifier } from 'obsidian'
+import { Notice, type IconName } from 'obsidian'
 import { TaskNote } from 'core/note'
 import { toggleTasks, type Prompts, type ToggleOptions } from 'core/toggle'
 import { pickTask } from 'ui/TaskSuggestModal'
@@ -11,10 +11,6 @@ type TrackingCommand = {
 	name: string
 	/** Shown in the mobile toolbar and command list. */
 	icon: IconName
-	/** Modifiers of the default hotkey; no default hotkey when omitted. */
-	modifiers?: Modifier[]
-	/** Key of the default hotkey; the configurable main key when omitted. */
-	key?: string
 	/** Engine runs applied in order on the same note (most commands have one). */
 	steps: ToggleOptions[]
 }
@@ -27,21 +23,18 @@ const TRACKING_COMMANDS: TrackingCommand[] = [
 	{
 		id: 'toggle-task',
 		icon: 'play',
-		modifiers: ['Alt'],
 		name: 'Toggle task',
 		steps: [{ placeholder: 'Which task to toggle?' }],
 	},
 	{
 		id: 'toggle-task-from',
 		icon: 'alarm-clock',
-		modifiers: ['Ctrl', 'Alt'],
 		name: 'Toggle task from…',
 		steps: [{ placeholder: 'Which task to toggle?', timeTravel: true }],
 	},
 	{
 		id: 'toggle-task-from-last',
 		icon: 'step-forward',
-		modifiers: ['Meta', 'Alt'],
 		name: 'Toggle task from last',
 		steps: [
 			{
@@ -53,14 +46,12 @@ const TRACKING_COMMANDS: TrackingCommand[] = [
 	{
 		id: 'toggle-tick-task',
 		icon: 'check',
-		modifiers: ['Alt', 'Shift'],
 		name: 'Toggle and tick task',
 		steps: [{ placeholder: 'Which task to toggle and tick?', tick: true }],
 	},
 	{
 		id: 'toggle-tick-task-from',
 		icon: 'badge-check',
-		modifiers: ['Ctrl', 'Alt', 'Shift'],
 		name: 'Toggle and tick task from…',
 		steps: [
 			{
@@ -73,14 +64,12 @@ const TRACKING_COMMANDS: TrackingCommand[] = [
 	{
 		id: 'switch-task',
 		icon: 'arrow-left-right',
-		modifiers: ['Meta'],
 		name: 'Switch task',
 		steps: [{ placeholder: 'Which task to switch to?', switch: true }],
 	},
 	{
 		id: 'switch-task-from',
 		icon: 'rewind',
-		modifiers: ['Ctrl', 'Meta'],
 		name: 'Switch task from…',
 		steps: [
 			{
@@ -93,7 +82,6 @@ const TRACKING_COMMANDS: TrackingCommand[] = [
 	{
 		id: 'switch-tick-task',
 		icon: 'list-checks',
-		modifiers: ['Meta', 'Shift'],
 		name: 'Switch and tick task',
 		steps: [
 			{
@@ -106,7 +94,6 @@ const TRACKING_COMMANDS: TrackingCommand[] = [
 	{
 		id: 'switch-tick-task-from',
 		icon: 'clipboard-check',
-		modifiers: ['Ctrl', 'Meta', 'Shift'],
 		name: 'Switch and tick task from…',
 		steps: [
 			{
@@ -120,14 +107,12 @@ const TRACKING_COMMANDS: TrackingCommand[] = [
 	{
 		id: 'switch-to-previous',
 		icon: 'undo-2',
-		modifiers: ['Ctrl', 'Shift'],
 		name: 'Switch to previous task(s)',
 		steps: [{ switch: true, previous: true }],
 	},
 	{
 		id: 'log-interruption-from',
 		icon: 'bell-ring',
-		modifiers: ['Ctrl', 'Alt', 'Meta', 'Shift'],
 		name: 'Log interruption from…',
 		// Two runs, like the QuickAdd macro: switch to the interruption at a
 		// past time, then switch back to what was running before it.
@@ -149,15 +134,12 @@ const TRACKING_COMMANDS: TrackingCommand[] = [
 	{
 		id: 'migrate-current-task',
 		icon: 'move',
-		modifiers: ['Meta', 'Alt'],
-		key: 'M',
 		name: 'Migrate current task',
 		steps: [{ migrate: true, placeholder: 'Which task to migrate to?' }],
 	},
 	{
 		id: 'set-task-duration',
 		icon: 'hourglass',
-		modifiers: ['Ctrl', 'Alt', 'Meta'],
 		name: 'Set task duration',
 		steps: [
 			{ setDuration: true, placeholder: 'Which task to set duration to?' },
@@ -171,27 +153,9 @@ export function registerTrackingCommands(plugin: TaskTimeTracker) {
 			id: command.id,
 			name: command.name,
 			icon: command.icon,
-			// Deliberate product choice: a coherent hotkey scheme around one
-			// configurable key; every binding stays overridable in the Hotkeys
-			// settings. Revisit before a community-plugin submission.
-			// eslint-disable-next-line obsidianmd/commands/no-default-hotkeys
-			hotkeys: defaultHotkeys(command, plugin.settings.defaultToggleHotkey),
 			callback: () => void runTrackingSteps(plugin, command.steps),
 		})
 	}
-}
-
-/**
- * One default hotkey per configured character (a command with a fixed key gets
- * exactly one). Several characters cover keyboard layouts where Alt/Shift
- * change the character the key produces: Obsidian matches the produced
- * character, so e.g. Alt+@ may need "•" as an alternative on a Mac layout.
- */
-function defaultHotkeys(command: TrackingCommand, mainKeys: string): Hotkey[] {
-	const { modifiers } = command
-	if (!modifiers) return []
-	const keys = command.key ? [command.key] : [...mainKeys.replace(/\s/g, '')]
-	return keys.map((key) => ({ modifiers, key }))
 }
 
 /** Run engine steps on the target daily note; also used by the tracker tab. */

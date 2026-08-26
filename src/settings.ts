@@ -12,7 +12,6 @@ export interface TaskTimeTrackerSettings {
 	wakeTimeProperty: string
 	bedTimeProperty: string
 	unassignedTaskName: string
-	defaultToggleHotkey: string
 	tagMappings: TagMapping[]
 	quickActions: QuickAction[]
 	/** UI state, not shown in the settings tab. */
@@ -25,7 +24,6 @@ export const DEFAULT_SETTINGS: TaskTimeTrackerSettings = {
 	wakeTimeProperty: 'wake_time',
 	bedTimeProperty: 'bed_time',
 	unassignedTaskName: 'Unassigned',
-	defaultToggleHotkey: '@',
 	lastDailyViewTab: 'tracker',
 	quickActions: [],
 	tagMappings: [
@@ -133,7 +131,6 @@ export class TaskTimeTrackerSettingTab extends PluginSettingTab {
 	}
 
 	private displayDailyNotesSection(containerEl: HTMLElement) {
-
 		this.addTextSetting(containerEl, 'wakeTimeProperty', {
 			name: 'Wake time property',
 			desc: 'Frontmatter property holding the time you got up.',
@@ -150,10 +147,6 @@ export class TaskTimeTrackerSettingTab extends PluginSettingTab {
 		this.addTextSetting(containerEl, 'unassignedTaskName', {
 			name: 'Unassigned task name',
 			desc: 'Task used by quick interruptions until the time gets assigned to a real task.',
-		})
-		this.addTextSetting(containerEl, 'defaultToggleHotkey', {
-			name: 'Tracking hotkey characters',
-			desc: 'Characters combined with modifiers in the default hotkeys of the tracking commands; each character becomes an alternative hotkey. Useful when Alt or Shift changes the character your key produces: add each produced character (restart the plugin to apply). Individual hotkeys can still be changed in the Hotkeys settings.',
 		})
 	}
 

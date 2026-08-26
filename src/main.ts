@@ -55,6 +55,8 @@ export default class TaskTimeTracker extends Plugin {
 		// Dropped settings, now inherited from the core Daily notes plugin.
 		delete data.dailyNotesFolder
 		delete data.dateFormat
+		// Dropped setting; the tracking commands no longer ship default hotkeys.
+		delete data.defaultToggleHotkey
 		this.settings = Object.assign(
 			{},
 			DEFAULT_SETTINGS,
