@@ -9,8 +9,6 @@ import type TaskTimeTracker from './main'
 import type { TagMapping } from './types/tags'
 
 export interface TaskTimeTrackerSettings {
-	dailyNotesFolder: string
-	dateFormat: string
 	wakeTimeProperty: string
 	bedTimeProperty: string
 	unassignedTaskName: string
@@ -24,8 +22,6 @@ export interface TaskTimeTrackerSettings {
 export type DailyViewTab = 'tracker' | 'stats'
 
 export const DEFAULT_SETTINGS: TaskTimeTrackerSettings = {
-	dailyNotesFolder: '',
-	dateFormat: 'YYYY-MM-DD',
 	wakeTimeProperty: 'wake_time',
 	bedTimeProperty: 'bed_time',
 	unassignedTaskName: 'Unassigned',
@@ -137,18 +133,7 @@ export class TaskTimeTrackerSettingTab extends PluginSettingTab {
 	}
 
 	private displayDailyNotesSection(containerEl: HTMLElement) {
-		new Setting(containerEl).setName('Daily notes').setHeading()
 
-		this.addTextSetting(containerEl, 'dailyNotesFolder', {
-			name: 'Daily notes folder',
-			desc: 'Folder containing your daily notes. Leave empty for the vault root.',
-			placeholder: 'Journal',
-			allowEmpty: true,
-		})
-		this.addTextSetting(containerEl, 'dateFormat', {
-			name: 'Date format',
-			desc: 'Moment.js format of your daily note file names.',
-		})
 		this.addTextSetting(containerEl, 'wakeTimeProperty', {
 			name: 'Wake time property',
 			desc: 'Frontmatter property holding the time you got up.',

@@ -6,6 +6,7 @@ import {
 	registerQuickActionCommands,
 } from './commands/quickActions'
 import { registerTrackingCommands } from './commands/tracking'
+import { getCoreDailyNotesConfig } from './core/coreDailyNotes'
 import { DailyLogStore, type DailyLogStoreConfig } from './core/dailyLogs'
 import {
 	DEFAULT_SETTINGS,
@@ -50,10 +51,14 @@ export default class TaskTimeTracker extends Plugin {
 	}
 
 	async loadSettings() {
+		const data = ((await this.loadData()) ?? {}) as Record<string, unknown>
+		// Dropped settings, now inherited from the core Daily notes plugin.
+		delete data.dailyNotesFolder
+		delete data.dateFormat
 		this.settings = Object.assign(
 			{},
 			DEFAULT_SETTINGS,
-			(await this.loadData()) as Partial<TaskTimeTrackerSettings>
+			data as Partial<TaskTimeTrackerSettings>
 		)
 		this.settings.quickActions =
 			this.settings.quickActions.map(normalizeQuickAction)
@@ -64,10 +69,9 @@ export default class TaskTimeTracker extends Plugin {
 	}
 
 	getDailyLogStoreConfig(): DailyLogStoreConfig {
-		const { dailyNotesFolder, dateFormat, wakeTimeProperty, bedTimeProperty } =
-			this.settings
+		const { wakeTimeProperty, bedTimeProperty } = this.settings
 		return {
-			dailyNotes: { folder: dailyNotesFolder, format: dateFormat },
+			dailyNotes: getCoreDailyNotesConfig(this.app),
 			wakeTimeProperty,
 			bedTimeProperty,
 		}

@@ -89,7 +89,9 @@
 			return {
 				label: shortDay(point.date),
 				// Full date, in the same format as the daily note names.
-				tooltipLabel: moment(point.date).format(plugin.settings.dateFormat),
+				tooltipLabel: moment(point.date).format(
+					plugin.getDailyLogStoreConfig().dailyNotes.format
+				),
 				minutes,
 				total: point.total,
 			}
