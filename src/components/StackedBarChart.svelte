@@ -54,6 +54,11 @@
 		const step = hours > 8 ? 4 : hours > 4 ? 2 : 1
 		return Math.ceil(hours / step) * step * 60
 	}
+
+	/** `1.5h`, at most one decimal; whole hours stay bare (`3h`). */
+	function tickLabel(tick: number): string {
+		return `${Math.round((tick / 60) * 10) / 10}h`
+	}
 </script>
 
 <div class="chart">
@@ -105,7 +110,7 @@
 
 		{#each ticks as tick (tick)}
 			<span class="y-label" style:top="{((HEIGHT - y(tick)) / HEIGHT) * 100}%"
-				>{Math.round(tick / 60)}h</span
+				>{tickLabel(tick)}</span
 			>
 		{/each}
 	</div>
@@ -153,7 +158,7 @@
 	}
 
 	.chart {
-		padding-left: 2.2em;
+		padding-left: 2.6em;
 	}
 
 	.plot {
@@ -166,12 +171,13 @@
 		height: 200px;
 	}
 
+	/* Right edge pinned to the plot's left edge, into the chart's left gutter. */
 	.y-label {
 		position: absolute;
-		left: 0;
+		right: 100%;
+		padding-right: 0.35em;
 		transform: translateY(-50%);
-		/* Scale to the svg box: its 200px sit under the labels' offset parent. */
-		margin-top: 0;
+		white-space: nowrap;
 	}
 
 	.x-labels {
