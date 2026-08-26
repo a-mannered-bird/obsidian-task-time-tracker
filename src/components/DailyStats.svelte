@@ -8,7 +8,11 @@
 	} from 'core/aggregate'
 	import { addDays } from 'core/dailyNotes'
 	import type { DailyLog } from 'core/dailyLogs'
-	import { tasksToIntervals, uncoveredMinutes } from 'core/intervals'
+	import {
+		coveredMinutes,
+		tasksToIntervals,
+		uncoveredMinutes,
+	} from 'core/intervals'
 	import { getStyleByTags } from 'core/tags'
 	import { formatDuration, getMinutesBetween } from 'core/time'
 	import KeyValueTable from './KeyValueTable.svelte'
@@ -57,6 +61,7 @@
 	const previousBedTime = $derived(yesterday?.bedTime ?? null)
 
 	const totalTime = $derived(totalMinutes(tasks, now))
+	const coveredTime = $derived(coveredMinutes(tasksToIntervals(tasks, now)))
 	const loggableTime = $derived(
 		wakeTime && bedTime ? getMinutesBetween(wakeTime, bedTime) : null
 	)
@@ -97,6 +102,10 @@
 	<div class="stats-item">
 		<b>⏱ Total time logged: </b>
 		<span>{format(totalTime, loggableTime)}</span>
+	</div>
+	<div class="stats-item">
+		<b>🕰 Time covered (overlaps once): </b>
+		<span>{format(coveredTime, loggableTime)}</span>
 	</div>
 	<div class="stats-item">
 		<b>⏳ Remaining time: </b>

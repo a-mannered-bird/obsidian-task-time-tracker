@@ -38,6 +38,11 @@ export function mergeIntervals(intervals: Interval[]): Interval[] {
 	return merged
 }
 
+/** Total minutes covered by the intervals; overlapping parts count once. */
+export function coveredMinutes(intervals: Interval[]): number {
+	return sumMinutes(mergeIntervals(intervals))
+}
+
 function clipInterval(interval: Interval, bounds: Interval): Interval | null {
 	const start = new Date(
 		Math.max(interval.start.valueOf(), bounds.start.valueOf())

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Interval } from 'types/tasks'
 import {
+	coveredMinutes,
 	mergeIntervals,
 	uncoveredIntervals,
 	uncoveredMinutes,
@@ -21,6 +22,14 @@ describe('mergeIntervals', () => {
 
 	it('drops empty or reversed intervals', () => {
 		expect(mergeIntervals([span([10], [10]), span([11], [10])])).toEqual([])
+	})
+})
+
+describe('coveredMinutes', () => {
+	it('counts overlapping intervals once', () => {
+		expect(
+			coveredMinutes([span([9], [11]), span([10], [12]), span([13], [13, 30])])
+		).toBe(210)
 	})
 })
 
