@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { App, TFile } from 'obsidian'
 import {
 	addDays,
+	getAdjacentDailyNoteFile,
 	getDailyNoteDate,
 	getDailyNotePath,
 	resolveTargetFile,
@@ -98,5 +99,33 @@ describe('resolveTargetFile', () => {
 	it('returns null when there is no active daily note and none in the vault', () => {
 		const app = appStub(null, [])
 		expect(resolveTargetFile(app, config, date)).toBeNull()
+	})
+})
+
+describe('getAdjacentDailyNoteFile', () => {
+	const app = appStub(null, [
+		'Journal/2026-08-10.md',
+		'Journal/2026-08-13.md',
+		'Journal/2026-08-16.md',
+		'Journal/tasks-dictionary.md',
+	])
+	const noteDate = new Date(2026, 7, 13)
+
+	it('finds the closest note in each direction, skipping gaps', () => {
+		expect(getAdjacentDailyNoteFile(app, config, noteDate, -1)?.path).toBe(
+			'Journal/2026-08-10.md'
+		)
+		expect(getAdjacentDailyNoteFile(app, config, noteDate, 1)?.path).toBe(
+			'Journal/2026-08-16.md'
+		)
+	})
+
+	it('returns null at the edges', () => {
+		expect(
+			getAdjacentDailyNoteFile(app, config, new Date(2026, 7, 10), -1)
+		).toBeNull()
+		expect(
+			getAdjacentDailyNoteFile(app, config, new Date(2026, 7, 16), 1)
+		).toBeNull()
 	})
 })

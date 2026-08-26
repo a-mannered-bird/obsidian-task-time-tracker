@@ -1,9 +1,15 @@
 <script lang="ts">
-	import { moment, type App } from 'obsidian'
+	import { moment, type App, type TFile } from 'obsidian'
 	import { onMount } from 'svelte'
-	import { resolveTargetFile } from 'core/dailyNotes'
+	import {
+		createDailyNote,
+		getAdjacentDailyNoteFile,
+		getDailyNoteFile,
+		resolveTargetFile,
+	} from 'core/dailyNotes'
 	import type { DailyLog } from 'core/dailyLogs'
 	import type { DailyViewTab } from '../settings'
+	import { icon } from 'ui/icon'
 	import DailyStats from './DailyStats.svelte'
 	import TrackerTab from './TrackerTab.svelte'
 	import type TaskTimeTracker from '../main'
@@ -31,13 +37,33 @@
 		void plugin.saveSettings()
 	}
 
+	const dailyNotes = $derived(plugin.getDailyLogStoreConfig().dailyNotes)
+	const previousFile = $derived(
+		log ? getAdjacentDailyNoteFile(app, dailyNotes, log.date, -1) : null
+	)
+	const nextFile = $derived(
+		log ? getAdjacentDailyNoteFile(app, dailyNotes, log.date, 1) : null
+	)
+
 	async function reload() {
-		const file = resolveTargetFile(
-			app,
-			plugin.getDailyLogStoreConfig().dailyNotes
-		)
+		const file = resolveTargetFile(app, dailyNotes)
 		log = file ? await plugin.dailyLogs.loadFile(file) : null
 		loading = false
+	}
+
+	/** Opens the note in the workspace so the view and commands follow it. */
+	async function openNote(file: TFile | null) {
+		if (!file) return
+		await app.workspace.getLeaf(false).openFile(file)
+		await reload()
+	}
+
+	async function openToday() {
+		const today = new Date()
+		const file =
+			getDailyNoteFile(app, dailyNotes, today) ??
+			(await createDailyNote(app, dailyNotes, today))
+		await openNote(file)
 	}
 
 	onMount(() => {
@@ -51,9 +77,26 @@
 	})
 </script>
 
-{#if log}
-	<div class="note-date">{moment(log.date).format('dddd, LL')}</div>
-{/if}
+<div class="note-nav">
+	<button
+		class="icon-button"
+		aria-label="Previous daily note"
+		use:icon={'chevron-left'}
+		disabled={!previousFile}
+		onclick={() => void openNote(previousFile)}
+	></button>
+	<span class="note-date">
+		{log ? moment(log.date).format('dddd, LL') : 'No daily note'}
+	</span>
+	<button
+		class="icon-button"
+		aria-label="Next daily note"
+		use:icon={'chevron-right'}
+		disabled={!nextFile}
+		onclick={() => void openNote(nextFile)}
+	></button>
+	<button class="today-button" onclick={() => void openToday()}> Today </button>
+</div>
 
 <div class="tabs" role="tablist">
 	{#each TABS as tab (tab.id)}
@@ -76,9 +119,45 @@
 {/if}
 
 <style>
-	.note-date {
+	.note-nav {
+		display: flex;
+		align-items: center;
+		gap: 0.4em;
 		color: var(--text-muted);
 		font-size: var(--font-ui-smaller);
+	}
+
+	.icon-button {
+		all: unset;
+		cursor: pointer;
+		display: inline-flex;
+		color: var(--text-muted);
+	}
+
+	.icon-button:hover:enabled {
+		color: var(--text-normal);
+	}
+
+	.icon-button:disabled {
+		color: var(--text-faint);
+		cursor: default;
+	}
+
+	.icon-button:focus-visible,
+	.today-button:focus-visible {
+		outline: 2px solid var(--interactive-accent);
+		outline-offset: 2px;
+	}
+
+	.today-button {
+		all: unset;
+		cursor: pointer;
+		margin-left: auto;
+		color: var(--text-muted);
+	}
+
+	.today-button:hover {
+		color: var(--text-normal);
 	}
 
 	.tabs {

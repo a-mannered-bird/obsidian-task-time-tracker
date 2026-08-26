@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { setIcon, type IconName } from 'obsidian'
 	import { onMount } from 'svelte'
 	import { completeJournal } from 'commands/completeJournal'
 	import { runTimeCommand, TIME_COMMANDS } from 'commands/frontmatterTime'
@@ -12,6 +11,7 @@
 	import { getStyleByTags } from 'core/tags'
 	import { formatHoursMinutes, getMinutesBetween } from 'core/time'
 	import type { Task } from 'types/tasks'
+	import { icon } from 'ui/icon'
 	import type TaskTimeTracker from '../main'
 
 	type Props = {
@@ -62,16 +62,6 @@
 		const tick = window.setInterval(() => (now = new Date()), 60 * 1000)
 		return () => window.clearInterval(tick)
 	})
-
-	/** Renders an Obsidian (Lucide) icon inside the element. */
-	function icon(el: HTMLElement, name: IconName) {
-		setIcon(el, name)
-		return {
-			update(next: IconName) {
-				setIcon(el, next)
-			},
-		}
-	}
 </script>
 
 {#if loading}

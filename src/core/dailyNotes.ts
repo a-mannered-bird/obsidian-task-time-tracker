@@ -55,6 +55,45 @@ export function getDailyNoteFile(
 	return app.vault.getFileByPath(getDailyNotePath(config, date))
 }
 
+/**
+ * Closest existing daily note strictly before (`-1`) or after (`1`) the
+ * date, or null when there is none.
+ */
+export function getAdjacentDailyNoteFile(
+	app: App,
+	config: DailyNotesConfig,
+	date: Date,
+	direction: -1 | 1
+): TFile | null {
+	let closest: { date: Date; file: TFile } | null = null
+	for (const file of app.vault.getMarkdownFiles()) {
+		const noteDate = getDailyNoteDate(config, file.path)
+		if (!noteDate) continue
+		if (direction === -1 ? noteDate >= date : noteDate <= date) continue
+		if (
+			!closest ||
+			(direction === -1 ? noteDate > closest.date : noteDate < closest.date)
+		)
+			closest = { date: noteDate, file }
+	}
+	return closest?.file ?? null
+}
+
+/** Create an empty daily note for the date, plus missing parent folders. */
+export async function createDailyNote(
+	app: App,
+	config: DailyNotesConfig,
+	date: Date
+): Promise<TFile> {
+	const path = getDailyNotePath(config, date)
+	let folder = ''
+	for (const segment of path.split('/').slice(0, -1)) {
+		folder = folder ? `${folder}/${segment}` : segment
+		if (!app.vault.getFolderByPath(folder)) await app.vault.createFolder(folder)
+	}
+	return app.vault.create(path, '')
+}
+
 /** Most recent daily note in the vault, ignoring notes dated in the future. */
 export function getLatestDailyNoteFile(
 	app: App,
