@@ -119,6 +119,30 @@ describe('computeRangeStats', () => {
 		expect(filtered.totalMinutes).toBe(30)
 	})
 
+	it('grouping by tag with a tag filter only shows the filtered tags', () => {
+		const filtered = computeRangeStats(logs, {
+			range,
+			groupBy: 'tag',
+			filter: ['#routine'],
+			now,
+		})
+		expect(filtered.byKey).toEqual([['#routine', 30]])
+		expect(filtered.totalMinutes).toBe(30)
+	})
+
+	it('a task matched by name keeps all of its tags in the tag grouping', () => {
+		const filtered = computeRangeStats(logs, {
+			range,
+			groupBy: 'tag',
+			filter: ['Walk the dog'],
+			now,
+		})
+		expect(filtered.byKey).toEqual([
+			['#routine', 30],
+			['#outside', 30],
+		])
+	})
+
 	it('computes time-of-day stats from all tasks even when a filter is set', () => {
 		const filtered = computeRangeStats(logs, {
 			range,

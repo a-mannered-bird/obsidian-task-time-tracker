@@ -67,7 +67,9 @@ export function computeRangeStats(
 		const log = byDate.get(dayKey(date))
 		const previous = byDate.get(dayKey(addDays(date, -1)))
 		const tasks = log ? filterTasks(log.tasks, options.filter) : []
-		const minutes = aggregate(tasks, now)
+		const grouped =
+			groupBy === 'tag' ? restrictTagsToFilter(tasks, options.filter) : tasks
+		const minutes = aggregate(grouped, now)
 		perDay.push({
 			date,
 			minutes,
@@ -112,6 +114,19 @@ export function filterTasks(tasks: Task[], filter?: string[]): Task[] {
 			filter.includes(task.name) ||
 			task.tags.some((tag) => filter.includes(tag))
 	)
+}
+
+/**
+ * Grouping by tag with a filter only shows the filtered tags, not the other
+ * tags carried by the same tasks. A task matched by name (none of its tags
+ * is in the filter) keeps all of its tags.
+ */
+function restrictTagsToFilter(tasks: Task[], filter?: string[]): Task[] {
+	if (!filter || filter.length === 0) return tasks
+	return tasks.map((task) => {
+		const kept = task.tags.filter((tag) => filter.includes(tag))
+		return kept.length ? { ...task, tags: kept } : task
+	})
 }
 
 /** Average of the non-null values, or null when there is none. */
