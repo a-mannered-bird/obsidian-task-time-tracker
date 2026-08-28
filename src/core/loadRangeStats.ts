@@ -1,6 +1,6 @@
 import { addDays } from './dailyNotes'
 import type { DailyLogStore } from './dailyLogs'
-import { resolveRange } from './ranges'
+import { shiftRange } from './ranges'
 import { computeRangeStats, type RangeStats } from './stats'
 import type { StatsBlockOptions } from './statsOptions'
 
@@ -12,14 +12,17 @@ export type LoadedRangeStats = {
 /**
  * Resolve the range (the `all` preset starts at the oldest daily note), load
  * the logs plus the day before (previous bed time), and compute the stats.
- * Returns null when the range cannot be resolved or holds no note at all.
+ * A non-zero `offset` steps that many periods away from the written range
+ * (see shiftRange). Returns null when the range cannot be resolved or holds
+ * no note at all.
  */
 export async function loadRangeStats(
 	store: DailyLogStore,
 	options: StatsBlockOptions,
+	offset = 0,
 	now = new Date()
 ): Promise<LoadedRangeStats | null> {
-	const resolved = resolveRange(options.range, now)
+	const resolved = shiftRange(options.range, offset, now)
 	if (!resolved) return null
 
 	const start = resolved.start ?? store.earliestDate()

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { countDays, resolveRange, startOfWeek } from './ranges'
+import { countDays, resolveRange, shiftRange, startOfWeek } from './ranges'
 
 // Wednesday 2026-08-19, mid-afternoon: bounds must ignore the time of day.
 const today = new Date(2026, 7, 19, 15, 42, 0)
@@ -91,6 +91,60 @@ describe('resolveRange custom', () => {
 	it('rejects unknown specs and invalid dates', () => {
 		expect(resolveRange('fortnight', today)).toBeNull()
 		expect(resolveRange('2026-02-30..2026-03-01', today)).toBeNull()
+	})
+})
+
+describe('shiftRange', () => {
+	it('returns the written range at offset 0', () => {
+		expect(shiftRange('this-month', 0, today)).toEqual(
+			resolveRange('this-month', today)
+		)
+	})
+
+	it('steps calendar specs by full units', () => {
+		expect(shiftRange('this-month', -1, today)).toEqual({
+			start: d(2026, 7, 1),
+			end: d(2026, 7, 31),
+		})
+		expect(shiftRange('this-week', -1, today)).toEqual(
+			resolveRange('last-week', today)
+		)
+		expect(shiftRange('this-year', -1, today)).toEqual(
+			resolveRange('last-year', today)
+		)
+	})
+
+	it('steps windows and custom spans by their own length', () => {
+		expect(shiftRange('last-7-days', -1, today)).toEqual({
+			start: d(2026, 8, 6),
+			end: d(2026, 8, 12),
+		})
+		expect(shiftRange('last-2-weeks', -1, today)).toEqual({
+			start: d(2026, 7, 27),
+			end: d(2026, 8, 9),
+		})
+		expect(shiftRange('2026-08-01..2026-08-04', -1, today)).toEqual({
+			start: d(2026, 7, 28),
+			end: d(2026, 7, 31),
+		})
+	})
+
+	it('clamps a shifted end to today when stepping forward', () => {
+		expect(shiftRange('last-month', 1, today)).toEqual({
+			start: d(2026, 8, 1),
+			end: d(2026, 8, 19),
+		})
+		expect(shiftRange('yesterday', 1, today)).toEqual({
+			start: d(2026, 8, 19),
+			end: d(2026, 8, 19),
+		})
+	})
+
+	it('refuses ranges starting in the future, "all" and unknown specs', () => {
+		expect(shiftRange('yesterday', 2, today)).toBeNull()
+		expect(shiftRange('this-month', 1, today)).toBeNull()
+		expect(shiftRange('all', -1, today)).toBeNull()
+		expect(shiftRange('fortnight', -1, today)).toBeNull()
 	})
 })
 

@@ -90,6 +90,8 @@ The metrics:
 
 Weeks start on Monday. The `all` range starts at your oldest daily note. Everything refreshes live when a note changes.
 
+Arrows next to the rendered date range step to the previous or next period (a month for `this-month`, 7 days for `last-7-days`, …), never into the future. The navigation is view-only: the block's `range` is untouched and a re-render starts back at it.
+
 ## Settings
 
 - The daily notes folder and date format are inherited from the core Daily notes plugin.

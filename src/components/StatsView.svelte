@@ -2,9 +2,11 @@
 	import { moment } from 'obsidian'
 	import { onMount } from 'svelte'
 	import { loadRangeStats, type LoadedRangeStats } from 'core/loadRangeStats'
+	import { shiftRange } from 'core/ranges'
 	import type { StatsBlockOptions } from 'core/statsOptions'
 	import { getStyleByTags } from 'core/tags'
 	import { formatClockMinutes, formatHoursMinutes } from 'core/time'
+	import { icon } from 'ui/icon'
 	import KeyValueTable from './KeyValueTable.svelte'
 	import StackedBarChart, {
 		type ChartPoint,
@@ -21,6 +23,13 @@
 
 	let loaded = $state<LoadedRangeStats | null>(null)
 	let loading = $state(true)
+	/**
+	 * Periods navigated away from the written range (0 = as written, negative
+	 * = past). Component state only: a re-render starts back at the source.
+	 */
+	let offset = $state(0)
+	let canGoPrevious = $state(false)
+	let canGoNext = $state(false)
 
 	const stats = $derived(loaded?.stats ?? null)
 	const tagMappings = $derived(plugin.settings.tagMappings)
@@ -136,8 +145,16 @@
 	}
 
 	async function reload() {
-		loaded = await loadRangeStats(plugin.dailyLogs, options)
+		const now = new Date()
+		loaded = await loadRangeStats(plugin.dailyLogs, options, offset, now)
+		canGoPrevious = shiftRange(options.range, offset - 1, now) !== null
+		canGoNext = shiftRange(options.range, offset + 1, now) !== null
 		loading = false
+	}
+
+	function navigate(step: number) {
+		offset += step
+		void reload()
 	}
 
 	onMount(() => {
@@ -153,9 +170,29 @@
 	<p>No daily note found for range "{options.range}".</p>
 {:else}
 	<div class="stats-header">
-		<strong
-			>{formatDay(loaded.range.start)} → {formatDay(loaded.range.end)}</strong
-		>
+		<span class="range-nav">
+			{#if canGoPrevious || canGoNext}
+				<button
+					class="icon-button"
+					aria-label="Previous range"
+					use:icon={'chevron-left'}
+					disabled={!canGoPrevious}
+					onclick={() => navigate(-1)}
+				></button>
+			{/if}
+			<strong
+				>{formatDay(loaded.range.start)} → {formatDay(loaded.range.end)}</strong
+			>
+			{#if canGoPrevious || canGoNext}
+				<button
+					class="icon-button"
+					aria-label="Next range"
+					use:icon={'chevron-right'}
+					disabled={!canGoNext}
+					onclick={() => navigate(1)}
+				></button>
+			{/if}
+		</span>
 		<span class="muted">
 			{stats.loggedDays} of {stats.days} days logged
 		</span>
@@ -231,6 +268,33 @@
 		justify-content: space-between;
 		align-items: baseline;
 		margin-bottom: 0.5em;
+	}
+
+	.range-nav {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.3em;
+	}
+
+	.icon-button {
+		all: unset;
+		cursor: pointer;
+		display: inline-flex;
+		color: var(--text-muted);
+	}
+
+	.icon-button:hover:enabled {
+		color: var(--text-normal);
+	}
+
+	.icon-button:disabled {
+		color: var(--text-faint);
+		cursor: default;
+	}
+
+	.icon-button:focus-visible {
+		outline: 2px solid var(--interactive-accent);
+		outline-offset: 2px;
 	}
 
 	.stats-summary {

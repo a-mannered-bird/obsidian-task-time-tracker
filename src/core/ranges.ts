@@ -129,6 +129,79 @@ function resolveLastRange({ count, unit }: LastRange, day: Date): DateRange {
 	}
 }
 
+/**
+ * Range shown after stepping `offset` periods away from the written spec:
+ * 0 is the spec itself, negative offsets go into the past. The period is the
+ * spec's own unit and length (`this-month` steps by one month, `last-2-weeks`
+ * by two weeks, a custom span by its number of days). Once shifted, calendar
+ * units cover full weeks/months/years and the end is clamped to today.
+ * Returns null for an unknown spec, for a shifted `all` (it has no period),
+ * or when the shifted range would start in the future.
+ */
+export function shiftRange(
+	spec: string,
+	offset: number,
+	today: Date
+): DateRange | null {
+	const base = resolveRange(spec, today)
+	if (!base) return null
+	if (offset === 0) return base
+	if (!base.start) return null
+
+	const day = startOfDay(today)
+	const period = rangePeriod(spec) ?? {
+		unit: 'day' as const,
+		count: countDays({ start: base.start, end: base.end }),
+	}
+	const shift = offset * period.count
+
+	let start: Date
+	let end: Date
+	switch (period.unit) {
+		case 'day':
+			start = addDays(base.start, shift)
+			end = addDays(base.end, shift)
+			break
+		case 'week':
+			start = addDays(startOfWeek(base.start), shift * 7)
+			end = addDays(start, period.count * 7 - 1)
+			break
+		case 'month':
+			start = addMonths(startOfMonth(base.start), shift)
+			end = addDays(addMonths(start, period.count), -1)
+			break
+		case 'year':
+			start = new Date(base.start.getFullYear() + shift, 0, 1)
+			end = new Date(start.getFullYear() + period.count - 1, 11, 31)
+			break
+	}
+	if (start > day) return null
+	return { start, end: end < day ? end : day }
+}
+
+/** Step unit and length of a spec; null for `all`, custom spans and unknowns. */
+function rangePeriod(spec: string): LastRange | null {
+	const trimmed = spec.trim()
+	const last = parseLastRange(trimmed)
+	if (last) return last
+	switch (trimmed) {
+		case 'today':
+		case 'yesterday':
+			return { count: 1, unit: 'day' }
+		case 'this-week':
+		case 'last-week':
+			return { count: 1, unit: 'week' }
+		case 'this-month':
+		case 'last-month':
+			return { count: 1, unit: 'month' }
+		case 'this-year':
+		case 'last-year':
+			return { count: 1, unit: 'year' }
+		default:
+			return null
+	}
+}
+
 /** Number of calendar days in a resolved range (start must be known). */
 export function countDays(range: { start: Date; end: Date }): number {
 	const ms = startOfDay(range.end).valueOf() - startOfDay(range.start).valueOf()
