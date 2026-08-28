@@ -5,10 +5,8 @@ export const RANGE_PRESETS = [
 	'yesterday',
 	'this-week',
 	'last-week',
-	'last-7-days',
 	'this-month',
 	'last-month',
-	'last-3-months',
 	'this-year',
 	'last-year',
 	'all',
@@ -26,14 +24,42 @@ export type DateRange = {
 }
 
 const CUSTOM_RANGE = /^(\d{4}-\d{2}-\d{2})\.\.(\d{4}-\d{2}-\d{2})$/
+const LAST_X_RANGE = /^last-(\d+)-(day|week|month|year)s?$/
+
+type LastRange = {
+	count: number
+	unit: 'day' | 'week' | 'month' | 'year'
+}
 
 export function isRangePreset(value: string): value is RangePreset {
 	return (RANGE_PRESETS as readonly string[]).includes(value)
 }
 
+/** Any spec resolveRange accepts: preset, `last-N-<unit>` or custom span. */
+export function isRangeSpec(value: string): boolean {
+	const trimmed = value.trim()
+	return (
+		isRangePreset(trimmed) ||
+		parseLastRange(trimmed) !== null ||
+		CUSTOM_RANGE.test(trimmed)
+	)
+}
+
+function parseLastRange(spec: string): LastRange | null {
+	const match = LAST_X_RANGE.exec(spec)
+	if (!match) return null
+	const [, countText, unit] = match
+	const count = Number(countText)
+	if (count < 1) return null
+	if (unit !== 'day' && unit !== 'week' && unit !== 'month' && unit !== 'year')
+		return null
+	return { count, unit }
+}
+
 /**
- * Resolve a preset or a custom `YYYY-MM-DD..YYYY-MM-DD` spec relative to
- * `today`. Weeks start on Monday. Returns null for an unknown spec.
+ * Resolve a preset, a `last-N-days/weeks/months/years` window or a custom
+ * `YYYY-MM-DD..YYYY-MM-DD` spec relative to `today`. Weeks start on Monday.
+ * Returns null for an unknown spec.
  */
 export function resolveRange(spec: string, today: Date): DateRange | null {
 	const day = startOfDay(today)
@@ -46,6 +72,9 @@ export function resolveRange(spec: string, today: Date): DateRange | null {
 		if (!start || !end) return null
 		return start <= end ? { start, end } : { start: end, end: start }
 	}
+
+	const last = parseLastRange(trimmed)
+	if (last) return resolveLastRange(last, day)
 
 	if (!isRangePreset(trimmed)) return null
 	switch (trimmed) {
@@ -61,16 +90,12 @@ export function resolveRange(spec: string, today: Date): DateRange | null {
 			const start = addDays(startOfWeek(day), -7)
 			return { start, end: addDays(start, 6) }
 		}
-		case 'last-7-days':
-			return { start: addDays(day, -6), end: day }
 		case 'this-month':
 			return { start: startOfMonth(day), end: day }
 		case 'last-month': {
 			const start = addMonths(startOfMonth(day), -1)
 			return { start, end: addDays(startOfMonth(day), -1) }
 		}
-		case 'last-3-months':
-			return { start: addMonths(startOfMonth(day), -2), end: day }
 		case 'this-year':
 			return { start: new Date(day.getFullYear(), 0, 1), end: day }
 		case 'last-year':
@@ -80,6 +105,27 @@ export function resolveRange(spec: string, today: Date): DateRange | null {
 			}
 		case 'all':
 			return { start: null, end: day }
+	}
+}
+
+/**
+ * `last-N-days` is a rolling window of N days ending today; for the other
+ * units the window covers the current (partial) week/month/year plus the
+ * previous N-1 full ones, so `last-1-week` equals `this-week`.
+ */
+function resolveLastRange({ count, unit }: LastRange, day: Date): DateRange {
+	switch (unit) {
+		case 'day':
+			return { start: addDays(day, -(count - 1)), end: day }
+		case 'week':
+			return { start: addDays(startOfWeek(day), -7 * (count - 1)), end: day }
+		case 'month':
+			return { start: addMonths(startOfMonth(day), -(count - 1)), end: day }
+		case 'year':
+			return {
+				start: new Date(day.getFullYear() - (count - 1), 0, 1),
+				end: day,
+			}
 	}
 }
 

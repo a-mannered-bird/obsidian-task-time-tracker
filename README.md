@@ -72,7 +72,7 @@ A `task-stats` code block renders statistics for a date range inside any note, s
 
 ````markdown
 ```task-stats
-range: last-7-days      # today | yesterday | this-week | last-week | last-7-days | this-month | last-month | last-3-months | this-year | last-year | all | 2026-08-01..2026-08-16
+range: last-7-days      # today | yesterday | this-week | last-week | this-month | last-month | this-year | last-year | all | last-N-days/weeks/months/years (any N) | 2026-08-01..2026-08-16
 groupBy: tag            # task (default) | tag
 filter: ["#project"]    # only these task names / #tags
 metrics: [total, average, per-day, time-of-day]   # default: all

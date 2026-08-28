@@ -11,10 +11,8 @@ describe('resolveRange presets', () => {
 		['yesterday', d(2026, 8, 18), d(2026, 8, 18)],
 		['this-week', d(2026, 8, 17), d(2026, 8, 19)],
 		['last-week', d(2026, 8, 10), d(2026, 8, 16)],
-		['last-7-days', d(2026, 8, 13), d(2026, 8, 19)],
 		['this-month', d(2026, 8, 1), d(2026, 8, 19)],
 		['last-month', d(2026, 7, 1), d(2026, 7, 31)],
-		['last-3-months', d(2026, 6, 1), d(2026, 8, 19)],
 		['this-year', d(2026, 1, 1), d(2026, 8, 19)],
 		['last-year', d(2025, 1, 1), d(2025, 12, 31)],
 	])('%s', (spec, start, end) => {
@@ -44,6 +42,37 @@ describe('resolveRange presets', () => {
 		expect(resolveRange('last-3-months', d(2026, 1, 10))?.start).toEqual(
 			d(2025, 11, 1)
 		)
+	})
+})
+
+describe('resolveRange last-N windows', () => {
+	it.each([
+		['last-7-days', d(2026, 8, 13), d(2026, 8, 19)],
+		['last-2-weeks', d(2026, 8, 10), d(2026, 8, 19)],
+		['last-3-months', d(2026, 6, 1), d(2026, 8, 19)],
+		['last-2-years', d(2025, 1, 1), d(2026, 8, 19)],
+	])('%s', (spec, start, end) => {
+		expect(resolveRange(spec, today)).toEqual({ start, end })
+	})
+
+	it('treats a count of 1 like the matching this-* preset, singular allowed', () => {
+		expect(resolveRange('last-1-day', today)).toEqual(
+			resolveRange('today', today)
+		)
+		expect(resolveRange('last-1-week', today)).toEqual(
+			resolveRange('this-week', today)
+		)
+		expect(resolveRange('last-1-month', today)).toEqual(
+			resolveRange('this-month', today)
+		)
+		expect(resolveRange('last-1-year', today)).toEqual(
+			resolveRange('this-year', today)
+		)
+	})
+
+	it('rejects a zero count and unknown units', () => {
+		expect(resolveRange('last-0-days', today)).toBeNull()
+		expect(resolveRange('last-2-fortnights', today)).toBeNull()
 	})
 })
 

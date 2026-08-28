@@ -1,4 +1,4 @@
-import { isRangePreset } from './ranges'
+import { isRangeSpec } from './ranges'
 import type { GroupBy } from './stats'
 
 export const METRICS = ['total', 'average', 'per-day', 'time-of-day'] as const
@@ -44,14 +44,11 @@ export function normalizeStatsOptions(raw: unknown): NormalizedOptions {
 		switch (key) {
 			case 'range': {
 				const range = String(value)
-				if (
-					isRangePreset(range) ||
-					/^\d{4}-\d{2}-\d{2}\.\.\d{4}-\d{2}-\d{2}$/.test(range)
-				) {
+				if (isRangeSpec(range)) {
 					options.range = range
 				} else {
 					errors.push(
-						`range: "${range}" is not a preset (today, this-week, last-7-days, this-month, last-month, last-3-months, this-year, last-year, all, …) nor a YYYY-MM-DD..YYYY-MM-DD span.`
+						`range: "${range}" is not a preset (today, yesterday, this-week, last-week, this-month, last-month, this-year, last-year, all), a last-N-days/weeks/months/years window, nor a YYYY-MM-DD..YYYY-MM-DD span.`
 					)
 				}
 				break
