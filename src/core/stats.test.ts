@@ -143,6 +143,22 @@ describe('computeRangeStats', () => {
 		])
 	})
 
+	it('grouping by filter shows exactly the filter entries', () => {
+		const filtered = computeRangeStats(logs, {
+			range,
+			groupBy: 'filter',
+			filter: ['Write plugin', '#outside'],
+			now,
+		})
+		// "#project" stays hidden although "Write plugin" carries it, and
+		// "Walk the dog" only counts under its filtered tag.
+		expect(filtered.byKey).toEqual([
+			['Write plugin', 180],
+			['#outside', 30],
+		])
+		expect(filtered.totalMinutes).toBe(210)
+	})
+
 	it('computes time-of-day stats from all tasks even when a filter is set', () => {
 		const filtered = computeRangeStats(logs, {
 			range,

@@ -57,7 +57,7 @@ export function normalizeStatsOptions(raw: unknown): NormalizedOptions {
 				if (isGroupBy(value)) options.groupBy = value
 				else
 					errors.push(
-						`groupBy: expected "task" or "tag", got "${String(value)}".`
+						`groupBy: expected "task", "tag" or "filter", got "${String(value)}".`
 					)
 				break
 			case 'filter': {
@@ -89,6 +89,10 @@ export function normalizeStatsOptions(raw: unknown): NormalizedOptions {
 		}
 	}
 
+	if (options.groupBy === 'filter' && options.filter.length === 0) {
+		errors.push('groupBy: "filter" requires a non-empty filter.')
+	}
+
 	return errors.length ? { ok: false, errors } : { ok: true, options }
 }
 
@@ -106,5 +110,5 @@ function asStringList(value: unknown): string[] | null {
 }
 
 function isGroupBy(value: unknown): value is GroupBy {
-	return value === 'task' || value === 'tag'
+	return value === 'task' || value === 'tag' || value === 'filter'
 }

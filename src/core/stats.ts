@@ -1,12 +1,17 @@
 import type { MinutesByKey, Task } from 'types/tasks'
-import { minutesByTag, minutesByTask, sortByMinutes } from './aggregate'
+import {
+	minutesByFilterEntry,
+	minutesByTag,
+	minutesByTask,
+	sortByMinutes,
+} from './aggregate'
 import { addDays } from './dailyNotes'
 import type { DailyLog } from './dailyLogs'
 import { tasksToIntervals, uncoveredMinutes } from './intervals'
 import { countDays, startOfDay } from './ranges'
 import { getMinutesBetween } from './time'
 
-export type GroupBy = 'task' | 'tag'
+export type GroupBy = 'task' | 'tag' | 'filter'
 
 export type StatsOptions = {
 	/** Resolved range; logs outside it only feed the sleep of the first day. */
@@ -58,18 +63,15 @@ export function computeRangeStats(
 	logs: DailyLog[],
 	options: StatsOptions
 ): RangeStats {
-	const { range, groupBy, now } = options
+	const { range, now } = options
 	const byDate = new Map(logs.map((log) => [dayKey(log.date), log]))
-	const aggregate = groupBy === 'task' ? minutesByTask : minutesByTag
 
 	const perDay: DayPoint[] = []
 	for (let date = range.start; date <= range.end; date = addDays(date, 1)) {
 		const log = byDate.get(dayKey(date))
 		const previous = byDate.get(dayKey(addDays(date, -1)))
 		const tasks = log ? filterTasks(log.tasks, options.filter) : []
-		const grouped =
-			groupBy === 'tag' ? restrictTagsToFilter(tasks, options.filter) : tasks
-		const minutes = aggregate(grouped, now)
+		const minutes = aggregateMinutes(tasks, options)
 		perDay.push({
 			date,
 			minutes,
@@ -114,6 +116,19 @@ export function filterTasks(tasks: Task[], filter?: string[]): Task[] {
 			filter.includes(task.name) ||
 			task.tags.some((tag) => filter.includes(tag))
 	)
+}
+
+/** Minutes per key for the already-filtered tasks of one day. */
+function aggregateMinutes(tasks: Task[], options: StatsOptions): MinutesByKey {
+	const { groupBy, filter, now } = options
+	switch (groupBy) {
+		case 'task':
+			return minutesByTask(tasks, now)
+		case 'tag':
+			return minutesByTag(restrictTagsToFilter(tasks, filter), now)
+		case 'filter':
+			return minutesByFilterEntry(tasks, filter ?? [], now)
+	}
 }
 
 /**

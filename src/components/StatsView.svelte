@@ -122,7 +122,9 @@
 	}
 
 	function rowStyle(key: string) {
-		return getStyleByTags(options.groupBy === 'tag' ? [key] : [], tagMappings)
+		// With "filter" grouping a key may be a tag; a task name matches no
+		// mapping anyway, so passing it along is harmless.
+		return getStyleByTags(options.groupBy === 'task' ? [] : [key], tagMappings)
 	}
 
 	function formatDay(date: Date) {
@@ -176,7 +178,14 @@
 	{#if show('total') && byKey.length}
 		<KeyValueTable
 			columns={[
-				{ label: options.groupBy === 'tag' ? 'Tag' : 'Task' },
+				{
+					label:
+						options.groupBy === 'tag'
+							? 'Tag'
+							: options.groupBy === 'filter'
+								? 'Task / tag'
+								: 'Task',
+				},
 				{ label: 'Time spent' },
 				{ label: 'Share' },
 			]}

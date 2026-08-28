@@ -49,6 +49,18 @@ describe('normalizeStatsOptions', () => {
 		expect(result.errors[5]).toBe('Unknown option "colour".')
 	})
 
+	it('accepts groupBy "filter" only together with a filter', () => {
+		expect(
+			normalizeStatsOptions({ groupBy: 'filter', filter: ['#project'] }).ok
+		).toBe(true)
+		const result = normalizeStatsOptions({ groupBy: 'filter' })
+		expect(result.ok).toBe(false)
+		if (result.ok) return
+		expect(result.errors).toEqual([
+			'groupBy: "filter" requires a non-empty filter.',
+		])
+	})
+
 	it('rejects a block that is not a mapping', () => {
 		expect(normalizeStatsOptions(['today']).ok).toBe(false)
 	})

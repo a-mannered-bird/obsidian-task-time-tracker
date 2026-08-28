@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+	minutesByFilterEntry,
 	minutesByTag,
 	sortByMinutes,
 	taskMinutes,
@@ -39,6 +40,26 @@ describe('minutesByTag', () => {
 			'#project': 90,
 			'#selfDev': 90,
 			'#routine': 30,
+		})
+	})
+})
+
+describe('minutesByFilterEntry', () => {
+	it('counts a name entry for that task and a tag entry for every carrier', () => {
+		expect(
+			minutesByFilterEntry(tasks, ['Walk the dog', '#project'], now)
+		).toEqual({
+			'Walk the dog': 30,
+			'#project': 90,
+		})
+	})
+
+	it('counts a task once per matching entry and omits unmatched entries', () => {
+		expect(
+			minutesByFilterEntry(tasks, ['Write plugin', '#selfDev', '#gone'], now)
+		).toEqual({
+			'Write plugin': 90,
+			'#selfDev': 90,
 		})
 	})
 })
