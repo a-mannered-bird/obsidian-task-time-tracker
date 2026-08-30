@@ -8,7 +8,8 @@ import {
 import { registerTrackingCommands } from './commands/tracking'
 import { getCoreDailyNotesConfig } from './core/coreDailyNotes'
 import { DailyLogStore } from './core/dailyLogs'
-import type { DailyNotesConfig } from './core/dailyNotes'
+import { isDailyNote, type DailyNotesConfig } from './core/dailyNotes'
+import { VaultTaskIndex } from './core/vaultTaskIndex'
 import {
 	DEFAULT_SETTINGS,
 	TaskTimeTrackerSettingTab,
@@ -22,6 +23,15 @@ export default class TaskTimeTracker extends Plugin {
 	dailyLogs: DailyLogStore = new DailyLogStore(this.app, () =>
 		this.getDailyNotesConfig()
 	)
+	// Field order matters: the index subscribes to dailyLogs on construction.
+	vaultTasks: VaultTaskIndex = new VaultTaskIndex({
+		listFiles: () =>
+			this.app.vault
+				.getMarkdownFiles()
+				.filter((file) => isDailyNote(this.getDailyNotesConfig(), file)),
+		loadFile: (file) => this.dailyLogs.loadFile(file),
+		onChange: (listener) => this.dailyLogs.onChange(listener),
+	})
 
 	async onload() {
 		await this.loadSettings()

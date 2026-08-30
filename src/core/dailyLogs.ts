@@ -31,13 +31,19 @@ export type DailyLog = {
 type CacheEntry = { mtime: number; log: DailyLog }
 
 /**
+ * One note changed (`log`) or went away (`log: null`). Listeners receive
+ * `undefined` instead when the whole cache was invalidated (see clear).
+ */
+export type DailyLogChange = { path: string; log: DailyLog | null }
+
+/**
  * Loads and caches the daily logs (parsed daily notes). Entries are keyed by path and
  * validated against the file's mtime, so a missed event can never serve stale
  * data; events only drop entries early and notify listeners.
  */
 export class DailyLogStore {
 	private cache = new Map<string, CacheEntry>()
-	private listeners = new Set<() => void>()
+	private listeners = new Set<(change?: DailyLogChange) => void>()
 
 	constructor(
 		private app: App,
@@ -49,23 +55,31 @@ export class DailyLogStore {
 		plugin.registerEvent(
 			this.app.metadataCache.on('changed', (file, data, cache) => {
 				if (!isDailyNote(this.getConfig(), file)) return
-				this.cache.set(file.path, {
-					mtime: file.stat.mtime,
-					log: this.buildDailyLog(file, data, cache),
-				})
-				this.notifyListeners()
+				const log = this.buildDailyLog(file, data, cache)
+				this.cache.set(file.path, { mtime: file.stat.mtime, log })
+				this.notifyListeners({ path: file.path, log })
 			})
 		)
 		plugin.registerEvent(
 			this.app.metadataCache.on('deleted', (file) => this.drop(file.path))
 		)
 		plugin.registerEvent(
-			this.app.vault.on('rename', (file, oldPath) => this.drop(oldPath))
+			this.app.vault.on('rename', (file, oldPath) => {
+				this.drop(oldPath)
+				// The metadata cache only fires `changed` on content changes, so
+				// a note renamed into the daily notes folder/format is loaded
+				// here to keep listeners (e.g. the vault task index) complete.
+				if (file instanceof TFile && isDailyNote(this.getConfig(), file)) {
+					void this.loadFile(file).then((log) => {
+						if (log) this.notifyListeners({ path: file.path, log })
+					})
+				}
+			})
 		)
 	}
 
 	/** Subscribe to changes; returns the unsubscribe function. */
-	onChange(listener: () => void): () => void {
+	onChange(listener: (change?: DailyLogChange) => void): () => void {
 		this.listeners.add(listener)
 		return () => this.listeners.delete(listener)
 	}
@@ -141,10 +155,10 @@ export class DailyLogStore {
 	}
 
 	private drop(path: string) {
-		if (this.cache.delete(path)) this.notifyListeners()
+		if (this.cache.delete(path)) this.notifyListeners({ path, log: null })
 	}
 
-	private notifyListeners() {
-		this.listeners.forEach((listener) => listener())
+	private notifyListeners(change?: DailyLogChange) {
+		this.listeners.forEach((listener) => listener(change))
 	}
 }

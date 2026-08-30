@@ -1,0 +1,193 @@
+import type { TFile } from 'obsidian'
+import { describe, expect, it } from 'vitest'
+import { parseTasks } from './parser'
+import {
+	VaultTaskIndex,
+	type VaultTaskChange,
+	type VaultTaskSource,
+} from './vaultTaskIndex'
+
+/** In-memory source: path → note lines; the path's basename is the date. */
+function makeSource(notes: Record<string, string[]>) {
+	const listeners = new Set<(change?: VaultTaskChange) => void>()
+	let loadCount = 0
+
+	const logOf = (path: string, lines: string[]) => ({
+		date: new Date(
+			`${path.replace(/^.*\//, '').replace(/\.md$/, '')}T00:00:00`
+		),
+		tasks: parseTasks(lines),
+	})
+
+	const source: VaultTaskSource = {
+		listFiles: () => Object.keys(notes).map((path) => ({ path }) as TFile),
+		loadFile: (file) => {
+			loadCount++
+			const lines = notes[file.path]
+			return Promise.resolve(lines ? logOf(file.path, lines) : null)
+		},
+		onChange: (listener) => {
+			listeners.add(listener)
+			return () => listeners.delete(listener)
+		},
+	}
+
+	return {
+		source,
+		getLoadCount: () => loadCount,
+		emitChanged: (path: string, lines: string[]) => {
+			notes[path] = lines
+			listeners.forEach((l) => l({ path, log: logOf(path, lines) }))
+		},
+		emitDropped: (path: string) => {
+			delete notes[path]
+			listeners.forEach((l) => l({ path, log: null }))
+		},
+		emitInvalidated: () => {
+			listeners.forEach((l) => l(undefined))
+		},
+	}
+}
+
+const NOTES: Record<string, string[]> = {
+	'Journal/2026-08-01.md': [
+		'- [ ] Deep work #project',
+		'      [clock::2026-08-01T09:00:00--2026-08-01T10:00:00]',
+		'- [ ] Email',
+		'      [clock::2026-08-01T10:00:00--2026-08-01T10:30:00]',
+	],
+	'Journal/2026-08-02.md': [
+		'- [ ] Deep work #focus',
+		'      [clock::2026-08-02T09:00:00--2026-08-02T09:45:00]',
+		'- [ ] Workout #routine',
+	],
+	'Journal/2026-08-03.md': [
+		'- [ ] Deep work #focus',
+		'- [ ] Deep work #dup',
+		'      [clock::2026-08-03T09:00:00--2026-08-03T09:10:00]',
+		'- [ ] Workout #routine',
+	],
+}
+
+async function makeBuiltIndex(notes: Record<string, string[]>) {
+	const fake = makeSource(structuredClone(notes))
+	const index = new VaultTaskIndex(fake.source)
+	await index.ensureBuilt()
+	return { ...fake, index }
+}
+
+describe('VaultTaskIndex.snapshot', () => {
+	it('aggregates note count, minutes, last-used date and tags', async () => {
+		const { index } = await makeBuiltIndex(NOTES)
+		const byName = new Map(index.snapshot().map((info) => [info.name, info]))
+
+		const deepWork = byName.get('Deep work')!
+		// Two lines in the same note count as one note.
+		expect(deepWork.noteCount).toBe(3)
+		expect(deepWork.totalMinutes).toBe(60 + 45 + 10)
+		expect(deepWork.lastUsed).toEqual(new Date('2026-08-03T00:00:00'))
+		// Tags come from the first matching line of the most recent note.
+		expect(deepWork.tags).toEqual(['#focus'])
+
+		expect(byName.get('Workout')).toMatchObject({
+			noteCount: 2,
+			totalMinutes: 0,
+			tags: ['#routine'],
+		})
+	})
+
+	it('orders by note count, then last used, then name', async () => {
+		const { index } = await makeBuiltIndex({
+			'Journal/2026-08-01.md': [
+				'- [ ] Most used',
+				'- [ ] Recent pair',
+				'- [ ] Stale pair',
+			],
+			'Journal/2026-08-02.md': ['- [ ] Most used', '- [ ] Stale pair'],
+			'Journal/2026-08-03.md': [
+				'- [ ] Most used',
+				'- [ ] Recent pair',
+				'- [ ] Zeta',
+				'- [ ] Alpha',
+			],
+		})
+		expect(index.snapshot().map((info) => info.name)).toEqual([
+			'Most used',
+			'Recent pair',
+			'Stale pair',
+			'Alpha',
+			'Zeta',
+		])
+	})
+
+	it('counts a running clock up to now', async () => {
+		const { index } = await makeBuiltIndex({
+			'Journal/2026-08-01.md': [
+				'- [ ] Running',
+				'      [clock::2026-08-01T09:00:00]',
+			],
+		})
+		const [info] = index.snapshot(new Date('2026-08-01T09:30:00'))
+		expect(info?.totalMinutes).toBe(30)
+	})
+})
+
+describe('VaultTaskIndex change handling', () => {
+	it('updates aggregates when a note changes', async () => {
+		const { index, emitChanged } = await makeBuiltIndex(NOTES)
+		emitChanged('Journal/2026-08-03.md', ['- [ ] Email #late'])
+
+		const byName = new Map(index.snapshot().map((info) => [info.name, info]))
+		expect(byName.get('Deep work')?.noteCount).toBe(2)
+		expect(byName.get('Deep work')?.tags).toEqual(['#focus'])
+		expect(byName.get('Email')).toMatchObject({
+			noteCount: 2,
+			tags: ['#late'],
+		})
+	})
+
+	it('forgets tasks whose only note is dropped', async () => {
+		const { index, emitDropped } = await makeBuiltIndex(NOTES)
+		emitDropped('Journal/2026-08-01.md')
+		const names = index.snapshot().map((info) => info.name)
+		expect(names).not.toContain('Email')
+	})
+
+	it('rescans on next use after a bulk invalidation', async () => {
+		const built = await makeBuiltIndex(NOTES)
+		built.emitChanged('Journal/2026-08-04.md', ['- [ ] New task'])
+		built.emitInvalidated()
+		expect(built.index.isReady).toBe(false)
+
+		await built.index.ensureBuilt()
+		const names = built.index.snapshot().map((info) => info.name)
+		expect(names).toContain('New task')
+		expect(names).toContain('Deep work')
+	})
+})
+
+describe('VaultTaskIndex.ensureBuilt', () => {
+	it('scans each file once across concurrent and repeated calls', async () => {
+		const fake = makeSource(structuredClone(NOTES))
+		const index = new VaultTaskIndex(fake.source)
+		await Promise.all([index.ensureBuilt(), index.ensureBuilt()])
+		await index.ensureBuilt()
+		expect(fake.getLoadCount()).toBe(3)
+		expect(index.isReady).toBe(true)
+	})
+})
+
+describe('VaultTaskIndex.occurrences', () => {
+	it('lists every line of the name, oldest note first', async () => {
+		const { index } = await makeBuiltIndex(NOTES)
+		const occurrences = index.occurrences('Deep work')
+		expect(
+			occurrences.map(({ path, task }) => [path, task.tags.join(',')])
+		).toEqual([
+			['Journal/2026-08-01.md', '#project'],
+			['Journal/2026-08-02.md', '#focus'],
+			['Journal/2026-08-03.md', '#focus'],
+			['Journal/2026-08-03.md', '#dup'],
+		])
+	})
+})
