@@ -1,6 +1,6 @@
 # Plan
 
-Roadmap and todo lists for the Task Time Tracker plugin. Decisions recorded here were taken on 2026-08-16; update the checkboxes as work lands.
+Roadmap and todo lists for the Task Time Tracker plugin. Decisions recorded here were taken on 2026-08-16 (phases 0–4) and 2026-08-30 (phases 5–8); update the checkboxes as work lands.
 
 ## Decisions
 
@@ -64,9 +64,48 @@ Roadmap and todo lists for the Task Time Tracker plugin. Decisions recorded here
 - [x] `TrackerTab.svelte`: running tasks with live elapsed time and stop buttons, Switch… and Interruption/End interruption buttons, task list in picker order with click-to-toggle and tick/untick icons (`setTaskTicked`), footer with Set wake/bed time and Complete journal; all through the exported `runTrackingSteps`.
 - [x] Quick actions: settings list `{ name, taskName, verb: toggle|switch|ensure-on|ensure-off, setWakeTime }` (`commands/quickActions.ts`), each registered as a command (`quick-action-<slug>`, restart to update) and shown as ⚡ buttons in the tracker tab; `setWakeTime` replaces the "Getting up" macro.
 
+## Decisions (2026-08-30): vault-wide picker + task management
+
+- Task identity stays **name-only**; tags remain per-line decoration and the markdown daily notes remain the single source of truth. No canonical task registry. Only data that cannot live in markdown goes to plugin settings: `name → color`, `name → hidden-from-picker`. Rename/merge must migrate these name-keyed entries (and `quickActions[].taskName`, `unassignedTaskName`).
+- `VaultTaskIndex` on top of `DailyLogStore`: per-name aggregates (occurrence count, last-used date, most-recent tags, total minutes, occurrence locations). Built lazily on first use (picker or panel), updated incrementally via store events. Design target: 10k+ daily notes; while the first scan runs, the picker shows a loading row.
+- Picker keeps stock `FuzzySuggestModal`: `getItems()` = note tasks (current sort) + full deduped vault index (note entry wins); `limit` = note-task count + 50 caps rendering only — typing fuzzy-searches the whole index, merged score ranking (no sections while typing). Vault entries default-ordered by usage count desc, labeled with most-recent tags for the emoji.
+- Picking a vault task not in the note inserts its line (after the last task line, end of file if none; unticked; most-recent tags) into the shared `TaskNote` inside the `Prompts.pickTask` wrapper — the toggle engine stays untouched. Scope: main toggle/switch picker and migrate/interruption target; not set-duration (running tasks only). `Prompts.pickTask` grows an option to include/exclude the vault section.
+- Create-from-text row: shown last and visually distinct whenever the trimmed, tag-stripped query doesn't case-insensitively equal an existing name; tags parsed from the typed text with the parser's `TAG` regex; no tags typed = bare line. Exact match on a hidden task resurfaces it instead of offering a duplicate. Identity/toggling stays case-sensitive; only the create-offer check is case-insensitive.
+- Settings ship one picker knob only: a global "include vault tasks" toggle. Per-task hiding lives in the management panel; no recency-window setting.
+- Task management UI is a dedicated large `Modal` (Svelte content), not a settings-embedded table. Entry points: command, button in a small settings section, button in the tracker tab. Table columns: color swatch (inline picker), name + most-recent tag chips, note count, total time, last used, warning icons, overflow menu (rename / retag / hide / delete). Sortable headers (default: count desc), text filter, warnings-only toggle, render capped at ~200 rows ("showing X of Y").
+- Bulk rewrites use `vault.process` per file, only writing changed files, sequential with progress notice and end summary (failures reported, re-run is the recovery). Confirmation previews show index-derived blast radius; type-the-name ritual for delete and merge only; warning text mentions core File Recovery as the escape hatch — no custom undo.
+- Rename and merge share one consolidation engine (rename = 1-source merge). Within a note, colliding lines consolidate: the target-name line survives (keeps position/tags), other lines' clocks move under it, ticked = OR. Per-line tags are kept — resulting tag drift is surfaced by the drift flag and fixed via retag. Clock union via `mergeIntervals` semantics (overlapping *and* touching merge; zero-length dropped but counted in the preview); if any clock in a group is running, the merged clock keeps the earliest start and stays running.
+- Merge UI: checkbox per row + "Merge N tasks…" button (≥2), survivor name chosen in the confirm modal (default: most used).
+- Issue flags, computed on panel open from the index, thresholds fixed in v1: (1) name similarity — Damerau-Levenshtein on case-folded, whitespace-collapsed names, distance ≤ 1 under 6 chars else ≤ 2, length-diff ≤ 2 prefilter; similarity warning offers "merge these two". (2) duration outlier — session ≥ 16h always, or > 5× the task's median with ≥ 5 sessions; click jumps to the note line. (3) tag drift across occurrences. (4) same-task overlapping clocks (cross-task overlap is legitimate), with a one-click consolidation fix. (5) stale running clock in a non-today note.
+- Colors: panel picker offers the 8 theme `--color-*` swatches plus free hex; the CSS string is stored, overriding `seriesColor` wherever a chart key is a task name. Uncolored tasks keep the rank cycle; collisions accepted in v1. Tag colors deferred (future `color` field on tag mappings — see Later).
+
+## Phase 5: Vault-wide task picker
+
+- [ ] `src/core/vaultTaskIndex.ts`: lazy full scan over daily notes via `DailyLogStore`, incremental updates from store events, per-name aggregates + occurrence locations; unit tests.
+- [ ] Picker integration: vault entries in `TaskSuggestModal` (merged ranking, `limit` cap, dedupe, muted styling, loading row), insertion-on-pick via a new `TaskNote` insert helper, `Prompts.pickTask` option wiring (main + migrate pickers only), "include vault tasks" setting.
+- [ ] Create-from-text row (offer rule, last position, tag parsing, hidden-task resurfacing).
+
+## Phase 6: Task management panel (read-only + local state)
+
+- [ ] Management modal (Svelte): table with columns/sort/filter/cap as decided; entry points: command, settings button, tracker-tab button.
+- [ ] Color map (settings storage, swatch + hex picker, `seriesColor` override in stats views).
+- [ ] Hide-from-picker flags (settings storage, toggle in row menu, picker exclusion + resurface rule).
+
+## Phase 7: Bulk operations
+
+- [ ] Consolidation engine in core (rename/merge line rewrite, within-note collision merge, clock union, OR-tick); heavy unit tests.
+- [ ] `vault.process` runner with progress, summary, failure report; index-derived preview counts.
+- [ ] Confirm modals (name-typing for delete/merge; light confirm for rename/retag; reference warnings for quick actions and the unassigned task).
+- [ ] Rename + merge actions (incl. name-keyed settings migration), then delete + retag (add/remove a tag across all occurrences, autocomplete that creates unknown tags).
+
+## Phase 8: Issue detection
+
+- [ ] Detectors in core (similarity, duration outlier, tag drift, same-task overlap, stale running clock); unit tests for thresholds.
+- [ ] Warning column UI: jump-to-line for clock issues, merge shortcut for similarity, one-click overlap consolidation, warnings-only filter.
+
 ## Later
 
-- [ ] Native task-name completion from past daily notes (replaces `syncTaskDictionary.js` + Various Complements).
+- [ ] ~~Native task-name completion from past daily notes (replaces `syncTaskDictionary.js` + Various Complements).~~ Superseded by Phase 5.
 - [ ] Inherit folder/date format from the core Daily Notes plugin.
 - [ ] Project objective view (from the commented `initProjectTracking`: target time vs. worked, balance).
 - [ ] Clocks spanning midnight / previous-day time travel.
