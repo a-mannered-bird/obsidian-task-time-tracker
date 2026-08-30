@@ -8,10 +8,7 @@ export const NOTICE_DURATION = 5000
 export function resolveTargetFileOrNotify(
 	plugin: TaskTimeTracker
 ): TFile | null {
-	const file = resolveTargetFile(
-		plugin.app,
-		plugin.getDailyLogStoreConfig().dailyNotes
-	)
+	const file = resolveTargetFile(plugin.app, plugin.getDailyNotesConfig())
 	if (!file) {
 		new Notice(
 			'No daily note to act on: the active file is not a daily note, and the vault has no daily note.',

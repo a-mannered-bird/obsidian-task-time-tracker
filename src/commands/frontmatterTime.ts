@@ -1,5 +1,10 @@
 import { Notice, type IconName } from 'obsidian'
-import { addMinutes, formatLocalDateTime } from 'core/time'
+import {
+	addMinutes,
+	BED_TIME_PROPERTY,
+	formatLocalDateTime,
+	WAKE_TIME_PROPERTY,
+} from 'core/time'
 import { promptMinutes } from 'ui/MinutesPromptModal'
 import type TaskTimeTracker from '../main'
 import { NOTICE_DURATION, resolveTargetFileOrNotify } from './target'
@@ -8,7 +13,7 @@ export type TimeCommand = {
 	id: string
 	name: string
 	icon: IconName
-	property: (plugin: TaskTimeTracker) => string
+	property: string
 	/** Minutes pre-filled in the prompt; negative = in the past. */
 	defaultOffset: number
 }
@@ -18,7 +23,7 @@ export const TIME_COMMANDS: TimeCommand[] = [
 		id: 'set-wake-time',
 		name: 'Set wake time',
 		icon: 'sunrise',
-		property: (plugin) => plugin.settings.wakeTimeProperty,
+		property: WAKE_TIME_PROPERTY,
 		// Reaching the note takes a few minutes after actually getting up.
 		defaultOffset: -3,
 	},
@@ -26,7 +31,7 @@ export const TIME_COMMANDS: TimeCommand[] = [
 		id: 'set-bed-time',
 		name: 'Set bed time',
 		icon: 'moon',
-		property: (plugin) => plugin.settings.bedTimeProperty,
+		property: BED_TIME_PROPERTY,
 		defaultOffset: 0,
 	},
 ]
@@ -58,7 +63,7 @@ export async function runTimeCommand(
 	})
 	if (offset === null) return
 
-	const property = command.property(plugin)
+	const { property } = command
 	const value = formatLocalDateTime(addMinutes(new Date(), offset))
 	await app.fileManager.processFrontMatter(
 		file,

@@ -37,7 +37,7 @@
 		void plugin.saveSettings()
 	}
 
-	const dailyNotes = $derived(plugin.getDailyLogStoreConfig().dailyNotes)
+	const dailyNotes = $derived(plugin.getDailyNotesConfig())
 	const previousFile = $derived(
 		log ? getAdjacentDailyNoteFile(app, dailyNotes, log.date, -1) : null
 	)

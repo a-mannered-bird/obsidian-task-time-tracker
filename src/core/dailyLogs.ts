@@ -14,7 +14,11 @@ import {
 	type DailyNotesConfig,
 } from './dailyNotes'
 import { parseTasks } from './parser'
-import { readFrontmatterTime } from './time'
+import {
+	BED_TIME_PROPERTY,
+	readFrontmatterTime,
+	WAKE_TIME_PROPERTY,
+} from './time'
 
 export type DailyLog = {
 	date: Date
@@ -22,12 +26,6 @@ export type DailyLog = {
 	tasks: Task[]
 	wakeTime: Date | null
 	bedTime: Date | null
-}
-
-export type DailyLogStoreConfig = {
-	dailyNotes: DailyNotesConfig
-	wakeTimeProperty: string
-	bedTimeProperty: string
 }
 
 type CacheEntry = { mtime: number; log: DailyLog }
@@ -43,14 +41,14 @@ export class DailyLogStore {
 
 	constructor(
 		private app: App,
-		private getConfig: () => DailyLogStoreConfig
+		private getConfig: () => DailyNotesConfig
 	) {}
 
 	/** Hook vault/metadata events; call once from the plugin's onload. */
 	register(plugin: Plugin) {
 		plugin.registerEvent(
 			this.app.metadataCache.on('changed', (file, data, cache) => {
-				if (!isDailyNote(this.getConfig().dailyNotes, file)) return
+				if (!isDailyNote(this.getConfig(), file)) return
 				this.cache.set(file.path, {
 					mtime: file.stat.mtime,
 					log: this.buildDailyLog(file, data, cache),
@@ -78,7 +76,7 @@ export class DailyLogStore {
 	}
 
 	async loadByDate(date: Date): Promise<DailyLog | null> {
-		const file = getDailyNoteFile(this.app, this.getConfig().dailyNotes, date)
+		const file = getDailyNoteFile(this.app, this.getConfig(), date)
 		return file ? this.loadFile(file) : null
 	}
 
@@ -98,7 +96,7 @@ export class DailyLogStore {
 	 * sub folders); with the vault root as folder that is the whole vault.
 	 */
 	earliestDate(): Date | null {
-		const config = this.getConfig().dailyNotes
+		const config = this.getConfig()
 		const folder = config.folder
 			? this.app.vault.getFolderByPath(config.folder)
 			: this.app.vault.getRoot()
@@ -117,7 +115,7 @@ export class DailyLogStore {
 		const cached = this.cache.get(file.path)
 		if (cached && cached.mtime === file.stat.mtime) return cached.log
 
-		const date = getDailyNoteDate(this.getConfig().dailyNotes, file.path)
+		const date = getDailyNoteDate(this.getConfig(), file.path)
 		if (!date) return null
 
 		const content = await this.app.vault.cachedRead(file)
@@ -132,14 +130,13 @@ export class DailyLogStore {
 		content: string,
 		metadata: CachedMetadata | null
 	): DailyLog {
-		const { dailyNotes, wakeTimeProperty, bedTimeProperty } = this.getConfig()
 		const frontmatter = metadata?.frontmatter ?? {}
 		return {
-			date: getDailyNoteDate(dailyNotes, file.path) ?? new Date(NaN),
+			date: getDailyNoteDate(this.getConfig(), file.path) ?? new Date(NaN),
 			file,
 			tasks: parseTasks(content.split('\n')),
-			wakeTime: readFrontmatterTime(frontmatter[wakeTimeProperty]),
-			bedTime: readFrontmatterTime(frontmatter[bedTimeProperty]),
+			wakeTime: readFrontmatterTime(frontmatter[WAKE_TIME_PROPERTY]),
+			bedTime: readFrontmatterTime(frontmatter[BED_TIME_PROPERTY]),
 		}
 	}
 

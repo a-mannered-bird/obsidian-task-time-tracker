@@ -7,7 +7,8 @@ import {
 } from './commands/quickActions'
 import { registerTrackingCommands } from './commands/tracking'
 import { getCoreDailyNotesConfig } from './core/coreDailyNotes'
-import { DailyLogStore, type DailyLogStoreConfig } from './core/dailyLogs'
+import { DailyLogStore } from './core/dailyLogs'
+import type { DailyNotesConfig } from './core/dailyNotes'
 import {
 	DEFAULT_SETTINGS,
 	TaskTimeTrackerSettingTab,
@@ -19,7 +20,7 @@ import { registerStatsCodeBlock } from './views/statsCodeBlock'
 export default class TaskTimeTracker extends Plugin {
 	settings: TaskTimeTrackerSettings = DEFAULT_SETTINGS
 	dailyLogs: DailyLogStore = new DailyLogStore(this.app, () =>
-		this.getDailyLogStoreConfig()
+		this.getDailyNotesConfig()
 	)
 
 	async onload() {
@@ -57,6 +58,9 @@ export default class TaskTimeTracker extends Plugin {
 		delete data.dateFormat
 		// Dropped setting; the tracking commands no longer ship default hotkeys.
 		delete data.defaultToggleHotkey
+		// Dropped settings; the wake/bed properties are fixed now.
+		delete data.wakeTimeProperty
+		delete data.bedTimeProperty
 		this.settings = Object.assign(
 			{},
 			DEFAULT_SETTINGS,
@@ -70,13 +74,8 @@ export default class TaskTimeTracker extends Plugin {
 		await this.saveData(this.settings)
 	}
 
-	getDailyLogStoreConfig(): DailyLogStoreConfig {
-		const { wakeTimeProperty, bedTimeProperty } = this.settings
-		return {
-			dailyNotes: getCoreDailyNotesConfig(this.app),
-			wakeTimeProperty,
-			bedTimeProperty,
-		}
+	getDailyNotesConfig(): DailyNotesConfig {
+		return getCoreDailyNotesConfig(this.app)
 	}
 
 	/** Drop cached data and re-mount every open daily view. */

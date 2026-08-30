@@ -1,3 +1,7 @@
+/** Frontmatter properties holding the day's wake and bed timestamps. */
+export const WAKE_TIME_PROPERTY = 'wake_time'
+export const BED_TIME_PROPERTY = 'bed_time'
+
 const pad = (n: number) => n.toString().padStart(2, '0')
 
 /** Local `YYYY-MM-DDTHH:mm:ss`, the timestamp format written in daily notes. */

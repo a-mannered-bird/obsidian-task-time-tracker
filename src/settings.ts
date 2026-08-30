@@ -9,8 +9,6 @@ import type TaskTimeTracker from './main'
 import type { TagMapping } from './types/tags'
 
 export interface TaskTimeTrackerSettings {
-	wakeTimeProperty: string
-	bedTimeProperty: string
 	unassignedTaskName: string
 	tagMappings: TagMapping[]
 	quickActions: QuickAction[]
@@ -21,8 +19,6 @@ export interface TaskTimeTrackerSettings {
 export type DailyViewTab = 'tracker' | 'stats'
 
 export const DEFAULT_SETTINGS: TaskTimeTrackerSettings = {
-	wakeTimeProperty: 'wake_time',
-	bedTimeProperty: 'bed_time',
 	unassignedTaskName: 'Unassigned',
 	lastDailyViewTab: 'tracker',
 	quickActions: [],
@@ -81,7 +77,6 @@ export class TaskTimeTrackerSettingTab extends PluginSettingTab {
 		const { containerEl } = this
 		containerEl.empty()
 
-		this.displayDailyNotesSection(containerEl)
 		this.displayTrackingSection(containerEl)
 		this.displayQuickActionsSection(containerEl)
 		this.displayTagMappingsSection(containerEl)
@@ -128,17 +123,6 @@ export class TaskTimeTrackerSettingTab extends PluginSettingTab {
 						await this.plugin.saveSettings()
 					})
 			)
-	}
-
-	private displayDailyNotesSection(containerEl: HTMLElement) {
-		this.addTextSetting(containerEl, 'wakeTimeProperty', {
-			name: 'Wake time property',
-			desc: 'Frontmatter property holding the time you got up.',
-		})
-		this.addTextSetting(containerEl, 'bedTimeProperty', {
-			name: 'Bed time property',
-			desc: 'Frontmatter property holding the time you went to bed.',
-		})
 	}
 
 	private displayTrackingSection(containerEl: HTMLElement) {

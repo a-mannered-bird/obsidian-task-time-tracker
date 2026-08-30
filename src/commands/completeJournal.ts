@@ -1,7 +1,7 @@
 import { Notice, type TFile } from 'obsidian'
 import { applyCompletion, isEmptyPlan, planCompletion } from 'core/complete'
 import { TaskNote } from 'core/note'
-import { readFrontmatterTime } from 'core/time'
+import { BED_TIME_PROPERTY, readFrontmatterTime } from 'core/time'
 import { confirm } from 'ui/ConfirmModal'
 import type TaskTimeTracker from '../main'
 import { NOTICE_DURATION, resolveTargetFileOrNotify } from './target'
@@ -68,5 +68,5 @@ function count(n: number, noun: string): string {
 /** Bed time from the frontmatter, when set and valid; clocks close at it. */
 function bedTime(plugin: TaskTimeTracker, file: TFile): Date | null {
 	const frontmatter = plugin.app.metadataCache.getFileCache(file)?.frontmatter
-	return readFrontmatterTime(frontmatter?.[plugin.settings.bedTimeProperty])
+	return readFrontmatterTime(frontmatter?.[BED_TIME_PROPERTY])
 }

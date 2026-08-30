@@ -96,7 +96,6 @@ Arrows next to the rendered date range step to the previous or next period (a mo
 
 - The daily notes folder and date format are inherited from the core Daily notes plugin.
 - Tag mapping: for each tag, an emoji shown in pickers and a text style (bold / italic / underline) used in the statistics tables.
-- Frontmatter property names for wake and bed time.
 - Name of the "unassigned" task used by quick interruptions.
 - An Apply button reloads the open views after changing settings.
 
