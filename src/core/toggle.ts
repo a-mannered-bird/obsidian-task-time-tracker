@@ -32,9 +32,21 @@ export type ToggleOptions = {
 	setDuration?: boolean
 }
 
+export type PickTaskOptions = {
+	/**
+	 * Offer vault-wide tasks besides the candidates; picking one adds it to
+	 * the note first. Off for pickers over running tasks (set duration).
+	 */
+	includeVault: boolean
+}
+
 /** User interaction the engine needs; the commands wire it to modals. */
 export type Prompts = {
-	pickTask(tasks: Task[], placeholder: string): Promise<Task | null>
+	pickTask(
+		tasks: Task[],
+		placeholder: string,
+		options?: PickTaskOptions
+	): Promise<Task | null>
 	promptMinutes(options: {
 		title: string
 		description?: string
@@ -46,6 +58,8 @@ export type Prompts = {
 export type ToggleContext = {
 	prompts: Prompts
 	unassignedTaskName: string
+	/** The pickers offer vault-wide tasks, so an empty note still picks. */
+	vaultTasksAvailable?: boolean
 	now: Date
 }
 
@@ -63,10 +77,8 @@ export async function toggleTasks(
 	if (options.migrate) return migrateRunningClock(note, options, context)
 
 	const candidates = options.setDuration ? note.getRunningTasks() : note.tasks
-	if (candidates.length === 0) {
-		prompts.notify(
-			options.setDuration ? 'No running task found.' : 'No tasks found.'
-		)
+	if (options.setDuration && candidates.length === 0) {
+		prompts.notify('No running task found.')
 		return false
 	}
 
@@ -82,7 +94,7 @@ export async function toggleTasks(
 			? { ...options, taskName: context.unassignedTaskName }
 			: options
 
-	let selected = await selectTasks(note, candidates, effective, prompts)
+	let selected = await selectTasks(note, candidates, effective, context)
 	if (!selected) return false
 
 	if (effective.targetState) {
@@ -135,8 +147,9 @@ async function selectTasks(
 	note: TaskNote,
 	candidates: Task[],
 	options: ToggleOptions,
-	prompts: Prompts
+	context: ToggleContext
 ): Promise<Task[] | null> {
+	const { prompts } = context
 	if (options.previous) {
 		const last = getLastEndedTasks(note.tasks)
 		if (last.length === 0) {
@@ -158,9 +171,14 @@ async function selectTasks(
 	const choices = options.switch
 		? candidates.filter((task) => !isRunning(task))
 		: candidates
+	if (choices.length === 0 && !context.vaultTasksAvailable) {
+		prompts.notify('No tasks found.')
+		return null
+	}
 	const picked = await prompts.pickTask(
 		choices,
-		options.placeholder ?? 'Which task?'
+		options.placeholder ?? 'Which task?',
+		{ includeVault: !options.setDuration }
 	)
 	return picked ? [picked] : null
 }
@@ -291,7 +309,9 @@ async function moveLastClockTo(
 	const choices = note.tasks.filter(
 		(task) => !isRunning(task) && task.name !== from.name
 	)
-	const target = await prompts.pickTask(choices, placeholder)
+	const target = await prompts.pickTask(choices, placeholder, {
+		includeVault: true,
+	})
 	if (!target) return false
 	const freshFrom = note.findTask(from.name)
 	const freshTarget = note.findTask(target.name)

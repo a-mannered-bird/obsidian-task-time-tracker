@@ -40,3 +40,12 @@
 	border-radius: var(--radius-s);
 	padding: 0.5em 1em;
 }
+
+.task-time-tracker-vault-suggestion {
+	color: var(--text-muted);
+}
+
+.task-time-tracker-loading-suggestion {
+	color: var(--text-faint);
+	font-style: italic;
+}

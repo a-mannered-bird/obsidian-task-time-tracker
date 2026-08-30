@@ -163,24 +163,42 @@ export async function runTrackingSteps(
 	plugin: TaskTimeTracker,
 	steps: ToggleOptions[]
 ) {
-	const { app, settings } = plugin
+	const { app, settings, vaultTasks } = plugin
 	const file = resolveTargetFileOrNotify(plugin)
 	if (!file) return
 
+	const note = new TaskNote(await app.vault.read(file))
+
 	const prompts: Prompts = {
-		pickTask: (tasks, placeholder) =>
-			pickTask(app, tasks, { placeholder, tagMappings: settings.tagMappings }),
+		pickTask: async (tasks, placeholder, options) => {
+			const includeVault = Boolean(
+				options?.includeVault && settings.includeVaultTasks
+			)
+			const picked = await pickTask(app, tasks, {
+				placeholder,
+				tagMappings: settings.tagMappings,
+				vaultEntries: includeVault
+					? vaultTasks.ensureBuilt().then(() =>
+							// Dedupe against the whole note, not just the offered
+							// candidates (a switch excludes the running tasks).
+							vaultTasks.snapshot().filter((info) => !note.findTask(info.name))
+						)
+					: undefined,
+			})
+			if (!picked) return null
+			if (picked.kind === 'note') return picked.task
+			return note.insertTask(picked.name, picked.tags)
+		},
 		promptMinutes: (promptOptions) => promptMinutes(app, promptOptions),
 		notify: (message) => new Notice(message, NOTICE_DURATION),
 	}
-
-	const note = new TaskNote(await app.vault.read(file))
 	let changed = false
 	for (const options of steps) {
 		changed =
 			(await toggleTasks(note, options, {
 				prompts,
 				unassignedTaskName: settings.unassignedTaskName,
+				vaultTasksAvailable: settings.includeVaultTasks,
 				now: new Date(),
 			})) || changed
 	}

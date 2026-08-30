@@ -27,9 +27,11 @@ function scripted(script: Script = {}) {
 	const minutes = [...(script.minutes ?? [])]
 	const notices: string[] = []
 	const offered: string[][] = []
+	const vaultFlags: (boolean | undefined)[] = []
 	const prompts: Prompts = {
-		pickTask: (tasks: Task[]) => {
+		pickTask: (tasks: Task[], _placeholder, options) => {
 			offered.push(tasks.map((t) => t.name))
+			vaultFlags.push(options?.includeVault)
 			const name = picks.shift() ?? null
 			return Promise.resolve(
 				name === null ? null : (tasks.find((t) => t.name === name) ?? null)
@@ -38,7 +40,7 @@ function scripted(script: Script = {}) {
 		promptMinutes: () => Promise.resolve(minutes.shift() ?? null),
 		notify: (message) => notices.push(message),
 	}
-	return { prompts, notices, offered }
+	return { prompts, notices, offered, vaultFlags }
 }
 
 async function run(
@@ -46,13 +48,20 @@ async function run(
 	script?: Script
 ) {
 	const note = new TaskNote(content)
-	const { prompts, notices, offered } = scripted(script)
+	const { prompts, notices, offered, vaultFlags } = scripted(script)
 	const changed = await toggleTasks(note, options, {
 		prompts,
 		unassignedTaskName: 'Unassigned',
 		now,
 	})
-	return { changed, lines: note.toString().split('\n'), notices, offered, note }
+	return {
+		changed,
+		lines: note.toString().split('\n'),
+		notices,
+		offered,
+		vaultFlags,
+		note,
+	}
 }
 
 describe('toggleTasks', () => {
@@ -208,5 +217,51 @@ describe('getLastEndedTasks', () => {
 			].join('\n')
 		)
 		expect(getLastEndedTasks(note.tasks).map((t) => t.name)).toEqual(['A', 'B'])
+	})
+})
+
+describe('vault-wide picking', () => {
+	it('asks for vault tasks in pickers, except over running tasks', async () => {
+		const toggle = await run({}, { pick: [null] })
+		expect(toggle.vaultFlags).toEqual([true])
+		const migrate = await run({ migrate: true }, { pick: [null] })
+		expect(migrate.vaultFlags).toEqual([true])
+		const duration = await run({ setDuration: true }, { pick: [null] })
+		expect(duration.vaultFlags).toEqual([false])
+	})
+
+	it('still opens the picker on an empty note when vault tasks are available', async () => {
+		const note = new TaskNote('')
+		const { prompts, notices, offered } = scripted({ pick: [null] })
+		const changed = await toggleTasks(
+			note,
+			{},
+			{
+				prompts,
+				unassignedTaskName: 'Unassigned',
+				vaultTasksAvailable: true,
+				now,
+			}
+		)
+		expect(changed).toBe(false)
+		expect(offered).toEqual([[]])
+		expect(notices).toEqual([])
+	})
+
+	it('notifies instead of opening an empty picker without vault tasks', async () => {
+		const note = new TaskNote('')
+		const { prompts, notices, offered } = scripted()
+		const changed = await toggleTasks(
+			note,
+			{},
+			{
+				prompts,
+				unassignedTaskName: 'Unassigned',
+				now,
+			}
+		)
+		expect(changed).toBe(false)
+		expect(offered).toEqual([])
+		expect(notices).toEqual(['No tasks found.'])
 	})
 })

@@ -82,7 +82,7 @@ Roadmap and todo lists for the Task Time Tracker plugin. Decisions recorded here
 ## Phase 5: Vault-wide task picker
 
 - [x] `src/core/vaultTaskIndex.ts`: lazy full scan over daily notes via `DailyLogStore`, incremental updates from store events, per-name aggregates + occurrence locations; unit tests.
-- [ ] Picker integration: vault entries in `TaskSuggestModal` (merged ranking, `limit` cap, dedupe, muted styling, loading row), insertion-on-pick via a new `TaskNote` insert helper, `Prompts.pickTask` option wiring (main + migrate pickers only), "include vault tasks" setting.
+- [x] Picker integration: vault entries in `TaskSuggestModal` (merged ranking, `limit` cap, dedupe, muted styling, loading row), insertion-on-pick via a new `TaskNote` insert helper, `Prompts.pickTask` option wiring (main + migrate pickers only), "include vault tasks" setting.
 - [ ] Create-from-text row (offer rule, last position, tag parsing, hidden-task resurfacing).
 
 ## Phase 6: Task management panel (read-only + local state)

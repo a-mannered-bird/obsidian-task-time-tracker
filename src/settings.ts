@@ -10,6 +10,8 @@ import type { TagMapping } from './types/tags'
 
 export interface TaskTimeTrackerSettings {
 	unassignedTaskName: string
+	/** Task pickers also offer the tasks of every daily note in the vault. */
+	includeVaultTasks: boolean
 	tagMappings: TagMapping[]
 	quickActions: QuickAction[]
 	/** UI state, not shown in the settings tab. */
@@ -20,6 +22,7 @@ export type DailyViewTab = 'tracker' | 'stats'
 
 export const DEFAULT_SETTINGS: TaskTimeTrackerSettings = {
 	unassignedTaskName: 'Unassigned',
+	includeVaultTasks: true,
 	lastDailyViewTab: 'tracker',
 	quickActions: [],
 	tagMappings: [
@@ -132,6 +135,20 @@ export class TaskTimeTrackerSettingTab extends PluginSettingTab {
 			name: 'Unassigned task name',
 			desc: 'Task used by quick interruptions until the time gets assigned to a real task.',
 		})
+
+		new Setting(containerEl)
+			.setName('Suggest tasks from all daily notes')
+			.setDesc(
+				'Task pickers list the tasks of every daily note below the ones of the current note; picking one adds it to the note.'
+			)
+			.addToggle((toggle) =>
+				toggle
+					.setValue(this.plugin.settings.includeVaultTasks)
+					.onChange(async (value) => {
+						this.plugin.settings.includeVaultTasks = value
+						await this.plugin.saveSettings()
+					})
+			)
 	}
 
 	private displayQuickActionsSection(containerEl: HTMLElement) {

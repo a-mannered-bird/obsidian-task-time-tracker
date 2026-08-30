@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import { parseTasks } from './parser'
-import { pickerLabel, sortForPicker } from './taskPicker'
+import {
+	buildPickerEntries,
+	entryLabel,
+	pickerLabel,
+	sortForPicker,
+} from './taskPicker'
+import type { VaultTaskInfo } from './vaultTaskIndex'
 
 const tasks = parseTasks([
 	'- [x] Done early #routine',
@@ -67,5 +73,64 @@ describe('pickerLabel', () => {
 		expect(pickerLabel(byName('Worked on first'), mappings)).toBe(
 			'Worked on first'
 		)
+	})
+})
+
+const info = (name: string, tags: string[] = []): VaultTaskInfo => ({
+	name,
+	tags,
+	noteCount: 1,
+	lastUsed: new Date(2026, 7, 15),
+	totalMinutes: 0,
+})
+
+describe('buildPickerEntries', () => {
+	it('lists note tasks in picker order, then unseen vault entries', () => {
+		const entries = buildPickerEntries(tasks, [
+			info('Deep work'),
+			info('Running now'),
+			info('Email'),
+		])
+		expect(
+			entries.map((entry) =>
+				entry.kind === 'note'
+					? `note:${entry.task.name}`
+					: `vault:${entry.info.name}`
+			)
+		).toEqual([
+			'note:Running now',
+			'note:Worked on last',
+			'note:Worked on first',
+			'note:Never started',
+			'note:Done early',
+			'vault:Deep work',
+			'vault:Email',
+		])
+	})
+})
+
+describe('entryLabel', () => {
+	const mappings = [
+		{
+			tag: '#project',
+			emoji: '⭐️',
+			bold: false,
+			italic: false,
+			underline: false,
+		},
+	]
+
+	it('labels vault entries with the mapped tag emoji, or none', () => {
+		expect(
+			entryLabel({ kind: 'vault', info: info('Plan', ['#project']) }, mappings)
+		).toBe('⭐️ Plan')
+		expect(entryLabel({ kind: 'vault', info: info('Plan') }, mappings)).toBe(
+			'Plan'
+		)
+	})
+
+	it('delegates note entries to pickerLabel', () => {
+		const task = tasks.find((t) => t.name === 'Running now')!
+		expect(entryLabel({ kind: 'note', task }, mappings)).toBe('⏳ Running now')
 	})
 })

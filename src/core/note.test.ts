@@ -103,3 +103,31 @@ describe('TaskNote', () => {
 		expect(note.getRunningTasks().map((t) => t.name)).toEqual(['Unassigned'])
 	})
 })
+
+describe('TaskNote.insertTask', () => {
+	it('inserts an unticked line after the last task clock block', () => {
+		const note = new TaskNote(content)
+		const task = note.insertTask('Deep work', ['#project', '#focus'])
+		expect(note.toString().split('\n')[5]).toBe(
+			'- [ ] Deep work #project #focus'
+		)
+		expect(task).toMatchObject({
+			name: 'Deep work',
+			tags: ['#project', '#focus'],
+			ticked: false,
+			clocks: [],
+		})
+	})
+
+	it('inserts before trailing blank lines when the note has no task', () => {
+		const note = new TaskNote('# Monday\n\n')
+		note.insertTask('Solo', [])
+		expect(note.toString()).toBe('# Monday\n- [ ] Solo\n\n')
+	})
+
+	it('appends to an empty note', () => {
+		const note = new TaskNote('')
+		note.insertTask('Solo', [])
+		expect(note.toString()).toBe('- [ ] Solo\n')
+	})
+})

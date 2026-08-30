@@ -100,6 +100,25 @@ export class TaskNote {
 		this.invalidate()
 	}
 
+	/**
+	 * Add an unticked task line after the last task's clock block (before any
+	 * trailing blank lines when the note has no task yet) and return it. The
+	 * name must not contain tags; they are passed separately.
+	 */
+	insertTask(name: string, tags: string[]): Task {
+		const last = this.tasks[this.tasks.length - 1]
+		let insertAt = last ? this.clockBlockEnd(last) : this.lines.length
+		while (!last && insertAt > 0 && this.lines[insertAt - 1]!.trim() === '') {
+			insertAt--
+		}
+		const suffix = tags.map((tag) => ` ${tag}`).join('')
+		this.lines.splice(insertAt, 0, `- [ ] ${name}${suffix}`)
+		this.invalidate()
+		const task = this.findTask(name)
+		if (!task) throw new Error(`Inserted task "${name}" did not parse back`)
+		return task
+	}
+
 	/** Remove the task line and all its clock lines. */
 	removeTask(task: Task): void {
 		const count = this.clockBlockEnd(task) - task.lineIndex
