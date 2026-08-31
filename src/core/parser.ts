@@ -19,6 +19,14 @@ function getTaskTags(line: string): string[] {
 }
 
 /**
+ * Free text typed by the user, split like a task line would parse: the label
+ * without tags, and the tags found anywhere in the text.
+ */
+export function parseTaskInput(text: string): { name: string; tags: string[] } {
+	return { name: getTaskLabel(text), tags: getTaskTags(text) }
+}
+
+/**
  * Parse every task of a note. Clock lines directly below a task belong to it;
  * clock lines anywhere else are ignored. Line indexes are kept so the model
  * can be written back by the note editor.

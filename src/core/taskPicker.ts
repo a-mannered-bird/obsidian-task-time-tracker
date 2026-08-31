@@ -1,6 +1,7 @@
 import type { TagMapping } from 'types/tags'
 import type { Task } from 'types/tasks'
 import { getLastEnd, isRunning } from './note'
+import { parseTaskInput } from './parser'
 import type { VaultTaskInfo } from './vaultTaskIndex'
 
 /** Vault entries rendered besides the note's own tasks (display cap only). */
@@ -31,6 +32,23 @@ export function buildPickerEntries(
 			.filter((info) => !noteNames.has(info.name))
 			.map((info) => ({ kind: 'vault' as const, info })),
 	]
+}
+
+/**
+ * Task the picker offers to create from the typed query, or null when the
+ * text names an existing task. The name comparison is case-insensitive so a
+ * casing slip cannot spawn a twin task; tags typed in the query become the
+ * new task's tags and never block the offer.
+ */
+export function createEntryFromQuery(
+	query: string,
+	existingNames: Iterable<string>
+): { name: string; tags: string[] } | null {
+	const { name, tags } = parseTaskInput(query)
+	if (!name) return null
+	const known = new Set<string>()
+	for (const existing of existingNames) known.add(existing.toLowerCase())
+	return known.has(name.toLowerCase()) ? null : { name, tags }
 }
 
 /**

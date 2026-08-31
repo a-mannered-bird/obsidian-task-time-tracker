@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { parseTasks } from './parser'
 import {
 	buildPickerEntries,
+	createEntryFromQuery,
 	entryLabel,
 	pickerLabel,
 	sortForPicker,
@@ -132,5 +133,37 @@ describe('entryLabel', () => {
 	it('delegates note entries to pickerLabel', () => {
 		const task = tasks.find((t) => t.name === 'Running now')!
 		expect(entryLabel({ kind: 'note', task }, mappings)).toBe('⏳ Running now')
+	})
+})
+
+describe('createEntryFromQuery', () => {
+	const existing = ['Deep work', 'Email']
+
+	it('offers the trimmed name with the typed tags', () => {
+		expect(
+			createEntryFromQuery('  Write   blog post #project #writing ', existing)
+		).toEqual({
+			name: 'Write blog post',
+			tags: ['#project', '#writing'],
+		})
+	})
+
+	it('offers nothing when the name matches an existing task, whatever the casing or tags', () => {
+		expect(createEntryFromQuery('Deep work', existing)).toBeNull()
+		expect(createEntryFromQuery('deep WORK', existing)).toBeNull()
+		expect(createEntryFromQuery('Deep work #new', existing)).toBeNull()
+	})
+
+	it('offers nothing for an empty or tags-only query', () => {
+		expect(createEntryFromQuery('', existing)).toBeNull()
+		expect(createEntryFromQuery('   ', existing)).toBeNull()
+		expect(createEntryFromQuery('#project', existing)).toBeNull()
+	})
+
+	it('still offers a near-miss so existing tasks never block new ones', () => {
+		expect(createEntryFromQuery('Deep working', existing)).toEqual({
+			name: 'Deep working',
+			tags: [],
+		})
 	})
 })

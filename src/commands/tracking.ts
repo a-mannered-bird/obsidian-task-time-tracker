@@ -177,6 +177,7 @@ export async function runTrackingSteps(
 			const picked = await pickTask(app, tasks, {
 				placeholder,
 				tagMappings: settings.tagMappings,
+				noteNames: note.tasks.map((task) => task.name),
 				vaultEntries: includeVault
 					? vaultTasks.ensureBuilt().then(() =>
 							// Dedupe against the whole note, not just the offered

@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { formatClockLine, getTaskLabel, parseTasks } from './parser'
+import {
+	formatClockLine,
+	getTaskLabel,
+	parseTaskInput,
+	parseTasks,
+} from './parser'
 
 const note = [
 	'---',
@@ -77,5 +82,18 @@ describe('formatClockLine', () => {
 			[start, null],
 			[start, end],
 		])
+	})
+})
+
+describe('parseTaskInput', () => {
+	it('splits free text into label and tags like a task line', () => {
+		expect(parseTaskInput('  Write   blog post #project #writing ')).toEqual({
+			name: 'Write blog post',
+			tags: ['#project', '#writing'],
+		})
+		expect(parseTaskInput('#only-tags')).toEqual({
+			name: '',
+			tags: ['#only-tags'],
+		})
 	})
 })

@@ -49,3 +49,7 @@
 	color: var(--text-faint);
 	font-style: italic;
 }
+
+.task-time-tracker-create-suggestion {
+	color: var(--text-accent);
+}
