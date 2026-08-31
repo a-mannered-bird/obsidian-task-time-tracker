@@ -18,6 +18,11 @@ export interface TaskTimeTrackerSettings {
 	 * A CSS color: a theme variable for the presets, or a hex string.
 	 */
 	taskColors: Record<string, string>
+	/**
+	 * Task names hidden from the pickers' vault suggestions, edited in the
+	 * task management panel. Typing a hidden name resurfaces the task.
+	 */
+	hiddenTasks: string[]
 	tagMappings: TagMapping[]
 	quickActions: QuickAction[]
 	/** UI state, not shown in the settings tab. */
@@ -30,6 +35,7 @@ export const DEFAULT_SETTINGS: TaskTimeTrackerSettings = {
 	unassignedTaskName: 'Unassigned',
 	includeVaultTasks: true,
 	taskColors: {},
+	hiddenTasks: [],
 	lastDailyViewTab: 'tracker',
 	quickActions: [],
 	tagMappings: [

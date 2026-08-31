@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { Menu } from 'obsidian'
 	import { onMount } from 'svelte'
 	import {
 		filterTaskInfos,
@@ -9,6 +10,7 @@
 	import { formatHoursMinutes, formatLocalDateTime } from 'core/time'
 	import type { VaultTaskInfo } from 'core/vaultTaskIndex'
 	import { openColorMenu } from 'ui/colorMenu'
+	import { icon } from 'ui/icon'
 	import type TaskTimeTracker from '../main'
 
 	type Props = {
@@ -18,13 +20,16 @@
 	const { plugin }: Props = $props()
 
 	let infos = $state<VaultTaskInfo[] | null>(null)
-	// Local mirror of the setting so the swatches re-render on change; the
-	// one-time capture is fine, the plugin prop never changes.
+	// Local mirrors of the settings so the rows re-render on change; the
+	// one-time captures are fine, the plugin prop never changes.
 	// svelte-ignore state_referenced_locally
 	let taskColors = $state<Record<string, string>>({
 		...plugin.settings.taskColors,
 	})
+	// svelte-ignore state_referenced_locally
+	let hiddenTasks = $state<string[]>([...plugin.settings.hiddenTasks])
 	let query = $state('')
+	let hiddenOnly = $state(false)
 	let sortKey = $state<TaskSortKey>('usage')
 	let ascending = $state(false)
 
@@ -35,11 +40,13 @@
 		{ key: 'total', label: 'Total', numeric: true },
 	]
 
-	const filtered = $derived(
-		infos === null
-			? null
-			: sortTaskInfos(filterTaskInfos(infos, query), sortKey, ascending)
-	)
+	const filtered = $derived.by(() => {
+		if (infos === null) return null
+		const matching = filterTaskInfos(infos, query).filter(
+			(info) => !hiddenOnly || isHidden(info.name)
+		)
+		return sortTaskInfos(matching, sortKey, ascending)
+	})
 	const rows = $derived(filtered?.slice(0, TASK_TABLE_ROW_CAP) ?? null)
 
 	function setSort(key: TaskSortKey) {
@@ -67,6 +74,29 @@
 		void plugin.saveSettings()
 	}
 
+	function isHidden(name: string): boolean {
+		return hiddenTasks.includes(name)
+	}
+
+	function toggleHidden(name: string) {
+		hiddenTasks = isHidden(name)
+			? hiddenTasks.filter((hidden) => hidden !== name)
+			: [...hiddenTasks, name]
+		plugin.settings.hiddenTasks = [...hiddenTasks]
+		void plugin.saveSettings()
+	}
+
+	function openRowMenu(event: MouseEvent, info: VaultTaskInfo) {
+		const menu = new Menu()
+		menu.addItem((item) =>
+			item
+				.setTitle(isHidden(info.name) ? 'Show in picker' : 'Hide from picker')
+				.setIcon(isHidden(info.name) ? 'eye' : 'eye-off')
+				.onClick(() => toggleHidden(info.name))
+		)
+		menu.showAtMouseEvent(event)
+	}
+
 	async function load() {
 		await plugin.vaultTasks.ensureBuilt()
 		infos = plugin.vaultTasks.snapshot()
@@ -85,6 +115,14 @@
 		placeholder="Filter by name or tag…"
 		bind:value={query}
 	/>
+	<button
+		class="facet"
+		aria-pressed={hiddenOnly}
+		onclick={() => (hiddenOnly = !hiddenOnly)}
+	>
+		<span use:icon={'eye-off'}></span>
+		Hidden only
+	</button>
 	{#if filtered !== null && infos !== null && filtered.length !== infos.length}
 		<span class="muted">{filtered.length} of {infos.length} tasks</span>
 	{/if}
@@ -110,6 +148,7 @@
 							</button>
 						</th>
 					{/each}
+					<th class="menu-cell"></th>
 				</tr>
 			</thead>
 			<tbody>
@@ -128,7 +167,16 @@
 							></button>
 						</td>
 						<td>
-							<span class="name">{info.name}</span>
+							<span class="name" class:muted={isHidden(info.name)}
+								>{info.name}</span
+							>
+							{#if isHidden(info.name)}
+								<span
+									class="hidden-marker"
+									aria-label="Hidden from picker"
+									use:icon={'eye-off'}
+								></span>
+							{/if}
 							{#each info.tags as tag (tag)}
 								<span class="tag">{tag}</span>
 							{/each}
@@ -136,6 +184,14 @@
 						<td class="numeric">{info.noteCount}</td>
 						<td class="nowrap">{lastUsedLabel(info)}</td>
 						<td class="numeric">{formatHoursMinutes(info.totalMinutes)}</td>
+						<td class="menu-cell">
+							<button
+								class="icon-button"
+								aria-label="Actions for {info.name}"
+								use:icon={'ellipsis'}
+								onclick={(event) => openRowMenu(event, info)}
+							></button>
+						</td>
 					</tr>
 				{/each}
 			</tbody>
@@ -159,6 +215,18 @@
 
 	.toolbar input {
 		flex: 1;
+	}
+
+	.facet {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.35em;
+		color: var(--text-muted);
+	}
+
+	.facet[aria-pressed='true'] {
+		color: var(--text-on-accent);
+		background: var(--interactive-accent);
 	}
 
 	.muted {
@@ -253,5 +321,33 @@
 		color: var(--text-muted);
 		font-size: var(--font-ui-smaller);
 		margin-right: 0.35em;
+	}
+
+	.hidden-marker {
+		display: inline-flex;
+		vertical-align: middle;
+		color: var(--text-faint);
+		margin-right: 0.5em;
+	}
+
+	.menu-cell {
+		width: 1.6em;
+		text-align: right;
+	}
+
+	.icon-button {
+		all: unset;
+		cursor: pointer;
+		display: inline-flex;
+		color: var(--text-muted);
+	}
+
+	.icon-button:hover {
+		color: var(--text-normal);
+	}
+
+	.icon-button:focus-visible {
+		outline: 2px solid var(--interactive-accent);
+		outline-offset: 2px;
 	}
 </style>

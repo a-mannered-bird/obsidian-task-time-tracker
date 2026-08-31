@@ -5,10 +5,18 @@ import {
 	buildPickerEntries,
 	createEntryFromQuery,
 	entryLabel,
+	resurfacedEntry,
 	VAULT_DISPLAY_LIMIT,
 	type PickerEntry,
 } from 'core/taskPicker'
 import type { VaultTaskInfo } from 'core/vaultTaskIndex'
+
+/** Vault suggestions, split by the hide flags of the management panel. */
+export type VaultPickerEntries = {
+	visible: VaultTaskInfo[]
+	/** Only offered when the query names one exactly (see resurfacedEntry). */
+	hidden: VaultTaskInfo[]
+}
 
 /**
  * The user's choice: a task of the note, a vault task to add to it, or a
@@ -28,7 +36,7 @@ type Options = {
 	 * a loading row is shown until then. Omit for a note-only picker (which
 	 * also disables creating tasks from the typed text).
 	 */
-	vaultEntries?: Promise<VaultTaskInfo[]>
+	vaultEntries?: Promise<VaultPickerEntries>
 	/**
 	 * Every task name of the note, running ones included — the create row
 	 * must not offer a twin of a task merely excluded from the candidates.
@@ -59,7 +67,7 @@ export function pickTask(
 
 class TaskSuggestModal extends FuzzySuggestModal<ModalItem> {
 	private chosen = false
-	private vaultInfos: VaultTaskInfo[] | null = null
+	private vaultEntries: VaultPickerEntries | null = null
 
 	constructor(
 		app: App,
@@ -73,16 +81,19 @@ class TaskSuggestModal extends FuzzySuggestModal<ModalItem> {
 		// the best vault matches.
 		this.limit = tasks.length + VAULT_DISPLAY_LIMIT
 		if (options.vaultEntries) {
-			void options.vaultEntries.then((infos) => {
-				this.vaultInfos = infos
+			void options.vaultEntries.then((entries) => {
+				this.vaultEntries = entries
 				this.refreshSuggestions()
 			})
 		}
 	}
 
 	getItems(): ModalItem[] {
-		const entries = buildPickerEntries(this.tasks, this.vaultInfos ?? [])
-		const loading = this.options.vaultEntries && this.vaultInfos === null
+		const entries = buildPickerEntries(
+			this.tasks,
+			this.vaultEntries?.visible ?? []
+		)
+		const loading = this.options.vaultEntries && this.vaultEntries === null
 		return loading ? [...entries, LOADING] : entries
 	}
 
@@ -90,19 +101,19 @@ class TaskSuggestModal extends FuzzySuggestModal<ModalItem> {
 	 * Fuzzy results as usual, plus a create row as the very last suggestion
 	 * when the typed text names no existing task — Enter keeps selecting the
 	 * best match, so creating a near-duplicate takes a deliberate arrow-down.
+	 * A query naming a hidden task exactly resurfaces it instead.
 	 */
 	getSuggestions(query: string): FuzzyMatch<ModalItem>[] {
 		const suggestions = super.getSuggestions(query)
 		if (!this.options.vaultEntries) return suggestions
+		const resurfaced = resurfacedEntry(query, this.vaultEntries?.hidden ?? [])
+		if (resurfaced) {
+			return [...suggestions, lastRow({ kind: 'vault', info: resurfaced })]
+		}
 		const create = createEntryFromQuery(query, this.knownNames())
-		if (!create) return suggestions
-		return [
-			...suggestions,
-			{
-				item: { kind: 'create', ...create },
-				match: { score: Number.NEGATIVE_INFINITY, matches: [] },
-			},
-		]
+		return create
+			? [...suggestions, lastRow({ kind: 'create', ...create })]
+			: suggestions
 	}
 
 	getItemText(item: ModalItem): string {
@@ -140,11 +151,15 @@ class TaskSuggestModal extends FuzzySuggestModal<ModalItem> {
 		}
 	}
 
-	/** Names the create row checks against: whole note plus vault entries. */
+	/**
+	 * Names the create row checks against: whole note plus vault entries,
+	 * hidden ones included — hiding must never enable a duplicate.
+	 */
 	private knownNames(): string[] {
 		return [
 			...(this.options.noteNames ?? this.tasks.map((task) => task.name)),
-			...(this.vaultInfos ?? []).map((info) => info.name),
+			...(this.vaultEntries?.visible ?? []).map((info) => info.name),
+			...(this.vaultEntries?.hidden ?? []).map((info) => info.name),
 		]
 	}
 
@@ -162,6 +177,11 @@ class TaskSuggestModal extends FuzzySuggestModal<ModalItem> {
 		if (hasUpdateSuggestions(this)) this.updateSuggestions()
 		else this.inputEl.dispatchEvent(new Event('input'))
 	}
+}
+
+/** Appended suggestion that never outranks a fuzzy match. */
+function lastRow(item: ModalItem): FuzzyMatch<ModalItem> {
+	return { item, match: { score: Number.NEGATIVE_INFINITY, matches: [] } }
 }
 
 /** SuggestModal re-queries through this undocumented but stable method. */

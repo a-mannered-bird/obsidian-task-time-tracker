@@ -52,6 +52,20 @@ export function createEntryFromQuery(
 }
 
 /**
+ * Hidden vault task named exactly (case-insensitively) by the typed query,
+ * or null. Hiding must never cause the picker to create a twin of a task it
+ * knows about, so an exact match resurfaces the task as a suggestion.
+ */
+export function resurfacedEntry(
+	query: string,
+	hidden: VaultTaskInfo[]
+): VaultTaskInfo | null {
+	const name = parseTaskInput(query).name.toLowerCase()
+	if (!name) return null
+	return hidden.find((info) => info.name.toLowerCase() === name) ?? null
+}
+
+/**
  * Picker order: running tasks first, then unticked before ticked, then the
  * most recently worked on. Does not mutate the input.
  */

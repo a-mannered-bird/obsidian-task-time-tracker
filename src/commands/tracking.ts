@@ -179,11 +179,18 @@ export async function runTrackingSteps(
 				tagMappings: settings.tagMappings,
 				noteNames: note.tasks.map((task) => task.name),
 				vaultEntries: includeVault
-					? vaultTasks.ensureBuilt().then(() =>
+					? vaultTasks.ensureBuilt().then(() => {
 							// Dedupe against the whole note, not just the offered
 							// candidates (a switch excludes the running tasks).
-							vaultTasks.snapshot().filter((info) => !note.findTask(info.name))
-						)
+							const infos = vaultTasks
+								.snapshot()
+								.filter((info) => !note.findTask(info.name))
+							const hidden = new Set(settings.hiddenTasks)
+							return {
+								visible: infos.filter((info) => !hidden.has(info.name)),
+								hidden: infos.filter((info) => hidden.has(info.name)),
+							}
+						})
 					: undefined,
 			})
 			if (!picked) return null

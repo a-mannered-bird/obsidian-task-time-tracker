@@ -5,6 +5,7 @@ import {
 	createEntryFromQuery,
 	entryLabel,
 	pickerLabel,
+	resurfacedEntry,
 	sortForPicker,
 } from './taskPicker'
 import type { VaultTaskInfo } from './vaultTaskIndex'
@@ -165,5 +166,19 @@ describe('createEntryFromQuery', () => {
 			name: 'Deep working',
 			tags: [],
 		})
+	})
+})
+
+describe('resurfacedEntry', () => {
+	const hidden = [info('Old project', ['#archive'])]
+
+	it('returns the hidden task named exactly, whatever the casing', () => {
+		expect(resurfacedEntry('old PROJECT', hidden)).toBe(hidden[0])
+		expect(resurfacedEntry('  Old   project ', hidden)).toBe(hidden[0])
+	})
+
+	it('ignores partial matches and empty queries', () => {
+		expect(resurfacedEntry('Old proj', hidden)).toBeNull()
+		expect(resurfacedEntry('', hidden)).toBeNull()
 	})
 })
