@@ -94,7 +94,7 @@ Roadmap and todo lists for the Task Time Tracker plugin. Decisions recorded here
 
 ## Phase 7: Bulk operations
 
-- [ ] E2E harness: `wdio-obsidian-service` + fixture vault (a few daily notes covering tags, clocks, collisions), wired into `npm test`/CI as a separate script.
+- [x] E2E harness: `wdio-obsidian-service` + fixture vault (a few daily notes covering tags, clocks, collisions), wired into `npm test`/CI as a separate script.
 - [ ] Consolidation engine in core (rename/merge line rewrite, within-note collision merge, clock union, OR-tick); heavy unit tests.
 - [ ] `vault.process` runner with progress, summary, failure report; index-derived preview counts.
 - [ ] Confirm modals (name-typing for delete/merge; light confirm for rename/retag; reference warnings for quick actions and the unassigned task).

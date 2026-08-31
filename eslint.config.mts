@@ -34,6 +34,18 @@ export default tseslint.config(
 			'obsidianmd/no-tfile-tfolder-cast': 'off',
 		},
 	},
+	{
+		// E2E specs: mocha globals via @wdio/mocha-framework, dev-only deps.
+		files: ['test/specs/**/*.ts'],
+		languageOptions: {
+			globals: {
+				...globals.mocha,
+			},
+		},
+		rules: {
+			'import/no-extraneous-dependencies': 'off',
+		},
+	},
 	globalIgnores([
 		'node_modules',
 		'dist',
