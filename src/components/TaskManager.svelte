@@ -8,6 +8,7 @@
 	} from 'core/taskManager'
 	import { formatHoursMinutes, formatLocalDateTime } from 'core/time'
 	import type { VaultTaskInfo } from 'core/vaultTaskIndex'
+	import { openColorMenu } from 'ui/colorMenu'
 	import type TaskTimeTracker from '../main'
 
 	type Props = {
@@ -17,6 +18,12 @@
 	const { plugin }: Props = $props()
 
 	let infos = $state<VaultTaskInfo[] | null>(null)
+	// Local mirror of the setting so the swatches re-render on change; the
+	// one-time capture is fine, the plugin prop never changes.
+	// svelte-ignore state_referenced_locally
+	let taskColors = $state<Record<string, string>>({
+		...plugin.settings.taskColors,
+	})
 	let query = $state('')
 	let sortKey = $state<TaskSortKey>('usage')
 	let ascending = $state(false)
@@ -53,6 +60,13 @@
 		return formatLocalDateTime(info.lastUsed).split('T')[0]!
 	}
 
+	function setColor(name: string, color: string | null) {
+		if (color === null) delete taskColors[name]
+		else taskColors[name] = color
+		plugin.settings.taskColors = { ...taskColors }
+		void plugin.saveSettings()
+	}
+
 	async function load() {
 		await plugin.vaultTasks.ensureBuilt()
 		infos = plugin.vaultTasks.snapshot()
@@ -85,6 +99,7 @@
 		<table>
 			<thead>
 				<tr>
+					<th class="swatch-cell"></th>
 					{#each HEADERS as header (header.key)}
 						<th class:numeric={header.numeric} aria-sort={ariaSort(header.key)}>
 							<button class="header" onclick={() => setSort(header.key)}>
@@ -100,6 +115,18 @@
 			<tbody>
 				{#each rows as info (info.name)}
 					<tr>
+						<td class="swatch-cell">
+							<button
+								class="swatch"
+								class:unset={taskColors[info.name] === undefined}
+								style:background={taskColors[info.name] ?? 'transparent'}
+								aria-label="Set color of {info.name}"
+								onclick={(event) =>
+									openColorMenu(event, taskColors[info.name], (color) =>
+										setColor(info.name, color)
+									)}
+							></button>
+						</td>
 						<td>
 							<span class="name">{info.name}</span>
 							{#each info.tags as tag (tag)}
@@ -116,8 +143,8 @@
 	</div>
 	{#if filtered !== null && filtered.length > rows.length}
 		<p class="muted">
-			Showing {rows.length} of {filtered.length} tasks — refine the filter to
-			see the rest.
+			Showing {rows.length} of {filtered.length} tasks — refine the filter to see
+			the rest.
 		</p>
 	{/if}
 {/if}
@@ -193,6 +220,33 @@
 
 	.name {
 		margin-right: 0.5em;
+	}
+
+	.swatch-cell {
+		width: 1.6em;
+	}
+
+	.swatch {
+		all: unset;
+		cursor: pointer;
+		display: inline-block;
+		width: 1em;
+		height: 1em;
+		border-radius: 50%;
+		border: 1px solid var(--background-modifier-border);
+	}
+
+	.swatch.unset {
+		border-style: dashed;
+	}
+
+	.swatch:hover {
+		border-color: var(--text-muted);
+	}
+
+	.swatch:focus-visible {
+		outline: 2px solid var(--interactive-accent);
+		outline-offset: 2px;
 	}
 
 	.tag {

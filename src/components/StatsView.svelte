@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { moment } from 'obsidian'
 	import { onMount } from 'svelte'
+	import { resolveSeriesColor } from 'core/chartColors'
 	import { loadRangeStats, type LoadedRangeStats } from 'core/loadRangeStats'
 	import { shiftRange } from 'core/ranges'
 	import type { StatsBlockOptions } from 'core/statsOptions'
@@ -36,33 +37,6 @@
 	const show = (metric: StatsBlockOptions['metrics'][number]) =>
 		options.metrics.includes(metric)
 
-	// Fixed assignment order, validated for color-vision separation on the
-	// default themes (see PLAN); the user's theme provides the actual colors.
-	const CHART_COLORS = [
-		'var(--color-blue)',
-		'var(--color-orange)',
-		'var(--color-purple)',
-		'var(--color-green)',
-		'var(--color-red)',
-		'var(--color-cyan)',
-		'var(--color-yellow)',
-		'var(--color-pink)',
-	]
-	/**
-	 * Beyond the theme colors, cycle the same hue order through deterministic
-	 * variants: paler (mixed with the surface), then deeper (mixed with the
-	 * ink), mixing harder on each round. Adapts to light and dark themes.
-	 */
-	function seriesColor(index: number): string {
-		const base = CHART_COLORS[index % CHART_COLORS.length]!
-		const round = Math.floor(index / CHART_COLORS.length)
-		if (round === 0) return base
-		const towards =
-			round % 2 === 1 ? 'var(--background-primary)' : 'var(--text-normal)'
-		const amount = Math.min(35 + Math.floor((round - 1) / 2) * 15, 70)
-		return `color-mix(in srgb, ${base} ${100 - amount}%, ${towards})`
-	}
-
 	const OTHER = 'Other'
 
 	/** Totals with everything below the `top` biggest keys folded into Other. */
@@ -83,7 +57,10 @@
 	const series = $derived.by<ChartSeries[]>(() =>
 		byKey.map(([key], index) => ({
 			key,
-			color: key === OTHER ? 'var(--text-faint)' : seriesColor(index),
+			color:
+				key === OTHER
+					? 'var(--text-faint)'
+					: resolveSeriesColor(key, index, plugin.settings.taskColors),
 		}))
 	)
 

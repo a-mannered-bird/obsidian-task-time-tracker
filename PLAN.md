@@ -78,6 +78,7 @@ Roadmap and todo lists for the Task Time Tracker plugin. Decisions recorded here
 - Merge UI: checkbox per row + "Merge N tasks…" button (≥2), survivor name chosen in the confirm modal (default: most used).
 - Issue flags, computed on panel open from the index, thresholds fixed in v1: (1) name similarity — Damerau-Levenshtein on case-folded, whitespace-collapsed names, distance ≤ 1 under 6 chars else ≤ 2, length-diff ≤ 2 prefilter; similarity warning offers "merge these two". (2) duration outlier — session ≥ 16h always, or > 5× the task's median with ≥ 5 sessions; click jumps to the note line. (3) tag drift across occurrences. (4) same-task overlapping clocks (cross-task overlap is legitimate), with a one-click consolidation fix. (5) stale running clock in a non-today note.
 - Colors: panel picker offers the 8 theme `--color-*` swatches plus free hex; the CSS string is stored, overriding `seriesColor` wherever a chart key is a task name. Uncolored tasks keep the rank cycle; collisions accepted in v1. Tag colors deferred (future `color` field on tag mappings — see Later).
+- End-to-end tests (decided 2026-08-31): adopt `wdio-obsidian-service` starting with phase 7 — the bulk operations are the first features that can corrupt notes, so each one gets an E2E test running it against a fixture vault and diffing the resulting markdown. Coverage then grows with each phase; earlier features (picker, panel) get E2E tests opportunistically, not retroactively as a blocker.
 
 ## Phase 5: Vault-wide task picker
 
@@ -88,15 +89,17 @@ Roadmap and todo lists for the Task Time Tracker plugin. Decisions recorded here
 ## Phase 6: Task management panel (read-only + local state)
 
 - [x] Management modal (Svelte): table with columns/sort/filter/cap as decided; entry points: command, settings button, tracker-tab button.
-- [ ] Color map (settings storage, swatch + hex picker, `seriesColor` override in stats views).
+- [x] Color map (settings storage, swatch + hex picker, `seriesColor` override in stats views).
 - [ ] Hide-from-picker flags (settings storage, toggle in row menu, picker exclusion + resurface rule).
 
 ## Phase 7: Bulk operations
 
+- [ ] E2E harness: `wdio-obsidian-service` + fixture vault (a few daily notes covering tags, clocks, collisions), wired into `npm test`/CI as a separate script.
 - [ ] Consolidation engine in core (rename/merge line rewrite, within-note collision merge, clock union, OR-tick); heavy unit tests.
 - [ ] `vault.process` runner with progress, summary, failure report; index-derived preview counts.
 - [ ] Confirm modals (name-typing for delete/merge; light confirm for rename/retag; reference warnings for quick actions and the unassigned task).
 - [ ] Rename + merge actions (incl. name-keyed settings migration), then delete + retag (add/remove a tag across all occurrences, autocomplete that creates unknown tags).
+- [ ] E2E tests per operation: run rename/merge/delete/retag through the real UI on the fixture vault and assert the exact markdown of every touched note.
 
 ## Phase 8: Issue detection
 

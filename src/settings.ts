@@ -13,6 +13,11 @@ export interface TaskTimeTrackerSettings {
 	unassignedTaskName: string
 	/** Task pickers also offer the tasks of every daily note in the vault. */
 	includeVaultTasks: boolean
+	/**
+	 * Custom chart color per task name, edited in the task management panel.
+	 * A CSS color: a theme variable for the presets, or a hex string.
+	 */
+	taskColors: Record<string, string>
 	tagMappings: TagMapping[]
 	quickActions: QuickAction[]
 	/** UI state, not shown in the settings tab. */
@@ -24,6 +29,7 @@ export type DailyViewTab = 'tracker' | 'stats'
 export const DEFAULT_SETTINGS: TaskTimeTrackerSettings = {
 	unassignedTaskName: 'Unassigned',
 	includeVaultTasks: true,
+	taskColors: {},
 	lastDailyViewTab: 'tracker',
 	quickActions: [],
 	tagMappings: [
@@ -162,9 +168,7 @@ export class TaskTimeTrackerSettingTab extends PluginSettingTab {
 				'Browse every task of the daily notes; also available as a command and from the tracker tab.'
 			)
 			.addButton((button) =>
-				button
-					.setButtonText('Open')
-					.onClick(() => openTaskManager(this.plugin))
+				button.setButtonText('Open').onClick(() => openTaskManager(this.plugin))
 			)
 	}
 

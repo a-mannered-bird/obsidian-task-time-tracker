@@ -58,3 +58,13 @@
 	width: min(56em, 90vw);
 	max-width: 90vw;
 }
+
+.task-time-tracker-color-input {
+	/* Invisible; left/top are set to the click position so the native picker
+	   pops up next to it. */
+	position: fixed;
+	width: 1px;
+	height: 1px;
+	opacity: 0;
+	pointer-events: none;
+}
