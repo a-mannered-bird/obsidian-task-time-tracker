@@ -53,3 +53,8 @@
 .task-time-tracker-create-suggestion {
 	color: var(--text-accent);
 }
+
+.task-time-tracker-manager-modal {
+	width: min(56em, 90vw);
+	max-width: 90vw;
+}

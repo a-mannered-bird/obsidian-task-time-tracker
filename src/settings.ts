@@ -6,6 +6,7 @@ import {
 	type QuickAction,
 } from './commands/quickActions'
 import type TaskTimeTracker from './main'
+import { openTaskManager } from './ui/TaskManagerModal'
 import type { TagMapping } from './types/tags'
 
 export interface TaskTimeTrackerSettings {
@@ -81,6 +82,7 @@ export class TaskTimeTrackerSettingTab extends PluginSettingTab {
 		containerEl.empty()
 
 		this.displayTrackingSection(containerEl)
+		this.displayTaskManagementSection(containerEl)
 		this.displayQuickActionsSection(containerEl)
 		this.displayTagMappingsSection(containerEl)
 
@@ -135,6 +137,10 @@ export class TaskTimeTrackerSettingTab extends PluginSettingTab {
 			name: 'Unassigned task name',
 			desc: 'Task used by quick interruptions until the time gets assigned to a real task.',
 		})
+	}
+
+	private displayTaskManagementSection(containerEl: HTMLElement) {
+		new Setting(containerEl).setName('Task management').setHeading()
 
 		new Setting(containerEl)
 			.setName('Suggest tasks from all daily notes')
@@ -148,6 +154,17 @@ export class TaskTimeTrackerSettingTab extends PluginSettingTab {
 						this.plugin.settings.includeVaultTasks = value
 						await this.plugin.saveSettings()
 					})
+			)
+
+		new Setting(containerEl)
+			.setName('Manage tasks')
+			.setDesc(
+				'Browse every task of the daily notes; also available as a command and from the tracker tab.'
+			)
+			.addButton((button) =>
+				button
+					.setButtonText('Open')
+					.onClick(() => openTaskManager(this.plugin))
 			)
 	}
 

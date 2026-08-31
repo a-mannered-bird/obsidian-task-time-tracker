@@ -15,6 +15,7 @@ import {
 	TaskTimeTrackerSettingTab,
 	type TaskTimeTrackerSettings,
 } from './settings'
+import { openTaskManager } from './ui/TaskManagerModal'
 import { DailyItemView, DAILY_VIEW } from './views/DailyItemView'
 import { registerStatsCodeBlock } from './views/statsCodeBlock'
 
@@ -50,6 +51,13 @@ export default class TaskTimeTracker extends Plugin {
 			callback: () => {
 				void this.activateDailyView()
 			},
+		})
+
+		this.addCommand({
+			id: 'manage-tasks',
+			name: 'Manage tasks',
+			icon: 'list-todo',
+			callback: () => openTaskManager(this),
 		})
 
 		registerTrackingCommands(this)

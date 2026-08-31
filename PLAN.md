@@ -87,7 +87,7 @@ Roadmap and todo lists for the Task Time Tracker plugin. Decisions recorded here
 
 ## Phase 6: Task management panel (read-only + local state)
 
-- [ ] Management modal (Svelte): table with columns/sort/filter/cap as decided; entry points: command, settings button, tracker-tab button.
+- [x] Management modal (Svelte): table with columns/sort/filter/cap as decided; entry points: command, settings button, tracker-tab button.
 - [ ] Color map (settings storage, swatch + hex picker, `seriesColor` override in stats views).
 - [ ] Hide-from-picker flags (settings storage, toggle in row menu, picker exclusion + resurface rule).
 

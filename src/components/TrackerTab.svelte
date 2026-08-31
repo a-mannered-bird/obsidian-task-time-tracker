@@ -12,6 +12,7 @@
 	import { formatHoursMinutes, getMinutesBetween } from 'core/time'
 	import type { Task } from 'types/tasks'
 	import { icon } from 'ui/icon'
+	import { openTaskManager } from 'ui/TaskManagerModal'
 	import type TaskTimeTracker from '../main'
 
 	type Props = {
@@ -163,6 +164,7 @@
 		<button onclick={() => void completeJournal(plugin)}>
 			Complete journal
 		</button>
+		<button onclick={() => openTaskManager(plugin)}> Manage tasks </button>
 	</div>
 {/if}
 
