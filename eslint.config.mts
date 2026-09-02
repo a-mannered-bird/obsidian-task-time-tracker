@@ -29,7 +29,7 @@ export default tseslint.config(
 	},
 	{
 		// Test stubs build fake Obsidian objects; casting is the point there.
-		files: ['src/**/*.test.ts'],
+		files: ['src/**/*.test.ts', 'src/test/**/*.ts'],
 		rules: {
 			'obsidianmd/no-tfile-tfolder-cast': 'off',
 		},
