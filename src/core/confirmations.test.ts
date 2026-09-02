@@ -47,13 +47,13 @@ describe('describeConsolidation', () => {
 
 	it('describes a merge with its line effects', () => {
 		expect(
-			describeConsolidation(['Task A', 'Task B'], 'Task A', {
+			describeConsolidation(['Task A', 'Task B'], null, {
 				notes: 12,
 				removedTaskLines: 12,
 				removedClockLines: 3,
 			})
 		).toEqual([
-			'Merge "Task A", "Task B" into "Task A" across 12 daily notes.',
+			'Merge "Task A", "Task B" into the surviving name across 12 daily notes.',
 			'12 task lines merged into a single line per note; 3 clock lines removed by joining overlapping, touching or empty clocks.',
 		])
 	})

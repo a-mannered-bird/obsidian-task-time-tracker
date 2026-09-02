@@ -43,18 +43,22 @@ export function referenceWarnings(
 	return warnings
 }
 
-/** Preview paragraphs of a rename (one source) or merge (several). */
+/**
+ * Preview paragraphs of a rename (one source) or merge (several). A null
+ * target stands for "the name chosen in the dialog".
+ */
 export function describeConsolidation(
 	sourceNames: string[],
-	targetName: string,
+	targetName: string | null,
 	preview: ConsolidationPreview
 ): string[] {
 	const sources = sourceNames.map(quote).join(', ')
+	const target = targetName === null ? 'the surviving name' : quote(targetName)
 	const notes = plural(preview.notes, 'daily note')
 	const paragraphs = [
 		sourceNames.length === 1
-			? `Rename ${sources} to ${quote(targetName)} across ${notes}.`
-			: `Merge ${sources} into ${quote(targetName)} across ${notes}.`,
+			? `Rename ${sources} to ${target} across ${notes}.`
+			: `Merge ${sources} into ${target} across ${notes}.`,
 	]
 	const effects: string[] = []
 	if (preview.removedTaskLines > 0) {

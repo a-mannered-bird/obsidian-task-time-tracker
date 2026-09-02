@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { Menu } from 'obsidian'
 	import { onMount } from 'svelte'
+	import { mergeTasks, renameTask } from 'commands/taskActions'
 	import {
 		filterTaskInfos,
 		sortTaskInfos,
@@ -32,6 +33,9 @@
 	let hiddenOnly = $state(false)
 	let sortKey = $state<TaskSortKey>('usage')
 	let ascending = $state(false)
+	/** Names ticked for a merge. */
+	let selected = $state<string[]>([])
+	let busy = $state(false)
 
 	const HEADERS: { key: TaskSortKey; label: string; numeric?: boolean }[] = [
 		{ key: 'name', label: 'Task' },
@@ -86,8 +90,41 @@
 		void plugin.saveSettings()
 	}
 
+	function isSelected(name: string): boolean {
+		return selected.includes(name)
+	}
+
+	function toggleSelected(name: string) {
+		selected = isSelected(name)
+			? selected.filter((other) => other !== name)
+			: [...selected, name]
+	}
+
+	/**
+	 * Run a bulk operation, then re-sync the settings mirrors it may have
+	 * migrated (the table itself follows the store's change events).
+	 */
+	async function runAction(action: () => Promise<boolean>) {
+		busy = true
+		try {
+			await action()
+		} finally {
+			busy = false
+			taskColors = { ...plugin.settings.taskColors }
+			hiddenTasks = [...plugin.settings.hiddenTasks]
+			selected = []
+			await load()
+		}
+	}
+
 	function openRowMenu(event: MouseEvent, info: VaultTaskInfo) {
 		const menu = new Menu()
+		menu.addItem((item) =>
+			item
+				.setTitle('Rename…')
+				.setIcon('pencil')
+				.onClick(() => void runAction(() => renameTask(plugin, info.name)))
+		)
 		menu.addItem((item) =>
 			item
 				.setTitle(isHidden(info.name) ? 'Show in picker' : 'Hide from picker')
@@ -123,6 +160,13 @@
 		<span use:icon={'eye-off'}></span>
 		Hidden only
 	</button>
+	<button
+		class="mod-cta"
+		disabled={selected.length < 2 || busy}
+		onclick={() => void runAction(() => mergeTasks(plugin, selected))}
+	>
+		Merge {selected.length} tasks…
+	</button>
 	{#if filtered !== null && infos !== null && filtered.length !== infos.length}
 		<span class="muted">{filtered.length} of {infos.length} tasks</span>
 	{/if}
@@ -137,6 +181,7 @@
 		<table>
 			<thead>
 				<tr>
+					<th class="select-cell"></th>
 					<th class="swatch-cell"></th>
 					{#each HEADERS as header (header.key)}
 						<th class:numeric={header.numeric} aria-sort={ariaSort(header.key)}>
@@ -154,6 +199,14 @@
 			<tbody>
 				{#each rows as info (info.name)}
 					<tr>
+						<td class="select-cell">
+							<input
+								type="checkbox"
+								aria-label="Select {info.name} for merging"
+								checked={isSelected(info.name)}
+								onchange={() => toggleSelected(info.name)}
+							/>
+						</td>
 						<td class="swatch-cell">
 							<button
 								class="swatch"
@@ -290,7 +343,8 @@
 		margin-right: 0.5em;
 	}
 
-	.swatch-cell {
+	.swatch-cell,
+	.select-cell {
 		width: 1.6em;
 	}
 
