@@ -68,3 +68,7 @@
 	opacity: 0;
 	pointer-events: none;
 }
+
+.task-time-tracker-warning {
+	color: var(--text-warning);
+}
