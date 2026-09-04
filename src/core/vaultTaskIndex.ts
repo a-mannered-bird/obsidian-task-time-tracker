@@ -3,7 +3,7 @@ import type { Task } from 'types/tasks'
 import { taskMinutes } from './aggregate'
 import type { DailyLog } from './dailyLogs'
 
-type NoteTasks = Pick<DailyLog, 'date' | 'tasks'>
+type NoteTasks = Pick<DailyLog, 'date' | 'tasks' | 'wakeTime' | 'bedTime'>
 
 /** Structural counterpart of DailyLogChange, holding only what is read. */
 export type VaultTaskChange = { path: string; log: NoteTasks | null }
@@ -29,9 +29,16 @@ export type VaultTaskInfo = {
 	totalMinutes: number
 }
 
-export type VaultTaskOccurrence = { path: string; date: Date; task: Task }
+export type VaultTaskOccurrence = {
+	path: string
+	date: Date
+	task: Task
+	/** The note's wake/bed times, when recorded; the day's window. */
+	wakeTime: Date | null
+	bedTime: Date | null
+}
 
-type NoteEntry = { date: Date; tasks: Task[] }
+type NoteEntry = NoteTasks
 
 /**
  * Vault-wide task aggregates over the daily notes, for the picker's vault
@@ -118,7 +125,15 @@ export class VaultTaskIndex {
 		const result: VaultTaskOccurrence[] = []
 		for (const [path, entry] of this.byPath) {
 			for (const task of entry.tasks) {
-				if (task.name === name) result.push({ path, date: entry.date, task })
+				if (task.name === name) {
+					result.push({
+						path,
+						date: entry.date,
+						task,
+						wakeTime: entry.wakeTime,
+						bedTime: entry.bedTime,
+					})
+				}
 			}
 		}
 		return result.sort((a, b) => a.date.valueOf() - b.date.valueOf())
@@ -132,10 +147,7 @@ export class VaultTaskIndex {
 			return
 		}
 		if (change.log) {
-			this.byPath.set(change.path, {
-				date: change.log.date,
-				tasks: change.log.tasks,
-			})
+			this.byPath.set(change.path, noteEntry(change.log))
 		} else {
 			this.byPath.delete(change.path)
 		}
@@ -150,12 +162,20 @@ export class VaultTaskIndex {
 			for (const file of this.source.listFiles()) {
 				const log = await this.source.loadFile(file)
 				if (generation !== this.generation) break
-				if (log) {
-					this.byPath.set(file.path, { date: log.date, tasks: log.tasks })
-				}
+				if (log) this.byPath.set(file.path, noteEntry(log))
 			}
 		} while (generation !== this.generation)
 		this.built = true
 		this.building = null
+	}
+}
+
+/** Keep only what the index reads, not the whole DailyLog. */
+function noteEntry(log: NoteTasks): NoteEntry {
+	return {
+		date: log.date,
+		tasks: log.tasks,
+		wakeTime: log.wakeTime,
+		bedTime: log.bedTime,
 	}
 }

@@ -78,6 +78,7 @@ Roadmap and todo lists for the Task Time Tracker plugin. Decisions recorded here
 - Merge UI: checkbox per row + "Merge N tasks…" button (≥2), survivor name chosen in the confirm modal (default: most used).
 - Bulk selection (decided 2026-09-01): the header checkbox selects every matching task (the filtered set, not just the rendered cap), shift-click ticks the range since the last plain click in table order, and a selection bar offers merge, change tags, color, hide/show and delete over the selection. Deleting several tasks types the count instead of a name.
 - Retag UI (decided 2026-09-01): a chip editor over the union of the task's tags, each chip showing its coverage (`7/12`) when not on every line. Apply means "every line gets exactly these tags" — the normalization that settles tag drift — in one confirmation and one run; disabled when no line would change.
+- Sixth issue flag (decided 2026-09-05): a clock lying wholly before the note's wake time or wholly after its bed time is "outside the day" — by the plugin's own day definition it belongs to another note, or the times are wrong; jump-to-line is the only fix. A boundary that is not recorded is not checked (no calendar-day fallback), touching a boundary counts as inside, straddling clocks are left alone.
 - Issue flags, computed on panel open from the index, thresholds fixed in v1: (1) name similarity — Damerau-Levenshtein on case-folded, whitespace-collapsed names, distance ≤ 1 under 6 chars else ≤ 2, length-diff ≤ 2 prefilter; similarity warning offers "merge these two". (2) duration outlier — session ≥ 16h always, or > 5× the task's median with ≥ 5 sessions; click jumps to the note line. (3) tag drift across occurrences. (4) same-task overlapping clocks (cross-task overlap is legitimate), with a one-click consolidation fix. (5) stale running clock in a non-today note.
 - Colors: panel picker offers the 8 theme `--color-*` swatches plus free hex; the CSS string is stored, overriding `seriesColor` wherever a chart key is a task name. Uncolored tasks keep the rank cycle; collisions accepted in v1. Tag colors deferred (future `color` field on tag mappings — see Later).
 - Plugin CSS is static (decided 2026-09-04): `src/styles.css` is imported by `main.ts` and bundled with the Svelte component styles (`css: 'external'`) into the generated, gitignored `styles.css` — what Obsidian's guidelines ask for, and the only CSS the trace player can replay reliably (runtime-injected styles were captured inconsistently).
@@ -107,7 +108,7 @@ Roadmap and todo lists for the Task Time Tracker plugin. Decisions recorded here
 
 ## Phase 8: Issue detection
 
-- [ ] Detectors in core (similarity, duration outlier, tag drift, same-task overlap, stale running clock); unit tests for thresholds.
+- [x] Detectors in core (similarity, duration outlier, tag drift, same-task overlap, stale running clock); unit tests for thresholds.
 - [ ] Warning column UI: jump-to-line for clock issues, merge shortcut for similarity, one-click overlap consolidation, warnings-only filter.
 
 ## Later

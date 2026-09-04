@@ -1,6 +1,11 @@
 import type { TFile } from 'obsidian'
 import type { BulkEditVault } from 'core/bulkEdit'
 import { parseTasks } from 'core/parser'
+import {
+	BED_TIME_PROPERTY,
+	readFrontmatterTime,
+	WAKE_TIME_PROPERTY,
+} from 'core/time'
 import type { VaultTaskChange, VaultTaskSource } from 'core/vaultTaskIndex'
 
 /**
@@ -19,6 +24,10 @@ export function fakeVault(notes: Record<string, string>) {
 			`${path.replace(/^.*\//, '').replace(/\.md$/, '')}T00:00:00`
 		),
 		tasks: parseTasks(content.split('\n')),
+		wakeTime: readFrontmatterTime(
+			frontmatterValue(content, WAKE_TIME_PROPERTY)
+		),
+		bedTime: readFrontmatterTime(frontmatterValue(content, BED_TIME_PROPERTY)),
 	})
 	const fileOf = (path: string) => ({ path }) as TFile
 	const notify = (change?: VaultTaskChange) =>
@@ -66,4 +75,12 @@ export function fakeVault(notes: Record<string, string>) {
 		},
 		invalidate: () => notify(undefined),
 	}
+}
+
+/** `key: value` inside a leading `---` block, enough for the time properties. */
+function frontmatterValue(content: string, key: string): string | undefined {
+	const match = /^---\n([\s\S]*?)\n---/.exec(content)
+	if (!match) return undefined
+	const line = match[1]!.split('\n').find((l) => l.startsWith(`${key}:`))
+	return line?.slice(key.length + 1).trim()
 }
