@@ -1,4 +1,9 @@
-import type { ConsolidationPreview } from './taskOperations'
+import type { TagChange } from './taskEdits'
+import type {
+	ConsolidationPreview,
+	DeletionPreview,
+	RetagPreview,
+} from './taskOperations'
 
 /** Shown by every irreversible operation; the plugin keeps no undo. */
 export const IRREVERSIBLE_NOTE =
@@ -73,6 +78,32 @@ export function describeConsolidation(
 	}
 	if (effects.length > 0) paragraphs.push(`${capitalize(effects.join('; '))}.`)
 	return paragraphs
+}
+
+/** Preview paragraph of a deletion. */
+export function describeDeletion(
+	name: string,
+	preview: DeletionPreview
+): string {
+	return `Delete ${quote(name)} from ${plural(preview.notes, 'daily note')}: ${plural(preview.taskLines, 'task line')} and ${plural(preview.clockLines, 'clock line')} are removed.`
+}
+
+/**
+ * Preview paragraph of a tag change, phrased as the normalization it is:
+ * every affected line ends up with exactly the added tags.
+ */
+export function describeRetag(
+	name: string,
+	change: TagChange,
+	preview: RetagPreview
+): string {
+	const scope = `${plural(preview.taskLines, 'task line')} across ${plural(preview.notes, 'daily note')}`
+	const removed = change.remove.length
+		? ` (removing ${change.remove.map(quote).join(', ')})`
+		: ''
+	return change.add.length
+		? `Set the tags of ${quote(name)} to ${change.add.map(quote).join(', ')} on ${scope}${removed}.`
+		: `Remove every tag of ${quote(name)} on ${scope}${removed}.`
 }
 
 export function plural(count: number, noun: string): string {

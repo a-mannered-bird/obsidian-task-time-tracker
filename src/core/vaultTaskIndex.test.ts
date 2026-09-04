@@ -132,6 +132,13 @@ describe('VaultTaskIndex.ensureBuilt', () => {
 	})
 })
 
+describe('VaultTaskIndex.allTags', () => {
+	it('lists every tag once, sorted', async () => {
+		const { index } = await makeBuiltIndex(NOTES)
+		expect(index.allTags()).toEqual(['#dup', '#focus', '#project', '#routine'])
+	})
+})
+
 describe('VaultTaskIndex.occurrences', () => {
 	it('lists every line of the name, oldest note first', async () => {
 		const { index } = await makeBuiltIndex(NOTES)

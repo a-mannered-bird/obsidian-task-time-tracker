@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest'
 import {
 	confirmationMatches,
 	describeConsolidation,
+	describeDeletion,
+	describeRetag,
 	referenceWarnings,
 } from './confirmations'
 
@@ -56,5 +58,36 @@ describe('describeConsolidation', () => {
 			'Merge "Task A", "Task B" into the surviving name across 12 daily notes.',
 			'12 task lines merged into a single line per note; 3 clock lines removed by joining overlapping, touching or empty clocks.',
 		])
+	})
+})
+
+describe('describeDeletion / describeRetag', () => {
+	it('spells out the deletion counts', () => {
+		expect(
+			describeDeletion('Deep wok', { notes: 3, taskLines: 3, clockLines: 1 })
+		).toBe(
+			'Delete "Deep wok" from 3 daily notes: 3 task lines and 1 clock line are removed.'
+		)
+	})
+
+	it('describes a tag change as setting the tags, naming the removed ones', () => {
+		expect(
+			describeRetag(
+				'Deep work',
+				{ add: ['#focus', '#deep'], remove: ['#project'] },
+				{ notes: 2, taskLines: 3 }
+			)
+		).toBe(
+			'Set the tags of "Deep work" to "#focus", "#deep" on 3 task lines across 2 daily notes (removing "#project").'
+		)
+		expect(
+			describeRetag(
+				'Deep work',
+				{ add: [], remove: ['#focus'] },
+				{ notes: 1, taskLines: 1 }
+			)
+		).toBe(
+			'Remove every tag of "Deep work" on 1 task line across 1 daily note (removing "#focus").'
+		)
 	})
 })

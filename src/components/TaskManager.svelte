@@ -1,7 +1,12 @@
 <script lang="ts">
 	import { Menu } from 'obsidian'
 	import { onMount } from 'svelte'
-	import { mergeTasks, renameTask } from 'commands/taskActions'
+	import {
+		changeTags,
+		deleteTask,
+		mergeTasks,
+		renameTask,
+	} from 'commands/taskActions'
 	import {
 		filterTaskInfos,
 		sortTaskInfos,
@@ -127,9 +132,23 @@
 		)
 		menu.addItem((item) =>
 			item
+				.setTitle('Change tags…')
+				.setIcon('tag')
+				.onClick(() => void runAction(() => changeTags(plugin, info.name)))
+		)
+		menu.addItem((item) =>
+			item
 				.setTitle(isHidden(info.name) ? 'Show in picker' : 'Hide from picker')
 				.setIcon(isHidden(info.name) ? 'eye' : 'eye-off')
 				.onClick(() => toggleHidden(info.name))
+		)
+		menu.addSeparator()
+		menu.addItem((item) =>
+			item
+				.setTitle('Delete…')
+				.setIcon('trash')
+				.setWarning(true)
+				.onClick(() => void runAction(() => deleteTask(plugin, info.name)))
 		)
 		menu.showAtMouseEvent(event)
 	}

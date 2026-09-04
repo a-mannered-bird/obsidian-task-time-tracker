@@ -8,7 +8,83 @@ import {
 	unionClocks,
 	type ConsolidateResult,
 } from './consolidate'
+import {
+	deleteTaskLines,
+	retagTaskLines,
+	tagChangeApplies,
+	type DeleteResult,
+	type RetagResult,
+	type TagChange,
+} from './taskEdits'
 import type { VaultTaskIndex, VaultTaskOccurrence } from './vaultTaskIndex'
+
+export type DeletionPreview = {
+	notes: number
+	taskLines: number
+	clockLines: number
+}
+
+/** What deleting the task removes, from the index alone. */
+export function previewDeletion(
+	index: VaultTaskIndex,
+	name: string
+): DeletionPreview {
+	const occurrences = index.occurrences(name)
+	return {
+		notes: new Set(occurrences.map((occurrence) => occurrence.path)).size,
+		taskLines: occurrences.length,
+		clockLines: occurrences.reduce(
+			(sum, { task }) => sum + task.clocks.length,
+			0
+		),
+	}
+}
+
+export function deleteInVault(
+	vault: BulkEditVault,
+	index: VaultTaskIndex,
+	name: string,
+	onProgress?: (done: number, total: number) => void
+): Promise<BulkEditReport<DeleteResult>> {
+	return runBulkEdit(
+		vault,
+		affectedPaths(index, [], name),
+		(content) => deleteTaskLines(content, name),
+		onProgress
+	)
+}
+
+export type RetagPreview = { notes: number; taskLines: number }
+
+/** Lines the tag change alters, from the index alone. */
+export function previewRetag(
+	index: VaultTaskIndex,
+	name: string,
+	change: TagChange
+): RetagPreview {
+	const applicable = index
+		.occurrences(name)
+		.filter(({ task }) => tagChangeApplies(task.tags, change))
+	return {
+		notes: new Set(applicable.map((occurrence) => occurrence.path)).size,
+		taskLines: applicable.length,
+	}
+}
+
+export function retagInVault(
+	vault: BulkEditVault,
+	index: VaultTaskIndex,
+	name: string,
+	change: TagChange,
+	onProgress?: (done: number, total: number) => void
+): Promise<BulkEditReport<RetagResult>> {
+	return runBulkEdit(
+		vault,
+		affectedPaths(index, [], name),
+		(content) => retagTaskLines(content, name, change),
+		onProgress
+	)
+}
 
 /** Blast radius of a rename or merge, computed from the index alone. */
 export type ConsolidationPreview = {

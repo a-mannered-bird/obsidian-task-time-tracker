@@ -1,16 +1,26 @@
 import { Notice } from 'obsidian'
-import type { BulkEditReport } from 'core/bulkEdit'
+import type { BulkEditReport, BulkTransformResult } from 'core/bulkEdit'
 import {
 	describeConsolidation,
+	describeDeletion,
+	describeRetag,
 	IRREVERSIBLE_NOTE,
 	plural,
+	referenceWarnings,
 } from 'core/confirmations'
-import type { ConsolidateResult } from 'core/consolidate'
 import { parseTaskInput } from 'core/parser'
-import { migrateTaskNames } from 'core/settingsMigration'
-import { consolidateInVault, previewConsolidation } from 'core/taskOperations'
+import { forgetTaskName, migrateTaskNames } from 'core/settingsMigration'
+import {
+	consolidateInVault,
+	deleteInVault,
+	previewConsolidation,
+	previewDeletion,
+	previewRetag,
+	retagInVault,
+} from 'core/taskOperations'
 import { confirmAction } from 'ui/ConfirmActionModal'
 import { withProgressNotice } from 'ui/progressNotice'
+import { promptRetag } from 'ui/RetagModal'
 import { promptText } from 'ui/TextPromptModal'
 import type TaskTimeTracker from '../main'
 import { NOTICE_DURATION } from './target'
@@ -121,8 +131,68 @@ async function consolidate(
 	return report.changedPaths.length > 0
 }
 
+/**
+ * Delete a task from every daily note, clocks included, after the
+ * type-the-name ritual. Its color and hide flag go with it; quick actions
+ * pointing at it are only warned about.
+ */
+export async function deleteTask(
+	plugin: TaskTimeTracker,
+	name: string
+): Promise<boolean> {
+	const preview = previewDeletion(plugin.vaultTasks, name)
+	const confirmed = await confirmAction(plugin.app, {
+		title: `Delete "${name}"`,
+		message: [describeDeletion(name, preview), IRREVERSIBLE_NOTE],
+		warnings: referenceWarnings(plugin.settings, [name]),
+		typeToConfirm: name,
+		confirmText: 'Delete',
+	})
+	if (!confirmed) return false
+
+	const report = await withProgressNotice('Deleting', (onProgress) =>
+		deleteInVault(plugin.app.vault, plugin.vaultTasks, name, onProgress)
+	)
+	Object.assign(plugin.settings, forgetTaskName(plugin.settings, name))
+	await plugin.saveSettings()
+
+	reportOutcome(report, `"${name}"`)
+	return report.changedPaths.length > 0
+}
+
+/** Add a tag to, or remove one from, every line of a task. */
+export async function changeTags(
+	plugin: TaskTimeTracker,
+	name: string
+): Promise<boolean> {
+	const change = await promptRetag(plugin.app, {
+		name,
+		lineTags: plugin.vaultTasks.occurrences(name).map(({ task }) => task.tags),
+		knownTags: plugin.vaultTasks.allTags(),
+	})
+	if (!change) return false
+
+	const preview = previewRetag(plugin.vaultTasks, name, change)
+	if (preview.taskLines === 0) {
+		new Notice('No line of the task needs that change.', NOTICE_DURATION)
+		return false
+	}
+	const confirmed = await confirmAction(plugin.app, {
+		title: `Tags of "${name}"`,
+		message: [describeRetag(name, change, preview)],
+		confirmText: 'Apply',
+	})
+	if (!confirmed) return false
+
+	const report = await withProgressNotice('Updating notes', (onProgress) =>
+		retagInVault(plugin.app.vault, plugin.vaultTasks, name, change, onProgress)
+	)
+	reportOutcome(report, `"${name}"`)
+	return report.changedPaths.length > 0
+}
+
 function reportOutcome(
-	report: BulkEditReport<ConsolidateResult>,
+	report: BulkEditReport<BulkTransformResult>,
 	subject: string
 ) {
 	const updated = plural(report.changedPaths.length, 'note')

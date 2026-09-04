@@ -72,3 +72,77 @@
 .task-time-tracker-warning {
 	color: var(--text-warning);
 }
+
+/* Tag editor: chips in the theme's tag colors, with the input inline. */
+.task-time-tracker-chips {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.5em;
+	padding: 0.6em 0.75em;
+	margin: 0.75em 0;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-m);
+	background: var(--background-primary);
+	cursor: text;
+}
+
+.task-time-tracker-chips:focus-within {
+	border-color: var(--background-modifier-border-focus);
+}
+
+.task-time-tracker-chips > span {
+	display: contents;
+}
+
+.task-time-tracker-chip {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.4em;
+	padding: 0.2em 0.35em 0.2em 0.7em;
+	border: var(--tag-border-width, 1px) solid
+		var(--tag-border-color, var(--background-modifier-border));
+	border-radius: var(--tag-radius, 2em);
+	background: var(--tag-background, var(--background-secondary));
+	color: var(--tag-color, var(--text-accent));
+	font-size: var(--tag-size, var(--font-ui-small));
+	line-height: 1.6;
+	white-space: nowrap;
+}
+
+.task-time-tracker-chip-coverage {
+	font-size: var(--font-ui-smaller);
+	color: var(--text-muted);
+}
+
+.task-time-tracker-chip-remove {
+	all: unset;
+	cursor: pointer;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 1.3em;
+	height: 1.3em;
+	border-radius: 50%;
+	line-height: 1;
+	color: var(--text-muted);
+}
+
+.task-time-tracker-chip-remove:hover,
+.task-time-tracker-chip-remove:focus-visible {
+	background: var(--background-modifier-hover);
+	color: var(--text-normal);
+}
+
+.task-time-tracker-chips-input {
+	flex: 1;
+	min-width: 8em;
+	padding: 0.2em 0.3em;
+	border: none;
+	background: transparent;
+	box-shadow: none;
+}
+
+.task-time-tracker-chips-input:focus {
+	box-shadow: none;
+}

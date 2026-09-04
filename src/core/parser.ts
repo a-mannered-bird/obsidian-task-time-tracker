@@ -3,7 +3,8 @@ import { formatLocalDateTime, parseLocalDateTime } from './time'
 
 const TASK_LINE = /^(\s*)- \[([ xX])\] (.*)$/
 const CLOCK_LINE = /^(\s*)\[clock::(.+?)(?:--(.+?))?\]\s*$/
-const TAG = /#[\p{L}\p{N}_/-]+/gu
+/** A tag token anywhere in a line (global: reset lastIndex or use match). */
+export const TAG = /#[\p{L}\p{N}_/-]+/gu
 
 export const DEFAULT_CLOCK_INDENT = '      '
 

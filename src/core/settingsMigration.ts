@@ -52,3 +52,21 @@ export function migrateTaskNames<Action extends { taskName: string }>(
 			: settings.unassignedTaskName,
 	}
 }
+
+/**
+ * Drop the deleted task's own entries (color, hide flag). Quick actions and
+ * the unassigned task are left alone: the deletion warned about them, and
+ * what to do with them is the user's call.
+ */
+export function forgetTaskName<Action extends { taskName: string }>(
+	settings: NameKeyedSettings<Action>,
+	name: string
+): NameKeyedSettings<Action> {
+	const taskColors = { ...settings.taskColors }
+	delete taskColors[name]
+	return {
+		...settings,
+		taskColors,
+		hiddenTasks: settings.hiddenTasks.filter((hidden) => hidden !== name),
+	}
+}

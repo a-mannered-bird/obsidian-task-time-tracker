@@ -102,6 +102,17 @@ export class VaultTaskIndex {
 		)
 	}
 
+	/** Every tag used on any task line, sorted. */
+	allTags(): string[] {
+		const tags = new Set<string>()
+		for (const entry of this.byPath.values()) {
+			for (const task of entry.tasks) {
+				for (const tag of task.tags) tags.add(tag)
+			}
+		}
+		return [...tags].sort((a, b) => a.localeCompare(b))
+	}
+
 	/** Every line of the task across the vault, oldest note first. */
 	occurrences(name: string): VaultTaskOccurrence[] {
 		const result: VaultTaskOccurrence[] = []

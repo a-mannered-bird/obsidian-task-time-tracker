@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { migrateTaskNames } from './settingsMigration'
+import { forgetTaskName, migrateTaskNames } from './settingsMigration'
 
 const settings = {
 	taskColors: { 'Deep wok': '#123456', 'Task A': 'var(--color-blue)' },
@@ -61,5 +61,15 @@ describe('migrateTaskNames', () => {
 		expect(mixed.hiddenTasks).toEqual(['Task B'])
 		// Deep wok's color transfers, being the first source with one.
 		expect(mixed.taskColors).toEqual({ Merged: '#123456' })
+	})
+})
+
+describe('forgetTaskName', () => {
+	it('drops the color and hide flag only', () => {
+		const forgotten = forgetTaskName(settings, 'Deep wok')
+		expect(forgotten.taskColors).toEqual({ 'Task A': 'var(--color-blue)' })
+		expect(forgotten.hiddenTasks).toEqual(['Task B'])
+		expect(forgotten.quickActions).toEqual(settings.quickActions)
+		expect(forgotten.unassignedTaskName).toBe('Deep wok')
 	})
 })

@@ -3,7 +3,11 @@ import { fakeVault } from '../test/fakeVault'
 import {
 	affectedPaths,
 	consolidateInVault,
+	deleteInVault,
 	previewConsolidation,
+	previewDeletion,
+	previewRetag,
+	retagInVault,
 } from './taskOperations'
 import { VaultTaskIndex } from './vaultTaskIndex'
 
@@ -105,5 +109,43 @@ describe('consolidateInVault', () => {
 		const names = index.snapshot().map((info) => info.name)
 		expect(names).not.toContain('Deep wok')
 		expect(index.occurrences('Deep work')).toHaveLength(2)
+	})
+})
+
+describe('previewDeletion / deleteInVault', () => {
+	it('counts and removes every line of the task', async () => {
+		const { index, vault, read } = await setup()
+		expect(previewDeletion(index, 'Task A')).toEqual({
+			notes: 2,
+			taskLines: 2,
+			clockLines: 2,
+		})
+		const report = await deleteInVault(vault, index, 'Task A')
+		expect(report.changedPaths).toEqual(['2026-08-02.md', '2026-08-03.md'])
+		expect(read('2026-08-03.md')?.split('\n')).toEqual([
+			'- [ ] Task B #project',
+			'      [clock::2026-08-03T09:15:00--2026-08-03T09:45:00]',
+			'- [ ] Email',
+		])
+		expect(index.occurrences('Task A')).toEqual([])
+	})
+})
+
+describe('previewRetag / retagInVault', () => {
+	it('applies only where the change makes a difference', async () => {
+		const { index, vault, read } = await setup()
+		// Task B has #project on the 3rd only.
+		const change = { add: ['#project'], remove: [] }
+		expect(previewRetag(index, 'Task B', change)).toEqual({
+			notes: 1,
+			taskLines: 1,
+		})
+		const report = await retagInVault(vault, index, 'Task B', change)
+		expect(report.changedPaths).toEqual(['2026-08-02.md'])
+		expect(read('2026-08-02.md')?.split('\n')[4]).toBe('- [ ] Task B #project')
+		expect(previewRetag(index, 'Task B', change)).toEqual({
+			notes: 0,
+			taskLines: 0,
+		})
 	})
 })
