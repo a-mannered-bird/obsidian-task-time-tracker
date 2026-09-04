@@ -175,37 +175,6 @@
 		}
 	}
 
-	function openRowMenu(event: MouseEvent, info: VaultTaskInfo) {
-		const menu = new Menu()
-		menu.addItem((item) =>
-			item
-				.setTitle('Rename…')
-				.setIcon('pencil')
-				.onClick(() => void runAction(() => renameTask(plugin, info.name)))
-		)
-		menu.addItem((item) =>
-			item
-				.setTitle('Change tags…')
-				.setIcon('tag')
-				.onClick(() => void runAction(() => changeTags(plugin, [info.name])))
-		)
-		menu.addItem((item) =>
-			item
-				.setTitle(isHidden(info.name) ? 'Show in picker' : 'Hide from picker')
-				.setIcon(isHidden(info.name) ? 'eye' : 'eye-off')
-				.onClick(() => setHiddenAll([info.name], !isHidden(info.name)))
-		)
-		menu.addSeparator()
-		menu.addItem((item) =>
-			item
-				.setTitle('Delete…')
-				.setIcon('trash')
-				.setWarning(true)
-				.onClick(() => void runAction(() => deleteTasks(plugin, [info.name])))
-		)
-		menu.showAtMouseEvent(event)
-	}
-
 	async function load() {
 		await plugin.vaultTasks.ensureBuilt()
 		infos = plugin.vaultTasks.snapshot()
@@ -417,7 +386,6 @@
 						</th>
 					{/each}
 					<th>Issues</th>
-					<th class="menu-cell"></th>
 				</tr>
 			</thead>
 			<tbody>
@@ -444,9 +412,17 @@
 							></button>
 						</td>
 						<td>
-							<span class="name" class:muted={isHidden(info.name)}
-								>{info.name}</span
+							<button
+								class="name"
+								class:muted={isHidden(info.name)}
+								title="Rename…"
+								aria-label="Rename {info.name}"
+								disabled={busy}
+								onclick={() =>
+									void runAction(() => renameTask(plugin, info.name))}
 							>
+								{info.name}
+							</button>
 							{#if isHidden(info.name)}
 								<span
 									class="hidden-marker"
@@ -454,9 +430,20 @@
 									use:icon={'eye-off'}
 								></span>
 							{/if}
-							{#each info.tags as tag (tag)}
-								<span class="tag">{tag}</span>
-							{/each}
+							<button
+								class="tags"
+								title="Change tags…"
+								aria-label="Change tags of {info.name}"
+								disabled={busy}
+								onclick={() =>
+									void runAction(() => changeTags(plugin, [info.name]))}
+							>
+								{#each info.tags as tag (tag)}
+									<span class="tag">{tag}</span>
+								{:else}
+									<span class="tag placeholder">no tag</span>
+								{/each}
+							</button>
 						</td>
 						<td class="numeric">{info.noteCount}</td>
 						<td class="nowrap">{lastUsedLabel(info)}</td>
@@ -474,14 +461,6 @@
 										>{/if}
 								</button>
 							{/each}
-						</td>
-						<td class="menu-cell">
-							<button
-								class="icon-button"
-								aria-label="Actions for {info.name}"
-								use:icon={'ellipsis'}
-								onclick={(event) => openRowMenu(event, info)}
-							></button>
 						</td>
 					</tr>
 				{/each}
@@ -602,7 +581,33 @@
 	}
 
 	.name {
+		all: unset;
+		cursor: pointer;
 		margin-right: 0.5em;
+	}
+
+	.name:hover {
+		color: var(--text-accent-hover);
+	}
+
+	.name:focus-visible,
+	.tags:focus-visible {
+		outline: 2px solid var(--interactive-accent);
+		outline-offset: 2px;
+	}
+
+	.tags {
+		all: unset;
+		cursor: pointer;
+	}
+
+	.tags:hover .tag {
+		color: var(--text-normal);
+	}
+
+	.tag.placeholder {
+		font-style: italic;
+		opacity: 0.6;
 	}
 
 	.swatch-cell,
@@ -658,11 +663,6 @@
 		margin-right: 0.5em;
 	}
 
-	.menu-cell {
-		width: 1.6em;
-		text-align: right;
-	}
-
 	.issues-cell {
 		white-space: nowrap;
 	}
@@ -688,21 +688,5 @@
 
 	.issue .count {
 		font-size: var(--font-ui-smaller);
-	}
-
-	.icon-button {
-		all: unset;
-		cursor: pointer;
-		display: inline-flex;
-		color: var(--text-muted);
-	}
-
-	.icon-button:hover {
-		color: var(--text-normal);
-	}
-
-	.icon-button:focus-visible {
-		outline: 2px solid var(--interactive-accent);
-		outline-offset: 2px;
 	}
 </style>

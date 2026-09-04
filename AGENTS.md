@@ -50,7 +50,7 @@ Three layers, each with its own job:
 - **Single-element matchers only.** Assertions on element arrays (`expect($$(...)).toHaveText([...])`) run fine but the recorder does not capture them at all. To assert a list, assert `toHaveChildren(n)` on the container and one `toHaveText` per row by position (see `expectTaskNames` / `expectRow` in the operations spec).
 - **Value checks are invisible unless they go through `node:assert`.** `expect(string).toBe(...)` on data read from the vault produces no trace step; the recorder captures `node:assert` and element matchers only.
 - **Assert the numbers that prove the rule.** When an operation has a non-obvious effect (clock union making a merge total 1h 45m instead of 2h), assert that value through the UI and explain the arithmetic in a comment.
-- **The fixture vault must keep `nativeMenus: false`** (`test/vaults/daily/.obsidian/app.json`): Obsidian's native macOS menus do not exist in the DOM, so WebDriver cannot open the row menus without it.
+- **The fixture vault must keep `nativeMenus: false`** (`test/vaults/daily/.obsidian/app.json`): Obsidian's native macOS menus do not exist in the DOM, so WebDriver cannot open the issue and color menus without it.
 - **Reset in `beforeEach`, expect the last frame to lie.** `obsidianPage.resetVault()` runs before each test and is not a recorded command, so the screenshot of a test's final step may already show the restored vault. That is snapshot latency, not a failing assertion.
 - Real Obsidian windows open during a local run; keep hands off the keyboard for the few seconds it takes.
 

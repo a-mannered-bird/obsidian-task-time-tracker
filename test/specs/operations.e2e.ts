@@ -3,8 +3,9 @@ import type { ChainablePromiseElement } from 'webdriverio'
 import { obsidianPage } from 'wdio-obsidian-service'
 
 /**
- * Bulk operations driven through the real UI (row menu, confirmations, chip
- * editor) on the fixture vault, asserting the exact markdown written. Every
+ * Bulk operations driven through the real UI (row buttons, selection bar,
+ * confirmations, chip editor) on the fixture vault, asserting the exact
+ * markdown written. Every
  * UI transition is asserted too, so a recorded trace shows each state — with
  * positive matchers only: the trace recorder renders `.not` ones as failed.
  */
@@ -38,13 +39,6 @@ async function clickButton(scope: ChainablePromiseElement, text: string) {
 	const button = scope.$(`button=${text}`)
 	await expect(button).toBeEnabled()
 	await button.click()
-}
-
-async function pickRowMenuItem(name: string, title: string) {
-	await browser.$(`button[aria-label="Actions for ${name}"]`).click()
-	const item = browser.$('.menu').$(`.menu-item-title=${title}`)
-	await expect(item).toBeDisplayed()
-	await item.click()
 }
 
 /**
@@ -104,7 +98,7 @@ describe('bulk operations', function () {
 	it('renames a task, merging into an existing line of the new name', async function () {
 		const before = await obsidianPage.read('2026-08-02.md')
 		const manager = await openManager()
-		await pickRowMenuItem('Deep wok', 'Rename…')
+		await browser.$('button[aria-label="Rename Deep wok"]').click()
 
 		const prompt = await expectModal('Rename "Deep wok"')
 		const input = prompt.$('input[type="text"]')
@@ -205,7 +199,9 @@ describe('bulk operations', function () {
 	it('deletes a task from every note after typing its name', async function () {
 		const before = await obsidianPage.read('2026-08-01.md')
 		const manager = await openManager()
-		await pickRowMenuItem('Email', 'Delete…')
+		await browser.$('input[aria-label="Select Email"]').click()
+		await expect(manager).toHaveText(expect.stringContaining('1 selected'))
+		await clickButton(manager, 'Delete…')
 
 		const confirm = await expectModal('Delete "Email"')
 		await expect(confirm).toHaveText(
@@ -249,7 +245,7 @@ describe('bulk operations', function () {
 	it('sets the tags of every line through the chip editor', async function () {
 		const before = await obsidianPage.read('2026-08-01.md')
 		const manager = await openManager()
-		await pickRowMenuItem('Deep work', 'Change tags…')
+		await browser.$('button[aria-label="Change tags of Deep work"]').click()
 
 		// Drifting: #project on the 1st note, #focus on the 2nd, so both
 		// chips show their coverage.
