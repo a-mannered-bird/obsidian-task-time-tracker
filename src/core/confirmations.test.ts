@@ -4,6 +4,7 @@ import {
 	describeConsolidation,
 	describeDeletion,
 	describeRetag,
+	listNames,
 	referenceWarnings,
 } from './confirmations'
 
@@ -61,10 +62,20 @@ describe('describeConsolidation', () => {
 	})
 })
 
+describe('listNames', () => {
+	it('quotes a few names and folds the rest into a count', () => {
+		expect(listNames(['A', 'B'])).toBe('"A", "B"')
+		expect(listNames(['A', 'B', 'C', 'D'], 2)).toBe(
+			'"A", "B" and 2 other tasks'
+		)
+		expect(listNames(['A', 'B', 'C'], 2)).toBe('"A", "B" and 1 other task')
+	})
+})
+
 describe('describeDeletion / describeRetag', () => {
 	it('spells out the deletion counts', () => {
 		expect(
-			describeDeletion('Deep wok', { notes: 3, taskLines: 3, clockLines: 1 })
+			describeDeletion(['Deep wok'], { notes: 3, taskLines: 3, clockLines: 1 })
 		).toBe(
 			'Delete "Deep wok" from 3 daily notes: 3 task lines and 1 clock line are removed.'
 		)
@@ -73,7 +84,7 @@ describe('describeDeletion / describeRetag', () => {
 	it('describes a tag change as setting the tags, naming the removed ones', () => {
 		expect(
 			describeRetag(
-				'Deep work',
+				['Deep work'],
 				{ add: ['#focus', '#deep'], remove: ['#project'] },
 				{ notes: 2, taskLines: 3 }
 			)
@@ -82,7 +93,7 @@ describe('describeDeletion / describeRetag', () => {
 		)
 		expect(
 			describeRetag(
-				'Deep work',
+				['Deep work'],
 				{ add: [], remove: ['#focus'] },
 				{ notes: 1, taskLines: 1 }
 			)

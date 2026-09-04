@@ -3,7 +3,7 @@
 	import { onMount } from 'svelte'
 	import {
 		changeTags,
-		deleteTask,
+		deleteTasks,
 		mergeTasks,
 		renameTask,
 	} from 'commands/taskActions'
@@ -38,8 +38,10 @@
 	let hiddenOnly = $state(false)
 	let sortKey = $state<TaskSortKey>('usage')
 	let ascending = $state(false)
-	/** Names ticked for a merge. */
+	/** Names ticked for a bulk action. */
 	let selected = $state<string[]>([])
+	/** Row of the last plain click, the anchor of a shift-click range. */
+	let anchor = $state<string | null>(null)
 	let busy = $state(false)
 
 	const HEADERS: { key: TaskSortKey; label: string; numeric?: boolean }[] = [
@@ -76,33 +78,68 @@
 		return formatLocalDateTime(info.lastUsed).split('T')[0]!
 	}
 
-	function setColor(name: string, color: string | null) {
-		if (color === null) delete taskColors[name]
-		else taskColors[name] = color
-		plugin.settings.taskColors = { ...taskColors }
-		void plugin.saveSettings()
-	}
-
 	function isHidden(name: string): boolean {
 		return hiddenTasks.includes(name)
 	}
 
-	function toggleHidden(name: string) {
-		hiddenTasks = isHidden(name)
-			? hiddenTasks.filter((hidden) => hidden !== name)
-			: [...hiddenTasks, name]
-		plugin.settings.hiddenTasks = [...hiddenTasks]
-		void plugin.saveSettings()
-	}
+	const allSelected = $derived(
+		filtered !== null &&
+			filtered.length > 0 &&
+			filtered.every((info) => selected.includes(info.name))
+	)
+	const someSelected = $derived(selected.length > 0 && !allSelected)
+	const selectedHidden = $derived(
+		selected.length > 0 && selected.every((name) => isHidden(name))
+	)
 
 	function isSelected(name: string): boolean {
 		return selected.includes(name)
 	}
 
-	function toggleSelected(name: string) {
+	/**
+	 * Tick or untick a row; with shift, tick every row between the last
+	 * plain click and this one (in the current order of the table).
+	 */
+	function toggleSelected(name: string, shift: boolean) {
+		if (shift && anchor !== null && rows) {
+			const names = rows.map((info) => info.name)
+			const [from, to] = [names.indexOf(anchor), names.indexOf(name)]
+			if (from !== -1 && to !== -1) {
+				const range = names.slice(Math.min(from, to), Math.max(from, to) + 1)
+				selected = [...new Set([...selected, ...range])]
+				return
+			}
+		}
+		anchor = name
 		selected = isSelected(name)
 			? selected.filter((other) => other !== name)
 			: [...selected, name]
+	}
+
+	/** Header checkbox: select every matching task, or clear the selection. */
+	function toggleAll() {
+		selected = allSelected ? [] : (filtered?.map((info) => info.name) ?? [])
+		anchor = null
+	}
+
+	function setHiddenAll(names: string[], hidden: boolean) {
+		const set = new Set(hiddenTasks)
+		for (const name of names) {
+			if (hidden) set.add(name)
+			else set.delete(name)
+		}
+		hiddenTasks = [...set]
+		plugin.settings.hiddenTasks = [...hiddenTasks]
+		void plugin.saveSettings()
+	}
+
+	function setColorAll(names: string[], color: string | null) {
+		for (const name of names) {
+			if (color === null) delete taskColors[name]
+			else taskColors[name] = color
+		}
+		plugin.settings.taskColors = { ...taskColors }
+		void plugin.saveSettings()
 	}
 
 	/**
@@ -134,13 +171,13 @@
 			item
 				.setTitle('Change tags…')
 				.setIcon('tag')
-				.onClick(() => void runAction(() => changeTags(plugin, info.name)))
+				.onClick(() => void runAction(() => changeTags(plugin, [info.name])))
 		)
 		menu.addItem((item) =>
 			item
 				.setTitle(isHidden(info.name) ? 'Show in picker' : 'Hide from picker')
 				.setIcon(isHidden(info.name) ? 'eye' : 'eye-off')
-				.onClick(() => toggleHidden(info.name))
+				.onClick(() => setHiddenAll([info.name], !isHidden(info.name)))
 		)
 		menu.addSeparator()
 		menu.addItem((item) =>
@@ -148,7 +185,7 @@
 				.setTitle('Delete…')
 				.setIcon('trash')
 				.setWarning(true)
-				.onClick(() => void runAction(() => deleteTask(plugin, info.name)))
+				.onClick(() => void runAction(() => deleteTasks(plugin, [info.name])))
 		)
 		menu.showAtMouseEvent(event)
 	}
@@ -179,17 +216,51 @@
 		<span use:icon={'eye-off'}></span>
 		Hidden only
 	</button>
-	<button
-		class="mod-cta"
-		disabled={selected.length < 2 || busy}
-		onclick={() => void runAction(() => mergeTasks(plugin, selected))}
-	>
-		Merge {selected.length} tasks…
-	</button>
 	{#if filtered !== null && infos !== null && filtered.length !== infos.length}
 		<span class="muted">{filtered.length} of {infos.length} tasks</span>
 	{/if}
 </div>
+
+{#if selected.length > 0}
+	<div class="selection-bar">
+		<span>{selected.length} selected</span>
+		<button
+			disabled={selected.length < 2 || busy}
+			onclick={() => void runAction(() => mergeTasks(plugin, selected))}
+		>
+			Merge…
+		</button>
+		<button
+			disabled={busy}
+			onclick={() => void runAction(() => changeTags(plugin, selected))}
+		>
+			Change tags…
+		</button>
+		<button
+			disabled={busy}
+			onclick={(event) =>
+				openColorMenu(event, undefined, (color) =>
+					setColorAll(selected, color)
+				)}
+		>
+			Color…
+		</button>
+		<button
+			disabled={busy}
+			onclick={() => setHiddenAll(selected, !selectedHidden)}
+		>
+			{selectedHidden ? 'Show in picker' : 'Hide from picker'}
+		</button>
+		<button
+			class="mod-warning"
+			disabled={busy}
+			onclick={() => void runAction(() => deleteTasks(plugin, selected))}
+		>
+			Delete…
+		</button>
+		<button class="clear" onclick={() => (selected = [])}>Clear</button>
+	</div>
+{/if}
 
 {#if rows === null}
 	<p class="muted">Scanning vault tasks…</p>
@@ -200,7 +271,15 @@
 		<table>
 			<thead>
 				<tr>
-					<th class="select-cell"></th>
+					<th class="select-cell">
+						<input
+							type="checkbox"
+							aria-label="Select every matching task"
+							checked={allSelected}
+							indeterminate={someSelected}
+							onchange={toggleAll}
+						/>
+					</th>
 					<th class="swatch-cell"></th>
 					{#each HEADERS as header (header.key)}
 						<th class:numeric={header.numeric} aria-sort={ariaSort(header.key)}>
@@ -221,9 +300,9 @@
 						<td class="select-cell">
 							<input
 								type="checkbox"
-								aria-label="Select {info.name} for merging"
+								aria-label="Select {info.name}"
 								checked={isSelected(info.name)}
-								onchange={() => toggleSelected(info.name)}
+								onclick={(event) => toggleSelected(info.name, event.shiftKey)}
 							/>
 						</td>
 						<td class="swatch-cell">
@@ -234,7 +313,7 @@
 								aria-label="Set color of {info.name}"
 								onclick={(event) =>
 									openColorMenu(event, taskColors[info.name], (color) =>
-										setColor(info.name, color)
+										setColorAll([info.name], color)
 									)}
 							></button>
 						</td>
@@ -289,6 +368,21 @@
 		flex: 1;
 	}
 
+	.selection-bar {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 0.5em;
+		margin-bottom: 0.75em;
+		padding: 0.5em 0.75em;
+		border-radius: var(--radius-m);
+		background: var(--background-secondary);
+	}
+
+	.selection-bar .clear {
+		margin-left: auto;
+	}
+
 	.facet {
 		display: inline-flex;
 		align-items: center;
@@ -318,6 +412,8 @@
 	th {
 		position: sticky;
 		top: 0;
+		/* Above the rows scrolled beneath (their checkboxes are positioned). */
+		z-index: 1;
 		background: var(--background-primary);
 		text-align: left;
 		border-bottom: 1px solid var(--background-modifier-border);
@@ -365,6 +461,18 @@
 	.swatch-cell,
 	.select-cell {
 		width: 1.6em;
+	}
+
+	th.select-cell,
+	td.select-cell {
+		padding: 0.3em 0.5em;
+		text-align: center;
+		vertical-align: middle;
+	}
+
+	.select-cell input {
+		margin: 0;
+		vertical-align: middle;
 	}
 
 	.swatch {

@@ -19,7 +19,7 @@ const content = [
 
 describe('deleteTaskLines', () => {
 	it('removes every line of the task with its clocks and counts them', () => {
-		const result = deleteTaskLines(content, 'Deep work')
+		const result = deleteTaskLines(content, ['Deep work'])
 		expect(result.content.split('\n')).toEqual([
 			'# Monday',
 			'- [x] Email #projects',
@@ -31,8 +31,14 @@ describe('deleteTaskLines', () => {
 		})
 	})
 
+	it('deletes several tasks in one pass', () => {
+		const result = deleteTaskLines(content, ['Deep work', 'Email'])
+		expect(result.content).toBe('# Monday')
+		expect(result.removedTaskLines).toBe(3)
+	})
+
 	it('leaves notes without the task untouched', () => {
-		const result = deleteTaskLines(content, 'Nope')
+		const result = deleteTaskLines(content, ['Nope'])
 		expect(result.changed).toBe(false)
 		expect(result.content).toBe(content)
 	})
@@ -40,7 +46,7 @@ describe('deleteTaskLines', () => {
 
 describe('retagTaskLines', () => {
 	it('adds the missing tags and removes the exact ones in one pass', () => {
-		const result = retagTaskLines(content, 'Deep work', {
+		const result = retagTaskLines(content, ['Deep work'], {
 			add: ['#focus', '#deep'],
 			remove: ['#project'],
 		})
@@ -53,7 +59,7 @@ describe('retagTaskLines', () => {
 	})
 
 	it('counts only the lines that actually change', () => {
-		const result = retagTaskLines(content, 'Deep work', {
+		const result = retagTaskLines(content, ['Deep work'], {
 			add: ['#focus'],
 			remove: [],
 		})
@@ -65,7 +71,7 @@ describe('retagTaskLines', () => {
 	})
 
 	it('reports no change when nothing applies', () => {
-		const result = retagTaskLines(content, 'Email', {
+		const result = retagTaskLines(content, ['Email'], {
 			add: ['#projects'],
 			remove: ['#nope'],
 		})
@@ -89,7 +95,7 @@ describe('diffTags / tagChangeApplies', () => {
 			'- [ ] Deep work',
 		].join('\n')
 		const change = diffTags(['#project', '#focus'], ['#focus'])
-		const result = retagTaskLines(drifting, 'Deep work', change)
+		const result = retagTaskLines(drifting, ['Deep work'], change)
 		expect(result.content.split('\n')).toEqual([
 			'- [ ] Deep work #focus',
 			'- [ ] Deep work #focus',

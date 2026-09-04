@@ -82,10 +82,10 @@ export function describeConsolidation(
 
 /** Preview paragraph of a deletion. */
 export function describeDeletion(
-	name: string,
+	names: string[],
 	preview: DeletionPreview
 ): string {
-	return `Delete ${quote(name)} from ${plural(preview.notes, 'daily note')}: ${plural(preview.taskLines, 'task line')} and ${plural(preview.clockLines, 'clock line')} are removed.`
+	return `Delete ${listNames(names)} from ${plural(preview.notes, 'daily note')}: ${plural(preview.taskLines, 'task line')} and ${plural(preview.clockLines, 'clock line')} are removed.`
 }
 
 /**
@@ -93,7 +93,7 @@ export function describeDeletion(
  * every affected line ends up with exactly the added tags.
  */
 export function describeRetag(
-	name: string,
+	names: string[],
 	change: TagChange,
 	preview: RetagPreview
 ): string {
@@ -102,8 +102,17 @@ export function describeRetag(
 		? ` (removing ${change.remove.map(quote).join(', ')})`
 		: ''
 	return change.add.length
-		? `Set the tags of ${quote(name)} to ${change.add.map(quote).join(', ')} on ${scope}${removed}.`
-		: `Remove every tag of ${quote(name)} on ${scope}${removed}.`
+		? `Set the tags of ${listNames(names)} to ${change.add.map(quote).join(', ')} on ${scope}${removed}.`
+		: `Remove every tag of ${listNames(names)} on ${scope}${removed}.`
+}
+
+/** Quoted names, the tail folded into a count past a handful. */
+export function listNames(names: string[], shown = 5): string {
+	const quoted = names.slice(0, shown).map(quote)
+	const rest = names.length - quoted.length
+	return rest > 0
+		? `${quoted.join(', ')} and ${plural(rest, 'other task')}`
+		: quoted.join(', ')
 }
 
 export function plural(count: number, noun: string): string {

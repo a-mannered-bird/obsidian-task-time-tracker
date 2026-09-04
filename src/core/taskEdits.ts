@@ -8,10 +8,14 @@ export type DeleteResult = {
 	removedClockLines: number
 }
 
-/** Remove every line of the task, clocks included. */
-export function deleteTaskLines(content: string, name: string): DeleteResult {
+/** Remove every line of the tasks, clocks included. */
+export function deleteTaskLines(
+	content: string,
+	names: string[]
+): DeleteResult {
 	const lines = content.split('\n')
-	const affected = parseTasks(lines).filter((task) => task.name === name)
+	const wanted = new Set(names)
+	const affected = parseTasks(lines).filter((task) => wanted.has(task.name))
 	if (affected.length === 0) {
 		return {
 			content,
@@ -69,19 +73,20 @@ export type RetagResult = {
 }
 
 /**
- * Apply the tag change to every line of the task: removals strip the exact
+ * Apply the tag change to every line of the tasks: removals strip the exact
  * tokens (never a tag they merely prefix) and tidy the spacing, additions
  * append the tags the line lacks.
  */
 export function retagTaskLines(
 	content: string,
-	name: string,
+	names: string[],
 	change: TagChange
 ): RetagResult {
 	const lines = content.split('\n')
+	const wanted = new Set(names)
 	let changedTaskLines = 0
 	for (const task of parseTasks(lines)) {
-		if (task.name !== name) continue
+		if (!wanted.has(task.name)) continue
 		const line = lines[task.lineIndex]!
 		const next = retagLine(line, change)
 		if (next !== line) {

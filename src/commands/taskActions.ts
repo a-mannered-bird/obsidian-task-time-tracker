@@ -132,62 +132,74 @@ async function consolidate(
 }
 
 /**
- * Delete a task from every daily note, clocks included, after the
- * type-the-name ritual. Its color and hide flag go with it; quick actions
- * pointing at it are only warned about.
+ * Delete tasks from every daily note, clocks included, after the ritual:
+ * type the name for one task, the count for several. Their colors and hide
+ * flags go with them; quick actions pointing at them are only warned about.
  */
-export async function deleteTask(
+export async function deleteTasks(
 	plugin: TaskTimeTracker,
-	name: string
+	names: string[]
 ): Promise<boolean> {
-	const preview = previewDeletion(plugin.vaultTasks, name)
+	if (names.length === 0) return false
+	const preview = previewDeletion(plugin.vaultTasks, names)
 	const confirmed = await confirmAction(plugin.app, {
-		title: `Delete "${name}"`,
-		message: [describeDeletion(name, preview), IRREVERSIBLE_NOTE],
-		warnings: referenceWarnings(plugin.settings, [name]),
-		typeToConfirm: name,
+		title:
+			names.length === 1
+				? `Delete "${names[0]}"`
+				: `Delete ${plural(names.length, 'task')}`,
+		message: [describeDeletion(names, preview), IRREVERSIBLE_NOTE],
+		warnings: referenceWarnings(plugin.settings, names),
+		typeToConfirm: names.length === 1 ? names[0] : String(names.length),
 		confirmText: 'Delete',
 	})
 	if (!confirmed) return false
 
 	const report = await withProgressNotice('Deleting', (onProgress) =>
-		deleteInVault(plugin.app.vault, plugin.vaultTasks, name, onProgress)
+		deleteInVault(plugin.app.vault, plugin.vaultTasks, names, onProgress)
 	)
-	Object.assign(plugin.settings, forgetTaskName(plugin.settings, name))
+	for (const name of names) {
+		Object.assign(plugin.settings, forgetTaskName(plugin.settings, name))
+	}
 	await plugin.saveSettings()
 
-	reportOutcome(report, `"${name}"`)
+	reportOutcome(report, names.length === 1 ? `"${names[0]}"` : 'Deletion')
 	return report.changedPaths.length > 0
 }
 
-/** Add a tag to, or remove one from, every line of a task. */
+/** Set the tags of every line of the tasks through the chip editor. */
 export async function changeTags(
 	plugin: TaskTimeTracker,
-	name: string
+	names: string[]
 ): Promise<boolean> {
+	if (names.length === 0) return false
 	const change = await promptRetag(plugin.app, {
-		name,
-		lineTags: plugin.vaultTasks.occurrences(name).map(({ task }) => task.tags),
+		names,
+		lineTags: names.flatMap((name) =>
+			plugin.vaultTasks.occurrences(name).map(({ task }) => task.tags)
+		),
 		knownTags: plugin.vaultTasks.allTags(),
 	})
 	if (!change) return false
 
-	const preview = previewRetag(plugin.vaultTasks, name, change)
+	const preview = previewRetag(plugin.vaultTasks, names, change)
 	if (preview.taskLines === 0) {
-		new Notice('No line of the task needs that change.', NOTICE_DURATION)
+		new Notice('No line of the tasks needs that change.', NOTICE_DURATION)
 		return false
 	}
 	const confirmed = await confirmAction(plugin.app, {
-		title: `Tags of "${name}"`,
-		message: [describeRetag(name, change, preview)],
+		title:
+			names.length === 1
+				? `Tags of "${names[0]}"`
+				: `Tags of ${plural(names.length, 'task')}`,
+		message: [describeRetag(names, change, preview)],
 		confirmText: 'Apply',
 	})
 	if (!confirmed) return false
 
 	const report = await withProgressNotice('Updating notes', (onProgress) =>
-		retagInVault(plugin.app.vault, plugin.vaultTasks, name, change, onProgress)
+		retagInVault(plugin.app.vault, plugin.vaultTasks, names, change, onProgress)
 	)
-	reportOutcome(report, `"${name}"`)
+	reportOutcome(report, names.length === 1 ? `"${names[0]}"` : 'Tags')
 	return report.changedPaths.length > 0
 }
 

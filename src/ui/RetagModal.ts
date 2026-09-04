@@ -8,8 +8,8 @@ import {
 import { TagSuggest } from './TagSuggest'
 
 type Options = {
-	name: string
-	/** Tags of every line of the task, one entry per line. */
+	names: string[]
+	/** Tags of every line of the tasks, one entry per line. */
 	lineTags: string[][]
 	/** Every tag of the vault, for the autocomplete. */
 	knownTags: string[]
@@ -52,10 +52,14 @@ class RetagModal extends Modal {
 	}
 
 	onOpen(): void {
-		const { name, knownTags } = this.options
-		this.setTitle(`Tags of "${name}"`)
+		const { names, knownTags } = this.options
+		this.setTitle(
+			names.length === 1
+				? `Tags of "${names[0]}"`
+				: `Tags of ${names.length} tasks`
+		)
 		this.contentEl.createEl('p', {
-			text: 'Remove tags with their cross, type to add existing or new ones. Once applied, every line of the task in every daily note carries exactly these tags.',
+			text: `Remove tags with their cross, type to add existing or new ones. Once applied, every line of ${names.length === 1 ? 'the task' : 'these tasks'} in every daily note carries exactly these tags.`,
 		})
 
 		const field = this.contentEl.createDiv({

@@ -24,12 +24,12 @@ export type DeletionPreview = {
 	clockLines: number
 }
 
-/** What deleting the task removes, from the index alone. */
+/** What deleting the tasks removes, from the index alone. */
 export function previewDeletion(
 	index: VaultTaskIndex,
-	name: string
+	names: string[]
 ): DeletionPreview {
-	const occurrences = index.occurrences(name)
+	const occurrences = names.flatMap((name) => index.occurrences(name))
 	return {
 		notes: new Set(occurrences.map((occurrence) => occurrence.path)).size,
 		taskLines: occurrences.length,
@@ -43,13 +43,13 @@ export function previewDeletion(
 export function deleteInVault(
 	vault: BulkEditVault,
 	index: VaultTaskIndex,
-	name: string,
+	names: string[],
 	onProgress?: (done: number, total: number) => void
 ): Promise<BulkEditReport<DeleteResult>> {
 	return runBulkEdit(
 		vault,
-		affectedPaths(index, [], name),
-		(content) => deleteTaskLines(content, name),
+		affectedPaths(index, names),
+		(content) => deleteTaskLines(content, names),
 		onProgress
 	)
 }
@@ -59,11 +59,11 @@ export type RetagPreview = { notes: number; taskLines: number }
 /** Lines the tag change alters, from the index alone. */
 export function previewRetag(
 	index: VaultTaskIndex,
-	name: string,
+	names: string[],
 	change: TagChange
 ): RetagPreview {
-	const applicable = index
-		.occurrences(name)
+	const applicable = names
+		.flatMap((name) => index.occurrences(name))
 		.filter(({ task }) => tagChangeApplies(task.tags, change))
 	return {
 		notes: new Set(applicable.map((occurrence) => occurrence.path)).size,
@@ -74,14 +74,14 @@ export function previewRetag(
 export function retagInVault(
 	vault: BulkEditVault,
 	index: VaultTaskIndex,
-	name: string,
+	names: string[],
 	change: TagChange,
 	onProgress?: (done: number, total: number) => void
 ): Promise<BulkEditReport<RetagResult>> {
 	return runBulkEdit(
 		vault,
-		affectedPaths(index, [], name),
-		(content) => retagTaskLines(content, name, change),
+		affectedPaths(index, names),
+		(content) => retagTaskLines(content, names, change),
 		onProgress
 	)
 }
@@ -108,7 +108,10 @@ export function previewConsolidation(
 		removedTaskLines: 0,
 		removedClockLines: 0,
 	}
-	for (const occurrences of occurrencesByPath(index, sourceNames, targetName)) {
+	for (const occurrences of occurrencesByPath(index, [
+		...sourceNames,
+		targetName,
+	])) {
 		const clocks = occurrences.flatMap(({ task }) => task.clocks)
 		preview.notes++
 		preview.removedTaskLines += occurrences.length - 1
@@ -125,7 +128,7 @@ export function consolidateInVault(
 	targetName: string,
 	onProgress?: (done: number, total: number) => void
 ): Promise<BulkEditReport<ConsolidateResult>> {
-	const paths = affectedPaths(index, sourceNames, targetName)
+	const paths = affectedPaths(index, [...sourceNames, targetName])
 	return runBulkEdit(
 		vault,
 		paths,
@@ -137,10 +140,9 @@ export function consolidateInVault(
 /** Notes holding any of the names, oldest note first. */
 export function affectedPaths(
 	index: VaultTaskIndex,
-	sourceNames: string[],
-	targetName: string
+	names: string[]
 ): string[] {
-	return occurrencesByPath(index, sourceNames, targetName).map(
+	return occurrencesByPath(index, names).map(
 		(occurrences) => occurrences[0]!.path
 	)
 }
@@ -148,12 +150,10 @@ export function affectedPaths(
 /** Occurrences of all the names grouped per note, oldest note first. */
 function occurrencesByPath(
 	index: VaultTaskIndex,
-	sourceNames: string[],
-	targetName: string
+	names: string[]
 ): VaultTaskOccurrence[][] {
-	const names = new Set([...sourceNames, targetName])
 	const byPath = new Map<string, VaultTaskOccurrence[]>()
-	for (const name of names) {
+	for (const name of new Set(names)) {
 		for (const occurrence of index.occurrences(name)) {
 			const list = byPath.get(occurrence.path) ?? []
 			list.push(occurrence)

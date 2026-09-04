@@ -65,11 +65,11 @@ describe('previewConsolidation', () => {
 describe('affectedPaths', () => {
 	it('lists the notes holding any of the names, oldest first', async () => {
 		const { index } = await setup()
-		expect(affectedPaths(index, ['Deep wok'], 'Deep work')).toEqual([
+		expect(affectedPaths(index, ['Deep wok', 'Deep work'])).toEqual([
 			'2026-08-01.md',
 			'2026-08-02.md',
 		])
-		expect(affectedPaths(index, ['Email'], 'Nope')).toEqual(['2026-08-03.md'])
+		expect(affectedPaths(index, ['Email', 'Nope'])).toEqual(['2026-08-03.md'])
 	})
 })
 
@@ -115,12 +115,12 @@ describe('consolidateInVault', () => {
 describe('previewDeletion / deleteInVault', () => {
 	it('counts and removes every line of the task', async () => {
 		const { index, vault, read } = await setup()
-		expect(previewDeletion(index, 'Task A')).toEqual({
+		expect(previewDeletion(index, ['Task A'])).toEqual({
 			notes: 2,
 			taskLines: 2,
 			clockLines: 2,
 		})
-		const report = await deleteInVault(vault, index, 'Task A')
+		const report = await deleteInVault(vault, index, ['Task A'])
 		expect(report.changedPaths).toEqual(['2026-08-02.md', '2026-08-03.md'])
 		expect(read('2026-08-03.md')?.split('\n')).toEqual([
 			'- [ ] Task B #project',
@@ -136,14 +136,14 @@ describe('previewRetag / retagInVault', () => {
 		const { index, vault, read } = await setup()
 		// Task B has #project on the 3rd only.
 		const change = { add: ['#project'], remove: [] }
-		expect(previewRetag(index, 'Task B', change)).toEqual({
+		expect(previewRetag(index, ['Task B'], change)).toEqual({
 			notes: 1,
 			taskLines: 1,
 		})
-		const report = await retagInVault(vault, index, 'Task B', change)
+		const report = await retagInVault(vault, index, ['Task B'], change)
 		expect(report.changedPaths).toEqual(['2026-08-02.md'])
 		expect(read('2026-08-02.md')?.split('\n')[4]).toBe('- [ ] Task B #project')
-		expect(previewRetag(index, 'Task B', change)).toEqual({
+		expect(previewRetag(index, ['Task B'], change)).toEqual({
 			notes: 0,
 			taskLines: 0,
 		})
