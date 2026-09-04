@@ -14,3 +14,6 @@ declare module 'svelte' {
 }
 
 export {}
+
+/** Stylesheet imports are bundled by esbuild into styles.css. */
+declare module '*.css'

@@ -1,4 +1,5 @@
 import { Plugin, type WorkspaceLeaf } from 'obsidian'
+import './styles.css'
 import { registerCompleteJournalCommand } from './commands/completeJournal'
 import { registerFrontmatterTimeCommands } from './commands/frontmatterTime'
 import {
