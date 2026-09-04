@@ -1,5 +1,10 @@
 import { Notice } from 'obsidian'
-import type { BulkEditReport, BulkTransformResult } from 'core/bulkEdit'
+import {
+	runBulkEdit,
+	type BulkEditReport,
+	type BulkTransformResult,
+} from 'core/bulkEdit'
+import { consolidateTasks, extractTaskBlocks } from 'core/consolidate'
 import {
 	describeConsolidation,
 	describeDeletion,
@@ -201,6 +206,76 @@ export async function changeTags(
 	)
 	reportOutcome(report, names.length === 1 ? `"${names[0]}"` : 'Tags')
 	return report.changedPaths.length > 0
+}
+
+/**
+ * Join the overlapping clocks of a task in one note — the consolidation
+ * engine on a single note with no other name involved. The modification is
+ * explained first, until the user asks not to be told again.
+ */
+export async function joinOverlappingClocks(
+	plugin: TaskTimeTracker,
+	name: string,
+	path: string
+): Promise<boolean> {
+	if (!plugin.settings.skipOverlapJoinNotice) {
+		const file = plugin.app.vault.getFileByPath(path)
+		if (!file) {
+			new Notice(`${path} no longer exists.`, NOTICE_DURATION)
+			return false
+		}
+		const content = await plugin.app.vault.cachedRead(file)
+		const confirmed = await confirmAction(plugin.app, {
+			title: 'Join overlapping clocks',
+			message: [`The lines of "${name}" in ${path} change as follows:`],
+			diff: {
+				before: extractTaskBlocks(content, name),
+				after: extractTaskBlocks(
+					consolidateTasks(content, [], name).content,
+					name
+				),
+			},
+			confirmText: 'Join',
+			dontAskAgain: 'Do not show this preview again',
+		})
+		if (!confirmed) return false
+		if (confirmed.dontAskAgain) {
+			plugin.settings.skipOverlapJoinNotice = true
+			await plugin.saveSettings()
+		}
+	}
+	const report = await runBulkEdit(plugin.app.vault, [path], (content) =>
+		consolidateTasks(content, [], name)
+	)
+	const removed = report.results.reduce(
+		(sum, result) => sum + result.removedClockLines,
+		0
+	)
+	if (report.failures.length) {
+		new Notice(`Could not update ${path}: ${report.failures[0]!.message}`, 0)
+		return false
+	}
+	new Notice(
+		removed
+			? `"${name}": ${plural(removed, 'clock line')} joined in ${path}.`
+			: `"${name}": nothing to join in ${path}.`,
+		NOTICE_DURATION
+	)
+	return removed > 0
+}
+
+/** Open the note in the current leaf, scrolled to and highlighting the line. */
+export async function openNoteAtLine(
+	plugin: TaskTimeTracker,
+	path: string,
+	line: number
+): Promise<void> {
+	const file = plugin.app.vault.getFileByPath(path)
+	if (!file) {
+		new Notice(`${path} no longer exists.`, NOTICE_DURATION)
+		return
+	}
+	await plugin.app.workspace.getLeaf(false).openFile(file, { eState: { line } })
 }
 
 function reportOutcome(

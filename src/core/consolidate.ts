@@ -130,6 +130,17 @@ function survivorLine(
 	return `${getIndent(line)}${box} ${targetName}${tags}`
 }
 
+/**
+ * The task's lines in the note — each task line with its clock lines, in
+ * note order — e.g. to show what a rewrite does before and after.
+ */
+export function extractTaskBlocks(content: string, name: string): string[] {
+	const lines = content.split('\n')
+	return parseTasks(lines)
+		.filter((task) => task.name === name)
+		.flatMap((task) => lines.slice(task.lineIndex, blockEnd(task)))
+}
+
 function blockEnd(task: Task): number {
 	const lastClock = task.clocks[task.clocks.length - 1]
 	return (lastClock ? lastClock.lineIndex : task.lineIndex) + 1

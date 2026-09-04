@@ -23,6 +23,8 @@ export interface TaskTimeTrackerSettings {
 	 * task management panel. Typing a hidden name resurfaces the task.
 	 */
 	hiddenTasks: string[]
+	/** The explanation before joining overlapping clocks was dismissed for good. */
+	skipOverlapJoinNotice: boolean
 	tagMappings: TagMapping[]
 	quickActions: QuickAction[]
 	/** UI state, not shown in the settings tab. */
@@ -36,6 +38,7 @@ export const DEFAULT_SETTINGS: TaskTimeTrackerSettings = {
 	includeVaultTasks: true,
 	taskColors: {},
 	hiddenTasks: [],
+	skipOverlapJoinNotice: false,
 	lastDailyViewTab: 'tracker',
 	quickActions: [],
 	tagMappings: [
@@ -164,6 +167,20 @@ export class TaskTimeTrackerSettingTab extends PluginSettingTab {
 					.setValue(this.plugin.settings.includeVaultTasks)
 					.onChange(async (value) => {
 						this.plugin.settings.includeVaultTasks = value
+						await this.plugin.saveSettings()
+					})
+			)
+
+		new Setting(containerEl)
+			.setName('Preview before joining overlapping clocks')
+			.setDesc(
+				'Show the task lines before and after the "overlapping clocks" fix before running it. Turned off by the "do not show this preview again" toggle of that preview.'
+			)
+			.addToggle((toggle) =>
+				toggle
+					.setValue(!this.plugin.settings.skipOverlapJoinNotice)
+					.onChange(async (value) => {
+						this.plugin.settings.skipOverlapJoinNotice = !value
 						await this.plugin.saveSettings()
 					})
 			)

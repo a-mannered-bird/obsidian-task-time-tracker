@@ -1,5 +1,6 @@
 import { Modal, Setting, type App, type ButtonComponent } from 'obsidian'
 import { confirmationMatches } from 'core/confirmations'
+import { diffLines } from 'core/lineDiff'
 
 type Options = {
 	title: string
@@ -20,9 +21,17 @@ type Options = {
 	 * choice. Omit for the light confirmation of non-destructive operations.
 	 */
 	typeToConfirm?: string | ((choice: string) => string)
+	/** A rewrite shown as a line diff (removed and added lines colored). */
+	diff?: { before: string[]; after: string[] }
+	/** Offer a "do not show this again" toggle with this label. */
+	dontAskAgain?: string
 }
 
-export type ConfirmedAction = { choice: string }
+export type ConfirmedAction = {
+	choice: string
+	/** The user ticked the "do not show this again" toggle. */
+	dontAskAgain: boolean
+}
 
 /**
  * Confirmation of a bulk operation. Resolves with the confirmed choice (an
@@ -41,6 +50,7 @@ class ConfirmActionModal extends Modal {
 	private confirmed = false
 	private choice: string
 	private typed = ''
+	private dontAskAgain = false
 	private typeSetting: Setting | null = null
 	private confirmButton: ButtonComponent | null = null
 
@@ -64,6 +74,16 @@ class ConfirmActionModal extends Modal {
 				text: `⚠️ ${warning}`,
 				cls: 'task-time-tracker-warning',
 			})
+		}
+		if (options.diff) {
+			const pre = contentEl.createEl('pre', { cls: 'task-time-tracker-diff' })
+			for (const line of diffLines(options.diff.before, options.diff.after)) {
+				const marker = { same: ' ', removed: '-', added: '+' }[line.kind]
+				pre.createDiv({
+					text: `${marker} ${line.text}`,
+					cls: `task-time-tracker-diff-${line.kind}`,
+				})
+			}
 		}
 
 		if (options.choice) {
@@ -93,6 +113,14 @@ class ConfirmActionModal extends Modal {
 			})
 		}
 
+		if (options.dontAskAgain) {
+			new Setting(contentEl)
+				.setName(options.dontAskAgain)
+				.addToggle((toggle) =>
+					toggle.onChange((value) => (this.dontAskAgain = value))
+				)
+		}
+
 		new Setting(contentEl)
 			.addButton((button) =>
 				button.setButtonText('Cancel').onClick(() => this.close())
@@ -111,7 +139,11 @@ class ConfirmActionModal extends Modal {
 
 	onClose(): void {
 		this.contentEl.empty()
-		this.resolve(this.confirmed ? { choice: this.choice } : null)
+		this.resolve(
+			this.confirmed
+				? { choice: this.choice, dontAskAgain: this.dontAskAgain }
+				: null
+		)
 	}
 
 	private expectedText(): string | undefined {

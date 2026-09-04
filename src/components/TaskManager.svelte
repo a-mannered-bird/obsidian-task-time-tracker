@@ -1,12 +1,21 @@
 <script lang="ts">
-	import { Menu } from 'obsidian'
+	import { Menu, type IconName } from 'obsidian'
 	import { onMount } from 'svelte'
 	import {
 		changeTags,
 		deleteTasks,
+		joinOverlappingClocks,
 		mergeTasks,
+		openNoteAtLine,
 		renameTask,
 	} from 'commands/taskActions'
+	import {
+		describeIssue,
+		detectIssues,
+		issuesByTask,
+		type IssueKind,
+		type TaskIssue,
+	} from 'core/issues'
 	import {
 		filterTaskInfos,
 		sortTaskInfos,
@@ -21,9 +30,11 @@
 
 	type Props = {
 		plugin: TaskTimeTracker
+		/** Close the hosting modal (after navigating to a note). */
+		close: () => void
 	}
 
-	const { plugin }: Props = $props()
+	const { plugin, close }: Props = $props()
 
 	let infos = $state<VaultTaskInfo[] | null>(null)
 	// Local mirrors of the settings so the rows re-render on change; the
@@ -34,8 +45,11 @@
 	})
 	// svelte-ignore state_referenced_locally
 	let hiddenTasks = $state<string[]>([...plugin.settings.hiddenTasks])
+	/** Detected issues per task name, refreshed with the table. */
+	let issues = $state<Map<string, TaskIssue[]>>(new Map())
 	let query = $state('')
 	let hiddenOnly = $state(false)
+	let issuesOnly = $state(false)
 	let sortKey = $state<TaskSortKey>('usage')
 	let ascending = $state(false)
 	/** Names ticked for a bulk action. */
@@ -54,7 +68,9 @@
 	const filtered = $derived.by(() => {
 		if (infos === null) return null
 		const matching = filterTaskInfos(infos, query).filter(
-			(info) => !hiddenOnly || isHidden(info.name)
+			(info) =>
+				(!hiddenOnly || isHidden(info.name)) &&
+				(!issuesOnly || issues.has(info.name))
 		)
 		return sortTaskInfos(matching, sortKey, ascending)
 	})
@@ -193,6 +209,86 @@
 	async function load() {
 		await plugin.vaultTasks.ensureBuilt()
 		infos = plugin.vaultTasks.snapshot()
+		issues = issuesByTask(detectIssues(plugin.vaultTasks, new Date()))
+	}
+
+	const ISSUE_ICON: Record<IssueKind, IconName> = {
+		'similar-name': 'spell-check',
+		'long-session': 'hourglass',
+		'tag-drift': 'tags',
+		'clock-overlap': 'layers',
+		'stale-clock': 'alarm-clock',
+		'outside-day': 'moon',
+	}
+	const ISSUE_TITLE: Record<IssueKind, string> = {
+		'similar-name': 'Name close to another task',
+		'long-session': 'Unusually long session',
+		'tag-drift': 'Tags differ between notes',
+		'clock-overlap': 'Overlapping clocks',
+		'stale-clock': 'Clock still running in a past note',
+		'outside-day': 'Clock outside the wake–bed window',
+	}
+
+	/** The task's issues grouped by kind, in a stable order. */
+	function issueGroups(name: string): [IssueKind, TaskIssue[]][] {
+		const groups = new Map<IssueKind, TaskIssue[]>()
+		for (const issue of issues.get(name) ?? []) {
+			groups.set(issue.kind, [...(groups.get(issue.kind) ?? []), issue])
+		}
+		return [...groups.entries()]
+	}
+
+	async function goTo(path: string, line: number) {
+		close()
+		await openNoteAtLine(plugin, path, line)
+	}
+
+	/** One menu entry per finding, each with the action that resolves it. */
+	function openIssueMenu(
+		event: MouseEvent,
+		kind: IssueKind,
+		list: TaskIssue[]
+	) {
+		const menu = new Menu()
+		for (const issue of list) {
+			menu.addItem((item) => {
+				item.setTitle(describeIssue(issue)).setIcon(ISSUE_ICON[kind])
+				switch (issue.kind) {
+					case 'similar-name':
+						item.onClick(
+							() =>
+								void runAction(() =>
+									mergeTasks(plugin, [issue.name, issue.other])
+								)
+						)
+						break
+					case 'tag-drift':
+						item.onClick(
+							() => void runAction(() => changeTags(plugin, [issue.name]))
+						)
+						break
+					case 'clock-overlap':
+						item.onClick(
+							() =>
+								void runAction(() =>
+									joinOverlappingClocks(plugin, issue.name, issue.path)
+								)
+						)
+						break
+					default:
+						item.onClick(() => void goTo(issue.path, issue.lineIndex))
+				}
+			})
+			if (issue.kind === 'similar-name') {
+				menu.addItem((item) =>
+					item
+						.setTitle(`Show "${issue.other}"`)
+						.setIcon('search')
+						.onClick(() => (query = issue.other))
+				)
+			}
+		}
+		menu.showAtMouseEvent(event)
 	}
 
 	onMount(() => {
@@ -215,6 +311,14 @@
 	>
 		<span use:icon={'eye-off'}></span>
 		Hidden only
+	</button>
+	<button
+		class="facet"
+		aria-pressed={issuesOnly}
+		onclick={() => (issuesOnly = !issuesOnly)}
+	>
+		<span use:icon={'triangle-alert'}></span>
+		Issues only
 	</button>
 	{#if filtered !== null && infos !== null && filtered.length !== infos.length}
 		<span class="muted">{filtered.length} of {infos.length} tasks</span>
@@ -312,6 +416,7 @@
 							</button>
 						</th>
 					{/each}
+					<th>Issues</th>
 					<th class="menu-cell"></th>
 				</tr>
 			</thead>
@@ -356,6 +461,20 @@
 						<td class="numeric">{info.noteCount}</td>
 						<td class="nowrap">{lastUsedLabel(info)}</td>
 						<td class="numeric">{formatHoursMinutes(info.totalMinutes)}</td>
+						<td class="issues-cell">
+							{#each issueGroups(info.name) as [kind, list] (kind)}
+								<button
+									class="issue"
+									aria-label="{ISSUE_TITLE[kind]}: {list.length}"
+									title={ISSUE_TITLE[kind]}
+									onclick={(event) => openIssueMenu(event, kind, list)}
+								>
+									<span use:icon={ISSUE_ICON[kind]}></span>
+									{#if list.length > 1}<span class="count">{list.length}</span
+										>{/if}
+								</button>
+							{/each}
+						</td>
 						<td class="menu-cell">
 							<button
 								class="icon-button"
@@ -542,6 +661,33 @@
 	.menu-cell {
 		width: 1.6em;
 		text-align: right;
+	}
+
+	.issues-cell {
+		white-space: nowrap;
+	}
+
+	.issue {
+		all: unset;
+		cursor: pointer;
+		display: inline-flex;
+		align-items: center;
+		gap: 0.15em;
+		margin-right: 0.4em;
+		color: var(--text-warning);
+	}
+
+	.issue:hover {
+		color: var(--text-normal);
+	}
+
+	.issue:focus-visible {
+		outline: 2px solid var(--interactive-accent);
+		outline-offset: 2px;
+	}
+
+	.issue .count {
+		font-size: var(--font-ui-smaller);
 	}
 
 	.icon-button {

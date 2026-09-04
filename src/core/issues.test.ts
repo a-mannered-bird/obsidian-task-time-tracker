@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { fakeVault } from '../test/fakeVault'
 import {
+	describeIssue,
 	detectIssues,
 	editDistance,
 	issuesByTask,
@@ -280,5 +281,63 @@ describe('detectIssues: clocks outside the day window', () => {
 				(i) => i.kind === 'outside-day' && i.side
 			)
 		).toEqual(['before-wake'])
+	})
+})
+
+describe('describeIssue', () => {
+	it('phrases the note-free kinds and both sides of the day window', () => {
+		expect(
+			describeIssue({
+				kind: 'similar-name',
+				name: 'Deep wok',
+				other: 'Deep work',
+			})
+		).toBe('Name close to "Deep work"')
+		expect(
+			describeIssue({
+				kind: 'clock-overlap',
+				name: 'Deep work',
+				path: 'Journal/2026-08-01.md',
+				lineIndex: 2,
+			})
+		).toBe('Overlapping clocks in 2026-08-01')
+		const outside = (side: 'before-wake' | 'after-bed') =>
+			describeIssue({
+				kind: 'outside-day',
+				name: 'Deep work',
+				path: '2026-08-01.md',
+				lineIndex: 2,
+				side,
+			})
+		expect(outside('before-wake')).toBe('Before the wake time in 2026-08-01')
+		expect(outside('after-bed')).toBe('After the bed time in 2026-08-01')
+	})
+
+	it('names the note by its path and formats the specifics', () => {
+		expect(
+			describeIssue({
+				kind: 'long-session',
+				name: 'Deep work',
+				path: 'Journal/2026-08-06.md',
+				lineIndex: 1,
+				minutes: 180,
+			})
+		).toBe('3h 00m session in 2026-08-06')
+		expect(
+			describeIssue({
+				kind: 'tag-drift',
+				name: 'Deep work',
+				tagSets: [['#focus', '#project'], []],
+			})
+		).toBe('Tags differ across notes: #focus #project | no tag')
+		expect(
+			describeIssue({
+				kind: 'stale-clock',
+				name: 'Deep work',
+				path: '2026-08-04.md',
+				lineIndex: 1,
+				start: new Date(2026, 7, 4, 9, 0, 0),
+			})
+		).toBe('Still running since 2026-08-04 09:00:00 in 2026-08-04')
 	})
 })

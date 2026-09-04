@@ -1,6 +1,10 @@
 import type { Clock } from 'types/tasks'
 import { startOfDay } from './ranges'
-import { getMinutesBetween } from './time'
+import {
+	formatHoursMinutes,
+	formatLocalDateTime,
+	getMinutesBetween,
+} from './time'
 import type { VaultTaskIndex, VaultTaskOccurrence } from './vaultTaskIndex'
 
 /** A clock line to jump to. */
@@ -51,6 +55,30 @@ export function detectIssues(index: VaultTaskIndex, now: Date): TaskIssue[] {
 		)
 	}
 	return issues
+}
+
+/** One line per issue for tooltips and menus; the note is named by its path. */
+export function describeIssue(issue: TaskIssue): string {
+	switch (issue.kind) {
+		case 'similar-name':
+			return `Name close to "${issue.other}"`
+		case 'long-session':
+			return `${formatHoursMinutes(issue.minutes)} session in ${noteName(issue.path)}`
+		case 'tag-drift':
+			return `Tags differ across notes: ${issue.tagSets
+				.map((tags) => (tags.length ? tags.join(' ') : 'no tag'))
+				.join(' | ')}`
+		case 'clock-overlap':
+			return `Overlapping clocks in ${noteName(issue.path)}`
+		case 'stale-clock':
+			return `Still running since ${formatLocalDateTime(issue.start).replace('T', ' ')} in ${noteName(issue.path)}`
+		case 'outside-day':
+			return `${issue.side === 'before-wake' ? 'Before the wake time' : 'After the bed time'} in ${noteName(issue.path)}`
+	}
+}
+
+function noteName(path: string): string {
+	return path.replace(/^.*\//, '').replace(/\.md$/, '')
 }
 
 /** Issues grouped by task name, for the panel's warning column. */

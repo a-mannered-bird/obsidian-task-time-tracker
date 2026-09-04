@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { consolidateTasks, unionClocks } from './consolidate'
+import { consolidateTasks, extractTaskBlocks, unionClocks } from './consolidate'
 
 const at = (day: number, h: number, m = 0) => new Date(2026, 7, day, h, m, 0)
 
@@ -215,5 +215,32 @@ describe('consolidateTasks: formatting details', () => {
 		const result = consolidateTasks(content, [], 'Task A')
 		expect(result.changed).toBe(false)
 		expect(result.content).toBe(content)
+	})
+})
+
+describe('extractTaskBlocks', () => {
+	it('returns the task lines with their clocks, before and after a join', () => {
+		const content = [
+			'# Monday',
+			'- [ ] Deep work #focus',
+			'      [clock::2026-08-03T09:00:00--2026-08-03T10:00:00]',
+			'      [clock::2026-08-03T09:30:00--2026-08-03T10:30:00]',
+			'- [ ] Email',
+			'- [ ] Deep work',
+			'      [clock::2026-08-03T14:00:00--2026-08-03T14:30:00]',
+		].join('\n')
+		expect(extractTaskBlocks(content, 'Deep work')).toEqual([
+			'- [ ] Deep work #focus',
+			'      [clock::2026-08-03T09:00:00--2026-08-03T10:00:00]',
+			'      [clock::2026-08-03T09:30:00--2026-08-03T10:30:00]',
+			'- [ ] Deep work',
+			'      [clock::2026-08-03T14:00:00--2026-08-03T14:30:00]',
+		])
+		const joined = consolidateTasks(content, [], 'Deep work').content
+		expect(extractTaskBlocks(joined, 'Deep work')).toEqual([
+			'- [ ] Deep work #focus',
+			'      [clock::2026-08-03T09:00:00--2026-08-03T10:30:00]',
+			'      [clock::2026-08-03T14:00:00--2026-08-03T14:30:00]',
+		])
 	})
 })

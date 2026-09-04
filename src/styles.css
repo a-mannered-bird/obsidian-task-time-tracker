@@ -146,3 +146,32 @@
 .task-time-tracker-chips-input:focus {
 	box-shadow: none;
 }
+
+.task-time-tracker-diff {
+	margin: 0.5em 0 0;
+	padding: 0.5em 0;
+	max-height: 14em;
+	overflow: auto;
+	font-size: var(--font-smaller);
+	background: var(--background-secondary);
+	border-radius: var(--radius-s);
+}
+
+.task-time-tracker-diff > div {
+	padding: 0 0.75em;
+	white-space: pre;
+}
+
+.task-time-tracker-diff-removed {
+	background: rgba(var(--color-red-rgb), 0.15);
+	color: var(--text-error);
+}
+
+.task-time-tracker-diff-added {
+	background: rgba(var(--color-green-rgb), 0.15);
+	color: var(--color-green);
+}
+
+.task-time-tracker-diff-same {
+	color: var(--text-muted);
+}

@@ -20,7 +20,7 @@ class TaskManagerModal extends Modal {
 		this.modalEl.addClass('task-time-tracker-manager-modal')
 		this.view = mount(TaskManager, {
 			target: this.contentEl,
-			props: { plugin: this.plugin },
+			props: { plugin: this.plugin, close: () => this.close() },
 		})
 	}
 
