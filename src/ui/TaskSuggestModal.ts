@@ -5,6 +5,7 @@ import {
 	buildPickerEntries,
 	createEntryFromQuery,
 	entryLabel,
+	noteMatchesFirst,
 	resurfacedEntry,
 	VAULT_DISPLAY_LIMIT,
 	type PickerEntry,
@@ -98,13 +99,18 @@ class TaskSuggestModal extends FuzzySuggestModal<ModalItem> {
 	}
 
 	/**
-	 * Fuzzy results as usual, plus a create row as the very last suggestion
-	 * when the typed text names no existing task — Enter keeps selecting the
-	 * best match, so creating a near-duplicate takes a deliberate arrow-down.
-	 * A query naming a hidden task exactly resurfaces it instead.
+	 * Fuzzy results with the note's tasks first, then the vault ones, plus a
+	 * create row as the very last suggestion when the typed text names no
+	 * existing task — Enter keeps selecting the best note match, so creating
+	 * a near-duplicate takes a deliberate arrow-down. A query naming a hidden
+	 * task exactly resurfaces it instead.
 	 */
 	getSuggestions(query: string): FuzzyMatch<ModalItem>[] {
-		const suggestions = super.getSuggestions(query)
+		const ranked = super.getSuggestions(query)
+		const suggestions = [
+			...noteMatchesFirst(ranked.filter(isEntryMatch)),
+			...ranked.filter((match) => !isEntryMatch(match)),
+		]
 		if (!this.options.vaultEntries) return suggestions
 		const resurfaced = resurfacedEntry(query, this.vaultEntries?.hidden ?? [])
 		if (resurfaced) {
@@ -177,6 +183,12 @@ class TaskSuggestModal extends FuzzySuggestModal<ModalItem> {
 		if (hasUpdateSuggestions(this)) this.updateSuggestions()
 		else this.inputEl.dispatchEvent(new Event('input'))
 	}
+}
+
+function isEntryMatch(
+	match: FuzzyMatch<ModalItem>
+): match is FuzzyMatch<PickerEntry> {
+	return match.item.kind === 'note' || match.item.kind === 'vault'
 }
 
 /** Appended suggestion that never outranks a fuzzy match. */

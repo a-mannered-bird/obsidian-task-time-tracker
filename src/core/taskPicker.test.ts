@@ -4,6 +4,7 @@ import {
 	buildPickerEntries,
 	createEntryFromQuery,
 	entryLabel,
+	noteMatchesFirst,
 	pickerLabel,
 	resurfacedEntry,
 	sortForPicker,
@@ -180,5 +181,37 @@ describe('resurfacedEntry', () => {
 	it('ignores partial matches and empty queries', () => {
 		expect(resurfacedEntry('Old proj', hidden)).toBeNull()
 		expect(resurfacedEntry('', hidden)).toBeNull()
+	})
+})
+
+describe('noteMatchesFirst', () => {
+	it('moves note matches ahead of vault ones without reordering within', () => {
+		const note = (name: string) => ({
+			item: {
+				kind: 'note' as const,
+				task: tasks.find((t) => t.name === name)!,
+			},
+		})
+		const vault = (name: string) => ({
+			item: { kind: 'vault' as const, info: info(name) },
+		})
+		const ranked = [
+			vault('Deep work'),
+			note('Worked on last'),
+			vault('Deep dive'),
+			note('Done early'),
+		]
+		expect(
+			noteMatchesFirst(ranked).map((m) =>
+				m.item.kind === 'note'
+					? `note:${m.item.task.name}`
+					: `vault:${m.item.info.name}`
+			)
+		).toEqual([
+			'note:Worked on last',
+			'note:Done early',
+			'vault:Deep work',
+			'vault:Deep dive',
+		])
 	})
 })

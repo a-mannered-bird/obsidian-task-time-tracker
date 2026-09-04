@@ -35,6 +35,18 @@ export function buildPickerEntries(
 }
 
 /**
+ * Matches of the note's own tasks before the vault ones, each group keeping
+ * its order (the fuzzy ranking while typing): today's tasks are what the
+ * user most likely means, however well a vault task scores.
+ */
+export function noteMatchesFirst<Match extends { item: PickerEntry }>(
+	matches: Match[]
+): Match[] {
+	const rank = (match: Match) => (match.item.kind === 'note' ? 0 : 1)
+	return [...matches].sort((a, b) => rank(a) - rank(b))
+}
+
+/**
  * Task the picker offers to create from the typed query, or null when the
  * text names an existing task. The name comparison is case-insensitive so a
  * casing slip cannot spawn a twin task; tags typed in the query become the
