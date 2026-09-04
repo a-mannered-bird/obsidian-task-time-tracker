@@ -221,32 +221,46 @@
 	{/if}
 </div>
 
-{#if selected.length > 0}
-	<div class="selection-bar">
+<div class="selection-bar" class:idle={selected.length === 0}>
+	{#if selected.length === 0}
+		<span class="muted">
+			No task selected. Tick tasks to merge, retag, recolor, hide or delete them
+			together.
+		</span>
+	{:else}
 		<span>{selected.length} selected</span>
 		<button
 			disabled={selected.length < 2 || busy}
+			title="Merge the selected tasks into one: pick the surviving name, every daily note is rewritten and their clocks joined (needs at least two)"
 			onclick={() => void runAction(() => mergeTasks(plugin, selected))}
 		>
 			Merge…
 		</button>
 		<button
 			disabled={busy}
+			title="Set the tags of every line of the selected tasks, in every daily note, to the ones you pick"
 			onclick={() => void runAction(() => changeTags(plugin, selected))}
 		>
 			Change tags…
 		</button>
 		<button
 			disabled={busy}
+			title="Give the selected tasks the same chart color (or remove their custom color)"
 			onclick={(event) =>
-				openColorMenu(event, undefined, (color) =>
-					setColorAll(selected, color)
+				openColorMenu(
+					event,
+					undefined,
+					(color) => setColorAll(selected, color),
+					selected.some((name) => taskColors[name] !== undefined)
 				)}
 		>
 			Color…
 		</button>
 		<button
 			disabled={busy}
+			title={selectedHidden
+				? 'Offer the selected tasks again in the task pickers'
+				: 'Stop offering the selected tasks in the task pickers (typing their exact name still finds them)'}
 			onclick={() => setHiddenAll(selected, !selectedHidden)}
 		>
 			{selectedHidden ? 'Show in picker' : 'Hide from picker'}
@@ -254,13 +268,20 @@
 		<button
 			class="mod-warning"
 			disabled={busy}
+			title="Remove the selected tasks and their clocks from every daily note; asks for confirmation, cannot be undone"
 			onclick={() => void runAction(() => deleteTasks(plugin, selected))}
 		>
 			Delete…
 		</button>
-		<button class="clear" onclick={() => (selected = [])}>Clear</button>
-	</div>
-{/if}
+		<button
+			class="clear"
+			title="Untick every task"
+			onclick={() => (selected = [])}
+		>
+			Clear
+		</button>
+	{/if}
+</div>
 
 {#if rows === null}
 	<p class="muted">Scanning vault tasks…</p>
@@ -373,10 +394,17 @@
 		flex-wrap: wrap;
 		align-items: center;
 		gap: 0.5em;
+		/* Same height with or without a selection, so the table never jumps. */
+		min-height: calc(var(--input-height) + 1em);
 		margin-bottom: 0.75em;
 		padding: 0.5em 0.75em;
 		border-radius: var(--radius-m);
 		background: var(--background-secondary);
+	}
+
+	.selection-bar.idle {
+		background: transparent;
+		border: 1px dashed var(--background-modifier-border);
 	}
 
 	.selection-bar .clear {

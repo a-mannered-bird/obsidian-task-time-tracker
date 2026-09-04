@@ -3,13 +3,15 @@ import { CHART_COLOR_PRESETS } from 'core/chartColors'
 
 /**
  * Menu behind a color swatch: the theme palette presets, a native picker for
- * a custom hex, and a remove entry when a color is set. `onPick` receives the
- * chosen CSS color, or null to clear it.
+ * a custom hex, and a remove entry when a color is set (or `removable`).
+ * `onPick` receives the chosen CSS color, or null to clear it.
  */
 export function openColorMenu(
 	event: MouseEvent,
 	current: string | undefined,
-	onPick: (color: string | null) => void
+	onPick: (color: string | null) => void,
+	/** Offer removal even without a single current color (bulk edits). */
+	removable = current !== undefined
 ): void {
 	// Created ahead of the click so the browser has laid the input out by the
 	// time the native picker anchors to it (a first-use race misplaced it).
@@ -31,7 +33,7 @@ export function openColorMenu(
 			.setIcon('palette')
 			.onClick(() => pickCustomColor(event, current, onPick))
 	)
-	if (current !== undefined) {
+	if (removable) {
 		menu.addItem((item) =>
 			item
 				.setTitle('Remove color')
