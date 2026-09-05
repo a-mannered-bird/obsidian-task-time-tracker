@@ -12,7 +12,10 @@
 	import {
 		describeIssue,
 		detectIssues,
+		ISSUE_TITLES,
+		issueKey,
 		issuesByTask,
+		visibleIssues,
 		type IssueKind,
 		type TaskIssue,
 	} from 'core/issues'
@@ -178,7 +181,12 @@
 	async function load() {
 		await plugin.vaultTasks.ensureBuilt()
 		infos = plugin.vaultTasks.snapshot()
-		issues = issuesByTask(detectIssues(plugin.vaultTasks, new Date()))
+		issues = issuesByTask(
+			visibleIssues(
+				detectIssues(plugin.vaultTasks, new Date()),
+				plugin.settings
+			)
+		)
 	}
 
 	const ISSUE_ICON: Record<IssueKind, IconName> = {
@@ -189,13 +197,18 @@
 		'stale-clock': 'alarm-clock',
 		'outside-day': 'moon',
 	}
-	const ISSUE_TITLE: Record<IssueKind, string> = {
-		'similar-name': 'Name close to another task',
-		'long-session': 'Unusually long session',
-		'tag-drift': 'Tags differ between notes',
-		'clock-overlap': 'Overlapping clocks',
-		'stale-clock': 'Clock still running in a past note',
-		'outside-day': 'Clock outside the wake–bed window',
+
+	/** Remember not to show these warnings again, or a whole kind of them. */
+	async function dismiss(keys: string[], kind?: IssueKind) {
+		const { settings } = plugin
+		if (kind && !settings.ignoredIssueKinds.includes(kind)) {
+			settings.ignoredIssueKinds = [...settings.ignoredIssueKinds, kind]
+		}
+		settings.dismissedIssues = [
+			...new Set([...settings.dismissedIssues, ...keys]),
+		]
+		await plugin.saveSettings()
+		await load()
 	}
 
 	/** The task's issues grouped by kind, in a stable order. */
@@ -257,6 +270,21 @@
 				)
 			}
 		}
+		menu.addSeparator()
+		menu.addItem((item) =>
+			item
+				.setTitle(
+					list.length === 1 ? 'Ignore this warning' : 'Ignore these warnings'
+				)
+				.setIcon('bell-off')
+				.onClick(() => void dismiss(list.map(issueKey)))
+		)
+		menu.addItem((item) =>
+			item
+				.setTitle(`Ignore every "${ISSUE_TITLES[kind]}" warning`)
+				.setIcon('bell-off')
+				.onClick(() => void dismiss([], kind))
+		)
 		menu.showAtMouseEvent(event)
 	}
 
@@ -452,8 +480,8 @@
 							{#each issueGroups(info.name) as [kind, list] (kind)}
 								<button
 									class="issue"
-									aria-label="{ISSUE_TITLE[kind]}: {list.length}"
-									title={ISSUE_TITLE[kind]}
+									aria-label="{ISSUE_TITLES[kind]}: {list.length}"
+									title={ISSUE_TITLES[kind]}
 									onclick={(event) => openIssueMenu(event, kind, list)}
 								>
 									<span use:icon={ISSUE_ICON[kind]}></span>

@@ -4,8 +4,11 @@ import {
 	describeIssue,
 	detectIssues,
 	editDistance,
+	issueKey,
+	issueKeyNames,
 	issuesByTask,
 	similarNames,
+	visibleIssues,
 	type TaskIssue,
 } from './issues'
 import { VaultTaskIndex } from './vaultTaskIndex'
@@ -78,6 +81,7 @@ describe('detectIssues: long sessions', () => {
 				name: 'Deep work',
 				path: '2026-08-06.md',
 				lineIndex: 1,
+				start: new Date(2026, 7, 6, 9, 0, 0),
 				minutes: 180,
 			},
 		])
@@ -141,6 +145,7 @@ describe('detectIssues: clock overlap', () => {
 				name: 'Deep work',
 				path: '2026-08-01.md',
 				lineIndex: 4,
+				start: new Date(2026, 7, 1, 10, 30, 0),
 			},
 		])
 	})
@@ -230,6 +235,7 @@ describe('detectIssues: clocks outside the day window', () => {
 				name: 'Late call',
 				path: '2026-08-01.md',
 				lineIndex: 11,
+				start: new Date(2026, 7, 1, 23, 30, 0),
 				side: 'after-bed',
 			},
 			{
@@ -237,6 +243,7 @@ describe('detectIssues: clocks outside the day window', () => {
 				name: 'Night feed',
 				path: '2026-08-01.md',
 				lineIndex: 5,
+				start: new Date(2026, 7, 1, 3, 0, 0),
 				side: 'before-wake',
 			},
 		])
@@ -260,6 +267,7 @@ describe('detectIssues: clocks outside the day window', () => {
 				name: 'Deep work',
 				path: '2026-08-01.md',
 				lineIndex: 6,
+				start: new Date(2026, 7, 2, 1, 30, 0),
 				side: 'after-bed',
 			},
 		])
@@ -299,6 +307,7 @@ describe('describeIssue', () => {
 				name: 'Deep work',
 				path: 'Journal/2026-08-01.md',
 				lineIndex: 2,
+				start: new Date(2026, 7, 1, 9, 0, 0),
 			})
 		).toBe('Overlapping clocks in 2026-08-01')
 		const outside = (side: 'before-wake' | 'after-bed') =>
@@ -307,6 +316,7 @@ describe('describeIssue', () => {
 				name: 'Deep work',
 				path: '2026-08-01.md',
 				lineIndex: 2,
+				start: new Date(2026, 7, 1, 9, 0, 0),
 				side,
 			})
 		expect(outside('before-wake')).toBe('Before the wake time in 2026-08-01')
@@ -320,6 +330,7 @@ describe('describeIssue', () => {
 				name: 'Deep work',
 				path: 'Journal/2026-08-06.md',
 				lineIndex: 1,
+				start: new Date(2026, 7, 6, 9, 0, 0),
 				minutes: 180,
 			})
 		).toBe('3h 00m session in 2026-08-06')
@@ -339,5 +350,52 @@ describe('describeIssue', () => {
 				start: new Date(2026, 7, 4, 9, 0, 0),
 			})
 		).toBe('Still running since 2026-08-04 09:00:00 in 2026-08-04')
+	})
+})
+
+describe('issueKey / visibleIssues', () => {
+	const overlap: TaskIssue = {
+		kind: 'clock-overlap',
+		name: 'Deep work',
+		path: '2026-08-01.md',
+		lineIndex: 4,
+		start: new Date(2026, 7, 1, 10, 30, 0),
+	}
+	const similar: TaskIssue = {
+		kind: 'similar-name',
+		name: 'Deep wok',
+		other: 'Deep work',
+	}
+	const drift: TaskIssue = {
+		kind: 'tag-drift',
+		name: 'Deep work',
+		tagSets: [['#focus'], ['#focus', '#project']],
+	}
+
+	it('keys clock issues by their start, not their line', () => {
+		expect(issueKey({ ...overlap, lineIndex: 9 })).toBe(issueKey(overlap))
+		expect(issueKey(overlap)).toBe(
+			'["clock-overlap","Deep work","2026-08-01.md","2026-08-01T10:30:00"]'
+		)
+	})
+
+	it('keys a similar pair the same from either side', () => {
+		expect(issueKey(similar)).toBe(
+			issueKey({ kind: 'similar-name', name: 'Deep work', other: 'Deep wok' })
+		)
+	})
+
+	it('names the tasks a key refers to', () => {
+		expect(issueKeyNames(issueKey(similar))).toEqual(['Deep wok', 'Deep work'])
+		expect(issueKeyNames(issueKey(drift))).toEqual(['Deep work'])
+		expect(issueKeyNames('not json')).toEqual([])
+	})
+
+	it('hides switched-off kinds and dismissed warnings', () => {
+		const shown = visibleIssues([overlap, similar, drift], {
+			ignoredIssueKinds: ['tag-drift'],
+			dismissedIssues: [issueKey(similar)],
+		})
+		expect(shown).toEqual([overlap])
 	})
 })

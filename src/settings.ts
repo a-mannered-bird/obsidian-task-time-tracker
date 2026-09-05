@@ -5,6 +5,7 @@ import {
 	QUICK_ACTION_VERBS,
 	type QuickAction,
 } from './commands/quickActions'
+import { ISSUE_KINDS, ISSUE_TITLES, type IssueKind } from './core/issues'
 import type TaskTimeTracker from './main'
 import { openTaskManager } from './ui/TaskManagerModal'
 import type { TagMapping } from './types/tags'
@@ -25,6 +26,10 @@ export interface TaskTimeTrackerSettings {
 	hiddenTasks: string[]
 	/** The explanation before joining overlapping clocks was dismissed for good. */
 	skipOverlapJoinNotice: boolean
+	/** Warning kinds switched off entirely. */
+	ignoredIssueKinds: IssueKind[]
+	/** Individual warnings dismissed (keys from issueKey). */
+	dismissedIssues: string[]
 	tagMappings: TagMapping[]
 	quickActions: QuickAction[]
 	/** UI state, not shown in the settings tab. */
@@ -39,6 +44,8 @@ export const DEFAULT_SETTINGS: TaskTimeTrackerSettings = {
 	taskColors: {},
 	hiddenTasks: [],
 	skipOverlapJoinNotice: false,
+	ignoredIssueKinds: [],
+	dismissedIssues: [],
 	lastDailyViewTab: 'tracker',
 	quickActions: [],
 	tagMappings: [
@@ -98,6 +105,7 @@ export class TaskTimeTrackerSettingTab extends PluginSettingTab {
 
 		this.displayTrackingSection(containerEl)
 		this.displayTaskManagementSection(containerEl)
+		this.displayWarningsSection(containerEl)
 		this.displayQuickActionsSection(containerEl)
 		this.displayTagMappingsSection(containerEl)
 
@@ -192,6 +200,43 @@ export class TaskTimeTrackerSettingTab extends PluginSettingTab {
 			)
 			.addButton((button) =>
 				button.setButtonText('Open').onClick(() => openTaskManager(this.plugin))
+			)
+	}
+
+	private displayWarningsSection(containerEl: HTMLElement) {
+		const { settings } = this.plugin
+		new Setting(containerEl)
+			.setName('Warnings')
+			.setDesc(
+				'Which problems the task manager flags. Individual warnings can be dismissed from their menu; forget them here to see them again.'
+			)
+			.setHeading()
+
+		for (const kind of ISSUE_KINDS) {
+			new Setting(containerEl).setName(ISSUE_TITLES[kind]).addToggle((toggle) =>
+				toggle
+					.setValue(!settings.ignoredIssueKinds.includes(kind))
+					.onChange(async (shown) => {
+						settings.ignoredIssueKinds = shown
+							? settings.ignoredIssueKinds.filter((k) => k !== kind)
+							: [...settings.ignoredIssueKinds, kind]
+						await this.plugin.saveSettings()
+					})
+			)
+		}
+
+		new Setting(containerEl)
+			.setName('Dismissed warnings')
+			.setDesc(`${settings.dismissedIssues.length} dismissed so far.`)
+			.addButton((button) =>
+				button
+					.setButtonText('Forget them')
+					.setDisabled(settings.dismissedIssues.length === 0)
+					.onClick(async () => {
+						settings.dismissedIssues = []
+						await this.plugin.saveSettings()
+						this.display()
+					})
 			)
 	}
 

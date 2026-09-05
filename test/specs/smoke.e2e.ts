@@ -40,4 +40,52 @@ describe('task time tracker', function () {
 		await expect(modal.$('tbody')).toHaveChildren(4)
 		await browser.keys('Escape')
 	})
+
+	it('remembers a dismissed warning across reopenings', async function () {
+		await browser.executeObsidianCommand(
+			'obsidian-task-time-tracker:manage-tasks'
+		)
+		const modal = browser.$('.task-time-tracker-manager-modal')
+		// Both "Deep work" and "Task B" drift; dismiss only Deep work's.
+		const driftOf = (name: string) =>
+			modal.$(
+				`//tr[.//button[@aria-label="Rename ${name}"]]//button[@aria-label="Tags differ between notes: 1"]`
+			)
+		const issuesOf = (name: string) =>
+			modal.$(
+				`//tr[.//button[@aria-label="Rename ${name}"]]//td[contains(@class, "issues-cell")]`
+			)
+		// Deep work carries a similar-name warning and the tag drift.
+		await expect(issuesOf('Deep work')).toHaveChildren(2)
+		await driftOf('Deep work').click()
+		const ignore = browser.$('.menu').$('.menu-item-title=Ignore this warning')
+		await expect(ignore).toBeDisplayed()
+		await ignore.click()
+		await expect(issuesOf('Deep work')).toHaveChildren(1)
+		await expect(driftOf('Task B')).toBeDisplayed()
+
+		// Persisted: a fresh open of the manager still hides it.
+		await browser.keys('Escape')
+		await browser.executeObsidianCommand(
+			'obsidian-task-time-tracker:manage-tasks'
+		)
+		const reopened = browser.$('.task-time-tracker-manager-modal')
+		await expect(reopened.$('table')).toBeDisplayed()
+		await expect(
+			reopened.$(
+				'//tr[.//button[@aria-label="Rename Task B"]]//button[@aria-label="Tags differ between notes: 1"]'
+			)
+		).toBeDisplayed()
+		const dismissed = await browser.executeObsidian(
+			({ plugins }) => plugins.obsidianTaskTimeTracker.settings.dismissedIssues
+		)
+		expect(dismissed).toHaveLength(1)
+
+		// Leave the sandbox settings as found for the other tests.
+		await browser.executeObsidian(async ({ plugins }) => {
+			plugins.obsidianTaskTimeTracker.settings.dismissedIssues = []
+			await plugins.obsidianTaskTimeTracker.saveSettings()
+		})
+		await browser.keys('Escape')
+	})
 })

@@ -4,6 +4,10 @@ import { forgetTaskName, migrateTaskNames } from './settingsMigration'
 const settings = {
 	taskColors: { 'Deep wok': '#123456', 'Task A': 'var(--color-blue)' },
 	hiddenTasks: ['Deep wok', 'Task B'],
+	dismissedIssues: [
+		'["similar-name","Deep wok","Deep work"]',
+		'["tag-drift","Task A","#project"]',
+	],
 	quickActions: [
 		{ name: 'Focus', taskName: 'Deep wok', verb: 'toggle' },
 		{ name: 'Lunch', taskName: 'Lunch', verb: 'toggle' },
@@ -29,6 +33,10 @@ describe('migrateTaskNames', () => {
 			{ name: 'Lunch', taskName: 'Lunch', verb: 'toggle' },
 		])
 		expect(migrated.unassignedTaskName).toBe('Deep work')
+		// The dismissal about the old name is dropped; the other one stays.
+		expect(migrated.dismissedIssues).toEqual([
+			'["tag-drift","Task A","#project"]',
+		])
 	})
 
 	it('lets an existing target keep its own color and visibility', () => {
@@ -69,6 +77,9 @@ describe('forgetTaskName', () => {
 		const forgotten = forgetTaskName(settings, 'Deep wok')
 		expect(forgotten.taskColors).toEqual({ 'Task A': 'var(--color-blue)' })
 		expect(forgotten.hiddenTasks).toEqual(['Task B'])
+		expect(forgotten.dismissedIssues).toEqual([
+			'["tag-drift","Task A","#project"]',
+		])
 		expect(forgotten.quickActions).toEqual(settings.quickActions)
 		expect(forgotten.unassignedTaskName).toBe('Deep wok')
 	})

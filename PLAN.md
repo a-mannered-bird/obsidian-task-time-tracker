@@ -115,11 +115,11 @@ Roadmap and todo lists for the Task Time Tracker plugin. Decisions recorded here
 
 Decided 2026-09-05: the median-based long-session rule stays despite its false positives on genuine special days (a whole day cooking, a hike with the dog). Instead of tuning it, every warning becomes dismissable, and dismissals are remembered.
 
-- [ ] Settings: `ignoredIssueKinds: IssueKind[]` (a whole kind switched off) and `dismissedIssues: string[]` — a store of individual warnings the user dismissed. Keys must survive note edits: clock issues are keyed by kind + task name + note path + the clock's start timestamp (line indexes shift), similar-name by the sorted pair of names, tag-drift by name + the sorted tag-set signature. Rename/merge/delete migrate or drop name-keyed entries (`settingsMigration.ts`), like colors and hide flags.
-- [ ] Detector output filtered by both stores in core (`issues.ts`: pure, tested), so the panel and the "Issues only" facet only see live warnings.
-- [ ] Issue menu entries: "Ignore this warning" and "Ignore every <kind> warning"; the row icon disappears on the spot.
-- [ ] A way back: a settings section listing the switched-off kinds (toggles) and a "Forget dismissed warnings" button (with count); optionally a "Show ignored" toggle in the panel.
-- [ ] E2E: dismiss a warning through the menu, assert the icon is gone and the flag persisted; re-enable from settings.
+- [x] Settings: `ignoredIssueKinds: IssueKind[]` (a whole kind switched off) and `dismissedIssues: string[]` — a store of individual warnings the user dismissed. Keys must survive note edits: clock issues are keyed by kind + task name + note path + the clock's start timestamp (line indexes shift), similar-name by the sorted pair of names, tag-drift by name + the sorted tag-set signature. Rename/merge/delete migrate or drop name-keyed entries (`settingsMigration.ts`), like colors and hide flags.
+- [x] Detector output filtered by both stores in core (`issues.ts`: pure, tested), so the panel and the "Issues only" facet only see live warnings.
+- [x] Issue menu entries: "Ignore this warning" and "Ignore every <kind> warning"; the row icon disappears on the spot.
+- [x] A way back: a settings section listing the switched-off kinds (toggles) and a "Forget dismissed warnings" button (with count); optionally a "Show ignored" toggle in the panel.
+- [x] E2E: dismiss a warning through the menu, assert the icon is gone and the flag persisted; re-enable from settings.
 
 ## Later
 

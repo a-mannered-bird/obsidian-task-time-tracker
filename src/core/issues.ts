@@ -7,8 +7,8 @@ import {
 } from './time'
 import type { VaultTaskIndex, VaultTaskOccurrence } from './vaultTaskIndex'
 
-/** A clock line to jump to. */
-type ClockRef = { path: string; lineIndex: number }
+/** A clock line to jump to; `start` identifies the clock across edits. */
+type ClockRef = { path: string; lineIndex: number; start: Date }
 
 export type TaskIssue =
 	/** Two names a typo apart — the accident the panel exists to catch. */
@@ -20,7 +20,7 @@ export type TaskIssue =
 	/** Two clocks of the same task overlap within a note (minutes count twice). */
 	| ({ kind: 'clock-overlap'; name: string } & ClockRef)
 	/** A clock still running in a note that is not today's. */
-	| ({ kind: 'stale-clock'; name: string; start: Date } & ClockRef)
+	| ({ kind: 'stale-clock'; name: string } & ClockRef)
 	/** A clock lying entirely before the note's wake time or after its bed time. */
 	| ({
 			kind: 'outside-day'
@@ -29,6 +29,88 @@ export type TaskIssue =
 	  } & ClockRef)
 
 export type IssueKind = TaskIssue['kind']
+
+/** Every kind, in the order the settings and the panel list them. */
+export const ISSUE_KINDS: IssueKind[] = [
+	'similar-name',
+	'long-session',
+	'tag-drift',
+	'clock-overlap',
+	'stale-clock',
+	'outside-day',
+]
+
+export const ISSUE_TITLES: Record<IssueKind, string> = {
+	'similar-name': 'Name close to another task',
+	'long-session': 'Unusually long session',
+	'tag-drift': 'Tags differ between notes',
+	'clock-overlap': 'Overlapping clocks',
+	'stale-clock': 'Clock still running in a past note',
+	'outside-day': 'Clock outside the wake–bed window',
+}
+
+/** What the user chose not to see again (see visibleIssues). */
+export type IssueDismissals = {
+	ignoredIssueKinds: IssueKind[]
+	dismissedIssues: string[]
+}
+
+/**
+ * Stable identity of a warning, surviving note edits: clock issues are keyed
+ * by the clock's start (line indexes shift), similar names by the sorted
+ * pair, tag drift by the tag-set signature. A JSON array, so names may hold
+ * any character.
+ */
+export function issueKey(issue: TaskIssue): string {
+	switch (issue.kind) {
+		case 'similar-name':
+			return JSON.stringify([issue.kind, ...[issue.name, issue.other].sort()])
+		case 'tag-drift':
+			return JSON.stringify([
+				issue.kind,
+				issue.name,
+				issue.tagSets
+					.map((tags) => tags.join(' '))
+					.sort()
+					.join('|'),
+			])
+		default:
+			return JSON.stringify([
+				issue.kind,
+				issue.name,
+				issue.path,
+				formatLocalDateTime(issue.start),
+			])
+	}
+}
+
+/** Task names a dismissal key refers to (one, or both of a similar pair). */
+export function issueKeyNames(key: string): string[] {
+	try {
+		const parts: unknown = JSON.parse(key)
+		if (!Array.isArray(parts) || !parts.every((p) => typeof p === 'string')) {
+			return []
+		}
+		const strings = parts
+		return strings[0] === 'similar-name'
+			? strings.slice(1, 3)
+			: strings.slice(1, 2)
+	} catch {
+		return []
+	}
+}
+
+/** The issues left after the switched-off kinds and dismissed warnings. */
+export function visibleIssues(
+	issues: TaskIssue[],
+	dismissals: IssueDismissals
+): TaskIssue[] {
+	const ignored = new Set(dismissals.ignoredIssueKinds)
+	const dismissed = new Set(dismissals.dismissedIssues)
+	return issues.filter(
+		(issue) => !ignored.has(issue.kind) && !dismissed.has(issueKey(issue))
+	)
+}
 
 /** A session at least this long is flagged whatever the task's habits. */
 export const LONG_SESSION_MINUTES = 16 * 60
@@ -168,6 +250,7 @@ function longSessions(
 			.map((clock) => ({
 				path,
 				lineIndex: clock.lineIndex,
+				start: clock.start,
 				minutes: getMinutesBetween(clock.start, clock.end),
 			}))
 	)
@@ -236,6 +319,7 @@ function clockOverlaps(
 					name,
 					path,
 					lineIndex: clock.lineIndex,
+					start: clock.start,
 				})
 			}
 			if (!latestEnd || clock.end > latestEnd) latestEnd = clock.end
@@ -286,7 +370,7 @@ function outsideDay(
 	const issues: TaskIssue[] = []
 	for (const { path, task, wakeTime, bedTime } of occurrences) {
 		for (const clock of task.clocks) {
-			const ref = { name, path, lineIndex: clock.lineIndex }
+			const ref = { name, path, lineIndex: clock.lineIndex, start: clock.start }
 			if (wakeTime && clock.end && clock.end < wakeTime) {
 				issues.push({ kind: 'outside-day', side: 'before-wake', ...ref })
 			} else if (bedTime && clock.start > bedTime) {

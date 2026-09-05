@@ -1,7 +1,11 @@
+import { issueKeyNames } from './issues'
+
 /** The settings keyed by task name, generic over the quick action shape. */
 export type NameKeyedSettings<Action extends { taskName: string }> = {
 	taskColors: Record<string, string>
 	hiddenTasks: string[]
+	/** Dismissed warning keys (see issueKey); those naming a source are dropped. */
+	dismissedIssues: string[]
 	quickActions: Action[]
 	unassignedTaskName: string
 }
@@ -44,6 +48,11 @@ export function migrateTaskNames<Action extends { taskName: string }>(
 	return {
 		taskColors,
 		hiddenTasks,
+		// A warning about a task that no longer exists under that name is
+		// moot; the detectors will raise a fresh one if it still applies.
+		dismissedIssues: settings.dismissedIssues.filter(
+			(key) => !issueKeyNames(key).some(isSource)
+		),
 		quickActions: settings.quickActions.map((action) =>
 			isSource(action.taskName) ? { ...action, taskName: targetName } : action
 		),
@@ -68,5 +77,8 @@ export function forgetTaskName<Action extends { taskName: string }>(
 		...settings,
 		taskColors,
 		hiddenTasks: settings.hiddenTasks.filter((hidden) => hidden !== name),
+		dismissedIssues: settings.dismissedIssues.filter(
+			(key) => !issueKeyNames(key).includes(name)
+		),
 	}
 }

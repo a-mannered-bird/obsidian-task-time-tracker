@@ -19,6 +19,23 @@ export const config: WebdriverIO.Config = {
 		},
 	],
 
+	/**
+	 * The launcher copies this folder's data.json (the developer's own
+	 * settings) into the sandbox; start every spec from the defaults. (A
+	 * `before` hook is too early: the service's commands are not there yet.)
+	 */
+	beforeSuite: async () => {
+		await browser.executeObsidian(async ({ app, plugins }) => {
+			const plugin = plugins.obsidianTaskTimeTracker
+			const dataPath = `${app.vault.configDir}/plugins/${plugin.manifest.id}/data.json`
+			if (await app.vault.adapter.exists(dataPath)) {
+				await app.vault.adapter.remove(dataPath)
+			}
+			await plugin.loadSettings()
+			await plugin.saveSettings()
+		})
+	},
+
 	services: ['obsidian'],
 	reporters: ['obsidian'],
 
