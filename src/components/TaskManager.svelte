@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Menu, type IconName } from 'obsidian'
+	import { Menu, Notice, type IconName } from 'obsidian'
 	import { onMount } from 'svelte'
 	import {
 		changeTags,
@@ -12,6 +12,7 @@
 	import {
 		describeIssue,
 		detectIssues,
+		explainOutsideDay,
 		ISSUE_TITLES,
 		issueKey,
 		issuesByTask,
@@ -256,6 +257,13 @@
 									joinOverlappingClocks(plugin, issue.name, issue.path)
 								)
 						)
+						break
+					case 'outside-day':
+						item.onClick(() => {
+							// Stays long enough to read next to the opened note.
+							new Notice(explainOutsideDay(issue), 15000)
+							void goTo(issue.path, issue.lineIndex)
+						})
 						break
 					default:
 						item.onClick(() => void goTo(issue.path, issue.lineIndex))

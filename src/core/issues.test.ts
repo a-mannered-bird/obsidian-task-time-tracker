@@ -4,6 +4,7 @@ import {
 	describeIssue,
 	detectIssues,
 	editDistance,
+	explainOutsideDay,
 	issueKey,
 	issueKeyNames,
 	issuesByTask,
@@ -236,6 +237,8 @@ describe('detectIssues: clocks outside the day window', () => {
 				path: '2026-08-01.md',
 				lineIndex: 11,
 				start: new Date(2026, 7, 1, 23, 30, 0),
+				end: new Date(2026, 7, 1, 23, 45, 0),
+				boundary: new Date(2026, 7, 1, 23, 0, 0),
 				side: 'after-bed',
 			},
 			{
@@ -244,6 +247,8 @@ describe('detectIssues: clocks outside the day window', () => {
 				path: '2026-08-01.md',
 				lineIndex: 5,
 				start: new Date(2026, 7, 1, 3, 0, 0),
+				end: new Date(2026, 7, 1, 3, 20, 0),
+				boundary: new Date(2026, 7, 1, 7, 0, 0),
 				side: 'before-wake',
 			},
 		])
@@ -268,6 +273,8 @@ describe('detectIssues: clocks outside the day window', () => {
 				path: '2026-08-01.md',
 				lineIndex: 6,
 				start: new Date(2026, 7, 2, 1, 30, 0),
+				end: null,
+				boundary: new Date(2026, 7, 2, 1, 0, 0),
 				side: 'after-bed',
 			},
 		])
@@ -317,6 +324,8 @@ describe('describeIssue', () => {
 				path: '2026-08-01.md',
 				lineIndex: 2,
 				start: new Date(2026, 7, 1, 9, 0, 0),
+				end: new Date(2026, 7, 1, 9, 30, 0),
+				boundary: new Date(2026, 7, 1, 9, 15, 0),
 				side,
 			})
 		expect(outside('before-wake')).toBe('Before the wake time in 2026-08-01')
@@ -397,5 +406,38 @@ describe('issueKey / visibleIssues', () => {
 			dismissedIssues: [issueKey(similar)],
 		})
 		expect(shown).toEqual([overlap])
+	})
+})
+
+describe('explainOutsideDay', () => {
+	it('spells out the clock and the boundary it falls outside of', () => {
+		expect(
+			explainOutsideDay({
+				kind: 'outside-day',
+				name: 'Night feed',
+				path: 'Journal/2026-08-01.md',
+				lineIndex: 5,
+				start: new Date(2026, 7, 1, 3, 0, 0),
+				end: new Date(2026, 7, 1, 3, 20, 0),
+				boundary: new Date(2026, 7, 1, 7, 0, 0),
+				side: 'before-wake',
+			})
+		).toBe(
+			'"Night feed" clocked 2026-08-01 03:00–03:20 ends before the wake time of 2026-08-01, 2026-08-01 07:00. Either the clock belongs to another note, or the wake time is wrong.'
+		)
+		expect(
+			explainOutsideDay({
+				kind: 'outside-day',
+				name: 'Deep work',
+				path: '2026-08-01.md',
+				lineIndex: 6,
+				start: new Date(2026, 7, 2, 1, 30, 0),
+				end: null,
+				boundary: new Date(2026, 7, 2, 1, 0, 0),
+				side: 'after-bed',
+			})
+		).toBe(
+			'"Deep work" clocked 2026-08-02 01:30, still running starts after the bed time of 2026-08-01, 2026-08-02 01:00. Either the clock belongs to another note, or the bed time is wrong.'
+		)
 	})
 })

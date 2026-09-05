@@ -26,6 +26,10 @@ export type TaskIssue =
 			kind: 'outside-day'
 			name: string
 			side: 'before-wake' | 'after-bed'
+			/** The clock's end; null while running. */
+			end: Date | null
+			/** The wake or bed time the clock falls outside of. */
+			boundary: Date
 	  } & ClockRef)
 
 export type IssueKind = TaskIssue['kind']
@@ -82,6 +86,32 @@ export function issueKey(issue: TaskIssue): string {
 				formatLocalDateTime(issue.start),
 			])
 	}
+}
+
+/**
+ * The full story behind an outside-day warning, for a notice next to the
+ * opened note: which clock, against which wake or bed time — so the user
+ * can tell at a glance whether the clock or the time is wrong.
+ */
+export function explainOutsideDay(
+	issue: Extract<TaskIssue, { kind: 'outside-day' }>
+): string {
+	const clock = issue.end
+		? `${formatDateTime(issue.start)}–${formatTime(issue.end)}`
+		: `${formatDateTime(issue.start)}, still running`
+	const [relation, boundary] =
+		issue.side === 'before-wake'
+			? ['ends before', 'wake time']
+			: ['starts after', 'bed time']
+	return `"${issue.name}" clocked ${clock} ${relation} the ${boundary} of ${noteName(issue.path)}, ${formatDateTime(issue.boundary)}. Either the clock belongs to another note, or the ${boundary} is wrong.`
+}
+
+function formatDateTime(date: Date): string {
+	return formatLocalDateTime(date).slice(0, 16).replace('T', ' ')
+}
+
+function formatTime(date: Date): string {
+	return formatLocalDateTime(date).slice(11, 16)
 }
 
 /** Task names a dismissal key refers to (one, or both of a similar pair). */
@@ -370,11 +400,27 @@ function outsideDay(
 	const issues: TaskIssue[] = []
 	for (const { path, task, wakeTime, bedTime } of occurrences) {
 		for (const clock of task.clocks) {
-			const ref = { name, path, lineIndex: clock.lineIndex, start: clock.start }
+			const ref = {
+				name,
+				path,
+				lineIndex: clock.lineIndex,
+				start: clock.start,
+				end: clock.end,
+			}
 			if (wakeTime && clock.end && clock.end < wakeTime) {
-				issues.push({ kind: 'outside-day', side: 'before-wake', ...ref })
+				issues.push({
+					kind: 'outside-day',
+					side: 'before-wake',
+					boundary: wakeTime,
+					...ref,
+				})
 			} else if (bedTime && clock.start > bedTime) {
-				issues.push({ kind: 'outside-day', side: 'after-bed', ...ref })
+				issues.push({
+					kind: 'outside-day',
+					side: 'after-bed',
+					boundary: bedTime,
+					...ref,
+				})
 			}
 		}
 	}
