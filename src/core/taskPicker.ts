@@ -1,3 +1,4 @@
+import type { SearchMatchPart, SearchResult } from 'obsidian'
 import type { TagMapping } from 'types/tags'
 import type { Task } from 'types/tasks'
 import { getLastEnd, isRunning } from './note'
@@ -44,6 +45,43 @@ export function noteMatchesFirst<Match extends { item: PickerEntry }>(
 ): Match[] {
 	const rank = (match: Match) => (match.item.kind === 'note' ? 0 : 1)
 	return [...matches].sort((a, b) => rank(a) - rank(b))
+}
+
+type TextSearch = (text: string) => SearchResult | null
+
+/**
+ * Search that matches each whitespace-separated word of the query on its
+ * own, so the words may appear in any order in the text. Every word must
+ * match; the scores add up and the highlights are unioned. `prepareWord`
+ * is the single-word matcher (Obsidian's fuzzy search in the picker).
+ */
+export function prepareWordSearch(
+	query: string,
+	prepareWord: (word: string) => TextSearch
+): TextSearch {
+	const searches = query.split(/\s+/).filter(Boolean).map(prepareWord)
+	return (text) => {
+		let score = 0
+		const matches: SearchMatchPart[] = []
+		for (const search of searches) {
+			const result = search(text)
+			if (!result) return null
+			score += result.score
+			matches.push(...result.matches)
+		}
+		return { score, matches: unionRanges(matches) }
+	}
+}
+
+/** Sorted ranges with the overlapping and touching ones merged. */
+function unionRanges(ranges: SearchMatchPart[]): SearchMatchPart[] {
+	const union: SearchMatchPart[] = []
+	for (const [start, end] of [...ranges].sort((a, b) => a[0] - b[0])) {
+		const last = union[union.length - 1]
+		if (last && start <= last[1]) last[1] = Math.max(last[1], end)
+		else union.push([start, end])
+	}
+	return union
 }
 
 /**

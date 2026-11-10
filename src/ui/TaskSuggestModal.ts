@@ -1,4 +1,10 @@
-import { FuzzySuggestModal, type App, type FuzzyMatch } from 'obsidian'
+import {
+	FuzzySuggestModal,
+	prepareFuzzySearch,
+	sortSearchResults,
+	type App,
+	type FuzzyMatch,
+} from 'obsidian'
 import type { TagMapping } from 'types/tags'
 import type { Task } from 'types/tasks'
 import {
@@ -6,6 +12,7 @@ import {
 	createEntryFromQuery,
 	entryLabel,
 	noteMatchesFirst,
+	prepareWordSearch,
 	resurfacedEntry,
 	VAULT_DISPLAY_LIMIT,
 	type PickerEntry,
@@ -89,7 +96,7 @@ class TaskSuggestModal extends FuzzySuggestModal<ModalItem> {
 		}
 	}
 
-	getItems(): ModalItem[] {
+	getItems(): PickerEntry[] {
 		return buildPickerEntries(this.tasks, this.vaultEntries?.visible ?? [])
 	}
 
@@ -101,9 +108,16 @@ class TaskSuggestModal extends FuzzySuggestModal<ModalItem> {
 	 * task exactly resurfaces it instead.
 	 */
 	getSuggestions(query: string): FuzzyMatch<ModalItem>[] {
-		const matches: FuzzyMatch<ModalItem>[] = noteMatchesFirst(
-			super.getSuggestions(query).filter(isEntryMatch)
-		)
+		// Not super.getSuggestions: it matches the query as one string, so
+		// words typed in another order than the task name's would not match.
+		const search = prepareWordSearch(query, prepareFuzzySearch)
+		const ranked: FuzzyMatch<PickerEntry>[] = []
+		for (const item of this.getItems()) {
+			const match = search(this.getItemText(item))
+			if (match) ranked.push({ item, match })
+		}
+		sortSearchResults(ranked)
+		const matches: FuzzyMatch<ModalItem>[] = noteMatchesFirst(ranked)
 		if (!this.options.vaultEntries) return matches
 		// Appended rather than searched: as a fuzzy item the loading row would
 		// vanish as soon as the query stopped matching its own text.
@@ -180,12 +194,6 @@ class TaskSuggestModal extends FuzzySuggestModal<ModalItem> {
 		if (hasUpdateSuggestions(this)) this.updateSuggestions()
 		else this.inputEl.dispatchEvent(new Event('input'))
 	}
-}
-
-function isEntryMatch(
-	match: FuzzyMatch<ModalItem>
-): match is FuzzyMatch<PickerEntry> {
-	return match.item.kind === 'note' || match.item.kind === 'vault'
 }
 
 /** Appended suggestion that never outranks a fuzzy match. */

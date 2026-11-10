@@ -6,6 +6,7 @@ import {
 	entryLabel,
 	noteMatchesFirst,
 	pickerLabel,
+	prepareWordSearch,
 	resurfacedEntry,
 	sortForPicker,
 } from './taskPicker'
@@ -213,5 +214,44 @@ describe('noteMatchesFirst', () => {
 			'vault:Deep work',
 			'vault:Deep dive',
 		])
+	})
+})
+
+describe('prepareWordSearch', () => {
+	// Stand-in for the fuzzy matcher: a case-insensitive substring search
+	// scoring the negated match position.
+	const prepareWord = (word: string) => (text: string) => {
+		const start = text.toLowerCase().indexOf(word.toLowerCase())
+		if (start < 0) return null
+		return {
+			score: -start,
+			matches: [[start, start + word.length] as [number, number]],
+		}
+	}
+
+	it('matches words typed in another order than the text has them', () => {
+		const search = prepareWordSearch('report weekly', prepareWord)
+		expect(search('Weekly report')).toEqual({
+			score: -7,
+			matches: [
+				[0, 6],
+				[7, 13],
+			],
+		})
+	})
+
+	it('rejects a text missing one of the words', () => {
+		const search = prepareWordSearch('weekly budget', prepareWord)
+		expect(search('Weekly report')).toBeNull()
+	})
+
+	it('merges the highlights of words matching overlapping ranges', () => {
+		const search = prepareWordSearch('port report repo', prepareWord)
+		expect(search('Weekly report')?.matches).toEqual([[7, 13]])
+	})
+
+	it('matches every text when the query has no word', () => {
+		const search = prepareWordSearch('  ', prepareWord)
+		expect(search('Weekly report')).toEqual({ score: 0, matches: [] })
 	})
 })
