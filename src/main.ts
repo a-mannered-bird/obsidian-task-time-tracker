@@ -2,14 +2,17 @@ import { Plugin, type WorkspaceLeaf } from 'obsidian'
 import './styles.css'
 import { registerCompleteJournalCommand } from './commands/completeJournal'
 import { registerFrontmatterTimeCommands } from './commands/frontmatterTime'
+import { registerLostClockWatch } from './commands/lostClocks'
 import {
 	normalizeQuickAction,
 	registerQuickActionCommands,
 } from './commands/quickActions'
 import { registerTrackingCommands } from './commands/tracking'
+import { registerUserEditLog } from './commands/userEdits'
 import { getCoreDailyNotesConfig } from './core/coreDailyNotes'
 import { DailyLogStore } from './core/dailyLogs'
 import { isDailyNote, type DailyNotesConfig } from './core/dailyNotes'
+import { LostClockTracker } from './core/lostClocks'
 import { VaultTaskIndex } from './core/vaultTaskIndex'
 import {
 	DEFAULT_SETTINGS,
@@ -35,9 +38,15 @@ export default class TaskTimeTracker extends Plugin {
 		onChange: (listener) => this.dailyLogs.onChange(listener),
 	})
 
+	lostClocks = new LostClockTracker()
+	/** When the user last changed each note in an editor: path → epoch ms. */
+	userEdits = new Map<string, number>()
+
 	async onload() {
 		await this.loadSettings()
 		this.dailyLogs.register(this)
+		registerUserEditLog(this)
+		registerLostClockWatch(this)
 
 		this.registerView(DAILY_VIEW, (leaf) => new DailyItemView(leaf, this))
 

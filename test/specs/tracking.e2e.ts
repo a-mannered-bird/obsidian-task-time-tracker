@@ -15,36 +15,161 @@ describe('tracking commands', function () {
 
 	it('offer the tasks as the editor shows them, before the note is saved', async function () {
 		await obsidianPage.openFile(NOTE)
-		const edited = [
-			'- [ ] Task A #project',
-			'      [clock::2026-08-03T09:00:00--2026-08-03T09:30:00]',
-			'- [ ] Task B #project',
-			'      [clock::2026-08-03T09:15:00--2026-08-03T09:45:00]',
-			'- [ ] Email',
-			'      [clock::2026-08-03T10:00:00]',
-		].join('\n')
-		// An editor change is only written to disk two seconds later; the
-		// command below runs inside that window.
-		await browser.executeObsidian(({ app, obsidian }, content) => {
-			app.workspace
-				.getActiveViewOfType(obsidian.MarkdownView)
-				?.editor.setValue(content)
-		}, edited)
+		const before = await obsidianPage.read(NOTE)
+		// Select the end of Task B's clock, then delete it with a real key
+		// press: Task B is now running in the editor, while Obsidian only
+		// writes the change to disk two seconds later.
+		await browser.executeObsidian(({ app, obsidian }) => {
+			const editor = app.workspace.getActiveViewOfType(
+				obsidian.MarkdownView
+			)?.editor
+			const line = editor?.getLine(3) ?? ''
+			editor?.focus()
+			editor?.setSelection(
+				{ line: 3, ch: line.indexOf('--') },
+				{ line: 3, ch: line.indexOf(']') }
+			)
+		})
+		await browser.keys('Backspace')
 
 		await browser.executeObsidianCommand(
 			'obsidian-task-time-tracker:toggle-task'
 		)
 		const picker = browser.$('.prompt')
 		await expect(picker).toBeDisplayed()
-		// Running tasks come first with the hourglass: Email only runs in the
-		// editor, its clock is not in the file the vault had on disk.
+		// Running tasks come first, with the hourglass.
 		await expect(picker.$('.suggestion-item:nth-child(1)')).toHaveText(
-			'⏳ Email'
+			'⏳ Task B'
 		)
 		await browser.keys('Escape')
 
 		// The pending change was saved, so the command's own write cannot
 		// discard it.
-		expect(await obsidianPage.read(NOTE)).toBe(edited)
+		expect(await obsidianPage.read(NOTE)).toBe(
+			before.replace('--2026-08-03T09:45:00', '')
+		)
+	})
+
+	it('see a toggle undone in the editor right away', async function () {
+		await obsidianPage.openFile(NOTE)
+		const before = await obsidianPage.read(NOTE)
+		await browser.executeObsidianCommand(
+			'obsidian-task-time-tracker:toggle-task'
+		)
+		const picker = browser.$('.prompt')
+		await expect(picker).toBeDisplayed()
+		await browser.keys([...'Email'])
+		await expect(picker.$('.suggestion-item:nth-child(1)')).toHaveText('Email')
+		await browser.keys('Enter')
+		await browser.waitUntil(
+			async () => (await obsidianPage.read(NOTE)) !== before
+		)
+
+		// Undo the toggle in the editor, then toggle again at once.
+		await browser.waitUntil(() =>
+			browser.executeObsidian(({ app, obsidian }, content) => {
+				const editor = app.workspace.getActiveViewOfType(
+					obsidian.MarkdownView
+				)?.editor
+				if (!editor || editor.getValue() === content) return false
+				editor.focus()
+				editor.undo()
+				return true
+			}, before)
+		)
+		await browser.executeObsidianCommand(
+			'obsidian-task-time-tracker:toggle-task'
+		)
+		const reopened = browser.$('.prompt')
+		await expect(reopened).toBeDisplayed()
+		// No task runs any more, so the most recently stopped one leads; a
+		// running Email would come first with an hourglass.
+		await expect(reopened.$('.suggestion-item:nth-child(1)')).toHaveText(
+			'⭐️ Task B'
+		)
+		await browser.keys('Escape')
+		expect(await obsidianPage.read(NOTE)).toBe(before)
+	})
+
+	it('offer to restore a clock that an outside change removed', async function () {
+		await obsidianPage.openFile(NOTE)
+		const before = await obsidianPage.read(NOTE)
+		// The task manager scans every daily note, so the plugin knows what
+		// the note held before the change.
+		await browser.executeObsidianCommand(
+			'obsidian-task-time-tracker:manage-tasks'
+		)
+		await expect(
+			browser.$('.task-time-tracker-manager-modal table')
+		).toBeDisplayed()
+		await browser.keys('Escape')
+
+		// A sync reconciling two versions badly: Task A's clock is gone.
+		const withoutClock = before
+			.split('\n')
+			.filter((line) => !line.includes('2026-08-03T09:00:00'))
+			.join('\n')
+		await browser.executeObsidian(
+			({ app }, path, content) => app.vault.adapter.write(path, content),
+			NOTE,
+			withoutClock
+		)
+
+		const notice = browser.$('.notice*=disappeared')
+		await expect(notice).toHaveText(
+			expect.stringContaining('"Task A" 09:00–09:30')
+		)
+		await notice.$('button=Restore').click()
+		await expect(browser.$('.notice=Clock restored.')).toBeDisplayed()
+		expect(await obsidianPage.read(NOTE)).toBe(before)
+	})
+
+	it('redo the toggle when the note changes while the picker is open', async function () {
+		await obsidianPage.openFile(NOTE)
+		const before = await obsidianPage.read(NOTE)
+		await browser.executeObsidianCommand(
+			'obsidian-task-time-tracker:toggle-task'
+		)
+		const picker = browser.$('.prompt')
+		await expect(picker).toBeDisplayed()
+
+		// What a sync does while the user is choosing: another device's
+		// version of the note, with one more task, lands on disk.
+		const synced = [
+			before.trimEnd(),
+			'- [ ] Lunch',
+			'      [clock::2026-08-03T12:00:00--2026-08-03T12:30:00]',
+		].join('\n')
+		await browser.executeObsidian(
+			({ app }, path, content) => app.vault.adapter.write(path, content),
+			NOTE,
+			synced
+		)
+
+		await browser.keys([...'Email'])
+		await expect(picker.$('.suggestion-item:nth-child(1)')).toHaveText('Email')
+		await browser.keys('Enter')
+
+		// The toggle lands on the synced note: Lunch is kept and Email gets
+		// its running clock, started now.
+		await browser.waitUntil(
+			async () => (await obsidianPage.read(NOTE)) !== synced
+		)
+		const lines = (await obsidianPage.read(NOTE)).split('\n')
+		expect(lines.slice(0, 5)).toEqual(before.trimEnd().split('\n'))
+		expect(lines[5]).toMatch(/^ {6}\[clock::\d{4}-\d\d-\d\dT[\d:]{8}\]$/)
+		expect(lines.slice(6)).toEqual([
+			'- [ ] Lunch',
+			'      [clock::2026-08-03T12:00:00--2026-08-03T12:30:00]',
+		])
+
+		// The vault reset before the next test removes the clock added here,
+		// which is what the plugin watches for: start that test from a note
+		// the plugin knows nothing about.
+		await browser.executeObsidian(({ plugins }, path) => {
+			const { lostClocks } = plugins.obsidianTaskTimeTracker
+			lostClocks.forget(path)
+			lostClocks.acknowledge(path, '')
+		}, NOTE)
 	})
 })

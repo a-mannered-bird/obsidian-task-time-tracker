@@ -28,6 +28,7 @@ import { withProgressNotice } from 'ui/progressNotice'
 import { promptRetag } from 'ui/RetagModal'
 import { promptText } from 'ui/TextPromptModal'
 import type TaskTimeTracker from '../main'
+import { ownWritesVault } from './lostClocks'
 import { NOTICE_DURATION } from './target'
 
 /**
@@ -118,7 +119,7 @@ async function consolidate(
 ): Promise<boolean> {
 	const report = await withProgressNotice('Updating notes', (onProgress) =>
 		consolidateInVault(
-			plugin.app.vault,
+			ownWritesVault(plugin),
 			plugin.vaultTasks,
 			sourceNames,
 			targetName,
@@ -160,7 +161,7 @@ export async function deleteTasks(
 	if (!confirmed) return false
 
 	const report = await withProgressNotice('Deleting', (onProgress) =>
-		deleteInVault(plugin.app.vault, plugin.vaultTasks, names, onProgress)
+		deleteInVault(ownWritesVault(plugin), plugin.vaultTasks, names, onProgress)
 	)
 	for (const name of names) {
 		Object.assign(plugin.settings, forgetTaskName(plugin.settings, name))
@@ -202,7 +203,13 @@ export async function changeTags(
 	if (!confirmed) return false
 
 	const report = await withProgressNotice('Updating notes', (onProgress) =>
-		retagInVault(plugin.app.vault, plugin.vaultTasks, names, change, onProgress)
+		retagInVault(
+			ownWritesVault(plugin),
+			plugin.vaultTasks,
+			names,
+			change,
+			onProgress
+		)
 	)
 	reportOutcome(report, names.length === 1 ? `"${names[0]}"` : 'Tags')
 	return report.changedPaths.length > 0
@@ -244,7 +251,7 @@ export async function joinOverlappingClocks(
 			await plugin.saveSettings()
 		}
 	}
-	const report = await runBulkEdit(plugin.app.vault, [path], (content) =>
+	const report = await runBulkEdit(ownWritesVault(plugin), [path], (content) =>
 		consolidateTasks(content, [], name)
 	)
 	const removed = report.results.reduce(

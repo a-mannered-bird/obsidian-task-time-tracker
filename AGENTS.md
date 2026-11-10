@@ -25,6 +25,7 @@ Tracks time on the tasks of daily notes (`- [ ] Task #tag` lines with `[clock::s
 - **Decision logic lives in core, UI stays dumb.** Sorting, filtering, previews, confirmation gating, text of confirmations: pure functions with tests. Components and modals only render and call them.
 - **Bulk rewrites go through `runBulkEdit`** (`vault.process` per file, unchanged files skipped, failures reported and skipped — every transform is idempotent, so re-running is the recovery) behind `withProgressNotice`, and are previewed from the index alone (no file reads) before confirmation. Destructive ones (delete, merge) require the type-the-name ritual and mention File recovery; the plugin has no undo.
 - **Rename and merge are one engine** (`consolidateTasks`): the line already bearing the target name survives with its position and tags, other lines fold into it, clocks are unioned (overlapping and touching merge, zero-length dropped, a running clock only ever extends).
+- **Never write a note from a stale read.** Tracking writes go through `applyTrackingSteps` (compare-and-swap, redo with the recorded answers); commands read through `readTaskNote`, which first saves the user's unsaved editor changes. Writers that remove clocks on purpose acknowledge their content to `LostClockTracker` (`ownWritesVault` for bulk runs), or the watch reports those clocks as lost.
 - Keep startup light: the vault index is built lazily on first use, never in `onload`. Register every listener with the `register*` helpers. No network calls.
 
 ## Conventions
@@ -41,7 +42,7 @@ Three layers, each with its own job:
 
 - **Unit tests** (`npm test`, Vitest): every module in `src/core/` is pure TypeScript and is tested there. Decision logic belongs in core, not in Svelte components or modals, so it can be unit-tested; components stay thin and are not component-tested.
 - **End-to-end tests** (`npm run test:e2e`, WebdriverIO + `wdio-obsidian-service`): run a real Obsidian against the fixture vault in `test/vaults/daily/` and drive the plugin through its real UI. Every bulk operation that rewrites notes has one, asserting the exact markdown afterwards. `npm run typecheck:e2e` type-checks the specs (they have their own `test/tsconfig.json`; the root one excludes `test/`).
-- **Trace recording** (`npm run test:e2e:trace`, then `npm run test:e2e:trace:open`): replays a run step by step in the WebdriverIO DevTools player. `npm run test:e2e:debug` opens the live dashboard instead. The debug config (`wdio.debug.conf.mts`) inlines Obsidian's `app://` stylesheets so the replay is styled; the normal run does not.
+- **Trace recording** (`npm run test:e2e:trace`, then `npm run test:e2e:trace:open`): replays a run step by step in the WebdriverIO DevTools player. `npm run test:e2e:debug` opens the live dashboard instead. The debug config (`wdio.debug.conf.mts`) inlines Obsidian's `app://` stylesheets so the replay is styled; the normal run does not. Open traces through the npm script (`open-trace.mjs`), not `show-trace` directly: the player's DOM replay goes blank once a test edits a note in the editor (CodeMirror strips the recorder's `data-wdio-ref` from its lines), so the script falls back to per-step screenshots for those runs.
 
 ### Writing end-to-end tests
 

@@ -58,12 +58,17 @@ export class TaskNote {
 		if (isRunning(task)) {
 			throw new Error(`Task "${task.name}" already has a running clock`)
 		}
+		this.addClock(task, at, null)
+	}
+
+	/** Append a clock line below the task's existing clocks. */
+	addClock(task: Task, start: Date, end: Date | null): void {
 		const insertAt = this.clockBlockEnd(task)
 		const lastClock = task.clocks[task.clocks.length - 1]
 		const indent = lastClock
 			? getIndent(this.lines[lastClock.lineIndex]!)
 			: DEFAULT_CLOCK_INDENT
-		this.lines.splice(insertAt, 0, formatClockLine(at, null, indent))
+		this.lines.splice(insertAt, 0, formatClockLine(start, end, indent))
 		this.invalidate()
 	}
 

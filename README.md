@@ -113,6 +113,29 @@ Clone the repository into `<vault>/.obsidian/plugins/obsidian-task-time-tracker`
 
 Stack: TypeScript, Svelte 5 for views, esbuild, Vitest for the pure logic (parser, interval math, aggregation, range resolution).
 
+### End-to-end tests
+
+The end-to-end suite drives a real Obsidian against the fixture vault in `test/vaults/daily/`. Obsidian windows open during a run; keep your hands off the keyboard until they close.
+
+```bash
+npm run test:e2e              # run the whole suite
+npm run test:e2e:trace        # run it and record a trace
+npm run test:e2e:trace:open   # replay the latest trace step by step
+npm run test:e2e:debug        # run it with the live DevTools dashboard open
+```
+
+To watch a test step by step, record a trace and then open it. The player shows one step per command or assertion, with the page rebuilt from the recorded DOM at that moment. Traces are written to `test-results/trace-<session>.zip` (gitignored); `test:e2e:trace:open` opens the most recent one, and `npm run test:e2e:trace:open -- <file>` opens any other.
+
+The player cannot rebuild the page once a test edits a note in the editor (the preview goes blank from that step on), so for those runs `test:e2e:trace:open` shows the screenshot taken at each step instead. Opening such a trace directly with `npx show-trace` gives the blank preview.
+
+Every script accepts a spec filter after `--`, which keeps the trace short:
+
+```bash
+npm run test:e2e:trace -- --spec test/specs/tracking.e2e.ts
+```
+
+[AGENTS.md](AGENTS.md) lists the rules for writing specs whose every step shows up in the trace.
+
 ## License
 
 0-BSD, see [LICENSE](LICENSE).

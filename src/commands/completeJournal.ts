@@ -27,7 +27,7 @@ export async function completeJournal(plugin: TaskTimeTracker) {
 	const file = resolveTargetFileOrNotify(plugin)
 	if (!file) return
 
-	const note = await readTaskNote(app, file)
+	const note = await readTaskNote(plugin, file)
 	const plan = planCompletion(note)
 	if (isEmptyPlan(plan)) {
 		new Notice('Nothing to complete.', NOTICE_DURATION)
@@ -57,7 +57,9 @@ export async function completeJournal(plugin: TaskTimeTracker) {
 
 	const at = bedTime(plugin, file) ?? new Date()
 	applyCompletion(note, plan, at)
-	await app.vault.modify(file, note.toString())
+	const content = note.toString()
+	await app.vault.modify(file, content)
+	plugin.lostClocks.acknowledge(file.path, content)
 	new Notice(
 		`Journal completed: ${plan.toClose.length} closed, ${plan.toTick.length} ticked, ${plan.toRemove.length} removed.`,
 		NOTICE_DURATION

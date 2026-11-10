@@ -34,7 +34,15 @@ type CacheEntry = { mtime: number; log: DailyLog }
  * One note changed (`log`) or went away (`log: null`). Listeners receive
  * `undefined` instead when the whole cache was invalidated (see clear).
  */
-export type DailyLogChange = { path: string; log: DailyLog | null }
+export type DailyLogChange = {
+	path: string
+	log: DailyLog | null
+	/**
+	 * The note as it was cached before the change, with the file's mtime back
+	 * then; null when it was not cached.
+	 */
+	previous: { log: DailyLog; mtime: number } | null
+}
 
 /**
  * Loads and caches the daily logs (parsed daily notes). Entries are keyed by path and
@@ -55,9 +63,10 @@ export class DailyLogStore {
 		plugin.registerEvent(
 			this.app.metadataCache.on('changed', (file, data, cache) => {
 				if (!isDailyNote(this.getConfig(), file)) return
+				const previous = this.cache.get(file.path) ?? null
 				const log = this.buildDailyLog(file, data, cache)
 				this.cache.set(file.path, { mtime: file.stat.mtime, log })
-				this.notifyListeners({ path: file.path, log })
+				this.notifyListeners({ path: file.path, log, previous })
 			})
 		)
 		plugin.registerEvent(
@@ -71,7 +80,9 @@ export class DailyLogStore {
 				// here to keep listeners (e.g. the vault task index) complete.
 				if (file instanceof TFile && isDailyNote(this.getConfig(), file)) {
 					void this.loadFile(file).then((log) => {
-						if (log) this.notifyListeners({ path: file.path, log })
+						if (log) {
+							this.notifyListeners({ path: file.path, log, previous: null })
+						}
 					})
 				}
 			})
@@ -155,7 +166,10 @@ export class DailyLogStore {
 	}
 
 	private drop(path: string) {
-		if (this.cache.delete(path)) this.notifyListeners({ path, log: null })
+		const previous = this.cache.get(path)
+		if (!previous) return
+		this.cache.delete(path)
+		this.notifyListeners({ path, log: null, previous })
 	}
 
 	private notifyListeners(change?: DailyLogChange) {

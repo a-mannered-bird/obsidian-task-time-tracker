@@ -1,11 +1,15 @@
 import { Notice, type IconName } from 'obsidian'
-import { toggleTasks, type Prompts, type ToggleOptions } from 'core/toggle'
+import type { TaskNote } from 'core/note'
+import type { Prompts, ToggleOptions } from 'core/toggle'
+import { applyTrackingSteps, type NoteIo } from 'core/trackingRun'
 import { pickTask } from 'ui/TaskSuggestModal'
 import { promptMinutes } from 'ui/MinutesPromptModal'
 import type TaskTimeTracker from '../main'
 import {
 	NOTICE_DURATION,
+	readNoteContent,
 	readTaskNote,
+	saveOpenEditors,
 	resolveTargetFileOrNotify,
 } from './target'
 
@@ -166,13 +170,34 @@ export async function runTrackingSteps(
 	plugin: TaskTimeTracker,
 	steps: ToggleOptions[]
 ) {
-	const { app, settings, vaultTasks } = plugin
+	const { app, settings } = plugin
 	const file = resolveTargetFileOrNotify(plugin)
 	if (!file) return
 
-	const note = await readTaskNote(app, file)
+	const io: NoteIo = {
+		read: () => readNoteContent(plugin, file),
+		replace: async (expected, next) => {
+			await saveOpenEditors(plugin, file)
+			let replaced = false
+			await app.vault.process(file, (current) => {
+				replaced = current === expected
+				return replaced ? next : current
+			})
+			if (replaced) plugin.lostClocks.acknowledge(file.path, next)
+			return replaced
+		},
+	}
+	await applyTrackingSteps(io, steps, (note) => ({
+		prompts: interactivePrompts(plugin, note),
+		unassignedTaskName: settings.unassignedTaskName,
+		vaultTasksAvailable: settings.includeVaultTasks,
+		now: new Date(),
+	}))
+}
 
-	const prompts: Prompts = {
+function interactivePrompts(plugin: TaskTimeTracker, note: TaskNote): Prompts {
+	const { app, settings, vaultTasks } = plugin
+	return {
 		pickTask: async (tasks, placeholder, options) => {
 			const includeVault = Boolean(
 				options?.includeVault && settings.includeVaultTasks
@@ -203,17 +228,6 @@ export async function runTrackingSteps(
 		promptMinutes: (promptOptions) => promptMinutes(app, promptOptions),
 		notify: (message) => new Notice(message, NOTICE_DURATION),
 	}
-	let changed = false
-	for (const options of steps) {
-		changed =
-			(await toggleTasks(note, options, {
-				prompts,
-				unassignedTaskName: settings.unassignedTaskName,
-				vaultTasksAvailable: settings.includeVaultTasks,
-				now: new Date(),
-			})) || changed
-	}
-	if (changed) await app.vault.modify(file, note.toString())
 }
 
 /** Tick or untick one task without touching its clocks. */
@@ -224,7 +238,7 @@ export async function setTaskTicked(
 ) {
 	const file = resolveTargetFileOrNotify(plugin)
 	if (!file) return
-	const note = await readTaskNote(plugin.app, file)
+	const note = await readTaskNote(plugin, file)
 	const task = note.findTask(taskName)
 	if (!task) return
 	note.setTicked(task, ticked)

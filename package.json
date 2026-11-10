@@ -17,11 +17,13 @@
 		"typecheck:e2e": "tsc -p test --noEmit",
 		"test:e2e:debug": "npm run build && npm run typecheck:e2e && wdio run ./wdio.debug.conf.mts",
 		"test:e2e:trace": "npm run build && npm run typecheck:e2e && WDIO_DEVTOOLS_MODE=trace wdio run ./wdio.debug.conf.mts",
-		"test:e2e:trace:open": "show-trace \"$(ls -t test-results/trace-*.zip | head -1)\""
+		"test:e2e:trace:open": "node open-trace.mjs"
 	},
 	"keywords": [],
 	"license": "0-BSD",
 	"devDependencies": {
+		"@codemirror/state": "6.5.0",
+		"@codemirror/view": "6.38.6",
 		"@eslint/js": "9.30.1",
 		"@types/mocha": "^10.0.10",
 		"@types/node": "^22.20.1",

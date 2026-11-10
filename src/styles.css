@@ -175,3 +175,9 @@
 .task-time-tracker-diff-same {
 	color: var(--text-muted);
 }
+
+.task-time-tracker-notice-buttons {
+	display: flex;
+	gap: var(--size-4-2);
+	margin-top: var(--size-4-2);
+}

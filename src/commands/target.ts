@@ -1,4 +1,4 @@
-import { MarkdownView, Notice, type App, type TFile } from 'obsidian'
+import { MarkdownView, Notice, type TFile } from 'obsidian'
 import { resolveTargetFile } from 'core/dailyNotes'
 import { TaskNote } from 'core/note'
 import type TaskTimeTracker from '../main'
@@ -25,17 +25,30 @@ export function resolveTargetFileOrNotify(
  * an undo would otherwise act on the previous content, and its write would
  * then discard that edit.
  */
-export async function readTaskNote(app: App, file: TFile): Promise<TaskNote> {
-	await saveOpenEditors(app, file)
-	return new TaskNote(await app.vault.read(file))
+export async function readNoteContent(
+	plugin: TaskTimeTracker,
+	file: TFile
+): Promise<string> {
+	await saveOpenEditors(plugin, file)
+	return plugin.app.vault.read(file)
 }
 
-async function saveOpenEditors(app: App, file: TFile) {
-	for (const leaf of app.workspace.getLeavesOfType('markdown')) {
+export async function readTaskNote(
+	plugin: TaskTimeTracker,
+	file: TFile
+): Promise<TaskNote> {
+	return new TaskNote(await readNoteContent(plugin, file))
+}
+
+/** Save the editors of the note holding changes of the user not on disk yet. */
+export async function saveOpenEditors(plugin: TaskTimeTracker, file: TFile) {
+	// Only after an edit of the user newer than the file: an editor can also
+	// differ from the file because Obsidian has not refreshed it yet after an
+	// outside write (sync), and saving that one would overwrite the write.
+	const lastEdit = plugin.userEdits.get(file.path)
+	if (lastEdit === undefined || lastEdit <= file.stat.mtime) return
+	for (const leaf of plugin.app.workspace.getLeavesOfType('markdown')) {
 		const { view } = leaf
-		if (!(view instanceof MarkdownView) || view.file !== file) continue
-		// Saving an unchanged editor would still touch the file and re-fire
-		// every change listener.
-		if (view.getViewData() !== (await app.vault.read(file))) await view.save()
+		if (view instanceof MarkdownView && view.file === file) await view.save()
 	}
 }

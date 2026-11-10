@@ -4,7 +4,8 @@ import { config as base } from './wdio.conf.mts'
  * E2E run with the WebdriverIO DevTools attached: `live` opens the DevTools
  * dashboard while the run happens (commands, per-command screenshots, DOM);
  * `trace` writes `test-results/trace-<session>.zip` to replay step by step
- * with `npx show-trace <file>`. One Obsidian at a time keeps it readable.
+ * with `npm run test:e2e:trace:open` (see `open-trace.mjs` for why not
+ * `show-trace` directly). One Obsidian at a time keeps it readable.
  */
 export const config: WebdriverIO.Config = {
 	...base,
