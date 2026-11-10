@@ -1,10 +1,13 @@
 import { Notice, type IconName } from 'obsidian'
-import { TaskNote } from 'core/note'
 import { toggleTasks, type Prompts, type ToggleOptions } from 'core/toggle'
 import { pickTask } from 'ui/TaskSuggestModal'
 import { promptMinutes } from 'ui/MinutesPromptModal'
 import type TaskTimeTracker from '../main'
-import { NOTICE_DURATION, resolveTargetFileOrNotify } from './target'
+import {
+	NOTICE_DURATION,
+	readTaskNote,
+	resolveTargetFileOrNotify,
+} from './target'
 
 type TrackingCommand = {
 	id: string
@@ -167,7 +170,7 @@ export async function runTrackingSteps(
 	const file = resolveTargetFileOrNotify(plugin)
 	if (!file) return
 
-	const note = new TaskNote(await app.vault.read(file))
+	const note = await readTaskNote(app, file)
 
 	const prompts: Prompts = {
 		pickTask: async (tasks, placeholder, options) => {
@@ -221,7 +224,7 @@ export async function setTaskTicked(
 ) {
 	const file = resolveTargetFileOrNotify(plugin)
 	if (!file) return
-	const note = new TaskNote(await plugin.app.vault.read(file))
+	const note = await readTaskNote(plugin.app, file)
 	const task = note.findTask(taskName)
 	if (!task) return
 	note.setTicked(task, ticked)

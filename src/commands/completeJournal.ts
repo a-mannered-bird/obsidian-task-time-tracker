@@ -1,10 +1,13 @@
 import { Notice, type TFile } from 'obsidian'
 import { applyCompletion, isEmptyPlan, planCompletion } from 'core/complete'
-import { TaskNote } from 'core/note'
 import { BED_TIME_PROPERTY, readFrontmatterTime } from 'core/time'
 import { confirm } from 'ui/ConfirmModal'
 import type TaskTimeTracker from '../main'
-import { NOTICE_DURATION, resolveTargetFileOrNotify } from './target'
+import {
+	NOTICE_DURATION,
+	readTaskNote,
+	resolveTargetFileOrNotify,
+} from './target'
 
 export function registerCompleteJournalCommand(plugin: TaskTimeTracker) {
 	plugin.addCommand({
@@ -24,7 +27,7 @@ export async function completeJournal(plugin: TaskTimeTracker) {
 	const file = resolveTargetFileOrNotify(plugin)
 	if (!file) return
 
-	const note = new TaskNote(await app.vault.read(file))
+	const note = await readTaskNote(app, file)
 	const plan = planCompletion(note)
 	if (isEmptyPlan(plan)) {
 		new Notice('Nothing to complete.', NOTICE_DURATION)
