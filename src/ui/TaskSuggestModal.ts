@@ -90,12 +90,7 @@ class TaskSuggestModal extends FuzzySuggestModal<ModalItem> {
 	}
 
 	getItems(): ModalItem[] {
-		const entries = buildPickerEntries(
-			this.tasks,
-			this.vaultEntries?.visible ?? []
-		)
-		const loading = this.options.vaultEntries && this.vaultEntries === null
-		return loading ? [...entries, LOADING] : entries
+		return buildPickerEntries(this.tasks, this.vaultEntries?.visible ?? [])
 	}
 
 	/**
@@ -106,12 +101,14 @@ class TaskSuggestModal extends FuzzySuggestModal<ModalItem> {
 	 * task exactly resurfaces it instead.
 	 */
 	getSuggestions(query: string): FuzzyMatch<ModalItem>[] {
-		const ranked = super.getSuggestions(query)
-		const suggestions = [
-			...noteMatchesFirst(ranked.filter(isEntryMatch)),
-			...ranked.filter((match) => !isEntryMatch(match)),
-		]
-		if (!this.options.vaultEntries) return suggestions
+		const matches: FuzzyMatch<ModalItem>[] = noteMatchesFirst(
+			super.getSuggestions(query).filter(isEntryMatch)
+		)
+		if (!this.options.vaultEntries) return matches
+		// Appended rather than searched: as a fuzzy item the loading row would
+		// vanish as soon as the query stopped matching its own text.
+		const suggestions =
+			this.vaultEntries === null ? [...matches, lastRow(LOADING)] : matches
 		const resurfaced = resurfacedEntry(query, this.vaultEntries?.hidden ?? [])
 		if (resurfaced) {
 			return [...suggestions, lastRow({ kind: 'vault', info: resurfaced })]
