@@ -1,5 +1,6 @@
 import { browser, expect } from '@wdio/globals'
 import { obsidianPage } from 'wdio-obsidian-service'
+import { resetVault } from './support/vault'
 
 /**
  * Tracking commands run on a note that is open in an editor, where what the
@@ -10,7 +11,7 @@ const NOTE = '2026-08-03.md'
 
 describe('tracking commands', function () {
 	beforeEach(async function () {
-		await obsidianPage.resetVault()
+		await resetVault()
 	})
 
 	it('offer the tasks as the editor shows them, before the note is saved', async function () {

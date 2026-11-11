@@ -1,6 +1,7 @@
 import { browser, expect } from '@wdio/globals'
 import type { ChainablePromiseElement } from 'webdriverio'
 import { obsidianPage } from 'wdio-obsidian-service'
+import { resetVault } from './support/vault'
 
 /**
  * Bulk operations driven through the real UI (row buttons, selection bar,
@@ -92,7 +93,7 @@ async function closeModals() {
 describe('bulk operations', function () {
 	beforeEach(async function () {
 		await closeModals()
-		await obsidianPage.resetVault()
+		await resetVault()
 	})
 
 	it('renames a task, merging into an existing line of the new name', async function () {

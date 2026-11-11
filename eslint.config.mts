@@ -44,6 +44,8 @@ export default tseslint.config(
 		},
 		rules: {
 			'import/no-extraneous-dependencies': 'off',
+			// Specs run in Node; the rule guards the plugin bundle (mobile).
+			'import/no-nodejs-modules': 'off',
 		},
 	},
 	globalIgnores([

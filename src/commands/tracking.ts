@@ -1,15 +1,14 @@
 import { Notice, type IconName } from 'obsidian'
 import type { TaskNote } from 'core/note'
 import type { Prompts, ToggleOptions } from 'core/toggle'
-import { applyTrackingSteps, type NoteIo } from 'core/trackingRun'
+import { applyTrackingSteps } from 'core/trackingRun'
 import { pickTask } from 'ui/TaskSuggestModal'
 import { promptMinutes } from 'ui/MinutesPromptModal'
 import type TaskTimeTracker from '../main'
 import {
 	NOTICE_DURATION,
-	readNoteContent,
+	noteIo,
 	readTaskNote,
-	saveOpenEditors,
 	resolveTargetFileOrNotify,
 } from './target'
 
@@ -170,24 +169,11 @@ export async function runTrackingSteps(
 	plugin: TaskTimeTracker,
 	steps: ToggleOptions[]
 ) {
-	const { app, settings } = plugin
+	const { settings } = plugin
 	const file = resolveTargetFileOrNotify(plugin)
 	if (!file) return
 
-	const io: NoteIo = {
-		read: () => readNoteContent(plugin, file),
-		replace: async (expected, next) => {
-			await saveOpenEditors(plugin, file)
-			let replaced = false
-			await app.vault.process(file, (current) => {
-				replaced = current === expected
-				return replaced ? next : current
-			})
-			if (replaced) plugin.lostClocks.acknowledge(file.path, next)
-			return replaced
-		},
-	}
-	await applyTrackingSteps(io, steps, (note) => ({
+	await applyTrackingSteps(noteIo(plugin, file), steps, (note) => ({
 		prompts: interactivePrompts(plugin, note),
 		unassignedTaskName: settings.unassignedTaskName,
 		vaultTasksAvailable: settings.includeVaultTasks,

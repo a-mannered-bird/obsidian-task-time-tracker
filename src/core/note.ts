@@ -1,4 +1,4 @@
-import type { Clock, Task } from 'types/tasks'
+import type { Clock, ClockKey, ClockTimes, Task } from 'types/tasks'
 import {
 	DEFAULT_CLOCK_INDENT,
 	formatClockLine,
@@ -47,6 +47,31 @@ export class TaskNote {
 
 	findTask(name: string): Task | undefined {
 		return this.tasks.find((task) => task.name === name)
+	}
+
+	/** The clock with exactly these timestamps on a line of the named task. */
+	findClock(key: ClockKey): Clock | undefined {
+		for (const task of this.tasks) {
+			if (task.name !== key.taskName) continue
+			const clock = task.clocks.find(
+				(c) =>
+					c.start.valueOf() === key.start.valueOf() &&
+					(c.end?.valueOf() ?? null) === (key.end?.valueOf() ?? null)
+			)
+			if (clock) return clock
+		}
+		return undefined
+	}
+
+	/** Rewrite a clock line with new timestamps, keeping its indent. */
+	setClockTimes(clock: Clock, times: ClockTimes): void {
+		const indent = getIndent(this.lines[clock.lineIndex]!)
+		this.lines[clock.lineIndex] = formatClockLine(
+			times.start,
+			times.end,
+			indent
+		)
+		this.invalidate()
 	}
 
 	getRunningTasks(): Task[] {

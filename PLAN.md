@@ -74,7 +74,7 @@ Roadmap and todo lists for the Task Time Tracker plugin. Decisions recorded here
 - Settings ship one picker knob only: a global "include vault tasks" toggle. Per-task hiding lives in the management panel; no recency-window setting.
 - Task management UI is a dedicated large `Modal` (Svelte content), not a settings-embedded table. Entry points: command, button in a small settings section, button in the tracker tab. Table columns: color swatch (inline picker), name + most-recent tag chips, note count, total time, last used, warning icons, overflow menu (rename / retag / hide / delete). Sortable headers (default: count desc), text filter, warnings-only toggle, render capped at ~200 rows ("showing X of Y").
 - Bulk rewrites use `vault.process` per file, only writing changed files, sequential with progress notice and end summary (failures reported, re-run is the recovery). Confirmation previews show index-derived blast radius; type-the-name ritual for delete and merge only; warning text mentions core File Recovery as the escape hatch — no custom undo.
-- Rename and merge share one consolidation engine (rename = 1-source merge). Within a note, colliding lines consolidate: the target-name line survives (keeps position/tags), other lines' clocks move under it, ticked = OR. Per-line tags are kept — resulting tag drift is surfaced by the drift flag and fixed via retag. Clock union via `mergeIntervals` semantics (overlapping *and* touching merge; zero-length dropped but counted in the preview); if any clock in a group is running, the merged clock keeps the earliest start and stays running.
+- Rename and merge share one consolidation engine (rename = 1-source merge). Within a note, colliding lines consolidate: the target-name line survives (keeps position/tags), other lines' clocks move under it, ticked = OR. Per-line tags are kept — resulting tag drift is surfaced by the drift flag and fixed via retag. Clock union via `mergeIntervals` semantics (overlapping _and_ touching merge; zero-length dropped but counted in the preview); if any clock in a group is running, the merged clock keeps the earliest start and stays running.
 - Merge UI: checkbox per row + "Merge N tasks…" button (≥2), survivor name chosen in the confirm modal (default: most used).
 - Bulk selection (decided 2026-09-01): the header checkbox selects every matching task (the filtered set, not just the rendered cap), shift-click ticks the range since the last plain click in table order, and a selection bar offers merge, change tags, color, hide/show and delete over the selection. Deleting several tasks types the count instead of a name.
 - Retag UI (decided 2026-09-01): a chip editor over the union of the task's tags, each chip showing its coverage (`7/12`) when not on every line. Apply means "every line gets exactly these tags" — the normalization that settles tag drift — in one confirmation and one run; disabled when no line would change.
@@ -117,7 +117,7 @@ Roadmap and todo lists for the Task Time Tracker plugin. Decisions recorded here
 - [x] Detectors in core (similarity, duration outlier, tag drift, same-task overlap, stale running clock); unit tests for thresholds.
 - [x] Warning column UI: jump-to-line for clock issues, merge shortcut for similarity, one-click overlap consolidation, warnings-only filter.
 
-## Phase 9: Warning dismissals (next step)
+## Phase 9: Warning dismissals
 
 Decided 2026-09-05: the median-based long-session rule stays despite its false positives on genuine special days (a whole day cooking, a hike with the dog). Instead of tuning it, every warning becomes dismissable, and dismissals are remembered.
 
@@ -126,6 +126,36 @@ Decided 2026-09-05: the median-based long-session rule stays despite its false p
 - [x] Issue menu entries: "Ignore this warning" and "Ignore every <kind> warning"; the row icon disappears on the spot.
 - [x] A way back: a settings section listing the switched-off kinds (toggles) and a "Forget dismissed warnings" button (with count); optionally a "Show ignored" toggle in the panel.
 - [x] E2E: dismiss a warning through the menu, assert the icon is gone and the flag persisted; re-enable from settings.
+
+## Decisions (2026-11-11): timeline tab
+
+A day-calendar view of the note's clocks, where blocks are resized and moved like in a calendar app and every edit rewrites the clock line.
+
+- **Tab:** `Tracker | Timeline | Stats`, a new `'timeline'` value of `DailyViewTab` (remembered by `lastDailyViewTab`). It follows the daily view's note (previous/next/Today), redraws on store changes and grows the running block on the existing per-minute tick.
+- **One block per clock line**, never merged. A block is identified by task name + the clock's start timestamp at the time it was read (line indexes shift, like dismissed-issue keys). One edit rewrites exactly one line.
+- **Axis:** the note's day 00:00–24:00, stretched to include any clock or bed time beyond it, at most one day either way (a mistyped date would otherwise stretch it over months; blocks are clipped to it). The tab content scrolls under the note navigation and the tabs, which stay in place (all tabs, decided while building); on open it scrolls to now (today's note), else the wake time, else the first clock. Wake and bed are drawn as lines with the span between them shaded.
+- **Snapping:** step follows the zoom (15 / 5 / 1 min at fixed thresholds); a dragged edge lands on whole minutes. Magnet: within a few pixels a dragged edge sticks exactly to another block's edge, now, the wake line or the bed line. Alt disables all snapping (1-min moves). Untouched edges keep their seconds; a move keeps the duration to the second. A block never shrinks below one snap step (no zero-length clocks).
+- **Running clocks:** only the start edge is draggable, never past now; no move, no end resize (stopping stays in the tracker tab). Styled as running (dashed/pulsing bottom edge).
+- **Same-task overlap on drop is allowed:** both blocks get a warning outline and the existing overlap issue (with its consolidation fix) reports it. Cross-task overlap is normal and shares the width.
+- **Layout (pure, in core):** overlap clusters (touching is not overlap), blocks sorted by start then longest first, greedy leftmost free column, each block expands right over columns free for its whole span. While dragging, the block floats as a ghost and the others stay put; the layout reflows on drop.
+- **Write path:** on pointer up only, working from the drag-start snapshot. Re-read, find the clock by identity, rewrite that one line compare-and-swap (retry on change); if the clock is gone, notify "The clock changed elsewhere, nothing was written." and redraw. The write is acknowledged to `LostClockTracker`, or shrinking would be reported as a lost clock.
+- **Undo:** every drop saves at once and shows a notice (`Deep work 09:00–10:30 → 09:15–10:30`) with an Undo button, which writes the previous line back through the same path (found by its new identity). Covers the latest edit only.
+- **Zoom:** pinch / Ctrl-or-Cmd + wheel anchored on the time under the pointer, plus a toolbar with −, + and Fit (fit wake→bed, else first→last clock). Continuous from ~30 to ~600 px per hour. Saved as `timelineZoom` in settings; scroll position is not saved.
+- **Block content:** tag emojis + name, then `09:15–10:30 · 1h 15m`, dropping duration then range as the block shrinks (color only when tiny); full text in a hover tooltip. Color: `taskColors[name]`, else the theme accent (`--interactive-accent`), not the stats tab's rank cycle: ranks follow time worked, so a block changed color while its clock was dragged (changed 2026-11-11 after trying it); tinted fill with a solid left border.
+- **Click** (no movement past a few pixels) jumps to the clock line in the note, like the issue jump-to-line. Creating blocks on empty space and deleting blocks are out of scope.
+- **Touch:** pointer events only. A swipe scrolls; a ~400 ms long-press selects a block (haptic where available, outline) and enlarges its handles to finger size, then the finger moves or resizes it; a tap jumps to the line. The plugin is not desktop-only.
+- **Keyboard:** each block is a focusable button labelled `<task>, <start> to <end>`, tabbed in time order; Enter jumps to the line; ↑/↓ moves by one snap step, Shift+↑/↓ the end edge, Alt+↑/↓ the start edge, same rules as the pointer. Key repeats are debounced into one write and one notice.
+
+## Phase 10: Timeline tab
+
+- [x] Core, tested: timeline layout (clusters, columns, expand-right), axis bounds (stretch past midnight, initial scroll target), snapping (zoom step thresholds, magnet targets, Alt bypass, minimum length, running-clock limits), block identity and the one-line clock rewrite.
+- [x] Write path: compare-and-swap rewrite by identity, lost-clock acknowledgment, "clock changed elsewhere" notice, Undo notice for the latest edit.
+- [x] `TimelineTab.svelte` + third tab and `'timeline'` in `DailyViewTab`: axis, wake/bed lines, blocks with colors and adaptive labels, running block, same-task overlap outline, click to jump.
+- [x] Pointer interactions: move and edge resize with ghost, long-press on touch with enlarged handles.
+- [ ] Try the long-press drag on a real touch device (iPad/phone); only the mouse path is covered by E2E.
+- [x] Zoom: gestures anchored on the pointer, −/+/Fit toolbar, `timelineZoom` setting.
+- [x] Keyboard: focusable blocks, arrow-key move/resize, debounced writes.
+- [x] E2E: keyboard move, end resize, start resize on a running clock, Undo, zoom to a finer step, asserting the exact markdown after each; one real pointer drag (move + resize).
 
 ## Later
 

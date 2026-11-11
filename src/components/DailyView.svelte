@@ -11,6 +11,7 @@
 	import type { DailyViewTab } from '../settings'
 	import { icon } from 'ui/icon'
 	import DailyStats from './DailyStats.svelte'
+	import TimelineTab from './TimelineTab.svelte'
 	import TrackerTab from './TrackerTab.svelte'
 	import type TaskTimeTracker from '../main'
 
@@ -23,6 +24,7 @@
 
 	const TABS: { id: DailyViewTab; label: string }[] = [
 		{ id: 'tracker', label: 'Tracker' },
+		{ id: 'timeline', label: 'Timeline' },
 		{ id: 'stats', label: 'Stats' },
 	]
 
@@ -77,48 +79,76 @@
 	})
 </script>
 
-<div class="note-nav">
-	<button
-		class="icon-button"
-		aria-label="Previous daily note"
-		use:icon={'chevron-left'}
-		disabled={!previousFile}
-		onclick={() => void openNote(previousFile)}
-	></button>
-	<span class="note-date">
-		{log ? moment(log.date).format('dddd, LL') : 'No daily note'}
-	</span>
-	<button
-		class="icon-button"
-		aria-label="Next daily note"
-		use:icon={'chevron-right'}
-		disabled={!nextFile}
-		onclick={() => void openNote(nextFile)}
-	></button>
-	<button class="today-button" onclick={() => void openToday()}> Today </button>
-</div>
-
-<div class="tabs" role="tablist">
-	{#each TABS as tab (tab.id)}
+<div class="daily-view">
+	<div class="note-nav">
 		<button
-			type="button"
-			role="tab"
-			aria-selected={active === tab.id}
-			class:active={active === tab.id}
-			onclick={() => select(tab.id)}
-		>
-			{tab.label}
+			class="icon-button"
+			aria-label="Previous daily note"
+			use:icon={'chevron-left'}
+			disabled={!previousFile}
+			onclick={() => void openNote(previousFile)}
+		></button>
+		<span class="note-date">
+			{log ? moment(log.date).format('dddd, LL') : 'No daily note'}
+		</span>
+		<button
+			class="icon-button"
+			aria-label="Next daily note"
+			use:icon={'chevron-right'}
+			disabled={!nextFile}
+			onclick={() => void openNote(nextFile)}
+		></button>
+		<button class="today-button" onclick={() => void openToday()}>
+			Today
 		</button>
-	{/each}
-</div>
+	</div>
 
-{#if active === 'tracker'}
-	<TrackerTab {plugin} {log} {loading} />
-{:else}
-	<DailyStats {plugin} {log} {loading} />
-{/if}
+	<div class="tabs" role="tablist">
+		{#each TABS as tab (tab.id)}
+			<button
+				type="button"
+				role="tab"
+				aria-selected={active === tab.id}
+				class:active={active === tab.id}
+				onclick={() => select(tab.id)}
+			>
+				{tab.label}
+			</button>
+		{/each}
+	</div>
+
+	<div class="tab-panel" role="tabpanel">
+		{#if active === 'tracker'}
+			<TrackerTab {plugin} {log} {loading} />
+		{:else if active === 'timeline'}
+			<TimelineTab {plugin} {log} {loading} />
+		{:else}
+			<DailyStats {plugin} {log} {loading} />
+		{/if}
+	</div>
+</div>
 
 <style>
+	/* The tab content scrolls under the note navigation and the tabs. */
+	.daily-view {
+		display: flex;
+		flex-direction: column;
+		height: 100%;
+	}
+
+	/*
+	 * Obsidian's scrollbars overlay the content instead of taking width, so
+	 * the panel reaches into the view's right padding: its scrollbar lands
+	 * there, as the view's own did, rather than over the timeline toolbar.
+	 */
+	.tab-panel {
+		flex: 1;
+		min-height: 0;
+		overflow-y: auto;
+		margin-right: calc(-1 * var(--size-4-3));
+		padding-right: var(--size-4-3);
+	}
+
 	.note-nav {
 		display: flex;
 		align-items: center;

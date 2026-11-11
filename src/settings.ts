@@ -5,6 +5,7 @@ import {
 	QUICK_ACTION_VERBS,
 	type QuickAction,
 } from './commands/quickActions'
+import { ZOOM_DEFAULT } from './core/timeline'
 import { ISSUE_KINDS, ISSUE_TITLES, type IssueKind } from './core/issues'
 import type TaskTimeTracker from './main'
 import { openTaskManager } from './ui/TaskManagerModal'
@@ -34,9 +35,11 @@ export interface TaskTimeTrackerSettings {
 	quickActions: QuickAction[]
 	/** UI state, not shown in the settings tab. */
 	lastDailyViewTab: DailyViewTab
+	/** Timeline tab zoom in pixels per hour (UI state). */
+	timelineZoom: number
 }
 
-export type DailyViewTab = 'tracker' | 'stats'
+export type DailyViewTab = 'tracker' | 'timeline' | 'stats'
 
 export const DEFAULT_SETTINGS: TaskTimeTrackerSettings = {
 	unassignedTaskName: 'Unassigned',
@@ -47,6 +50,7 @@ export const DEFAULT_SETTINGS: TaskTimeTrackerSettings = {
 	ignoredIssueKinds: [],
 	dismissedIssues: [],
 	lastDailyViewTab: 'tracker',
+	timelineZoom: ZOOM_DEFAULT,
 	quickActions: [],
 	tagMappings: [
 		{

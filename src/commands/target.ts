@@ -1,6 +1,7 @@
 import { MarkdownView, Notice, type TFile } from 'obsidian'
 import { resolveTargetFile } from 'core/dailyNotes'
 import { TaskNote } from 'core/note'
+import type { NoteIo } from 'core/trackingRun'
 import type TaskTimeTracker from '../main'
 
 export const NOTICE_DURATION = 5000
@@ -38,6 +39,27 @@ export async function readTaskNote(
 	file: TFile
 ): Promise<TaskNote> {
 	return new TaskNote(await readNoteContent(plugin, file))
+}
+
+/**
+ * Compare-and-swap access to the note for writers that must not overwrite
+ * a change made since their read. A successful write is acknowledged, so
+ * the clocks it removes are not reported as lost.
+ */
+export function noteIo(plugin: TaskTimeTracker, file: TFile): NoteIo {
+	return {
+		read: () => readNoteContent(plugin, file),
+		replace: async (expected, next) => {
+			await saveOpenEditors(plugin, file)
+			let replaced = false
+			await plugin.app.vault.process(file, (current) => {
+				replaced = current === expected
+				return replaced ? next : current
+			})
+			if (replaced) plugin.lostClocks.acknowledge(file.path, next)
+			return replaced
+		},
+	}
 }
 
 /** Save the editors of the note holding changes of the user not on disk yet. */

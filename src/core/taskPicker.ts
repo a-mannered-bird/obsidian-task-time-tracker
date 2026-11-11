@@ -151,7 +151,11 @@ function statusEmoji(task: Task): string | null {
 	return null
 }
 
-function tagEmoji(tags: string[], mappings: TagMapping[]): string | null {
+/** Emoji of the first of the tags that has one in the mappings. */
+export function tagEmoji(
+	tags: string[],
+	mappings: TagMapping[]
+): string | null {
 	for (const mapping of mappings) {
 		if (mapping.emoji && tags.includes(mapping.tag)) return mapping.emoji
 	}
