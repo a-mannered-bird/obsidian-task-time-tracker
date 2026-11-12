@@ -13,11 +13,35 @@ export type PickerEntry =
 	| { kind: 'note'; task: Task }
 	| { kind: 'vault'; info: VaultTaskInfo }
 
+/** Vault suggestions, split by the hide flags of the management panel. */
+export type VaultPickerEntries = {
+	visible: VaultTaskInfo[]
+	/** Only offered when the query names one exactly (see resurfacedEntry). */
+	hidden: VaultTaskInfo[]
+}
+
+/**
+ * The vault entries without the tasks the note has, named anywhere in it
+ * and not only among the offered tasks (a switch leaves the running ones
+ * out): picking such an entry would add a twin of the note's task.
+ */
+export function withoutNoteTasks(
+	entries: VaultPickerEntries,
+	noteNames: Iterable<string>
+): VaultPickerEntries {
+	const inNote = new Set(noteNames)
+	const keep = (info: VaultTaskInfo) => !inNote.has(info.name)
+	return {
+		visible: entries.visible.filter(keep),
+		hidden: entries.hidden.filter(keep),
+	}
+}
+
 /**
  * Note tasks in picker order, then the vault entries whose name is not among
  * them (`vaultInfos` keeps its order, usage-first from the index). Callers
- * must already have dropped vault entries present elsewhere in the note, e.g.
- * running tasks a switch excludes from the candidates.
+ * must already have dropped vault entries present elsewhere in the note
+ * (withoutNoteTasks).
  */
 export function buildPickerEntries(
 	noteTasks: Task[],

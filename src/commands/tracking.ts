@@ -1,9 +1,13 @@
-import { Notice, type IconName } from 'obsidian'
-import type { TaskNote } from 'core/note'
-import type { Prompts, ToggleOptions } from 'core/toggle'
+import { Notice, type IconName, type TFile } from 'obsidian'
+import { TaskNote } from 'core/note'
+import type {
+	PickTaskRequest,
+	Prompts,
+	TaskChoice,
+	ToggleOptions,
+} from 'core/toggle'
 import { applyTrackingSteps } from 'core/trackingRun'
-import type { Task } from 'types/tasks'
-import { pickTask, type PickedTask } from 'ui/TaskSuggestModal'
+import { pickTask, type PickerNote } from 'ui/TaskSuggestModal'
 import { promptMinutes } from 'ui/MinutesPromptModal'
 import type TaskTimeTracker from '../main'
 import {
@@ -174,62 +178,79 @@ export async function runTrackingSteps(
 	const file = resolveTargetFileOrNotify(plugin)
 	if (!file) return
 
-	await applyTrackingSteps(noteIo(plugin, file), steps, (note) => ({
-		prompts: interactivePrompts(plugin, note),
+	await applyTrackingSteps(noteIo(plugin, file), steps, {
+		prompts: interactivePrompts(plugin, file),
 		unassignedTaskName: settings.unassignedTaskName,
 		vaultTasksAvailable: settings.includeVaultTasks,
 		now: new Date(),
-	}))
+	})
 }
 
-function interactivePrompts(plugin: TaskTimeTracker, note: TaskNote): Prompts {
+function interactivePrompts(plugin: TaskTimeTracker, file: TFile): Prompts {
 	const { app } = plugin
 	return {
-		pickTask: async (tasks, placeholder, options) => {
-			const picked = await pickNoteTask(plugin, note, tasks, {
-				placeholder,
-				includeVault: Boolean(options?.includeVault),
-			})
-			if (!picked) return null
-			if (picked.kind === 'note') return picked.task
-			return note.insertTask(picked.name, picked.tags)
-		},
+		pickTask: (note, request) => pickNoteTask(plugin, file, note, request),
 		promptMinutes: (promptOptions) => promptMinutes(app, promptOptions),
 		notify: (message) => new Notice(message, NOTICE_DURATION),
 	}
 }
 
 /**
- * The task picker over some tasks of the note, followed (when asked and
- * enabled in the settings) by the vault's other tasks, and creating one
- * from the typed text.
+ * The task picker over the request's choices of the note, kept current
+ * while the note changes, followed (when asked and enabled in the settings)
+ * by the vault's other tasks, and creating one from the typed text.
  */
 export function pickNoteTask(
 	plugin: TaskTimeTracker,
+	file: TFile,
 	note: TaskNote,
-	tasks: Task[],
-	options: { placeholder: string; includeVault: boolean }
-): Promise<PickedTask | null> {
+	request: PickTaskRequest
+): Promise<TaskChoice | null> {
 	const { app, settings, vaultTasks } = plugin
-	const includeVault = options.includeVault && settings.includeVaultTasks
-	return pickTask(app, tasks, {
-		placeholder: options.placeholder,
+	const includeVault = request.includeVault && settings.includeVaultTasks
+	const shown = (version: TaskNote): PickerNote => ({
+		tasks: request.choices(version),
+		names: version.tasks.map((task) => task.name),
+	})
+	return pickTask(app, {
+		placeholder: request.placeholder,
 		tagMappings: settings.tagMappings,
-		noteNames: note.tasks.map((task) => task.name),
+		note: shown(note),
+		watch: (update) =>
+			watchNote(plugin, file, (version) => update(shown(version))),
 		vaultEntries: includeVault
 			? vaultTasks.ensureBuilt().then(() => {
-					// Dedupe against the whole note, not just the offered
-					// candidates (a switch excludes the running tasks).
-					const infos = vaultTasks
-						.snapshot()
-						.filter((info) => !note.findTask(info.name))
 					const hidden = new Set(settings.hiddenTasks)
+					const infos = vaultTasks.snapshot()
 					return {
 						visible: infos.filter((info) => !hidden.has(info.name)),
 						hidden: infos.filter((info) => hidden.has(info.name)),
 					}
 				})
 			: undefined,
+	})
+}
+
+/**
+ * Call `onNote` with each new version of the note until unsubscribed. Reads
+ * can resolve out of order, so only the newest one is passed on.
+ */
+function watchNote(
+	plugin: TaskTimeTracker,
+	file: TFile,
+	onNote: (note: TaskNote) => void
+): () => void {
+	let latest = 0
+	return plugin.dailyLogs.onChange((change) => {
+		if (change && change.path !== file.path) return
+		const read = ++latest
+		plugin.app.vault.cachedRead(file).then(
+			(content) => {
+				if (read === latest) onNote(new TaskNote(content))
+			},
+			// Deleted or renamed meanwhile: the picker keeps the last version.
+			() => {}
+		)
 	})
 }
 

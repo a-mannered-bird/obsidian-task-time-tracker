@@ -15,41 +15,41 @@ import {
 	prepareWordSearch,
 	resurfacedEntry,
 	VAULT_DISPLAY_LIMIT,
+	withoutNoteTasks,
 	type PickerEntry,
+	type VaultPickerEntries,
 } from 'core/taskPicker'
-import type { VaultTaskInfo } from 'core/vaultTaskIndex'
+import { taskChoice, type TaskChoice } from 'core/toggle'
 
-/** Vault suggestions, split by the hide flags of the management panel. */
-export type VaultPickerEntries = {
-	visible: VaultTaskInfo[]
-	/** Only offered when the query names one exactly (see resurfacedEntry). */
-	hidden: VaultTaskInfo[]
+/** What the picker shows of one version of the note. */
+export type PickerNote = {
+	/** The tasks offered. */
+	tasks: Task[]
+	/**
+	 * Every task name of the note, running ones included: neither the create
+	 * row nor the vault entries may offer a twin of a task merely left out of
+	 * the offered ones.
+	 */
+	names: string[]
 }
-
-/**
- * The user's choice: a task of the note, a vault task to add to it, or a
- * brand-new task typed into the query (tags parsed from the text).
- */
-export type PickedTask =
-	| { kind: 'note'; task: Task }
-	| { kind: 'vault'; name: string; tags: string[] }
-	| { kind: 'create'; name: string; tags: string[] }
 
 type Options = {
 	placeholder: string
 	tagMappings: TagMapping[]
+	note: PickerNote
 	/**
-	 * Vault-wide suggestions shown below the note's tasks, deduplicated by
-	 * the caller against the whole note. May resolve after the modal opened;
-	 * a loading row is shown until then. Omit for a note-only picker (which
-	 * also disables creating tasks from the typed text).
+	 * Subscribe to newer versions of the note while the picker is open, so
+	 * the rows follow a background change (sync, the tracker tab); returns
+	 * the unsubscribe function.
+	 */
+	watch?: (update: (note: PickerNote) => void) => () => void
+	/**
+	 * Vault-wide suggestions shown below the note's tasks. May resolve after
+	 * the modal opened; a loading row is shown until then. Omit for a
+	 * note-only picker (which also disables creating tasks from the typed
+	 * text).
 	 */
 	vaultEntries?: Promise<VaultPickerEntries>
-	/**
-	 * Every task name of the note, running ones included — the create row
-	 * must not offer a twin of a task merely excluded from the candidates.
-	 */
-	noteNames?: string[]
 }
 
 /** Row shown while the vault index is still scanning; choosing it is a no-op. */
@@ -61,43 +61,57 @@ type ModalItem =
 
 /**
  * Fuzzy picker over the note's tasks plus the optional vault entries.
- * Resolves with the choice, or null when the modal is dismissed without one.
+ * Resolves with the choice (a vault or created task is not running), or
+ * null when the modal is dismissed without one.
  */
 export function pickTask(
 	app: App,
-	tasks: Task[],
 	options: Options
-): Promise<PickedTask | null> {
+): Promise<TaskChoice | null> {
 	return new Promise((resolve) => {
-		new TaskSuggestModal(app, tasks, options, resolve).open()
+		new TaskSuggestModal(app, options, resolve).open()
 	})
 }
 
 class TaskSuggestModal extends FuzzySuggestModal<ModalItem> {
 	private chosen = false
+	private note: PickerNote
+	private allVaultEntries: VaultPickerEntries | null = null
+	/** allVaultEntries without the note's tasks; null while loading. */
 	private vaultEntries: VaultPickerEntries | null = null
+	private unwatch: (() => void) | null = null
 
 	constructor(
 		app: App,
-		private tasks: Task[],
 		private options: Options,
-		private resolve: (task: PickedTask | null) => void
+		private resolve: (task: TaskChoice | null) => void
 	) {
 		super(app)
 		this.setPlaceholder(options.placeholder)
-		// Cap what is rendered, not what is searched: every note task plus
-		// the best vault matches.
-		this.limit = tasks.length + VAULT_DISPLAY_LIMIT
+		this.note = options.note
+		this.limitToNote()
 		if (options.vaultEntries) {
 			void options.vaultEntries.then((entries) => {
-				this.vaultEntries = entries
+				this.allVaultEntries = entries
+				this.dedupeVaultEntries()
 				this.refreshSuggestions()
 			})
 		}
 	}
 
+	onOpen(): void {
+		void super.onOpen()
+		this.unwatch =
+			this.options.watch?.((note) => {
+				this.note = note
+				this.limitToNote()
+				this.dedupeVaultEntries()
+				this.refreshSuggestions()
+			}) ?? null
+	}
+
 	getItems(): PickerEntry[] {
-		return buildPickerEntries(this.tasks, this.vaultEntries?.visible ?? [])
+		return buildPickerEntries(this.note.tasks, this.vaultEntries?.visible ?? [])
 	}
 
 	/**
@@ -156,15 +170,12 @@ class TaskSuggestModal extends FuzzySuggestModal<ModalItem> {
 		if (item.kind === 'loading') return
 		this.chosen = true
 		if (item.kind === 'note') {
-			this.resolve({ kind: 'note', task: item.task })
+			this.resolve(taskChoice(item.task))
 		} else if (item.kind === 'vault') {
-			this.resolve({
-				kind: 'vault',
-				name: item.info.name,
-				tags: item.info.tags,
-			})
+			const { name, tags } = item.info
+			this.resolve({ name, tags, running: false })
 		} else {
-			this.resolve({ kind: 'create', name: item.name, tags: item.tags })
+			this.resolve({ name: item.name, tags: item.tags, running: false })
 		}
 	}
 
@@ -174,7 +185,7 @@ class TaskSuggestModal extends FuzzySuggestModal<ModalItem> {
 	 */
 	private knownNames(): string[] {
 		return [
-			...(this.options.noteNames ?? this.tasks.map((task) => task.name)),
+			...this.note.names,
 			...(this.vaultEntries?.visible ?? []).map((info) => info.name),
 			...(this.vaultEntries?.hidden ?? []).map((info) => info.name),
 		]
@@ -182,6 +193,7 @@ class TaskSuggestModal extends FuzzySuggestModal<ModalItem> {
 
 	onClose(): void {
 		super.onClose()
+		this.unwatch?.()
 		// Obsidian closes the modal before calling onChooseItem, so decide
 		// whether this was a dismissal only after the current tick.
 		window.setTimeout(() => {
@@ -189,11 +201,40 @@ class TaskSuggestModal extends FuzzySuggestModal<ModalItem> {
 		})
 	}
 
-	/** Re-run the suggestion query after the vault entries arrived. */
+	/** Cap what is rendered, not what is searched: every note task plus the best vault matches. */
+	private limitToNote() {
+		this.limit = this.note.tasks.length + VAULT_DISPLAY_LIMIT
+	}
+
+	private dedupeVaultEntries() {
+		this.vaultEntries =
+			this.allVaultEntries &&
+			withoutNoteTasks(this.allVaultEntries, this.note.names)
+	}
+
+	/**
+	 * Re-run the suggestion query, keeping the highlighted row on the same
+	 * task: the rows may reorder under a user about to press Enter.
+	 */
 	private refreshSuggestions() {
+		const chooser = suggestionChooser(this)
+		const highlighted = chooser?.values?.[chooser.selectedItem]?.item
 		if (hasUpdateSuggestions(this)) this.updateSuggestions()
 		else this.inputEl.dispatchEvent(new Event('input'))
+		if (!chooser?.values || !highlighted) return
+		const key = itemKey(highlighted)
+		const index = chooser.values.findIndex(
+			(match) => itemKey(match.item) === key
+		)
+		if (index >= 0) chooser.setSelectedItem(index, undefined)
 	}
+}
+
+/** Identity of a row across refreshes: a task by its name. */
+function itemKey(item: ModalItem): string {
+	if (item.kind === 'note') return `task:${item.task.name}`
+	if (item.kind === 'vault') return `task:${item.info.name}`
+	return item.kind
 }
 
 /** Appended suggestion that never outranks a fuzzy match. */
@@ -210,5 +251,34 @@ function hasUpdateSuggestions(
 		value !== null &&
 		typeof (value as { updateSuggestions?: unknown }).updateSuggestions ===
 			'function'
+	)
+}
+
+/**
+ * The rows and highlight of a SuggestModal live in its undocumented
+ * `chooser` (see obsidian-typings); null when it is not there, in which case
+ * a refresh highlights the first row again.
+ */
+type SuggestionChooser = {
+	values: FuzzyMatch<ModalItem>[] | null
+	selectedItem: number
+	setSelectedItem(index: number, event: Event | undefined): void
+}
+
+function suggestionChooser(modal: object): SuggestionChooser | null {
+	if (!('chooser' in modal)) return null
+	return isSuggestionChooser(modal.chooser) ? modal.chooser : null
+}
+
+function isSuggestionChooser(value: unknown): value is SuggestionChooser {
+	return (
+		typeof value === 'object' &&
+		value !== null &&
+		'selectedItem' in value &&
+		typeof value.selectedItem === 'number' &&
+		'setSelectedItem' in value &&
+		typeof value.setSelectedItem === 'function' &&
+		'values' in value &&
+		(value.values === null || Array.isArray(value.values))
 	)
 }

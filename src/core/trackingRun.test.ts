@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import type { Prompts } from './toggle'
+import { TaskNote } from './note'
+import { taskChoice, type Prompts, type ToggleOptions } from './toggle'
 import { applyTrackingSteps, STALE_NOTICE, type NoteIo } from './trackingRun'
 
 const now = new Date(2026, 7, 16, 12, 0, 0)
@@ -20,22 +21,35 @@ function fakeNote(lines: string[]) {
 			return Promise.resolve(true)
 		},
 	}
-	/** Prompts picking `name`, after letting `during` run. */
-	const picking = (name: string, during?: () => void): Prompts => ({
-		pickTask: (tasks) => {
+	/**
+	 * Prompts picking `name`, after letting `during` run. With `live`, the
+	 * pick is made from the note as it is after `during`, the way the picker
+	 * follows the note; otherwise from the version it was opened on.
+	 */
+	const picking = (
+		name: string,
+		during?: () => void,
+		{ live = false, minutes = null as number | null } = {}
+	): Prompts => ({
+		pickTask: (note, request) => {
 			prompted++
 			during?.()
-			return Promise.resolve(tasks.find((t) => t.name === name) ?? null)
+			const shown = live ? new TaskNote(content) : note
+			const task = request.choices(shown).find((t) => t.name === name)
+			return Promise.resolve(task ? taskChoice(task) : null)
 		},
-		promptMinutes: () => Promise.resolve(null),
+		promptMinutes: () => {
+			prompted++
+			return Promise.resolve(minutes)
+		},
 		notify: (message) => notices.push(message),
 	})
-	const run = (prompts: Prompts) =>
-		applyTrackingSteps(io, [{}], () => ({
+	const run = (prompts: Prompts, steps: ToggleOptions[] = [{}]) =>
+		applyTrackingSteps(io, steps, {
 			prompts,
 			unassignedTaskName: 'Unassigned',
 			now,
-		}))
+		})
 	return {
 		io,
 		notices,
@@ -106,5 +120,48 @@ describe('applyTrackingSteps', () => {
 		const note = fakeNote(['- [ ] Emails'])
 		await note.run(note.picking('No such task'))
 		expect(note.lines()).toEqual(['- [ ] Emails'])
+	})
+
+	it('acts on the state the picker showed when the note changed while it was open', async () => {
+		const note = fakeNote(['- [ ] Emails', '- [ ] Walk the dog'])
+		const startedElsewhere = () =>
+			note.external([
+				'- [ ] Emails',
+				'      [clock::2026-08-16T11:50:00]',
+				'- [ ] Walk the dog',
+			])
+		await note.run(note.picking('Emails', startedElsewhere, { live: true }))
+		// The picker showed Emails running, so picking it stops it.
+		expect(note.lines()).toEqual([
+			'- [ ] Emails',
+			'      [clock::2026-08-16T11:50:00--2026-08-16T12:00:00]',
+			'- [ ] Walk the dog',
+		])
+		expect(note.prompted()).toBe(1)
+		expect(note.notices).toEqual([
+			'☕️ "Emails" toggled off at 12:00:00 (10 / 10m).',
+		])
+	})
+
+	it('keeps asking the prompts not answered yet after starting over on the new content', async () => {
+		const note = fakeNote(['- [ ] Emails'])
+		const synced = () =>
+			note.external([
+				'- [ ] Emails',
+				'- [ ] Walk the dog',
+				'      [clock::2026-08-16T08:00:00--2026-08-16T08:30:00]',
+			])
+		await note.run(
+			note.picking('Emails', synced, { live: true, minutes: 15 }),
+			[{ timeTravel: true }]
+		)
+		expect(note.lines()).toEqual([
+			'- [ ] Emails',
+			'      [clock::2026-08-16T11:45:00]',
+			'- [ ] Walk the dog',
+			'      [clock::2026-08-16T08:00:00--2026-08-16T08:30:00]',
+		])
+		// One pick, one minutes prompt: the restart replayed the pick.
+		expect(note.prompted()).toBe(2)
 	})
 })

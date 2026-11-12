@@ -1,3 +1,4 @@
+import assert from 'node:assert'
 import { browser, expect } from '@wdio/globals'
 import { obsidianPage } from 'wdio-obsidian-service'
 import { clickNoticeButton } from './support/notices'
@@ -168,6 +169,60 @@ describe('tracking commands', function () {
 		// The vault reset before the next test removes the clock added here,
 		// which is what the plugin watches for: start that test from a note
 		// the plugin knows nothing about.
+		await browser.executeObsidian(({ plugins }, path) => {
+			const { lostClocks } = plugins.obsidianTaskTimeTracker
+			lostClocks.forget(path)
+			lostClocks.acknowledge(path, '')
+		}, NOTE)
+	})
+
+	it('follow the note in the open picker and act on what it shows', async function () {
+		await obsidianPage.openFile(NOTE)
+		const before = await obsidianPage.read(NOTE)
+		await browser.executeObsidianCommand(
+			'obsidian-task-time-tracker:toggle-task'
+		)
+		const picker = browser.$('.prompt')
+		await expect(picker).toBeDisplayed()
+		const row = (n: number) => picker.$(`.suggestion-item:nth-child(${n})`)
+		// Queried anew each time: a kept reference would stay on the row that
+		// was highlighted when first found.
+		const highlighted = () => picker.$('.suggestion-item.is-selected')
+		await expect(row(1)).toHaveText('⭐️ Task B')
+		await expect(row(3)).toHaveText('Email')
+		await expect(highlighted()).toHaveText('⭐️ Task B')
+
+		// Another device starts Email while the picker is open.
+		const started = before.replace(
+			'- [ ] Email',
+			'- [ ] Email\n      [clock::2026-08-03T10:00:00]'
+		)
+		await browser.executeObsidian(
+			({ app }, path, content) => app.vault.adapter.write(path, content),
+			NOTE,
+			started
+		)
+
+		// The picker shows it running, first, without being reopened; the
+		// highlight stays on the task it was on, so Enter still means it.
+		await expect(row(1)).toHaveText('⏳ Email')
+		await expect(row(2)).toHaveText('⭐️ Task B')
+		await expect(highlighted()).toHaveText('⭐️ Task B')
+		await browser.keys('ArrowUp')
+		await expect(highlighted()).toHaveText('⏳ Email')
+		await browser.keys('Enter')
+
+		// Picked as running, so the toggle stops the clock the other device
+		// started instead of giving up on a stale pick.
+		await expect(browser.$('.notice*=toggled off')).toBeDisplayed()
+		const lines = (await obsidianPage.read(NOTE)).split('\n')
+		assert.match(
+			lines[5] ?? '',
+			/^ {6}\[clock::2026-08-03T10:00:00--\d{4}-\d\d-\d\dT[\d:]{8}\]$/
+		)
+		assert.deepStrictEqual(lines.slice(0, 5), before.trimEnd().split('\n'))
+
+		// The vault reset removes the clock: see the previous test.
 		await browser.executeObsidian(({ plugins }, path) => {
 			const { lostClocks } = plugins.obsidianTaskTimeTracker
 			lostClocks.forget(path)

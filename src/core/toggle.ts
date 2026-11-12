@@ -32,21 +32,34 @@ export type ToggleOptions = {
 	setDuration?: boolean
 }
 
-export type PickTaskOptions = {
+export type PickTaskRequest = {
 	/**
-	 * Offer vault-wide tasks besides the candidates; picking one adds it to
+	 * The tasks to offer from a version of the note. The picker calls it
+	 * again when the note changes while it is open, so it stays current.
+	 */
+	choices: (note: TaskNote) => Task[]
+	placeholder: string
+	/**
+	 * Offer vault-wide tasks besides the choices; picking one adds it to
 	 * the note first. Off for pickers over running tasks (set duration).
 	 */
 	includeVault: boolean
 }
 
+/**
+ * A picked task, by name: one of the note or one to add to it. `running` is
+ * the state the user saw when picking, so a run redone on newer content can
+ * tell whether the pick still means the same.
+ */
+export type TaskChoice = { name: string; tags: string[]; running: boolean }
+
+export function taskChoice(task: Task): TaskChoice {
+	return { name: task.name, tags: task.tags, running: isRunning(task) }
+}
+
 /** User interaction the engine needs; the commands wire it to modals. */
 export type Prompts = {
-	pickTask(
-		tasks: Task[],
-		placeholder: string,
-		options?: PickTaskOptions
-	): Promise<Task | null>
+	pickTask(note: TaskNote, request: PickTaskRequest): Promise<TaskChoice | null>
 	promptMinutes(options: {
 		title: string
 		description?: string
@@ -76,8 +89,7 @@ export async function toggleTasks(
 
 	if (options.migrate) return migrateRunningClock(note, options, context)
 
-	const candidates = options.setDuration ? note.getRunningTasks() : note.tasks
-	if (options.setDuration && candidates.length === 0) {
+	if (options.setDuration && note.getRunningTasks().length === 0) {
 		prompts.notify('No running task found.')
 		return false
 	}
@@ -94,7 +106,7 @@ export async function toggleTasks(
 			? { ...options, taskName: context.unassignedTaskName }
 			: options
 
-	let selected = await selectTasks(note, candidates, effective, context)
+	let selected = await selectTasks(note, effective, context)
 	if (!selected) return false
 
 	if (effective.targetState) {
@@ -145,7 +157,6 @@ export async function toggleTasks(
 
 async function selectTasks(
 	note: TaskNote,
-	candidates: Task[],
 	options: ToggleOptions,
 	context: ToggleContext
 ): Promise<Task[] | null> {
@@ -168,19 +179,29 @@ async function selectTasks(
 		return [task]
 	}
 
-	const choices = options.switch
-		? candidates.filter((task) => !isRunning(task))
-		: candidates
-	if (choices.length === 0 && !context.vaultTasksAvailable) {
+	const choices = (version: TaskNote) => {
+		const candidates = options.setDuration
+			? version.getRunningTasks()
+			: version.tasks
+		return options.switch
+			? candidates.filter((task) => !isRunning(task))
+			: candidates
+	}
+	if (choices(note).length === 0 && !context.vaultTasksAvailable) {
 		prompts.notify('No tasks found.')
 		return null
 	}
-	const picked = await prompts.pickTask(
+	const picked = await prompts.pickTask(note, {
 		choices,
-		options.placeholder ?? 'Which task?',
-		{ includeVault: !options.setDuration }
-	)
-	return picked ? [picked] : null
+		placeholder: options.placeholder ?? 'Which task?',
+		includeVault: !options.setDuration,
+	})
+	return picked ? [resolveChoice(note, picked)] : null
+}
+
+/** The note's task of that name, added to the note when it has none. */
+function resolveChoice(note: TaskNote, choice: TaskChoice): Task {
+	return note.findTask(choice.name) ?? note.insertTask(choice.name, choice.tags)
 }
 
 /** Non-running tasks sharing the most recent clock end, in note order. */
@@ -306,13 +327,16 @@ async function moveLastClockTo(
 	placeholder: string,
 	prompts: Prompts
 ): Promise<boolean> {
-	const choices = note.tasks.filter(
-		(task) => !isRunning(task) && task.name !== from.name
-	)
-	const target = await prompts.pickTask(choices, placeholder, {
+	const picked = await prompts.pickTask(note, {
+		choices: (version) =>
+			version.tasks.filter(
+				(task) => !isRunning(task) && task.name !== from.name
+			),
+		placeholder,
 		includeVault: true,
 	})
-	if (!target) return false
+	if (!picked) return false
+	const target = resolveChoice(note, picked)
 	const freshFrom = note.findTask(from.name)
 	const freshTarget = note.findTask(target.name)
 	if (!freshFrom || !freshTarget) return false

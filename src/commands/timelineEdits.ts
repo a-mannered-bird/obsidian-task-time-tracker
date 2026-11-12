@@ -10,6 +10,7 @@ import {
 	retimeClock,
 	type ClockTarget,
 } from 'core/timeline'
+import { TaskNote } from 'core/note'
 import { BUSY_NOTICE } from 'core/trackingRun'
 import type { ClockKey, ClockTimes, FinishedClockTimes } from 'types/tasks'
 import { showUndoNotice } from 'ui/undoNotice'
@@ -61,20 +62,21 @@ export async function addClockLine(
 	times: FinishedClockTimes
 ): Promise<boolean> {
 	const note = await readTaskNote(plugin, file)
-	const picked = await pickNoteTask(plugin, note, note.tasks, {
+	const picked = await pickNoteTask(plugin, file, note, {
+		choices: (version) => version.tasks,
 		placeholder: `Task for ${formatTimeOfDay(times.start)}–${formatTimeOfDay(times.end)}`,
 		includeVault: true,
 	})
 	if (!picked) return false
-	const target: ClockTarget =
-		picked.kind === 'note'
-			? { name: picked.task.name, tags: picked.task.tags }
-			: { name: picked.name, tags: picked.tags }
-	const addsTask = !note.findTask(target.name)
+	const target: ClockTarget = { name: picked.name, tags: picked.tags }
 
-	const outcome = await rewriteNote(noteIo(plugin, file), (content) =>
-		addClock(content, target, times)
-	)
+	// Decided on the content written, not the one picked from: the task may
+	// have been added in the background while the picker was open.
+	let addsTask = false
+	const outcome = await rewriteNote(noteIo(plugin, file), (content) => {
+		addsTask = !new TaskNote(content).findTask(target.name)
+		return addClock(content, target, times)
+	})
 	if (!wrote(outcome)) return false
 	offerUndo(describeClockAdded(target.name, times), () => {
 		void rewriteNote(noteIo(plugin, file), (content) =>

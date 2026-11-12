@@ -9,6 +9,7 @@ import {
 	prepareWordSearch,
 	resurfacedEntry,
 	sortForPicker,
+	withoutNoteTasks,
 } from './taskPicker'
 import type { VaultTaskInfo } from './vaultTaskIndex'
 
@@ -110,6 +111,20 @@ describe('buildPickerEntries', () => {
 			'vault:Deep work',
 			'vault:Email',
 		])
+	})
+})
+
+describe('withoutNoteTasks', () => {
+	it('drops the vault entries the note has, offered or not, visible or hidden', () => {
+		const entries = withoutNoteTasks(
+			{
+				visible: [info('Deep work'), info('Running now')],
+				hidden: [info('Old chore'), info('Emails')],
+			},
+			['Running now', 'Emails']
+		)
+		expect(entries.visible.map((entry) => entry.name)).toEqual(['Deep work'])
+		expect(entries.hidden.map((entry) => entry.name)).toEqual(['Old chore'])
 	})
 })
 

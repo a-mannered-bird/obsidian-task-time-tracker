@@ -2,6 +2,7 @@ import { isRunning, TaskNote } from './note'
 import {
 	toggleTasks,
 	type Prompts,
+	type TaskChoice,
 	type ToggleContext,
 	type ToggleOptions,
 } from './toggle'
@@ -17,14 +18,14 @@ export type NoteIo = {
 }
 
 type Answer =
-	| {
-			kind: 'task'
-			picked: { name: string; tags: string[]; running: boolean } | null
-	  }
+	| { kind: 'task'; picked: TaskChoice | null }
 	| { kind: 'minutes'; minutes: number | null }
 
 /** The note changed so much that the recorded answers no longer apply. */
 class StaleAnswersError extends Error {}
+
+/** The note changed while the user was answering: start over on it. */
+class NoteChangedError extends Error {}
 
 const MAX_REDOS = 3
 
@@ -35,32 +36,63 @@ export const BUSY_NOTICE =
 
 /**
  * Run tracking steps on the note and write the result back. The user may sit
- * in a prompt for a while, so the note can change underneath (sync): the
- * write then never overwrites it. The steps are redone on the new content
- * with the answers already given, without prompting again.
+ * in a prompt for a while, so the note can change underneath (sync). The
+ * pickers follow the note live, so an answer means what the user saw on the
+ * newest content: when the note changed while a prompt was open, the run
+ * starts over on the new content with the answers given so far, asking only
+ * the prompts not answered yet. The write is compare-and-swap, redone the
+ * same way when the note changes in between. Notices are held back until
+ * the run ends, so the user only reads those of the run that counted.
  */
 export async function applyTrackingSteps(
 	io: NoteIo,
 	steps: ToggleOptions[],
-	createContext: (note: TaskNote) => ToggleContext
+	context: ToggleContext
 ): Promise<void> {
-	let base = await io.read()
-	let note = new TaskNote(base)
-	const context = createContext(note)
+	const notify = (message: string) => context.prompts.notify(message)
 	const recorded: Answer[] = []
-	const firstRun = { ...context, prompts: recording(context.prompts, recorded) }
-	if (!(await runSteps(note, steps, firstRun))) return
-
-	for (let redo = 0; redo <= MAX_REDOS; redo++) {
-		if (await io.replace(base, note.toString())) return
-		base = await io.read()
-		note = new TaskNote(base)
-		if (!(await redoSteps(note, steps, context, recorded))) {
-			context.prompts.notify(STALE_NOTICE)
+	let failedWrites = 0
+	for (;;) {
+		const base = await io.read()
+		const note = new TaskNote(base)
+		const replaying = recorded.length > 0
+		const pass = passPrompts(
+			context.prompts,
+			recorded,
+			async () => (await io.read()) !== base
+		)
+		let changed: boolean
+		try {
+			changed = await runSteps(note, steps, {
+				...context,
+				prompts: pass.prompts,
+			})
+		} catch (error) {
+			if (error instanceof NoteChangedError) continue
+			if (!(error instanceof StaleAnswersError)) throw error
+			notify(STALE_NOTICE)
+			return
+		}
+		if (pass.unusedAnswers() > 0) {
+			notify(STALE_NOTICE)
+			return
+		}
+		if (!changed) {
+			pass.notices.forEach(notify)
+			// Every recorded answer is a pick or a value, never a dismissal (a
+			// dismissal ends the run), so a redo writing nothing went stale.
+			if (replaying) notify(STALE_NOTICE)
+			return
+		}
+		if (await io.replace(base, note.toString())) {
+			pass.notices.forEach(notify)
+			return
+		}
+		if (++failedWrites > MAX_REDOS) {
+			notify(BUSY_NOTICE)
 			return
 		}
 	}
-	context.prompts.notify(BUSY_NOTICE)
 }
 
 async function runSteps(
@@ -75,69 +107,59 @@ async function runSteps(
 	return changed
 }
 
-/** False when the answers do not lead to a change on this content. */
-async function redoSteps(
-	note: TaskNote,
-	steps: ToggleOptions[],
-	context: ToggleContext,
-	recorded: Answer[]
-): Promise<boolean> {
-	const remaining = [...recorded]
-	try {
-		const prompts = replaying(note, remaining)
-		const changed = await runSteps(note, steps, { ...context, prompts })
-		return changed && remaining.length === 0
-	} catch (error) {
-		if (error instanceof StaleAnswersError) return false
-		throw error
+/**
+ * Prompts for one pass over the note: answers from the recording first, in
+ * order, then the user's (recorded in turn). After each answer of the user,
+ * `noteChanged` tells whether the pass must start over. Notices are
+ * collected instead of shown.
+ */
+function passPrompts(
+	live: Prompts,
+	recorded: Answer[],
+	noteChanged: () => Promise<boolean>
+) {
+	let cursor = 0
+	const notices: string[] = []
+	const replayed = (): Answer | undefined =>
+		cursor < recorded.length ? recorded[cursor++] : undefined
+	const record = async (answer: Answer, dismissed: boolean) => {
+		recorded.push(answer)
+		cursor++
+		if (!dismissed && (await noteChanged())) throw new NoteChangedError()
 	}
-}
-
-function recording(prompts: Prompts, answers: Answer[]): Prompts {
-	return {
-		pickTask: async (tasks, placeholder, options) => {
-			const task = await prompts.pickTask(tasks, placeholder, options)
-			answers.push({
-				kind: 'task',
-				picked: task && {
-					name: task.name,
-					tags: task.tags,
-					running: isRunning(task),
-				},
-			})
-			return task
+	const prompts: Prompts = {
+		pickTask: async (note, request) => {
+			const answer = replayed()
+			if (answer) {
+				if (answer.kind !== 'task') throw new StaleAnswersError()
+				const { picked } = answer
+				// Toggling would now do the opposite of what the user chose:
+				// the task was started or stopped elsewhere in the meantime.
+				if (picked && isRunningIn(note, picked.name) !== picked.running) {
+					throw new StaleAnswersError()
+				}
+				return picked
+			}
+			const picked = await live.pickTask(note, request)
+			await record({ kind: 'task', picked }, picked === null)
+			return picked
 		},
 		promptMinutes: async (options) => {
-			const minutes = await prompts.promptMinutes(options)
-			answers.push({ kind: 'minutes', minutes })
+			const answer = replayed()
+			if (answer) {
+				if (answer.kind !== 'minutes') throw new StaleAnswersError()
+				return answer.minutes
+			}
+			const minutes = await live.promptMinutes(options)
+			await record({ kind: 'minutes', minutes }, minutes === null)
 			return minutes
 		},
-		notify: (message) => prompts.notify(message),
+		notify: (message) => notices.push(message),
 	}
+	return { prompts, notices, unusedAnswers: () => recorded.length - cursor }
 }
 
-/**
- * Prompts answering from the recording, in order. Silent: the user already
- * read the notices of the first run.
- */
-function replaying(note: TaskNote, remaining: Answer[]): Prompts {
-	return {
-		pickTask: () => {
-			const answer = remaining.shift()
-			if (answer?.kind !== 'task') throw new StaleAnswersError()
-			if (!answer.picked) return Promise.resolve(null)
-			const { name, tags, running } = answer.picked
-			const task = note.findTask(name) ?? note.insertTask(name, tags)
-			// Toggling would now do the opposite of what the user chose: the
-			// task was started or stopped elsewhere in the meantime.
-			if (isRunning(task) !== running) throw new StaleAnswersError()
-			return Promise.resolve(task)
-		},
-		promptMinutes: () => {
-			const answer = remaining.shift()
-			if (answer?.kind !== 'minutes') throw new StaleAnswersError()
-			return Promise.resolve(answer.minutes)
-		},
-		notify: () => {},
-	}
+function isRunningIn(note: TaskNote, name: string): boolean {
+	const task = note.findTask(name)
+	return task ? isRunning(task) : false
 }

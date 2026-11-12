@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import type { Task } from 'types/tasks'
 import { TaskNote } from './note'
-import { getLastEndedTasks, toggleTasks, type Prompts } from './toggle'
+import {
+	getLastEndedTasks,
+	taskChoice,
+	toggleTasks,
+	type Prompts,
+} from './toggle'
 
 const now = new Date(2026, 7, 16, 12, 0, 0)
 const at = (h: number, m = 0) =>
@@ -27,15 +31,15 @@ function scripted(script: Script = {}) {
 	const minutes = [...(script.minutes ?? [])]
 	const notices: string[] = []
 	const offered: string[][] = []
-	const vaultFlags: (boolean | undefined)[] = []
+	const vaultFlags: boolean[] = []
 	const prompts: Prompts = {
-		pickTask: (tasks: Task[], _placeholder, options) => {
+		pickTask: (note, request) => {
+			const tasks = request.choices(note)
 			offered.push(tasks.map((t) => t.name))
-			vaultFlags.push(options?.includeVault)
+			vaultFlags.push(request.includeVault)
 			const name = picks.shift() ?? null
-			return Promise.resolve(
-				name === null ? null : (tasks.find((t) => t.name === name) ?? null)
-			)
+			const task = tasks.find((t) => t.name === name)
+			return Promise.resolve(task ? taskChoice(task) : null)
 		},
 		promptMinutes: () => Promise.resolve(minutes.shift() ?? null),
 		notify: (message) => notices.push(message),
