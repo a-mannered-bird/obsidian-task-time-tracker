@@ -187,6 +187,76 @@ describe('timeline tab', function () {
 		})
 	})
 
+	/**
+	 * Drag over empty space from `fromCenter` px off Task A's center (09:15)
+	 * down by `length` px, then wait for the task picker.
+	 */
+	async function draw(fromCenter: number, length: number, times: string) {
+		await browser
+			.action('pointer', { parameters: { pointerType: 'mouse' } })
+			.move({ origin: block('Task A, 09:00 to 09:30'), y: fromCenter })
+			.down()
+			.move({ origin: 'pointer', y: length })
+			.up()
+			.perform()
+		const picker = browser.$('.prompt')
+		await expect(picker).toBeDisplayed()
+		await expect(picker.$('input')).toHaveAttribute(
+			'placeholder',
+			`Task for ${times}`
+		)
+		return picker
+	}
+
+	it('draws a clock on empty space and files it among the task clocks', async function () {
+		await openTimeline()
+		const before = await obsidianPage.read(NOTE)
+
+		// 45 px above 09:15 is 08:30; 15 px more is the 15 min step.
+		const picker = await draw(-45, 15, '08:30–08:45')
+		await browser.keys([...'Task B'])
+		const taskB = picker.$('.suggestion-item*=Task B')
+		await expect(taskB).toBeDisplayed()
+		await taskB.click()
+
+		await expect(block('Task B, 08:30 to 08:45')).toBeDisplayed()
+		// Before Task B's 09:15 clock, not after it: in time order.
+		assert.strictEqual(
+			await waitForChange(before),
+			before.replace(
+				'      [clock::2026-08-03T09:15:00--2026-08-03T09:45:00]',
+				'      [clock::2026-08-03T08:30:00--2026-08-03T08:45:00]\n' +
+					'      [clock::2026-08-03T09:15:00--2026-08-03T09:45:00]'
+			)
+		)
+	})
+
+	it('draws a clock for a new task, then undoes it', async function () {
+		await openTimeline()
+		const before = await obsidianPage.read(NOTE)
+
+		// 45 px below 09:15 is 10:00; 30 px more is half an hour.
+		const picker = await draw(45, 30, '10:00–10:30')
+		await browser.keys([...'Retro #team'])
+		const create = picker.$('.suggestion-item*=Create')
+		await expect(create).toHaveText('➕ Create "Retro #team"')
+		await create.click()
+
+		await expect(block('Retro, 10:00 to 10:30')).toBeDisplayed()
+		const added = await waitForChange(before)
+		assert.strictEqual(
+			added,
+			`${before.trimEnd()}\n- [ ] Retro #team\n      [clock::2026-08-03T10:00:00--2026-08-03T10:30:00]\n`
+		)
+
+		// Undo takes the task line it added away with the clock.
+		const notice = browser.$('.notice*=Added Retro 10:00–10:30')
+		await expect(notice).toBeDisplayed()
+		await notice.$('button=Undo').click()
+		await expect(block('Task A, 09:00 to 09:30')).toBeDisplayed()
+		assert.strictEqual(await waitForChange(added), before)
+	})
+
 	it('moves a block and resizes its end with the pointer', async function () {
 		await openTimeline()
 		const before = await obsidianPage.read(NOTE)

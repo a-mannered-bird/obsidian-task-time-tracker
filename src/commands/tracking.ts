@@ -2,7 +2,8 @@ import { Notice, type IconName } from 'obsidian'
 import type { TaskNote } from 'core/note'
 import type { Prompts, ToggleOptions } from 'core/toggle'
 import { applyTrackingSteps } from 'core/trackingRun'
-import { pickTask } from 'ui/TaskSuggestModal'
+import type { Task } from 'types/tasks'
+import { pickTask, type PickedTask } from 'ui/TaskSuggestModal'
 import { promptMinutes } from 'ui/MinutesPromptModal'
 import type TaskTimeTracker from '../main'
 import {
@@ -182,30 +183,12 @@ export async function runTrackingSteps(
 }
 
 function interactivePrompts(plugin: TaskTimeTracker, note: TaskNote): Prompts {
-	const { app, settings, vaultTasks } = plugin
+	const { app } = plugin
 	return {
 		pickTask: async (tasks, placeholder, options) => {
-			const includeVault = Boolean(
-				options?.includeVault && settings.includeVaultTasks
-			)
-			const picked = await pickTask(app, tasks, {
+			const picked = await pickNoteTask(plugin, note, tasks, {
 				placeholder,
-				tagMappings: settings.tagMappings,
-				noteNames: note.tasks.map((task) => task.name),
-				vaultEntries: includeVault
-					? vaultTasks.ensureBuilt().then(() => {
-							// Dedupe against the whole note, not just the offered
-							// candidates (a switch excludes the running tasks).
-							const infos = vaultTasks
-								.snapshot()
-								.filter((info) => !note.findTask(info.name))
-							const hidden = new Set(settings.hiddenTasks)
-							return {
-								visible: infos.filter((info) => !hidden.has(info.name)),
-								hidden: infos.filter((info) => hidden.has(info.name)),
-							}
-						})
-					: undefined,
+				includeVault: Boolean(options?.includeVault),
 			})
 			if (!picked) return null
 			if (picked.kind === 'note') return picked.task
@@ -214,6 +197,40 @@ function interactivePrompts(plugin: TaskTimeTracker, note: TaskNote): Prompts {
 		promptMinutes: (promptOptions) => promptMinutes(app, promptOptions),
 		notify: (message) => new Notice(message, NOTICE_DURATION),
 	}
+}
+
+/**
+ * The task picker over some tasks of the note, followed (when asked and
+ * enabled in the settings) by the vault's other tasks, and creating one
+ * from the typed text.
+ */
+export function pickNoteTask(
+	plugin: TaskTimeTracker,
+	note: TaskNote,
+	tasks: Task[],
+	options: { placeholder: string; includeVault: boolean }
+): Promise<PickedTask | null> {
+	const { app, settings, vaultTasks } = plugin
+	const includeVault = options.includeVault && settings.includeVaultTasks
+	return pickTask(app, tasks, {
+		placeholder: options.placeholder,
+		tagMappings: settings.tagMappings,
+		noteNames: note.tasks.map((task) => task.name),
+		vaultEntries: includeVault
+			? vaultTasks.ensureBuilt().then(() => {
+					// Dedupe against the whole note, not just the offered
+					// candidates (a switch excludes the running tasks).
+					const infos = vaultTasks
+						.snapshot()
+						.filter((info) => !note.findTask(info.name))
+					const hidden = new Set(settings.hiddenTasks)
+					return {
+						visible: infos.filter((info) => !hidden.has(info.name)),
+						hidden: infos.filter((info) => hidden.has(info.name)),
+					}
+				})
+			: undefined,
+	})
 }
 
 /** Tick or untick one task without touching its clocks. */

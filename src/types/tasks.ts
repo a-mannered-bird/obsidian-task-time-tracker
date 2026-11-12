@@ -11,6 +11,8 @@ export type ClockTimes = {
 	end: Date | null
 }
 
+export type FinishedClockTimes = ClockTimes & { end: Date }
+
 /**
  * A clock line found again by content rather than by line index, which
  * shifts whenever lines are inserted above it.

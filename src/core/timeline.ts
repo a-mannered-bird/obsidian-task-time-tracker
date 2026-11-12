@@ -1,4 +1,9 @@
-import type { ClockKey, ClockTimes, Task } from 'types/tasks'
+import type {
+	ClockKey,
+	ClockTimes,
+	FinishedClockTimes,
+	Task,
+} from 'types/tasks'
 import { TaskNote } from './note'
 import { addDays } from './dailyNotes'
 import { startOfDay } from './ranges'
@@ -430,6 +435,79 @@ export function retimeClock(
 	if (!clock) return null
 	note.setClockTimes(clock, times)
 	return note.toString()
+}
+
+/**
+ * The clock drawn by dragging over empty space from `anchor` to `pointer`,
+ * either way: both ends snap like a dragged edge, the clock is at least one
+ * step long, and it never reaches past now (time not yet worked). Null when
+ * nothing that long fits before now.
+ */
+export function drawnTimes(
+	anchor: Date,
+	pointer: Date,
+	options: SnapOptions
+): FinishedClockTimes | null {
+	const minimum = (options.free ? 1 : options.stepMinutes) * MINUTE
+	const from = snap(anchor, options).valueOf()
+	const to = snap(pointer, options).valueOf()
+	let start = Math.min(from, to)
+	let end = Math.max(from, to)
+	if (end - start < minimum) {
+		if (to < from) start = end - minimum
+		else end = start + minimum
+	}
+	end = Math.min(end, options.now.valueOf())
+	if (end - start < minimum) return null
+	return { start: new Date(start), end: new Date(end) }
+}
+
+/** A task to give a new clock: found by name, or added with these tags. */
+export type ClockTarget = { name: string; tags: string[] }
+
+/**
+ * The note with a finished clock for the task, placed among its clocks in
+ * time order; the task line is added after the last task when missing.
+ */
+export function addClock(
+	content: string,
+	target: ClockTarget,
+	times: ClockTimes
+): string {
+	const note = new TaskNote(content)
+	const task =
+		note.findTask(target.name) ?? note.insertTask(target.name, target.tags)
+	note.insertClock(task, times.start, times.end)
+	return note.toString()
+}
+
+/**
+ * The note without the clock, and without its task line too when
+ * `dropEmptyTask` and the task has no clock left: undoing `addClock`. Null
+ * when the clock is no longer there.
+ */
+export function removeClock(
+	content: string,
+	key: ClockKey,
+	dropEmptyTask: boolean
+): string | null {
+	const note = new TaskNote(content)
+	const clock = note.findClock(key)
+	if (!clock) return null
+	const owner = note.tasks.find((task) => task.clocks.includes(clock))
+	note.removeClock(clock)
+	// The task line sits above its clocks, so its index is unchanged.
+	const task = note.tasks.find((t) => t.lineIndex === owner?.lineIndex)
+	if (dropEmptyTask && task && task.clocks.length === 0) note.removeTask(task)
+	return note.toString()
+}
+
+/** `Added Deep work 09:00–10:30`, shown with the undo button. */
+export function describeClockAdded(
+	taskName: string,
+	times: ClockTimes
+): string {
+	return `Added ${taskName} ${formatRange(times)}`
 }
 
 export function formatTimeOfDay(date: Date): string {

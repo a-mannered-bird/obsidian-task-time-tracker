@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount, tick } from 'svelte'
 	import { openNoteAtLine } from 'commands/taskActions'
-	import { retimeClockLine } from 'commands/timelineEdits'
+	import { addClockLine, retimeClockLine } from 'commands/timelineEdits'
 	import type { DailyLog } from 'core/dailyLogs'
 	import { tagEmoji } from 'core/taskPicker'
 	import {
@@ -10,6 +10,7 @@
 		canDrag,
 		clampZoom,
 		dragTimes,
+		drawnTimes,
 		fitRange,
 		formatTimeOfDay,
 		initialScrollTime,
@@ -24,9 +25,10 @@
 		ZOOM_MAX,
 		ZOOM_MIN,
 		type DragEdge,
+		type SnapOptions,
 		type TimelineBlock,
 	} from 'core/timeline'
-	import type { ClockKey, ClockTimes } from 'types/tasks'
+	import type { ClockKey, ClockTimes, FinishedClockTimes } from 'types/tasks'
 	import { icon } from 'ui/icon'
 	import type TaskTimeTracker from '../main'
 
@@ -56,6 +58,8 @@
 	let pending = $state<{ id: string; times: ClockTimes } | null>(null)
 	/** Where the block being dragged would land. */
 	let ghost = $state<{ id: string; times: ClockTimes } | null>(null)
+	/** A new clock drawn over empty space, shown until its task is picked. */
+	let drawn = $state<FinishedClockTimes | null>(null)
 	/** Block chosen by a long press on touch screens; its edges grow. */
 	let selectedId = $state<string | null>(null)
 
@@ -66,9 +70,11 @@
 	let focusAfterReload: string | null = null
 	let zoomSaveTimer = 0
 
-	type Press = {
-		block: TimelineBlock
-		edge: DragEdge
+	type PressTarget =
+		| { kind: 'block'; block: TimelineBlock; edge: DragEdge }
+		/** A press on empty space, drawing a new clock from `anchor`. */
+		| { kind: 'create'; anchor: Date }
+	type Press = PressTarget & {
 		pointerId: number
 		x0: number
 		y0: number
@@ -80,6 +86,8 @@
 		timer: number
 	}
 	let press: Press | null = null
+	/** The task picker is open for the drawn clock. */
+	let picking = false
 
 	type Nudge = { id: string; key: ClockKey; times: ClockTimes; timer: number }
 	let nudge: Nudge | null = null
@@ -191,27 +199,74 @@
 		event.stopPropagation()
 		flushNudge()
 		const touch = event.pointerType === 'touch'
+		startPress(
+			{ kind: 'block', block, edge },
+			event,
+			!touch || selectedId === block.id,
+			() => (selectedId = block.id)
+		)
+	}
+
+	/** A press on the empty lanes draws a new clock (on touch, after a long press). */
+	function onLanesPointerDown(event: PointerEvent) {
+		if (event.target !== event.currentTarget) return
+		selectedId = null
+		if (event.button !== 0 || !log || picking) return
+		flushNudge()
+		startPress(
+			{ kind: 'create', anchor: timeAt(event.clientY) },
+			event,
+			event.pointerType !== 'touch'
+		)
+	}
+
+	function startPress(
+		target: PressTarget,
+		event: PointerEvent,
+		armed: boolean,
+		onLongPress?: () => void
+	) {
 		const current: Press = {
-			block,
-			edge,
+			...target,
 			pointerId: event.pointerId,
 			x0: event.clientX,
 			y0: event.clientY,
-			touch,
-			armed: !touch || selectedId === block.id,
+			touch: event.pointerType === 'touch',
+			armed,
 			longPressed: false,
 			active: false,
 			timer: 0,
 		}
-		if (!current.armed) {
+		if (!armed) {
 			current.timer = window.setTimeout(() => {
 				current.armed = true
 				current.longPressed = true
-				selectedId = block.id
+				onLongPress?.()
 				navigator.vibrate?.(15)
 			}, LONG_PRESS_MS)
 		}
 		press = current
+	}
+
+	/** The time at a vertical position on screen. */
+	function timeAt(clientY: number): Date {
+		const top = canvas?.getBoundingClientRect().top ?? 0
+		const start = axis?.start.valueOf() ?? 0
+		return new Date(start + ((clientY - top) / zoom) * HOUR)
+	}
+
+	function snapOptions(event: PointerEvent, draggedId: string): SnapOptions {
+		return {
+			stepMinutes: snapStepMinutes(zoom),
+			magnets: magnetsFor(shown, draggedId, [
+				now,
+				log?.wakeTime ?? null,
+				log?.bedTime ?? null,
+			]),
+			magnetMs: (MAGNET_PX / zoom) * HOUR,
+			free: event.altKey,
+			now,
+		}
 	}
 
 	function onPointerMove(event: PointerEvent) {
@@ -225,21 +280,27 @@
 				return
 			}
 			if (Math.abs(dy) < DRAG_THRESHOLD_PX) return
-			if (!canDrag(current.block, current.edge)) return
+			if (current.kind === 'block' && !canDrag(current.block, current.edge)) {
+				return
+			}
 			current.active = true
 		}
+		if (current.kind === 'create') {
+			const times = drawnTimes(
+				current.anchor,
+				timeAt(event.clientY),
+				snapOptions(event, '')
+			)
+			if (times && fitsInAxis(times)) drawn = times
+			return
+		}
 		const { block } = current
-		const times = dragTimes(timesOf(block), current.edge, (dy / zoom) * HOUR, {
-			stepMinutes: snapStepMinutes(zoom),
-			magnets: magnetsFor(shown, block.id, [
-				now,
-				log?.wakeTime ?? null,
-				log?.bedTime ?? null,
-			]),
-			magnetMs: (MAGNET_PX / zoom) * HOUR,
-			free: event.altKey,
-			now,
-		})
+		const times = dragTimes(
+			timesOf(block),
+			current.edge,
+			(dy / zoom) * HOUR,
+			snapOptions(event, block.id)
+		)
 		if (fitsInAxis(times)) ghost = { id: block.id, times }
 	}
 
@@ -247,12 +308,27 @@
 		const current = press
 		if (!current || event.pointerId !== current.pointerId) return
 		endPress()
+		if (current.kind === 'create') {
+			if (current.active && drawn) void pickTaskFor(drawn)
+			return
+		}
 		if (current.active) {
 			const landed = ghost
 			ghost = null
 			if (landed) void write(landed.id, keyOf(current.block), landed.times)
 		} else if (!current.longPressed) {
 			jumpTo(current.block)
+		}
+	}
+
+	async function pickTaskFor(times: FinishedClockTimes) {
+		if (!log) return
+		picking = true
+		try {
+			await addClockLine(plugin, log.file, times)
+		} finally {
+			picking = false
+			drawn = null
 		}
 	}
 
@@ -264,6 +340,7 @@
 	function cancelDrag() {
 		endPress()
 		ghost = null
+		if (!picking) drawn = null
 	}
 
 	// ----- keyboard -----
@@ -548,7 +625,8 @@
 			<div class="mark now" style:top="{y(now)}px"></div>
 		{/if}
 
-		<div class="lanes">
+		<!-- svelte-ignore a11y_no_static_element_interactions -- drawing a clock is pointer-only; the clock can be added from the tracker tab -->
+		<div class="lanes" onpointerdown={onLanesPointerDown}>
 			{#each shown as block (block.id)}
 				{@const place = layout.get(block.id)}
 				{@const top = yOnAxis(block.start)}
@@ -611,6 +689,22 @@
 					{/if}
 				{/if}
 			{/each}
+			{#if drawn}
+				{@const drawnTop = yOnAxis(drawn.start)}
+				<div
+					class="block ghost"
+					aria-hidden="true"
+					style:--block-color="var(--interactive-accent)"
+					style:top="{drawnTop}px"
+					style:height="{yOnAxis(drawn.end) - drawnTop}px"
+					style:left="0"
+					style:width="100%"
+				>
+					<span class="block-times">
+						{formatTimeOfDay(drawn.start)}–{formatTimeOfDay(drawn.end)}
+					</span>
+				</div>
+			{/if}
 		</div>
 	</div>
 {/if}

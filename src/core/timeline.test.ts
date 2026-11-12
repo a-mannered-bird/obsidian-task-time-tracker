@@ -1,14 +1,18 @@
 import { describe, expect, it } from 'vitest'
 import { parseTasks } from './parser'
 import {
+	addClock,
 	canDrag,
+	describeClockAdded,
 	describeClockEdit,
 	dragTimes,
+	drawnTimes,
 	fitRange,
 	initialScrollTime,
 	layoutBlocks,
 	magnetsFor,
 	nudgeTimes,
+	removeClock,
 	retimeClock,
 	sameTaskOverlaps,
 	snapStepMinutes,
@@ -370,5 +374,107 @@ describe('describeClockEdit', () => {
 				{ start: at(12, 45), end: null }
 			)
 		).toBe('Email 13:00–now → 12:45–now')
+	})
+})
+
+describe('drawnTimes', () => {
+	it('snaps both ends, whichever way the drag goes', () => {
+		const clock = { start: at(9), end: at(10, 15) }
+		expect(drawnTimes(at(9, 7), at(10, 20), grid)).toEqual(clock)
+		expect(drawnTimes(at(10, 20), at(9, 7), grid)).toEqual(clock)
+	})
+
+	it('makes a barely moved drag one step long', () => {
+		expect(drawnTimes(at(9, 5), at(9, 6), grid)).toEqual({
+			start: at(9),
+			end: at(9, 15),
+		})
+	})
+
+	it('stops at now, and draws nothing that would start after it', () => {
+		// now is 14:00.
+		expect(drawnTimes(at(13, 30), at(15), grid)).toEqual({
+			start: at(13, 30),
+			end: at(14),
+		})
+		expect(drawnTimes(at(13, 55), at(14, 30), grid)).toBeNull()
+	})
+})
+
+describe('addClock', () => {
+	const times = { start: at(11), end: at(11, 30) }
+
+	it('places the clock among the clocks of the task, in time order', () => {
+		expect(addClock(note, { name: 'Email', tags: [] }, times)).toBe(
+			[
+				'- [ ] Deep work #project',
+				'      [clock::2026-08-03T09:00:00--2026-08-03T10:30:00]',
+				'- [ ] Email',
+				'      [clock::2026-08-03T10:00:00--2026-08-03T10:20:00]',
+				'      [clock::2026-08-03T11:00:00--2026-08-03T11:30:00]',
+				'      [clock::2026-08-03T13:00:00]',
+				'- [ ] Deep work #focus',
+				'      [clock::2026-08-03T10:15:00--2026-08-03T11:00:00]',
+			].join('\n')
+		)
+	})
+
+	it('adds a missing task after the last one, with its tags', () => {
+		expect(addClock(note, { name: 'Review', tags: ['#team'] }, times)).toBe(
+			`${note}\n- [ ] Review #team\n      [clock::2026-08-03T11:00:00--2026-08-03T11:30:00]`
+		)
+	})
+})
+
+describe('removeClock', () => {
+	it('removes the clock line and keeps a task that has other clocks', () => {
+		expect(
+			removeClock(
+				note,
+				{ taskName: 'Email', start: at(10), end: at(10, 20) },
+				true
+			)
+		).toBe(
+			note.replace(
+				'\n      [clock::2026-08-03T10:00:00--2026-08-03T10:20:00]',
+				''
+			)
+		)
+	})
+
+	it('undoes adding a clock to a new task, task line included', () => {
+		const target = { name: 'Review', tags: ['#team'] }
+		const times = { start: at(11), end: at(11, 30) }
+		const added = addClock(note, target, times)
+		expect(removeClock(added, { taskName: 'Review', ...times }, true)).toBe(
+			note
+		)
+	})
+
+	it('keeps an emptied task line it did not add', () => {
+		const result = removeClock(
+			note,
+			{ taskName: 'Deep work', start: at(10, 15), end: at(11) },
+			false
+		)
+		expect(result?.split('\n').at(-1)).toBe('- [ ] Deep work #focus')
+	})
+
+	it('finds nothing when the clock changed elsewhere', () => {
+		expect(
+			removeClock(
+				note,
+				{ taskName: 'Email', start: at(10), end: at(10, 25) },
+				true
+			)
+		).toBeNull()
+	})
+})
+
+describe('describeClockAdded', () => {
+	it('names the task and the times', () => {
+		expect(
+			describeClockAdded('Deep work', { start: at(9), end: at(10, 30) })
+		).toBe('Added Deep work 09:00–10:30')
 	})
 })

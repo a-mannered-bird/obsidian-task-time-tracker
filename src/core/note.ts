@@ -97,6 +97,24 @@ export class TaskNote {
 		this.invalidate()
 	}
 
+	/** Add a clock line among the task's clocks, before the first later one. */
+	insertClock(task: Task, start: Date, end: Date | null): void {
+		const later = task.clocks.find((clock) => clock.start > start)
+		if (!later) {
+			this.addClock(task, start, end)
+			return
+		}
+		const indent = getIndent(this.lines[later.lineIndex]!)
+		this.lines.splice(later.lineIndex, 0, formatClockLine(start, end, indent))
+		this.invalidate()
+	}
+
+	/** Remove one clock line. */
+	removeClock(clock: Clock): void {
+		this.lines.splice(clock.lineIndex, 1)
+		this.invalidate()
+	}
+
 	/** Close the running clock of the task at the given time. */
 	stopClock(task: Task, at: Date): void {
 		const running = getRunningClock(task)
