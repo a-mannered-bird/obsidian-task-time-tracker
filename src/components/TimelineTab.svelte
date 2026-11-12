@@ -1,13 +1,19 @@
 <script lang="ts">
+	import { Menu } from 'obsidian'
 	import { onMount, tick } from 'svelte'
 	import { openNoteAtLine } from 'commands/taskActions'
-	import { addClockLine, retimeClockLine } from 'commands/timelineEdits'
+	import {
+		addClockLine,
+		deleteClockLine,
+		retimeClockLine,
+	} from 'commands/timelineEdits'
 	import type { DailyLog } from 'core/dailyLogs'
 	import { tagEmoji } from 'core/taskPicker'
 	import {
 		blockId,
 		blockLabel,
 		clampZoom,
+		clockActions,
 		dragTimes,
 		drawnTimes,
 		fitRange,
@@ -23,6 +29,7 @@
 		timelineBlocks,
 		ZOOM_MAX,
 		ZOOM_MIN,
+		type ClockAction,
 		type DragEdge,
 		type SnapOptions,
 		type TimelineBlock,
@@ -319,7 +326,7 @@
 			ghost = null
 			if (landed) void write(landed.id, keyOf(current.block), landed.times)
 		} else if (!current.longPressed) {
-			jumpTo(current.block)
+			openMenu(current.block, { x: event.clientX, y: event.clientY })
 		}
 	}
 
@@ -351,7 +358,7 @@
 		if (event.key === 'Enter' || event.key === ' ') {
 			event.preventDefault()
 			flushNudge()
-			jumpTo(block)
+			openMenu(block, belowBlock(event.currentTarget))
 			return
 		}
 		if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return
@@ -389,8 +396,65 @@
 		void write(current.id, current.key, current.times)
 	}
 
-	function jumpTo(block: TimelineBlock) {
-		if (log) void openNoteAtLine(plugin, log.file.path, block.lineIndex)
+	// ----- menu -----
+
+	const ACTION_ITEMS: Record<ClockAction, { title: string; icon: string }> = {
+		open: { title: 'Go to clock line', icon: 'file-text' },
+		reopen: { title: 'Remove end time', icon: 'play' },
+		delete: { title: 'Delete clock line', icon: 'trash-2' },
+	}
+
+	function openMenu(block: TimelineBlock, position: { x: number; y: number }) {
+		const menu = new Menu()
+		for (const action of clockActions(block, blocks)) {
+			const { title, icon } = ACTION_ITEMS[action]
+			menu.addItem((item) =>
+				item
+					.setTitle(title)
+					.setIcon(icon)
+					.setWarning(action === 'delete')
+					.onClick(() => runAction(action, block))
+			)
+		}
+		menu.showAtPosition(position)
+	}
+
+	function runAction(action: ClockAction, block: TimelineBlock) {
+		if (!log) return
+		const key = keyOf(block)
+		switch (action) {
+			case 'open':
+				void openNoteAtLine(plugin, log.file.path, block.lineIndex)
+				break
+			case 'reopen':
+				void write(block.id, key, { start: key.start, end: null })
+				break
+			case 'delete':
+				void deleteClockLine(plugin, log.file, key, block.tags)
+				break
+		}
+	}
+
+	/** Where a menu opened from the keyboard appears: under the block. */
+	function belowBlock(target: EventTarget | null): { x: number; y: number } {
+		const rect =
+			target instanceof HTMLElement
+				? target.getBoundingClientRect()
+				: { left: 0, bottom: 0 }
+		return { x: rect.left, y: rect.bottom }
+	}
+
+	function onContextMenu(event: MouseEvent, block: TimelineBlock) {
+		event.preventDefault()
+		// A long press on a touch screen also fires this: it selects the block.
+		if (press) return
+		const fromKeyboard = event.clientX === 0 && event.clientY === 0
+		openMenu(
+			block,
+			fromKeyboard
+				? belowBlock(event.currentTarget)
+				: { x: event.clientX, y: event.clientY }
+		)
 	}
 
 	// ----- zoom and scroll -----
@@ -665,6 +729,7 @@
 						style:width="{(place.span / place.columns) * 100}%"
 						onpointerdown={(event) => onPointerDown(event, block, 'move')}
 						onkeydown={(event) => onKeyDown(event, block)}
+						oncontextmenu={(event) => onContextMenu(event, block)}
 					>
 						<div
 							class="handle handle-start"

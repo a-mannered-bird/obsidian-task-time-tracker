@@ -27,7 +27,7 @@ async function openTimeline() {
 }
 
 async function focus(label: string) {
-	// Focus without clicking: a click on a block jumps to its line.
+	// Focus without clicking: a click on a block opens its menu.
 	const element = await block(label).getElement()
 	await browser.execute((el) => el.focus(), element)
 	await expect(element).toBeFocused()
@@ -326,6 +326,72 @@ describe('timeline tab', function () {
 		)
 		await expect(block('Task A, 09:00 to 09:30')).toBeDisplayed()
 		assert.strictEqual(await waitForChange(added), before)
+	})
+
+	/** Click a block, check its menu lists `items`, and pick `choice`. */
+	async function chooseFromMenu(
+		label: string,
+		items: string[],
+		choice: string
+	) {
+		await block(label).click()
+		const menu = browser.$('.menu')
+		await expect(menu).toBeDisplayed()
+		const list = menu.$('.menu-group')
+		await expect(list).toHaveChildren(items.length)
+		for (const [index, item] of items.entries()) {
+			await expect(list.$(`.menu-item:nth-child(${index + 1})`)).toHaveText(
+				item
+			)
+		}
+		await menu.$(`.menu-item*=${choice}`).click()
+	}
+
+	it('deletes a clock line from the block menu, then undoes it', async function () {
+		await openTimeline()
+		const before = await obsidianPage.read(NOTE)
+
+		await chooseFromMenu(
+			'Task A, 09:00 to 09:30',
+			['Go to clock line', 'Remove end time', 'Delete clock line'],
+			'Delete clock line'
+		)
+		// The task line stays, without its only clock.
+		const deleted = await waitForChange(before)
+		assert.strictEqual(
+			deleted,
+			before.replace(
+				'      [clock::2026-08-03T09:00:00--2026-08-03T09:30:00]\n',
+				''
+			)
+		)
+		await expect(block('Task B, 09:15 to 09:45')).toBeDisplayed()
+
+		await clickNoticeButton(
+			browser.$('.notice*=Deleted Task A 09:00–09:30'),
+			'Undo'
+		)
+		await expect(block('Task A, 09:00 to 09:30')).toBeDisplayed()
+		assert.strictEqual(await waitForChange(deleted), before)
+	})
+
+	it('removes the end time of a clock from the block menu', async function () {
+		await openTimeline()
+		const before = await obsidianPage.read(NOTE)
+
+		await chooseFromMenu(
+			'Task B, 09:15 to 09:45',
+			['Go to clock line', 'Remove end time', 'Delete clock line'],
+			'Remove end time'
+		)
+		await expect(block('Task B, 09:15 to now')).toBeDisplayed()
+		assert.strictEqual(
+			await waitForChange(before),
+			before.replace(
+				'[clock::2026-08-03T09:15:00--2026-08-03T09:45:00]',
+				'[clock::2026-08-03T09:15:00]'
+			)
+		)
 	})
 
 	it('moves a block and resizes its end with the pointer', async function () {

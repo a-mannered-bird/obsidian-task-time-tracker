@@ -3,6 +3,7 @@ import { rewriteNote, type RewriteOutcome } from 'core/noteRewrite'
 import {
 	addClock,
 	describeClockAdded,
+	describeClockDeleted,
 	describeClockEdit,
 	formatTimeOfDay,
 	removeClock,
@@ -78,6 +79,29 @@ export async function addClockLine(
 	offerUndo(describeClockAdded(target.name, times), () => {
 		void rewriteNote(noteIo(plugin, file), (content) =>
 			removeClock(content, { taskName: target.name, ...times }, addsTask)
+		).then(wrote)
+	})
+	return true
+}
+
+/**
+ * Remove one clock line, keeping its task line. Undo puts the clock back
+ * among the task's clocks in time order (and the task line, with `tags`,
+ * should it be gone by then). True when the line was removed.
+ */
+export async function deleteClockLine(
+	plugin: TaskTimeTracker,
+	file: TFile,
+	key: ClockKey,
+	tags: string[]
+): Promise<boolean> {
+	const outcome = await rewriteNote(noteIo(plugin, file), (content) =>
+		removeClock(content, key, false)
+	)
+	if (!wrote(outcome)) return false
+	offerUndo(describeClockDeleted(key.taskName, key), () => {
+		void rewriteNote(noteIo(plugin, file), (content) =>
+			addClock(content, { name: key.taskName, tags }, key)
 		).then(wrote)
 	})
 	return true

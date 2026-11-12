@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest'
 import { parseTasks } from './parser'
 import {
 	addClock,
+	clockActions,
+	describeClockDeleted,
 	describeClockAdded,
 	describeClockEdit,
 	dragTimes,
@@ -525,5 +527,40 @@ describe('describeClockAdded', () => {
 		expect(
 			describeClockAdded('Deep work', { start: at(9), end: at(10, 30) })
 		).toBe('Added Deep work 09:00–10:30')
+	})
+})
+
+describe('clockActions', () => {
+	const blocks = blocksOf(note)
+	const actionsAt = (taskName: string, start: Date) => {
+		const block = blocks.find(
+			(b) =>
+				b.key.taskName === taskName && b.start.valueOf() === start.valueOf()
+		)
+		return block && clockActions(block, blocks)
+	}
+
+	it('lets the end of the task latest clock go when none of its clocks runs', () => {
+		expect(actionsAt('Deep work', at(10, 15))).toEqual([
+			'open',
+			'reopen',
+			'delete',
+		])
+	})
+
+	it('keeps the end of an earlier clock, and of any clock while one runs', () => {
+		// Deep work clocks again at 10:15.
+		expect(actionsAt('Deep work', at(9))).toEqual(['open', 'delete'])
+		// Email runs since 13:00.
+		expect(actionsAt('Email', at(10))).toEqual(['open', 'delete'])
+		expect(actionsAt('Email', at(13))).toEqual(['open', 'delete'])
+	})
+})
+
+describe('describeClockDeleted', () => {
+	it('names the task and the times, now for a running clock', () => {
+		expect(describeClockDeleted('Email', { start: at(13), end: null })).toBe(
+			'Deleted Email 13:00–now'
+		)
 	})
 })

@@ -515,6 +515,37 @@ export function removeClock(
 	return note.toString()
 }
 
+/** What the menu of a block offers for its clock line. */
+export type ClockAction = 'open' | 'reopen' | 'delete'
+
+/**
+ * The actions on a block's clock line. Removing the end (the clock runs
+ * again) is offered on the task's latest clock only, while none of its
+ * clocks runs: an earlier clock running up to now would cover the later
+ * ones, and a task runs once at a time.
+ */
+export function clockActions(
+	block: TimelineBlock,
+	blocks: TimelineBlock[]
+): ClockAction[] {
+	const others = blocks.filter(
+		(other) =>
+			other.key.taskName === block.key.taskName && other.id !== block.id
+	)
+	const reopenable =
+		!block.running &&
+		others.every((other) => !other.running && other.start < block.start)
+	return reopenable ? ['open', 'reopen', 'delete'] : ['open', 'delete']
+}
+
+/** `Deleted Deep work 09:00–10:30`, shown with the undo button. */
+export function describeClockDeleted(
+	taskName: string,
+	times: ClockTimes
+): string {
+	return `Deleted ${taskName} ${formatRange(times)}`
+}
+
 /** `Added Deep work 09:00–10:30`, shown with the undo button. */
 export function describeClockAdded(
 	taskName: string,
