@@ -807,8 +807,14 @@
 		flex-direction: column;
 		overflow: hidden;
 		padding: 0 0.4em;
-		border: 1px solid var(--background-primary);
+		/*
+		 * Only the left side is a border: `overflow: hidden` keeps the edge
+		 * handles inside the padding box, so a top or bottom border would be a
+		 * strip that moves the block instead of resizing it. The gap between
+		 * touching blocks is drawn inside instead.
+		 */
 		border-left: 3px solid var(--block-color);
+		box-shadow: inset 0 0 0 1px var(--background-primary);
 		border-radius: var(--radius-s);
 		background: color-mix(
 			in srgb,
@@ -835,7 +841,6 @@
 	}
 
 	.block.running {
-		border-bottom: 2px dashed var(--block-color);
 		animation: running-pulse 2s ease-in-out infinite;
 	}
 
@@ -902,6 +907,11 @@
 
 	.handle-end {
 		bottom: 0;
+	}
+
+	.block.running .handle-end {
+		box-sizing: border-box;
+		border-bottom: 2px dashed var(--block-color);
 	}
 
 	.block.selected .handle {
