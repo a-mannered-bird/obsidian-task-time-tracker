@@ -448,7 +448,8 @@
 		void setZoom(zoom * factor, middle)
 	}
 
-	async function fit() {
+	/** Zoom to the day; `remember` saves the zoom, as a chosen one. */
+	async function fit(remember = true) {
 		if (!log || !scroller) return
 		const range = fitRange(log.wakeTime, log.bedTime, shown, now)
 		if (!range || !axis) return
@@ -456,7 +457,7 @@
 		const visible = scroller.clientHeight - toolbarHeight()
 		const hoursShown = (end - range.start.valueOf()) / HOUR
 		zoom = clampZoom(visible / hoursShown)
-		saveZoomSoon()
+		if (remember) saveZoomSoon()
 		await tick()
 		scrollToTime(range.start, 0)
 	}
@@ -499,6 +500,13 @@
 		const path = log.file.path
 		if (scrolledFor === path) return
 		scrolledFor = path
+		if (
+			plugin.settings.timelineFitOnOpen &&
+			fitRange(log.wakeTime, log.bedTime, shown, now)
+		) {
+			void tick().then(() => fit(false))
+			return
+		}
 		const target = initialScrollTime(log.date, new Date(), log.wakeTime, blocks)
 		if (target) void tick().then(() => scrollToTime(target))
 	})

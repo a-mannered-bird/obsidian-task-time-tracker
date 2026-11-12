@@ -33,6 +33,14 @@ async function focus(label: string) {
 	await expect(element).toBeFocused()
 }
 
+/** Open notes at the remembered zoom, or fitted to their day. */
+async function setFitOnOpen(fit: boolean) {
+	await browser.executeObsidian(async ({ plugins }, fit) => {
+		plugins.obsidianTaskTimeTracker.settings.timelineFitOnOpen = fit
+		await plugins.obsidianTaskTimeTracker.saveSettings()
+	}, fit)
+}
+
 /** Wait for the timeline's write to land in the file. */
 async function waitForChange(before: string) {
 	await browser.waitUntil(
@@ -46,8 +54,55 @@ async function waitForChange(before: string) {
 }
 
 describe('timeline tab', function () {
+	// The pixel arithmetic of these tests needs the default zoom, not one
+	// fitted to the window.
+	before(async function () {
+		await setFitOnOpen(false)
+	})
+
+	after(async function () {
+		await setFitOnOpen(true)
+	})
+
 	beforeEach(async function () {
 		await resetVault()
+	})
+
+	it('opens a note fitted to its day', async function () {
+		await setFitOnOpen(true)
+		await openTimeline()
+		// The note has no wake or bed time: its clocks, 09:00 to 09:45, fill
+		// the view from its top (or as much of it as the zoom limit allows).
+		const fitted = () =>
+			browser.execute(() => {
+				const panel = document.querySelector('[role="tabpanel"]')
+				const toolbar = panel?.querySelector('.timeline-toolbar')
+				const first = panel?.querySelector(
+					'[aria-label="Task A, 09:00 to 09:30"]'
+				)
+				const last = panel?.querySelector(
+					'[aria-label="Task B, 09:15 to 09:45"]'
+				)
+				if (!panel || !(toolbar instanceof HTMLElement) || !first || !last)
+					return 'missing elements'
+				const view = panel.getBoundingClientRect()
+				const top = view.top + toolbar.offsetHeight
+				const start = first.getBoundingClientRect().top
+				const end = last.getBoundingClientRect().bottom
+				return Math.abs(start - top) < 1 && end <= view.bottom
+					? 'fitted'
+					: `09:00 at ${start - top} px below the toolbar, 09:45 at ${end} of ${view.bottom}`
+			})
+		await browser.waitUntil(async () => (await fitted()) === 'fitted', {
+			timeoutMsg: 'the day was not fitted',
+		})
+		assert.strictEqual(await fitted(), 'fitted')
+
+		// Reopen the view at the remembered zoom for the other tests.
+		await setFitOnOpen(false)
+		await browser.executeObsidian(({ plugins }) =>
+			plugins.obsidianTaskTimeTracker.refreshViews()
+		)
 	})
 
 	it('moves a block with the arrow keys, then undoes it from the notice', async function () {

@@ -33,6 +33,11 @@ export interface TaskTimeTrackerSettings {
 	dismissedIssues: string[]
 	tagMappings: TagMapping[]
 	quickActions: QuickAction[]
+	/**
+	 * The timeline opens each note zoomed to its day, as the Fit button does;
+	 * off, it opens at `timelineZoom`.
+	 */
+	timelineFitOnOpen: boolean
 	/** UI state, not shown in the settings tab. */
 	lastDailyViewTab: DailyViewTab
 	/** Timeline tab zoom in pixels per hour (UI state). */
@@ -49,6 +54,7 @@ export const DEFAULT_SETTINGS: TaskTimeTrackerSettings = {
 	skipOverlapJoinNotice: false,
 	ignoredIssueKinds: [],
 	dismissedIssues: [],
+	timelineFitOnOpen: true,
 	lastDailyViewTab: 'tracker',
 	timelineZoom: ZOOM_DEFAULT,
 	quickActions: [],
@@ -108,6 +114,7 @@ export class TaskTimeTrackerSettingTab extends PluginSettingTab {
 		containerEl.empty()
 
 		this.displayTrackingSection(containerEl)
+		this.displayTimelineSection(containerEl)
 		this.displayTaskManagementSection(containerEl)
 		this.displayWarningsSection(containerEl)
 		this.displayQuickActionsSection(containerEl)
@@ -164,6 +171,24 @@ export class TaskTimeTrackerSettingTab extends PluginSettingTab {
 			name: 'Unassigned task name',
 			desc: 'Task used by quick interruptions until the time gets assigned to a real task.',
 		})
+	}
+
+	private displayTimelineSection(containerEl: HTMLElement) {
+		new Setting(containerEl).setName('Timeline').setHeading()
+
+		new Setting(containerEl)
+			.setName('Open fitted to the day')
+			.setDesc(
+				"Each note opens zoomed to show its day, as the fit button does. Turned off, it opens at the last zoom used, scrolled to now on today's note."
+			)
+			.addToggle((toggle) =>
+				toggle
+					.setValue(this.plugin.settings.timelineFitOnOpen)
+					.onChange(async (value) => {
+						this.plugin.settings.timelineFitOnOpen = value
+						await this.plugin.saveSettings()
+					})
+			)
 	}
 
 	private displayTaskManagementSection(containerEl: HTMLElement) {
