@@ -162,6 +162,43 @@ A day-calendar view of the note's clocks, where blocks are resized and moved lik
 - [x] E2E: keyboard move, end resize, start resize on a running clock, finishing a running clock, Undo, zoom to a finer step, asserting the exact markdown after each; one real pointer drag (move + resize).
 - [x] Draw a block on empty space, pick its task, insert the clock in time order (new task line when needed), Undo; unit-tested in core, E2E for an existing and a new task.
 
+## Decisions (2026-11-12): tracker tab redesign
+
+The tracker tab becomes the beginner's starting point: one obvious place to type, one visible action per row, no hidden modes. Mockups of every state: the "Tracker tab redesign" design canvas (https://claude.ai/artifact/GVwSxzosQCKVzpVZAZvcN2, private).
+
+- **Layout, top to bottom:** _doing_ (bar, Interruption, ⚡ quick-action chips), _Now_ (running tasks), _plan_ (task list), then End day at the bottom. Day status (wake/bed) sits under the date navigation; admin (Manage tasks, rarely used actions) moves to a ⋯ menu in the header.
+- **The bar** is an in-view text field with type-ahead (`AbstractInputSuggest`, since 1.4.10: `minAppVersion` goes from 0.15.0 to 1.4.10), not a button opening the picker modal. Its suggestions are grouped under "Today" and "Other notes" headers, with a "running" label and note counts, then a "Create …" row carrying an Add to list button (the canvas's Typing board is the reference). Enter on an existing task starts it; on new text it adds `- [ ] text #tags` to the note and starts it; Add to list adds the line without starting it, offered only when the text names no existing task.
+- **Starting switches.** Starting from the bar or a row's ▶ stops what runs. Running alongside is deliberate: the ＋ button, shown on the bar and on idle rows only while something runs (nothing running = a single ▶/Start, nothing to be alongside of). The bar's button reads Start, or Switch while something runs. No per-task "background" flag: the same task is sometimes main, sometimes background.
+- **Interruption** stays a first-class button with icon and label next to the bar, shown pressed while one runs. It keeps today's engine behavior (verified in `toggle.ts`): it switches, so it stops every running task, a parallel one included, and ending it restarts every task stopped at that moment, then asks what it was. Its Now card is amber, titled "Interruption", lists the paused tasks and carries End interruption as its main button.
+- **Now card:** running tasks leave the list and get a card each: name, large elapsed time for the current session, "Started HH:MM" (clickable, see below) · day total, Done (stop and tick) and Stop. Two or more running: compact cards (icon buttons) and Stop all in the section header. Nothing running: the section is hidden.
+- **Rows:** checkbox on the left (mirrors `- [ ]`; ticking does not stop anything), name with tag emoji and text style, today's total when above 0, ▶ (and ＋ while something runs) on the right. Clicking the name reveals the task's line in the note, it never starts a timer. Open tasks in the note's order; ticked ones in a collapsed "Done (n)" group. Rows keep a 44px minimum height (decided after review).
+- **No "Custom time" mode; times are fixed afterwards.** "Started HH:MM" opens the minutes prompt through the existing `setDuration` path. After a stop or switch, the notice reads "Stopped/Switched from X at HH:MM · Change", and Change rewrites the end of the clock that just closed (new engine step, compare-and-swap like a timeline drag). Older edits stay in the Timeline tab.
+- **Day status line:** ☀ wake · 🌙 bed, each value clickable (existing time prompt). Unset wake time on today's note shows "Set wake time" in the accent color; unset bed time shows "Set bed time" in muted text (always discoverable, never competing with the wake reminder).
+- **End day** replaces Complete journal: prompts for bed time when it is missing (default now), then runs the existing cleanup; its confirmation states what will happen, including the deletion of never-clocked tasks.
+- **Which day the tab acts on:**
+  - No note for today: the tab shows today, and its first write creates today's note (`createDailyNote`), never writing into the latest earlier note as `resolveTargetFile` does now.
+  - A clock still running in the latest earlier note: a "Still running from yesterday" card with "Since <day> HH:MM", Stop at <that day's bed time> (when set) and Stop at…. Such a clock does not count as running for the bar: it keeps Start, since a switch would close it at now.
+  - A past note (via ‹ ›): everything works, under a "You're viewing <day> · Back to today" strip; the bar's placeholder reads "Add a task to <day>".
+  - Daily notes not set up: one sentence and a Create today's note button instead of "No daily note to act on."
+- **Empty state:** below the bar, "Type what you're working on and press Start. Tasks are saved as `- [ ]` lines in today's note." Gone once the note has a task.
+- Decision logic (target day, which buttons a row shows, ordering, End day's confirmation text) lives in core with unit tests; components only render.
+
+## Phase 11: Tracker tab redesign
+
+Day handling ships first: writing into yesterday's note and invisible overnight clocks give wrong data today, whatever the layout.
+
+- [ ] Target day in core: today's note created on first write instead of falling back to the latest note; past-note detection for the strip and placeholder; tested.
+- [ ] Overnight clocks: find a clock still running in the latest earlier note (one cached read through `DailyLogStore`), its card with Stop at bed time / Stop at…, kept out of the bar's switch logic; tested in core, E2E stopping one at bed time.
+- [ ] Past-day strip with Back to today; setup state with Create today's note.
+- [ ] Bar: in-view field on `AbstractInputSuggest` (bump `minAppVersion` to 1.4.10) with grouped suggestions, Start/Switch, ＋ alongside, Add to list on the create row; empty-state line.
+- [ ] Switch by default from the bar and the rows; ＋ alongside only while something runs; row order and button set decided in core, tested.
+- [ ] Now card: elapsed session + day total, Done / Stop, compact cards and Stop all from two running tasks, hidden when nothing runs; Interruption card with paused tasks and End interruption.
+- [ ] Rows: checkbox left, name reveals the line, note order, collapsed Done group.
+- [ ] Day status line (wake/bed values, wake reminder, muted Set bed time), End day (bed-time prompt + cleanup + confirmation text from core), ⋯ header menu with Manage tasks, quick actions as chips.
+- [ ] Fixing afterwards: clickable "Started HH:MM" through `setDuration`; Change in the stop/switch notice rewriting the closed clock's end (new compare-and-swap engine step, acknowledged to `LostClockTracker`); then remove the Custom time checkbox.
+- [ ] E2E for every slice, rewriting the tracker-tab specs: switch, alongside, interruption with a parallel task, Done, Add to list, End day, overnight stop, the exact markdown after each.
+- [ ] Give the picker modal (`TaskSuggestModal`) the same grouped look as the bar's suggestions (headers, running label, note counts, Add to list), so both stay consistent. Obsidian's suggesters render a flat list: needs custom row rendering or non-selectable header rows. Deferred until asked.
+
 ## Later
 
 - [ ] ~~Native task-name completion from past daily notes (replaces `syncTaskDictionary.js` + Various Complements).~~ Superseded by Phase 5.
