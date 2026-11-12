@@ -4,7 +4,12 @@
 	import { promptOvernightStop, stopOvernightClock } from 'commands/overnight'
 	import { runQuickAction } from 'commands/quickActions'
 	import { openNoteAtLine } from 'commands/taskActions'
-	import { startTask, stopTasks, type StartMode } from 'commands/trackerActions'
+	import {
+		changeStart,
+		startTask,
+		stopTasks,
+		type StartMode,
+	} from 'commands/trackerActions'
 	import { runTrackingSteps, setTaskTicked } from 'commands/tracking'
 	import type { DailyLog } from 'core/dailyLogs'
 	import { taskMinutes } from 'core/aggregate'
@@ -37,8 +42,6 @@
 	const { plugin, log, overnight, otherDay, loading }: Props = $props()
 
 	let now = $state(new Date())
-	/** When on, the action buttons ask how many minutes ago it happened. */
-	let timeTravel = $state(false)
 
 	const tasks = $derived(log?.tasks ?? [])
 	const unassigned = $derived(plugin.settings.unassignedTaskName)
@@ -64,11 +67,8 @@
 		return formatHoursMinutes(Math.max(0, getMinutesBetween(start, now)))
 	}
 
-	/** `Started 10:42 · 1h 40m today` */
-	function cardDetails(task: Task): string {
-		const start = runningClockStart(task)
-		const total = `${formatHoursMinutes(taskMinutes(task, now))} today`
-		return start ? `Started ${formatTimeOfDay(start)} · ${total}` : total
+	function editStart(task: Task, start: Date) {
+		if (log) void changeStart(plugin, log.file, task.name, start)
 	}
 
 	function displayName(task: Task): string {
@@ -81,17 +81,15 @@
 	}
 
 	function start(task: Task, mode: StartMode) {
-		void startTask(plugin, taskChoice(task), mode, timeTravel)
+		void startTask(plugin, taskChoice(task), mode)
 	}
 
 	function stop(names: string[], done: boolean) {
-		void stopTasks(plugin, names, { done, timeTravel })
+		void stopTasks(plugin, names, done)
 	}
 
 	function toggleInterruption() {
-		void runTrackingSteps(plugin, [
-			{ switch: true, interruption: true, timeTravel },
-		])
+		void runTrackingSteps(plugin, [{ switch: true, interruption: true }])
 	}
 
 	function reveal(task: Task) {
@@ -176,7 +174,6 @@
 		<TaskBar
 			{plugin}
 			{tasks}
-			{timeTravel}
 			placeholder={otherDay
 				? `Add a task to ${otherDay}`
 				: 'What are you working on?'}
@@ -200,10 +197,6 @@
 					{action.name}
 				</button>
 			{/each}
-			<label class="time-travel">
-				<input type="checkbox" bind:checked={timeTravel} />
-				Custom time
-			</label>
 		</div>
 	</div>
 
@@ -256,7 +249,19 @@
 							<div class="card-body">
 								<div>
 									<div class="elapsed">{elapsed(task)}</div>
-									<div class="muted">{cardDetails(task)}</div>
+									<div class="muted">
+										{#if start}
+											<button
+												class="start-time"
+												title="Change when it started"
+												onclick={() => editStart(task, start)}
+											>
+												Started {formatTimeOfDay(start)}
+											</button>
+											·
+										{/if}
+										{formatHoursMinutes(taskMinutes(task, now))} today
+									</div>
 								</div>
 								<div class="buttons">
 									<button
@@ -397,15 +402,6 @@
 		box-shadow: inset 0 0 0 1px var(--color-orange);
 	}
 
-	.time-travel {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.3em;
-		color: var(--text-muted);
-		font-size: var(--font-ui-smaller);
-		cursor: pointer;
-	}
-
 	.section {
 		margin-bottom: 1.2em;
 	}
@@ -431,6 +427,18 @@
 		color: var(--text-accent);
 	}
 
+	.start-time {
+		all: unset;
+		cursor: pointer;
+		text-decoration: underline dotted;
+		text-underline-offset: 3px;
+	}
+
+	.start-time:hover {
+		color: var(--text-normal);
+	}
+
+	.start-time:focus-visible,
 	.link-button:focus-visible,
 	.task-name:focus-visible,
 	.row-button:focus-visible {

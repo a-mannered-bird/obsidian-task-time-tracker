@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { parseTasks } from './parser'
-import { describeDay, findOvernightClocks, parseStopTime } from './overnight'
+import { describeDay, findOvernightClocks } from './overnight'
 
 const now = new Date(2026, 10, 12, 8, 0)
 
@@ -44,34 +44,5 @@ describe('describeDay', () => {
 		expect(describeDay(new Date(2026, 10, 9), today)).toBe('Monday')
 		expect(describeDay(new Date(2026, 10, 14), today)).toBe('Saturday')
 		expect(describeDay(new Date(2026, 10, 2), today)).toBe('November 2, 2026')
-	})
-})
-
-describe('parseStopTime', () => {
-	const start = new Date(2026, 10, 11, 22, 40)
-
-	it('places the time on the start day', () => {
-		expect(parseStopTime('23:15', start, now)).toEqual({
-			at: new Date(2026, 10, 11, 23, 15),
-		})
-	})
-
-	it('moves a time not after the start to the next day', () => {
-		expect(parseStopTime('0:30', start, now)).toEqual({
-			at: new Date(2026, 10, 12, 0, 30),
-		})
-	})
-
-	it('refuses a time still to come', () => {
-		expect(parseStopTime('9:00', start, now)).toEqual({
-			error: 'That time is still to come.',
-		})
-	})
-
-	it('refuses text that is not a time of day', () => {
-		const error = { error: 'Enter a time like 23:15.' }
-		expect(parseStopTime('late', start, now)).toEqual(error)
-		expect(parseStopTime('24:00', start, now)).toEqual(error)
-		expect(parseStopTime('23:75', start, now)).toEqual(error)
 	})
 })

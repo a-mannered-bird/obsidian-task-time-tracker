@@ -283,6 +283,17 @@ async function resolveTime(
 
 // ----- mutations -----
 
+const TOGGLED = 'toggled'
+const TOGGLE_NOTICE = new RegExp(`^(✅|☕️|⏰) ".*" ${TOGGLED} (on|off)`)
+
+/**
+ * Whether a notice only reports a clock started or stopped, which a caller
+ * telling about the change itself (the tracker tab) leaves out.
+ */
+export function isToggleNotice(message: string): boolean {
+	return TOGGLE_NOTICE.test(message)
+}
+
 function toggleOne(
 	note: TaskNote,
 	task: Task,
@@ -298,7 +309,7 @@ function toggleOne(
 
 	const time = formatLocalDateTime(at).split('T')[1]
 	const emoji = tick ? '✅' : closing ? '☕️' : '⏰'
-	let message = `${emoji} "${task.name}" toggled ${closing ? 'off' : 'on'}${tick ? ' and ticked' : ''} at ${time}`
+	let message = `${emoji} "${task.name}" ${TOGGLED} ${closing ? 'off' : 'on'}${tick ? ' and ticked' : ''} at ${time}`
 	if (closing) {
 		const running = task.clocks.find((clock) => clock.end === null)
 		const session = running ? getMinutesBetween(running.start, at) : 0

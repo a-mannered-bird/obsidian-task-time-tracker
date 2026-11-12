@@ -2,6 +2,7 @@ import assert from 'node:assert'
 import { browser, expect } from '@wdio/globals'
 import { obsidianPage } from 'wdio-obsidian-service'
 import { dayNote } from './support/days'
+import { clickNoticeButton } from './support/notices'
 import { resetVault } from './support/vault'
 
 /**
@@ -224,5 +225,58 @@ describe('tracker tab', function () {
 			content.split('\n').filter((line) => line.startsWith('- [')),
 			['- [x] Write']
 		)
+	})
+
+	it('moves a switch to the time it really happened', async function () {
+		let content = await writeToday([
+			'- [ ] Chores',
+			`      [clock::${today.date}T00:00:00]`,
+			'- [ ] Email',
+		])
+		await openTracker()
+
+		await button('Switch to Email').click()
+		content = await waitForChange(content)
+		assert.deepStrictEqual(states(content, '- [ ] Chores'), ['closed'])
+		assert.deepStrictEqual(states(content, '- [ ] Email'), ['running'])
+
+		// One notice tells the switch, instead of one per clock.
+		const notice = browser.$('.notice*=Switched from Chores to Email at')
+		await clickNoticeButton(notice, 'Change')
+		const modal = await modalTitled('Change the time')
+		const input = modal.$('input[placeholder="HH:MM"]')
+		await input.setValue('00:01')
+		await expect(input).toHaveValue('00:01')
+		await modal.$('button=Change').click()
+
+		// Chores ends and Email starts at the time typed.
+		content = await waitForChange(content)
+		assert.deepStrictEqual(clocksOf(content, '- [ ] Chores'), [
+			{ start: `${today.date}T00:00:00`, end: `${today.date}T00:01:00` },
+		])
+		assert.deepStrictEqual(clocksOf(content, '- [ ] Email'), [
+			{ start: `${today.date}T00:01:00`, end: null },
+		])
+	})
+
+	it('moves the start of a running task to the time typed', async function () {
+		let content = await writeToday([
+			'- [ ] Chores',
+			`      [clock::${today.date}T00:00:00]`,
+		])
+		await openTracker()
+
+		await browser.$('button=Started 00:00').click()
+		const modal = await modalTitled('Change when Chores started')
+		const input = modal.$('input[placeholder="HH:MM"]')
+		await input.setValue('00:05')
+		await expect(input).toHaveValue('00:05')
+		await modal.$('button=Change').click()
+
+		content = await waitForChange(content)
+		assert.deepStrictEqual(clocksOf(content, '- [ ] Chores'), [
+			{ start: `${today.date}T00:05:00`, end: null },
+		])
+		await expect(browser.$('button=Started 00:05')).toBeDisplayed()
 	})
 })

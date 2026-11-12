@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { TaskNote } from './note'
 import {
 	getLastEndedTasks,
+	isToggleNotice,
 	taskChoice,
 	toggleTasks,
 	type Prompts,
@@ -288,5 +289,13 @@ describe('vault-wide picking', () => {
 		expect(changed).toBe(false)
 		expect(offered).toEqual([])
 		expect(notices).toEqual(['No tasks found.'])
+	})
+})
+
+describe('isToggleNotice', () => {
+	it('tells the notices of started and stopped clocks from the others', async () => {
+		const { notices } = await run({ taskName: 'Emails' })
+		expect(notices.map(isToggleNotice)).toEqual([true])
+		expect(isToggleNotice('"Emails" is already running.')).toBe(false)
 	})
 })

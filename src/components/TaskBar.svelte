@@ -23,10 +23,9 @@
 		plugin: TaskTimeTracker
 		tasks: Task[]
 		placeholder: string
-		timeTravel: boolean
 	}
 
-	const { plugin, tasks, placeholder, timeTravel }: Props = $props()
+	const { plugin, tasks, placeholder }: Props = $props()
 
 	/** Other notes' tasks listed before anything is typed, or once typed. */
 	const OTHER_LIMIT = 8
@@ -94,7 +93,7 @@
 			return
 		}
 		reset()
-		void startTask(plugin, choiceOf(option), mode, timeTravel)
+		void startTask(plugin, choiceOf(option), mode)
 	}
 
 	function addOption(option: BarOption) {

@@ -174,17 +174,26 @@ export function registerTrackingCommands(plugin: TaskTimeTracker) {
  * Run engine steps on the target daily note; also used by the tracker tab.
  * A `choice` answers the steps' task picker without showing it: the task
  * the user already chose in the tab, added to the note when it is new.
+ * `notify` receives the run's notices instead of showing them.
  */
 export async function runTrackingSteps(
 	plugin: TaskTimeTracker,
 	steps: ToggleOptions[],
-	choice?: TaskChoice
+	options: { choice?: TaskChoice; notify?: (message: string) => void } = {}
 ) {
 	const { settings } = plugin
+	const { choice, notify } = options
 	const target = currentTarget(plugin)
-	const prompts = interactivePrompts(plugin, target.path)
+	const interactive = interactivePrompts(plugin, target.path)
+	const prompts: Prompts = {
+		...interactive,
+		pickTask: choice
+			? async () => choice
+			: (note, request) => interactive.pickTask(note, request),
+		notify: notify ?? ((message) => interactive.notify(message)),
+	}
 	await applyTrackingSteps(targetIo(plugin, target), steps, {
-		prompts: choice ? { ...prompts, pickTask: async () => choice } : prompts,
+		prompts,
 		unassignedTaskName: settings.unassignedTaskName,
 		// The engine refuses to pick from an empty note unless vault tasks
 		// could fill the picker; a given choice needs no picker at all.
