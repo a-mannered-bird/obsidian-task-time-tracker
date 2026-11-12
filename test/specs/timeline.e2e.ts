@@ -76,7 +76,7 @@ describe('timeline tab', function () {
 		assert.strictEqual(await waitForChange(moved), before)
 	})
 
-	it('resizes an end with Shift and a running start with Alt', async function () {
+	it('resizes an end with Shift, a running start with Alt, and finishes a running clock', async function () {
 		await obsidianPage.openFile(NOTE)
 		const fixture = await obsidianPage.read(NOTE)
 		const before = `${fixture.trimEnd()}\n- [ ] Lunch\n      [clock::2026-08-03T12:00:00]\n`
@@ -100,17 +100,30 @@ describe('timeline tab', function () {
 			)
 		)
 
-		// A running clock cannot move as a whole (it ends now); Alt moves its
-		// start, and it keeps running.
+		// A running clock cannot move later (it would end past now); Alt
+		// moves its start, and it keeps running.
 		await focus('Lunch, 12:00 to now')
 		await browser.keys('ArrowDown')
 		await browser.keys(['Alt', 'ArrowUp'])
 		await expect(block('Lunch, 11:45 to now')).toBeDisplayed()
+		const started = await waitForChange(resized)
 		assert.strictEqual(
-			await waitForChange(resized),
+			started,
 			resized.replace(
 				'[clock::2026-08-03T12:00:00]',
 				'[clock::2026-08-03T11:45:00]'
+			)
+		)
+
+		// Pulling its end up finishes it. On a past day the running block
+		// ends at the end of the axis, midnight, so one step up is 23:45.
+		await browser.keys(['Shift', 'ArrowUp'])
+		await expect(block('Lunch, 11:45 to 23:45')).toBeDisplayed()
+		assert.strictEqual(
+			await waitForChange(started),
+			started.replace(
+				'[clock::2026-08-03T11:45:00]',
+				'[clock::2026-08-03T11:45:00--2026-08-03T23:45:00]'
 			)
 		)
 	})

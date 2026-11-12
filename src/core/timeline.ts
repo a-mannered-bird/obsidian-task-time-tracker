@@ -218,11 +218,6 @@ export function snapStepMinutes(pxPerHour: number): number {
 /** What a drag holds: the whole block, or one of its edges. */
 export type DragEdge = 'move' | 'start' | 'end'
 
-/** A running clock ends now, so only its start can be changed. */
-export function canDrag(block: { running: boolean }, edge: DragEdge): boolean {
-	return !block.running || edge === 'start'
-}
-
 export type SnapOptions = {
 	stepMinutes: number
 	/** Times an edge sticks to exactly when it comes within `magnetMs`. */
@@ -253,7 +248,8 @@ export function magnetsFor(
  * The clock's times after dragging `edge` by `deltaMs`. The moved edges
  * snap (magnet first, then the grid); a move keeps the duration and snaps
  * whichever edge lands on a magnet, else the start. Untouched edges keep
- * their seconds.
+ * their seconds. A running clock counts as ending now: moving it or its end
+ * finishes it (see `constrain`).
  */
 export function dragTimes(
 	original: ClockTimes,
@@ -280,20 +276,25 @@ export function dragTimes(
 		)
 	}
 	const start = shift(original.start)
-	const end = original.end && shift(original.end)
+	const end = shift(original.end ?? options.now)
 	const correction = moveCorrection(start, end, options)
-	return {
-		start: new Date(start.valueOf() + correction),
-		end: end && new Date(end.valueOf() + correction),
-	}
+	return constrain(
+		original,
+		edge,
+		{
+			start: new Date(start.valueOf() + correction),
+			end: new Date(end.valueOf() + correction),
+		},
+		options
+	)
 }
 
-function moveCorrection(start: Date, end: Date | null, options: SnapOptions) {
+function moveCorrection(start: Date, end: Date, options: SnapOptions) {
 	if (options.free) return roundToMinute(start).valueOf() - start.valueOf()
 	const toStart = magnetFor(start, options)
-	const toEnd = end && magnetFor(end, options)
+	const toEnd = magnetFor(end, options)
 	const startPull = toStart && toStart.valueOf() - start.valueOf()
-	const endPull = toEnd && end && toEnd.valueOf() - end.valueOf()
+	const endPull = toEnd && toEnd.valueOf() - end.valueOf()
 	if (
 		startPull !== null &&
 		(endPull === null || Math.abs(startPull) <= Math.abs(endPull))
@@ -343,7 +344,9 @@ function toGrid(date: Date, stepMinutes: number): Date {
 
 /**
  * A block never gets shorter than one step (never zero-length), and a
- * running clock's start never passes now.
+ * running clock's start never passes now. A running clock moved or ended
+ * before now is finished there; one that would end at now or later is left
+ * running as it was, since time not yet worked cannot be clocked.
  */
 function constrain(
 	original: ClockTimes,
@@ -359,13 +362,15 @@ function constrain(
 			? { start: new Date(latest), end: original.end }
 			: proposed
 	}
+	let constrained = proposed
 	if (edge === 'end' && proposed.end) {
 		const earliest = original.start.valueOf() + minimum
-		return proposed.end.valueOf() < earliest
-			? { start: original.start, end: new Date(earliest) }
-			: proposed
+		if (proposed.end.valueOf() < earliest) {
+			constrained = { start: original.start, end: new Date(earliest) }
+		}
 	}
-	return proposed
+	const reachesNow = !constrained.end || constrained.end >= options.now
+	return original.end === null && reachesNow ? original : constrained
 }
 
 /**
@@ -397,7 +402,7 @@ export function nudgeTimes(
 				? { start: original.start, end: shift(from) }
 				: {
 						start: shift(original.start),
-						end: original.end && shift(original.end),
+						end: shift(original.end ?? now),
 					}
 	return constrain(original, edge, proposed, options)
 }

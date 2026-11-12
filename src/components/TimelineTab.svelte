@@ -7,7 +7,6 @@
 	import {
 		blockId,
 		blockLabel,
-		canDrag,
 		clampZoom,
 		dragTimes,
 		drawnTimes,
@@ -114,6 +113,12 @@
 				])
 			: null
 	)
+	/**
+	 * Latest time an edit may reach. A running clock of an older note ends at
+	 * the real now, far past its axis: edited as ending at the axis end, its
+	 * end can be dragged back onto the day to finish it.
+	 */
+	const editLimit = $derived(axis && now > axis.end ? axis.end : now)
 	const hours = $derived.by(() => {
 		if (!axis) return []
 		const list: Date[] = []
@@ -265,7 +270,7 @@
 			]),
 			magnetMs: (MAGNET_PX / zoom) * HOUR,
 			free: event.altKey,
-			now,
+			now: editLimit,
 		}
 	}
 
@@ -280,9 +285,6 @@
 				return
 			}
 			if (Math.abs(dy) < DRAG_THRESHOLD_PX) return
-			if (current.kind === 'block' && !canDrag(current.block, current.edge)) {
-				return
-			}
 			current.active = true
 		}
 		if (current.kind === 'create') {
@@ -359,11 +361,16 @@
 			: event.altKey
 				? 'start'
 				: 'move'
-		if (!canDrag(block, edge)) return
 		if (nudge && nudge.id !== block.id) flushNudge()
 		const direction = event.key === 'ArrowUp' ? -1 : 1
 		const base = nudge?.times ?? timesOf(block)
-		const times = nudgeTimes(base, edge, direction, snapStepMinutes(zoom), now)
+		const times = nudgeTimes(
+			base,
+			edge,
+			direction,
+			snapStepMinutes(zoom),
+			editLimit
+		)
 		if (!fitsInAxis(times)) return
 		nudge ??= { id: block.id, key: keyOf(block), times, timer: 0 }
 		nudge.times = times
@@ -657,13 +664,11 @@
 							onpointerdown={(event) => onPointerDown(event, block, 'start')}
 						></div>
 						{@render content(block, height)}
-						{#if canDrag(block, 'end')}
-							<div
-								class="handle handle-end"
-								aria-hidden="true"
-								onpointerdown={(event) => onPointerDown(event, block, 'end')}
-							></div>
-						{/if}
+						<div
+							class="handle handle-end"
+							aria-hidden="true"
+							onpointerdown={(event) => onPointerDown(event, block, 'end')}
+						></div>
 					</div>
 					{#if ghost?.id === block.id}
 						{@const ghostTop = yOnAxis(ghost.times.start)}

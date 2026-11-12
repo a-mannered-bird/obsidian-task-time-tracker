@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest'
 import { parseTasks } from './parser'
 import {
 	addClock,
-	canDrag,
 	describeClockAdded,
 	describeClockEdit,
 	dragTimes,
@@ -198,15 +197,6 @@ describe('snapStepMinutes', () => {
 	})
 })
 
-describe('canDrag', () => {
-	it('only lets the start of a running clock move', () => {
-		expect(canDrag({ running: true }, 'start')).toBe(true)
-		expect(canDrag({ running: true }, 'end')).toBe(false)
-		expect(canDrag({ running: true }, 'move')).toBe(false)
-		expect(canDrag({ running: false }, 'move')).toBe(true)
-	})
-})
-
 describe('dragTimes', () => {
 	const clock = { start: at(9, 0, 20), end: at(10, 30, 40) }
 
@@ -269,6 +259,32 @@ describe('dragTimes', () => {
 		})
 	})
 
+	it('finishes a running clock moved earlier, keeping its duration so far', () => {
+		// Running since 13:00 at 14:00: an hour, now ending 30 min earlier.
+		const running = { start: at(13), end: null }
+		expect(dragTimes(running, 'move', -minutes(30), grid)).toEqual({
+			start: at(12, 30),
+			end: at(13, 30),
+		})
+	})
+
+	it('finishes a running clock at its dragged end', () => {
+		const running = { start: at(13), end: null }
+		expect(dragTimes(running, 'end', -minutes(20), grid)).toEqual({
+			start: at(13),
+			end: at(13, 45),
+		})
+	})
+
+	it('leaves a running clock running when it would end at now or later', () => {
+		const running = { start: at(13), end: null }
+		expect(dragTimes(running, 'move', minutes(30), grid)).toEqual(running)
+		expect(dragTimes(running, 'end', minutes(5), grid)).toEqual(running)
+		// Too short to finish before now: one step from 13:50 is 14:05.
+		const late = { start: at(13, 50), end: null }
+		expect(dragTimes(late, 'end', -minutes(20), grid)).toEqual(late)
+	})
+
 	it('keeps a running clock running and its start before now', () => {
 		const running = { start: at(13), end: null }
 		expect(dragTimes(running, 'start', -minutes(30), grid)).toEqual({
@@ -320,6 +336,19 @@ describe('nudgeTimes', () => {
 	it('applies the drag limits', () => {
 		const short = { start: at(9), end: at(9, 15) }
 		expect(nudgeTimes(short, 'end', -1, 15, now)).toEqual(short)
+	})
+
+	it('finishes a running clock moved up, and leaves it moved down', () => {
+		const running = { start: at(13), end: null }
+		expect(nudgeTimes(running, 'move', -1, 15, now)).toEqual({
+			start: at(12, 45),
+			end: at(13, 45),
+		})
+		expect(nudgeTimes(running, 'move', 1, 15, now)).toEqual(running)
+		expect(nudgeTimes(running, 'end', -1, 15, now)).toEqual({
+			start: at(13),
+			end: at(13, 45),
+		})
 	})
 })
 
