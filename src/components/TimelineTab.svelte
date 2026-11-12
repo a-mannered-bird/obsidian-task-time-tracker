@@ -727,6 +727,21 @@
 		color: var(--text-muted);
 	}
 
+	/*
+	 * What the view is painted on, for the sticky toolbar to hide what scrolls
+	 * under it and for the block colors to blend into. Side panels are
+	 * secondary: docks on desktop, drawers on mobile.
+	 */
+	.timeline-toolbar,
+	.timeline {
+		--timeline-background: var(--background-primary);
+	}
+
+	:global(:is(.mod-sidedock, .workspace-drawer))
+		:is(.timeline-toolbar, .timeline) {
+		--timeline-background: var(--background-secondary);
+	}
+
 	.timeline-toolbar {
 		position: sticky;
 		top: 0;
@@ -735,11 +750,7 @@
 		justify-content: flex-end;
 		gap: 0.25em;
 		padding: 0.25em 0;
-		background: var(--background-primary);
-	}
-
-	:global(.mod-sidedock) .timeline-toolbar {
-		background: var(--background-secondary);
+		background: var(--timeline-background);
 	}
 
 	.timeline {
@@ -822,12 +833,12 @@
 		 * touching blocks is drawn inside instead.
 		 */
 		border-left: 3px solid var(--block-color);
-		box-shadow: inset 0 0 0 1px var(--background-primary);
+		box-shadow: inset 0 0 0 1px var(--timeline-background);
 		border-radius: var(--radius-s);
 		background: color-mix(
 			in srgb,
 			var(--block-color) 25%,
-			var(--background-primary)
+			var(--timeline-background)
 		);
 		color: var(--text-normal);
 		cursor: grab;
@@ -857,7 +868,7 @@
 			background: color-mix(
 				in srgb,
 				var(--block-color) 40%,
-				var(--background-primary)
+				var(--timeline-background)
 			);
 		}
 	}
@@ -879,7 +890,7 @@
 		background: color-mix(
 			in srgb,
 			var(--block-color) 45%,
-			var(--background-primary)
+			var(--timeline-background)
 		);
 	}
 
