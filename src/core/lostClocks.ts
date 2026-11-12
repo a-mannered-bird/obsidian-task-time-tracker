@@ -14,6 +14,14 @@ export type LostClock = {
 	end: Date | null
 }
 
+/** The user's last change of a note in an editor. */
+export type EditorEdit = {
+	/** When it happened, epoch ms. */
+	at: number
+	/** The note as the editor held it right after. */
+	content: () => string
+}
+
 const LISTED_CLOCKS = 3
 
 /**
@@ -109,34 +117,64 @@ function describeClock(clock: LostClock): string {
  * practice a sync that reconciled two versions of the note badly.
  */
 export class LostClockTracker {
-	private acknowledged = new Map<string, Task[]>()
+	/**
+	 * Per note, the plugin's own writes whose change was not seen yet, oldest
+	 * first. A list, not the last one: two writes in a row can both land
+	 * before the first one's change comes in, and that change must then not
+	 * be measured against the second write.
+	 */
+	private acknowledged = new Map<string, Task[][]>()
 	private pending = new Map<string, LostClock[]>()
 
 	/** The plugin wrote this content itself: what it removed is not lost. */
 	acknowledge(path: string, content: string) {
-		this.acknowledged.set(path, parseTasks(content.split('\n')))
+		const writes = this.acknowledged.get(path) ?? []
+		writes.push(parseTasks(content.split('\n')))
+		this.acknowledged.set(path, writes)
+	}
+
+	/**
+	 * What the change is measured against: nothing when the note holds one
+	 * of the plugin's writes (the change is that write's), else the plugin's
+	 * last write, else the previous state. Writes up to the one matched are
+	 * done with.
+	 */
+	private baseline(
+		path: string,
+		previous: Task[] | null,
+		current: Task[]
+	): Task[] | null {
+		const writes = this.acknowledged.get(path) ?? []
+		const own = writes.findIndex((written) => sameTasks(written, current))
+		const rest = own >= 0 ? writes.slice(own + 1) : []
+		if (rest.length > 0) this.acknowledged.set(path, rest)
+		else this.acknowledged.delete(path)
+		if (own >= 0) return null
+		return writes[writes.length - 1] ?? previous
 	}
 
 	/**
 	 * A note went from `previous` (null when unknown; `mtime` is the file's
-	 * back then) to `current`. Returns every clock of the note still waiting
-	 * to be restored: the ones lost earlier, minus those that came back, plus
-	 * the ones lost now. `lastUserEdit` (epoch ms) is when the user last
-	 * changed the note in an editor: newer than the previous file, the edit
-	 * was still unsaved, so this change is the user's own and loses nothing.
+	 * as stamped when the store took it in) to `current`. Returns every clock
+	 * of the note still waiting to be restored: the ones lost earlier, minus
+	 * those that came back, plus the ones lost now. `userEdit` is the user's
+	 * last change in an editor; this change is the user's own and loses
+	 * nothing when it saves what the editor held then, or when the edit is
+	 * newer than the previous file (it was still unsaved). The content test
+	 * is the one to trust: changes can come in late, after a newer write
+	 * already stamped the previous state with its own, later mtime.
 	 */
 	noteChanged(
 		path: string,
 		previous: { tasks: Task[]; mtime: number } | null,
 		current: Task[],
-		lastUserEdit?: number
+		userEdit?: EditorEdit
 	): LostClock[] {
-		const before = this.acknowledged.get(path) ?? previous?.tasks
-		this.acknowledged.delete(path)
+		const before = this.baseline(path, previous?.tasks ?? null, current)
 		const byUser =
-			lastUserEdit !== undefined &&
-			previous !== null &&
-			lastUserEdit > previous.mtime
+			userEdit !== undefined &&
+			((previous !== null && userEdit.at > previous.mtime) ||
+				sameTasks(parseTasks(userEdit.content().split('\n')), current))
 
 		const lost = stillLost(this.pending.get(path) ?? [], current)
 		if (before && !byUser) {
@@ -155,6 +193,23 @@ export class LostClockTracker {
 		this.pending.delete(path)
 		this.acknowledged.delete(path)
 	}
+}
+
+/** Same tasks, tags, ticks and clocks, in the same order. */
+function sameTasks(a: Task[], b: Task[]): boolean {
+	const key = (tasks: Task[]) =>
+		JSON.stringify(
+			tasks.map((task) => [
+				task.name,
+				task.ticked,
+				task.tags,
+				task.clocks.map((clock) => [
+					clock.start.valueOf(),
+					clock.end?.valueOf() ?? null,
+				]),
+			])
+		)
+	return key(a) === key(b)
 }
 
 function clockKey(clock: LostClock): string {

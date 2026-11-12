@@ -6,12 +6,20 @@ import type TaskTimeTracker from '../main'
 /** User event Obsidian gives the transaction reloading a note from disk. */
 const RELOAD_EVENT = 'set'
 
+/** The user's last change of a note in an editor. */
+export type UserEdit = {
+	/** When it happened, epoch ms. */
+	at: number
+	/** The note as the editor held it right after; read only when needed. */
+	content: () => string
+}
+
 /**
- * Record when the user last changed each note in an editor (epoch ms, by
- * path, in `plugin.userEdits`). Typing, deleting, undo and redo carry a
- * user event; so does Obsidian's own reload of a note after an outside
- * write, under the name "set" (observed on Obsidian 1.15, not documented),
- * which is exactly the change that must not count as the user's.
+ * Record the user's last change of each note in an editor (by path, in
+ * `plugin.userEdits`). Typing, deleting, undo and redo carry a user event;
+ * so does Obsidian's own reload of a note after an outside write, under the
+ * name "set" (observed on Obsidian 1.15, not documented), which is exactly
+ * the change that must not count as the user's.
  */
 export function registerUserEditLog(plugin: TaskTimeTracker) {
 	plugin.registerEditorExtension(
@@ -22,7 +30,12 @@ export function registerUserEditLog(plugin: TaskTimeTracker) {
 				return event !== undefined && event !== RELOAD_EVENT
 			})
 			const file = update.state.field(editorInfoField, false)?.file
-			if (byUser && file) plugin.userEdits.set(file.path, Date.now())
+			if (!byUser || !file) return
+			const { doc } = update.state
+			plugin.userEdits.set(file.path, {
+				at: Date.now(),
+				content: () => doc.toString(),
+			})
 		})
 	)
 }

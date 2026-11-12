@@ -94,7 +94,7 @@ export async function saveOpenEditors(plugin: TaskTimeTracker, file: TFile) {
 	// differ from the file because Obsidian has not refreshed it yet after an
 	// outside write (sync), and saving that one would overwrite the write.
 	const lastEdit = plugin.userEdits.get(file.path)
-	if (lastEdit === undefined || lastEdit <= file.stat.mtime) return
+	if (lastEdit === undefined || lastEdit.at <= file.stat.mtime) return
 	for (const leaf of plugin.app.workspace.getLeavesOfType('markdown')) {
 		const { view } = leaf
 		if (view instanceof MarkdownView && view.file === file) await view.save()

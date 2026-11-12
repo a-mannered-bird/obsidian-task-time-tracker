@@ -1,7 +1,11 @@
 import type { ToggleOptions } from 'core/toggle'
 import type TaskTimeTracker from '../main'
-import { completeJournal } from './completeJournal'
-import { TIME_COMMANDS, runTimeCommand } from './frontmatterTime'
+import { endDay } from './completeJournal'
+import {
+	BED_TIME_COMMAND,
+	runTimeCommand,
+	WAKE_TIME_COMMAND,
+} from './frontmatterTime'
 import { runTrackingSteps } from './tracking'
 
 export const QUICK_ACTION_VERBS = [
@@ -63,10 +67,12 @@ export async function runQuickAction(
 	const step = VERB_STEPS[action.verb](action.taskName)
 	if (action.timeTravel) step.timeTravel = true
 	await runTrackingSteps(plugin, [step])
-	if (action.setWakeTime) await runTimeCommand(plugin, TIME_COMMANDS[0]!)
-	// Bed time first: the journal completion closes clocks at the bed time.
-	if (action.setBedTime) await runTimeCommand(plugin, TIME_COMMANDS[1]!)
-	if (action.completeJournal) await completeJournal(plugin)
+	if (action.setWakeTime) await runTimeCommand(plugin, WAKE_TIME_COMMAND)
+	// Bed time first: ending the day closes clocks at the bed time.
+	const bedTime = action.setBedTime
+		? await runTimeCommand(plugin, BED_TIME_COMMAND)
+		: null
+	if (action.completeJournal) await endDay(plugin, bedTime ?? undefined)
 }
 
 /**

@@ -100,6 +100,11 @@ export async function toggleTasks(
 		? note.findTask(context.unassignedTaskName)
 		: undefined
 	const endingInterruption = Boolean(unassigned && isRunning(unassigned))
+	// Interruptions must work on any note, not only on those planned with
+	// the unassigned task in them.
+	if (options.interruption && !unassigned) {
+		note.insertTask(context.unassignedTaskName, [])
+	}
 	const effective: ToggleOptions = endingInterruption
 		? { ...options, taskName: undefined, previous: true }
 		: options.interruption

@@ -8,7 +8,7 @@ import {
 	registerQuickActionCommands,
 } from './commands/quickActions'
 import { registerTrackingCommands } from './commands/tracking'
-import { registerUserEditLog } from './commands/userEdits'
+import { registerUserEditLog, type UserEdit } from './commands/userEdits'
 import { getCoreDailyNotesConfig } from './core/coreDailyNotes'
 import { DailyLogStore } from './core/dailyLogs'
 import { isDailyNote, type DailyNotesConfig } from './core/dailyNotes'
@@ -39,8 +39,8 @@ export default class TaskTimeTracker extends Plugin {
 	})
 
 	lostClocks = new LostClockTracker()
-	/** When the user last changed each note in an editor: path → epoch ms. */
-	userEdits = new Map<string, number>()
+	/** The user's last change of each note in an editor, by path. */
+	userEdits = new Map<string, UserEdit>()
 
 	async onload() {
 		await this.loadSettings()

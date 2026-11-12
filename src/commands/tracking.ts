@@ -6,6 +6,7 @@ import type {
 	TaskChoice,
 	ToggleOptions,
 } from 'core/toggle'
+import type { VaultPickerEntries } from 'core/taskPicker'
 import { applyTrackingSteps } from 'core/trackingRun'
 import { pickTask, type PickerNote } from 'ui/TaskSuggestModal'
 import { promptMinutes } from 'ui/MinutesPromptModal'
@@ -169,17 +170,25 @@ export function registerTrackingCommands(plugin: TaskTimeTracker) {
 	}
 }
 
-/** Run engine steps on the target daily note; also used by the tracker tab. */
+/**
+ * Run engine steps on the target daily note; also used by the tracker tab.
+ * A `choice` answers the steps' task picker without showing it: the task
+ * the user already chose in the tab, added to the note when it is new.
+ */
 export async function runTrackingSteps(
 	plugin: TaskTimeTracker,
-	steps: ToggleOptions[]
+	steps: ToggleOptions[],
+	choice?: TaskChoice
 ) {
 	const { settings } = plugin
 	const target = currentTarget(plugin)
+	const prompts = interactivePrompts(plugin, target.path)
 	await applyTrackingSteps(targetIo(plugin, target), steps, {
-		prompts: interactivePrompts(plugin, target.path),
+		prompts: choice ? { ...prompts, pickTask: async () => choice } : prompts,
 		unassignedTaskName: settings.unassignedTaskName,
-		vaultTasksAvailable: settings.includeVaultTasks,
+		// The engine refuses to pick from an empty note unless vault tasks
+		// could fill the picker; a given choice needs no picker at all.
+		vaultTasksAvailable: settings.includeVaultTasks || choice !== undefined,
 		now: new Date(),
 	})
 }
@@ -204,7 +213,7 @@ export function pickNoteTask(
 	note: TaskNote,
 	request: PickTaskRequest
 ): Promise<TaskChoice | null> {
-	const { app, settings, vaultTasks } = plugin
+	const { app, settings } = plugin
 	const includeVault = request.includeVault && settings.includeVaultTasks
 	const shown = (version: TaskNote): PickerNote => ({
 		tasks: request.choices(version),
@@ -216,17 +225,22 @@ export function pickNoteTask(
 		note: shown(note),
 		watch: (update) =>
 			watchNote(plugin, path, (version) => update(shown(version))),
-		vaultEntries: includeVault
-			? vaultTasks.ensureBuilt().then(() => {
-					const hidden = new Set(settings.hiddenTasks)
-					const infos = vaultTasks.snapshot()
-					return {
-						visible: infos.filter((info) => !hidden.has(info.name)),
-						hidden: infos.filter((info) => hidden.has(info.name)),
-					}
-				})
-			: undefined,
+		vaultEntries: includeVault ? loadVaultEntries(plugin) : undefined,
 	})
+}
+
+/** The vault's tasks for a picker, split by the hide flags. */
+export async function loadVaultEntries(
+	plugin: TaskTimeTracker
+): Promise<VaultPickerEntries> {
+	const { settings, vaultTasks } = plugin
+	await vaultTasks.ensureBuilt()
+	const hidden = new Set(settings.hiddenTasks)
+	const infos = vaultTasks.snapshot()
+	return {
+		visible: infos.filter((info) => !hidden.has(info.name)),
+		hidden: infos.filter((info) => hidden.has(info.name)),
+	}
 }
 
 /**

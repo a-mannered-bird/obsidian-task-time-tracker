@@ -351,7 +351,7 @@ export class TaskTimeTrackerSettingTab extends PluginSettingTab {
 				},
 				{
 					label: 'complete',
-					tooltip: 'Then complete the journal entry',
+					tooltip: 'Then end the day',
 					key: 'completeJournal',
 				},
 			]

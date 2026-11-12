@@ -208,6 +208,27 @@ describe('toggleTasks', () => {
 	})
 })
 
+describe('quick interruption on a note without the unassigned task', () => {
+	it('adds the unassigned task, then starts it', async () => {
+		const note = new TaskNote(
+			['- [ ] Emails', '      [clock::2026-08-16T11:00:00]'].join('\n')
+		)
+		const { prompts } = scripted()
+		const changed = await toggleTasks(
+			note,
+			{ interruption: true, switch: true },
+			{ prompts, unassignedTaskName: 'Unassigned', now }
+		)
+		expect(changed).toBe(true)
+		expect(note.toString().split('\n')).toEqual([
+			'- [ ] Emails',
+			`      [clock::${at(11)}--${at(12)}]`,
+			'- [ ] Unassigned',
+			`      [clock::${at(12)}]`,
+		])
+	})
+})
+
 describe('getLastEndedTasks', () => {
 	it('returns the stopped tasks sharing the latest end, ignoring running ones', () => {
 		const note = new TaskNote(

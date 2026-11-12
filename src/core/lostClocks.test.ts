@@ -127,6 +127,11 @@ describe('LostClockTracker', () => {
 		tasks: tasks(lines),
 		mtime,
 	})
+	/** The user's last editor change, at `at`, leaving the note as `lines`. */
+	const editedAt = (at: number, lines: string[]) => ({
+		at,
+		content: () => lines.join('\n'),
+	})
 
 	it('reports clocks lost in an outside change', () => {
 		const tracker = new LostClockTracker()
@@ -146,7 +151,22 @@ describe('LostClockTracker', () => {
 				path,
 				saved(before, 1000),
 				tasks(withoutDogWalk),
-				1001
+				editedAt(1001, before)
+			)
+		).toEqual([])
+	})
+
+	it("ignores the user's save when its change comes in after a newer write stamped the previous state", () => {
+		// The change of an earlier write arrived late, so the store stamped
+		// that state with the mtime of the save that followed it, which is
+		// later than the edit: only the content tells the save apart.
+		const tracker = new LostClockTracker()
+		expect(
+			tracker.noteChanged(
+				path,
+				saved(before, 1000),
+				tasks(withoutDogWalk),
+				editedAt(999, withoutDogWalk)
 			)
 		).toEqual([])
 	})
@@ -157,7 +177,7 @@ describe('LostClockTracker', () => {
 			path,
 			saved(before, 1000),
 			tasks(withoutDogWalk),
-			999
+			editedAt(999, before)
 		)
 		expect(spans(lost)).toEqual(['Walk the dog 10:00-10:30'])
 	})
@@ -174,6 +194,36 @@ describe('LostClockTracker', () => {
 		const tracker = new LostClockTracker()
 		tracker.acknowledge(path, before.join('\n'))
 		// The store never saw the plugin's write: its previous state is older.
+		const lost = tracker.noteChanged(path, saved([]), tasks(withoutDogWalk))
+		expect(spans(lost)).toEqual(['Walk the dog 10:00-10:30'])
+	})
+
+	it('ignores two writes of the plugin whose changes both come in after them', () => {
+		// The plugin stops the running Emails clock, then deletes the dog
+		// walk, before the first write's change reaches the watch.
+		const stopped = [
+			'- [ ] Emails #work',
+			'      [clock::2026-08-16T09:00:00--2026-08-16T09:30:00]',
+			'      [clock::2026-08-16T11:00:00--2026-08-16T11:30:00]',
+			'- [ ] Walk the dog',
+			'      [clock::2026-08-16T10:00:00--2026-08-16T10:30:00]',
+		]
+		const tracker = new LostClockTracker()
+		tracker.acknowledge(path, stopped.join('\n'))
+		tracker.acknowledge(path, stopped.slice(0, 3).join('\n'))
+
+		expect(tracker.noteChanged(path, saved(before), tasks(stopped))).toEqual([])
+		expect(
+			tracker.noteChanged(path, saved(stopped), tasks(stopped.slice(0, 3)))
+		).toEqual([])
+	})
+
+	it('measures an outside change after two writes against the last one', () => {
+		const tracker = new LostClockTracker()
+		tracker.acknowledge(path, ['- [ ] Emails #work'].join('\n'))
+		tracker.acknowledge(path, before.join('\n'))
+		// The second write's change never came alone: a sync removed the dog
+		// walk right after it.
 		const lost = tracker.noteChanged(path, saved([]), tasks(withoutDogWalk))
 		expect(spans(lost)).toEqual(['Walk the dog 10:00-10:30'])
 	})

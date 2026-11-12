@@ -24,6 +24,29 @@ async function openTimeline() {
 	await tab.click()
 	await expect(tab).toHaveAttribute('aria-selected', 'true')
 	await expect(block('Task A, 09:00 to 09:30')).toBeDisplayed()
+	await waitForSteadyTimeline()
+}
+
+/**
+ * Wait until the timeline stops moving. It scrolls to the note's start only
+ * after its blocks are drawn; a pointer aimed at a block before that lands
+ * hours away from it once the scroll comes in.
+ */
+async function waitForSteadyTimeline() {
+	const element = await block('Task A, 09:00 to 09:30').getElement()
+	let last = NaN
+	await browser.waitUntil(
+		async () => {
+			const top = await browser.execute(
+				(el) => el.getBoundingClientRect().top,
+				element
+			)
+			const steady = top === last
+			last = top
+			return steady
+		},
+		{ interval: 150, timeoutMsg: 'the timeline kept moving' }
+	)
 }
 
 async function focus(label: string) {

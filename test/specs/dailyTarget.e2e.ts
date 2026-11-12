@@ -1,6 +1,7 @@
 import assert from 'node:assert'
 import { browser, expect } from '@wdio/globals'
 import { obsidianPage } from 'wdio-obsidian-service'
+import { dayNote } from './support/days'
 import { resetVault } from './support/vault'
 
 /**
@@ -12,16 +13,6 @@ import { resetVault } from './support/vault'
 /** A note that is not a daily note, so nothing pins the tracker to a day. */
 const SCRATCH = 'Scratch.md'
 const LATEST_FIXTURE = '2026-08-03.md'
-
-const pad = (n: number) => String(n).padStart(2, '0')
-const isoDate = (date: Date) =>
-	`${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
-
-function dayNote(offset: number): { path: string; date: string } {
-	const date = new Date()
-	date.setDate(date.getDate() + offset)
-	return { path: `${isoDate(date)}.md`, date: isoDate(date) }
-}
 
 async function noteExists(path: string): Promise<boolean> {
 	return browser.executeObsidian(
@@ -111,7 +102,7 @@ describe('daily target', function () {
 				!(await browser.$('h2=Still running from yesterday').isExisting()),
 			{ timeoutMsg: 'the card stayed' }
 		)
-		await expect(browser.$('span=Nothing running.')).toBeDisplayed()
+		await expect(browser.$('p=Nothing tracked yet')).toBeDisplayed()
 		assert.strictEqual(await noteExists(dayNote(0).path), false)
 
 		// The reset deletes the note: start the next test without its clocks.
@@ -164,7 +155,7 @@ describe('daily target', function () {
 				`[clock::${yesterday.date}T22:40:00--${yesterday.date}T23:30:00]`
 			)
 		)
-		await expect(browser.$('span=Nothing running.')).toBeDisplayed()
+		await expect(browser.$('p=Nothing tracked yet')).toBeDisplayed()
 
 		// The reset deletes the note: start the next test without its clocks.
 		await browser.executeObsidian(({ plugins }, path) => {

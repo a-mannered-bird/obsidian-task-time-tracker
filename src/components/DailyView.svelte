@@ -1,5 +1,10 @@
 <script lang="ts">
-	import { moment, type App, type TFile } from 'obsidian'
+	import { Menu, moment, type App, type TFile } from 'obsidian'
+	import {
+		BED_TIME_COMMAND,
+		runTimeCommand,
+		WAKE_TIME_COMMAND,
+	} from 'commands/frontmatterTime'
 	import { onMount } from 'svelte'
 	import {
 		createDailyNote,
@@ -16,7 +21,9 @@
 		type OvernightNote,
 	} from 'core/overnight'
 	import type { DailyViewTab } from '../settings'
+	import { formatTimeOfDay } from 'core/timeline'
 	import { icon } from 'ui/icon'
+	import { openTaskManager } from 'ui/TaskManagerModal'
 	import DailyStats from './DailyStats.svelte'
 	import TimelineTab from './TimelineTab.svelte'
 	import TrackerTab from './TrackerTab.svelte'
@@ -95,6 +102,17 @@
 		await reload()
 	}
 
+	function openMoreMenu(event: MouseEvent) {
+		const menu = new Menu()
+		menu.addItem((item) =>
+			item
+				.setTitle('Manage tasks')
+				.setIcon('list-todo')
+				.onClick(() => openTaskManager(plugin))
+		)
+		menu.showAtMouseEvent(event)
+	}
+
 	async function openToday() {
 		const today = new Date()
 		const file =
@@ -136,7 +154,40 @@
 		<button class="today-button" onclick={() => void openToday()}>
 			Today
 		</button>
+		<button
+			class="icon-button"
+			aria-label="More actions"
+			use:icon={'more-horizontal'}
+			onclick={openMoreMenu}
+		></button>
 	</div>
+
+	{#if target}
+		<div class="day-status">
+			<button
+				class="day-time"
+				class:is-reminder={!log?.wakeTime && !otherDay}
+				aria-label={log?.wakeTime
+					? `Wake time ${formatTimeOfDay(log.wakeTime)}, change`
+					: 'Set wake time'}
+				onclick={() => void runTimeCommand(plugin, WAKE_TIME_COMMAND)}
+			>
+				<span use:icon={'sunrise'}></span>
+				{log?.wakeTime ? formatTimeOfDay(log.wakeTime) : 'Set wake time'}
+			</button>
+			<span aria-hidden="true">·</span>
+			<button
+				class="day-time"
+				aria-label={log?.bedTime
+					? `Bed time ${formatTimeOfDay(log.bedTime)}, change`
+					: 'Set bed time'}
+				onclick={() => void runTimeCommand(plugin, BED_TIME_COMMAND)}
+			>
+				<span use:icon={'moon'}></span>
+				{log?.bedTime ? formatTimeOfDay(log.bedTime) : 'Set bed time'}
+			</button>
+		</div>
+	{/if}
 
 	{#if otherDay && active === 'tracker'}
 		<div class="other-day" role="status">
@@ -163,7 +214,7 @@
 
 	<div class="tab-panel" role="tabpanel">
 		{#if active === 'tracker'}
-			<TrackerTab {plugin} {log} {overnight} {loading} />
+			<TrackerTab {plugin} {log} {overnight} {otherDay} {loading} />
 		{:else if active === 'timeline'}
 			<TimelineTab {plugin} {log} {loading} />
 		{:else}
@@ -232,6 +283,45 @@
 
 	.today-button:hover {
 		color: var(--text-normal);
+	}
+
+	.day-status {
+		display: flex;
+		align-items: center;
+		gap: 0.3em;
+		margin-top: 0.2em;
+		color: var(--text-faint);
+		font-size: var(--font-ui-smaller);
+	}
+
+	.day-time {
+		all: unset;
+		cursor: pointer;
+		display: inline-flex;
+		align-items: center;
+		gap: 0.3em;
+		padding: 0.1em 0.25em;
+		border-radius: var(--radius-s);
+		color: var(--text-muted);
+	}
+
+	.day-time:hover {
+		background: var(--background-modifier-hover);
+		color: var(--text-normal);
+	}
+
+	.day-time:focus-visible {
+		outline: 2px solid var(--interactive-accent);
+		outline-offset: 2px;
+	}
+
+	.day-time.is-reminder {
+		color: var(--text-accent);
+	}
+
+	.day-time :global(svg) {
+		width: var(--icon-xs);
+		height: var(--icon-xs);
 	}
 
 	.other-day {
