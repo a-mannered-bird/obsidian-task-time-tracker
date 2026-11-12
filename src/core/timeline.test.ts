@@ -177,15 +177,35 @@ describe('fitRange', () => {
 	const blocks = blocksOf(note)
 
 	it('fits wake to bed when both are recorded', () => {
-		expect(fitRange(at(7), at(23), blocks)).toEqual({
+		expect(fitRange(at(7), at(13), blocks, now)).toEqual({
 			start: at(7),
-			end: at(23),
+			end: at(13),
+		})
+	})
+
+	it('stops at the last clock when bed time is still ahead', () => {
+		const finished = blocks.filter((block) => !block.running)
+		expect(fitRange(at(7), at(23), finished, now)).toEqual({
+			start: at(7),
+			end: at(11),
+		})
+		// A running clock is logged up to now.
+		expect(fitRange(at(7), at(23), blocks, now)).toEqual({
+			start: at(7),
+			end: now,
+		})
+		expect(fitRange(at(7), at(23), [], now)).toEqual({
+			start: at(7),
+			end: now,
 		})
 	})
 
 	it('fits the clocks otherwise, a running one up to now', () => {
-		expect(fitRange(at(7), null, blocks)).toEqual({ start: at(9), end: now })
-		expect(fitRange(null, null, [])).toBeNull()
+		expect(fitRange(at(7), null, blocks, now)).toEqual({
+			start: at(9),
+			end: now,
+		})
+		expect(fitRange(null, null, [], now)).toBeNull()
 	})
 })
 

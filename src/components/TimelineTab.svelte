@@ -450,7 +450,7 @@
 
 	async function fit() {
 		if (!log || !scroller) return
-		const range = fitRange(log.wakeTime, log.bedTime, shown)
+		const range = fitRange(log.wakeTime, log.bedTime, shown, now)
 		if (!range || !axis) return
 		const end = Math.min(range.end.valueOf(), axis.end.valueOf())
 		const visible = scroller.clientHeight - toolbarHeight()
@@ -588,7 +588,7 @@
 			class="clickable-icon"
 			aria-label="Fit the day"
 			use:icon={'fold-vertical'}
-			disabled={!fitRange(log.wakeTime, log.bedTime, shown)}
+			disabled={!fitRange(log.wakeTime, log.bedTime, shown, now)}
 			onclick={() => void fit()}
 		></button>
 	</div>

@@ -180,18 +180,26 @@ export function initialScrollTime(
 	return wakeTime ?? blocks[0]?.start ?? null
 }
 
-/** Range the Fit button shows: wake to bed, else the first to the last clock. */
+/**
+ * Range the Fit button shows: wake to bed, else the first to the last clock.
+ * A bed time still ahead is only planned, so the range then ends with the
+ * last clock (now while one runs), or now when nothing is logged yet.
+ */
 export function fitRange(
 	wakeTime: Date | null,
 	bedTime: Date | null,
-	blocks: TimelineBlock[]
+	blocks: TimelineBlock[],
+	now: Date
 ): TimelineAxis | null {
+	const lastEnd = blocks.length
+		? new Date(Math.max(...blocks.map((block) => block.end.valueOf())))
+		: null
 	if (wakeTime && bedTime && bedTime > wakeTime) {
-		return { start: wakeTime, end: bedTime }
+		const end = bedTime > now ? (lastEnd ?? now) : bedTime
+		return { start: wakeTime, end: end > wakeTime ? end : bedTime }
 	}
-	if (!blocks.length) return null
-	const end = Math.max(...blocks.map((block) => block.end.valueOf()))
-	return { start: blocks[0]!.start, end: new Date(end) }
+	if (!lastEnd) return null
+	return { start: blocks[0]!.start, end: lastEnd }
 }
 
 // ----- zoom -----
