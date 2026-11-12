@@ -1,5 +1,6 @@
 import { browser, expect } from '@wdio/globals'
 import { obsidianPage } from 'wdio-obsidian-service'
+import { clickNoticeButton } from './support/notices'
 import { resetVault } from './support/vault'
 
 /**
@@ -120,7 +121,7 @@ describe('tracking commands', function () {
 		await expect(notice).toHaveText(
 			expect.stringContaining('"Task A" 09:00–09:30')
 		)
-		await notice.$('button=Restore').click()
+		await clickNoticeButton(notice, 'Restore')
 		await expect(browser.$('.notice=Clock restored.')).toBeDisplayed()
 		expect(await obsidianPage.read(NOTE)).toBe(before)
 	})

@@ -1,6 +1,7 @@
 import assert from 'node:assert'
 import { browser, expect } from '@wdio/globals'
 import { obsidianPage } from 'wdio-obsidian-service'
+import { clickNoticeButton } from './support/notices'
 import { resetVault } from './support/vault'
 
 /**
@@ -67,9 +68,10 @@ describe('timeline tab', function () {
 		// The block got a new id from its new start; the focus followed it.
 		await expect(block('Task A, 09:15 to 09:45')).toBeFocused()
 
-		const notice = browser.$('.notice*=Task A 09:00–09:30 → 09:15–09:45')
-		await expect(notice).toBeDisplayed()
-		await notice.$('button=Undo').click()
+		await clickNoticeButton(
+			browser.$('.notice*=Task A 09:00–09:30 → 09:15–09:45'),
+			'Undo'
+		)
 		await expect(block('Task A, 09:00 to 09:30')).toBeDisplayed()
 		assert.strictEqual(await waitForChange(moved), before)
 	})
@@ -250,9 +252,10 @@ describe('timeline tab', function () {
 		)
 
 		// Undo takes the task line it added away with the clock.
-		const notice = browser.$('.notice*=Added Retro 10:00–10:30')
-		await expect(notice).toBeDisplayed()
-		await notice.$('button=Undo').click()
+		await clickNoticeButton(
+			browser.$('.notice*=Added Retro 10:00–10:30'),
+			'Undo'
+		)
 		await expect(block('Task A, 09:00 to 09:30')).toBeDisplayed()
 		assert.strictEqual(await waitForChange(added), before)
 	})
