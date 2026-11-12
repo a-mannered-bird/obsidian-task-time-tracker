@@ -62,7 +62,7 @@ export async function addClockLine(
 	times: FinishedClockTimes
 ): Promise<boolean> {
 	const note = await readTaskNote(plugin, file)
-	const picked = await pickNoteTask(plugin, file, note, {
+	const picked = await pickNoteTask(plugin, file.path, note, {
 		choices: (version) => version.tasks,
 		placeholder: `Task for ${formatTimeOfDay(times.start)}–${formatTimeOfDay(times.end)}`,
 		includeVault: true,

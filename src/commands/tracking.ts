@@ -1,4 +1,4 @@
-import { Notice, type IconName, type TFile } from 'obsidian'
+import { Notice, type IconName } from 'obsidian'
 import { TaskNote } from 'core/note'
 import type {
 	PickTaskRequest,
@@ -11,10 +11,10 @@ import { pickTask, type PickerNote } from 'ui/TaskSuggestModal'
 import { promptMinutes } from 'ui/MinutesPromptModal'
 import type TaskTimeTracker from '../main'
 import {
+	currentTarget,
 	NOTICE_DURATION,
-	noteIo,
 	readTaskNote,
-	resolveTargetFileOrNotify,
+	targetIo,
 } from './target'
 
 type TrackingCommand = {
@@ -175,21 +175,19 @@ export async function runTrackingSteps(
 	steps: ToggleOptions[]
 ) {
 	const { settings } = plugin
-	const file = resolveTargetFileOrNotify(plugin)
-	if (!file) return
-
-	await applyTrackingSteps(noteIo(plugin, file), steps, {
-		prompts: interactivePrompts(plugin, file),
+	const target = currentTarget(plugin)
+	await applyTrackingSteps(targetIo(plugin, target), steps, {
+		prompts: interactivePrompts(plugin, target.path),
 		unassignedTaskName: settings.unassignedTaskName,
 		vaultTasksAvailable: settings.includeVaultTasks,
 		now: new Date(),
 	})
 }
 
-function interactivePrompts(plugin: TaskTimeTracker, file: TFile): Prompts {
+function interactivePrompts(plugin: TaskTimeTracker, path: string): Prompts {
 	const { app } = plugin
 	return {
-		pickTask: (note, request) => pickNoteTask(plugin, file, note, request),
+		pickTask: (note, request) => pickNoteTask(plugin, path, note, request),
 		promptMinutes: (promptOptions) => promptMinutes(app, promptOptions),
 		notify: (message) => new Notice(message, NOTICE_DURATION),
 	}
@@ -202,7 +200,7 @@ function interactivePrompts(plugin: TaskTimeTracker, file: TFile): Prompts {
  */
 export function pickNoteTask(
 	plugin: TaskTimeTracker,
-	file: TFile,
+	path: string,
 	note: TaskNote,
 	request: PickTaskRequest
 ): Promise<TaskChoice | null> {
@@ -217,7 +215,7 @@ export function pickNoteTask(
 		tagMappings: settings.tagMappings,
 		note: shown(note),
 		watch: (update) =>
-			watchNote(plugin, file, (version) => update(shown(version))),
+			watchNote(plugin, path, (version) => update(shown(version))),
 		vaultEntries: includeVault
 			? vaultTasks.ensureBuilt().then(() => {
 					const hidden = new Set(settings.hiddenTasks)
@@ -237,12 +235,15 @@ export function pickNoteTask(
  */
 function watchNote(
 	plugin: TaskTimeTracker,
-	file: TFile,
+	path: string,
 	onNote: (note: TaskNote) => void
 ): () => void {
 	let latest = 0
 	return plugin.dailyLogs.onChange((change) => {
-		if (change && change.path !== file.path) return
+		if (change && change.path !== path) return
+		// Looked up on each change: the note may only be created meanwhile.
+		const file = plugin.app.vault.getFileByPath(path)
+		if (!file) return
 		const read = ++latest
 		plugin.app.vault.cachedRead(file).then(
 			(content) => {
@@ -260,7 +261,7 @@ export async function setTaskTicked(
 	taskName: string,
 	ticked: boolean
 ) {
-	const file = resolveTargetFileOrNotify(plugin)
+	const { file } = currentTarget(plugin)
 	if (!file) return
 	const note = await readTaskNote(plugin, file)
 	const task = note.findTask(taskName)

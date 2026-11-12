@@ -94,32 +94,40 @@ export async function createDailyNote(
 	return app.vault.create(path, '')
 }
 
-/** Most recent daily note in the vault, ignoring notes dated in the future. */
-export function getLatestDailyNoteFile(
-	app: App,
-	config: DailyNotesConfig,
-	now = new Date()
-): TFile | null {
-	let latest: { date: Date; file: TFile } | null = null
-	for (const file of app.vault.getMarkdownFiles()) {
-		const date = getDailyNoteDate(config, file.path)
-		if (!date || date > now) continue
-		if (!latest || date > latest.date) latest = { date, file }
-	}
-	return latest?.file ?? null
+/** A daily note to act on; `file` is null until its first write creates it. */
+export type DailyTarget = {
+	date: Date
+	path: string
+	file: TFile | null
 }
 
 /**
- * File the daily view and tracking commands act on: the active file when it
- * is a daily note, otherwise the most recent daily note (null when there is
- * none).
+ * The daily note the daily view and the tracking commands act on: the
+ * active file when it is a daily note, otherwise today's, existing or not.
+ * Never an earlier note: tracking written there would land on the wrong day.
  */
-export function resolveTargetFile(
+export function resolveTarget(
 	app: App,
 	config: DailyNotesConfig,
 	now = new Date()
-): TFile | null {
+): DailyTarget {
 	const active = app.workspace.getActiveFile()
-	if (active && isDailyNote(config, active)) return active
-	return getLatestDailyNoteFile(app, config, now)
+	const activeDate = active ? getDailyNoteDate(config, active.path) : null
+	if (active && activeDate) {
+		return { date: activeDate, path: active.path, file: active }
+	}
+	const date = startOfDay(now)
+	return {
+		date,
+		path: getDailyNotePath(config, date),
+		file: getDailyNoteFile(app, config, date),
+	}
+}
+
+export function startOfDay(date: Date): Date {
+	return new Date(date.getFullYear(), date.getMonth(), date.getDate())
+}
+
+export function isSameDay(a: Date, b: Date): boolean {
+	return startOfDay(a).valueOf() === startOfDay(b).valueOf()
 }

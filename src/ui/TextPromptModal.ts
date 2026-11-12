@@ -5,6 +5,7 @@ type Options = {
 	description?: string
 	label: string
 	initialValue?: string
+	placeholder?: string
 	confirmText?: string
 	/** Error shown under the input for an unacceptable value; null = fine. */
 	validate?: (value: string) => string | null
@@ -41,7 +42,10 @@ class TextPromptModal extends Modal {
 		}
 
 		new Setting(this.contentEl).setName(this.options.label).addText((text) => {
-			text.setValue(this.value).onChange((value) => (this.value = value))
+			text
+				.setPlaceholder(this.options.placeholder ?? '')
+				.setValue(this.value)
+				.onChange((value) => (this.value = value))
 			text.inputEl.addEventListener('keydown', (event) => {
 				if (event.key === 'Enter') {
 					event.preventDefault()

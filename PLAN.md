@@ -179,7 +179,7 @@ The tracker tab becomes the beginner's starting point: one obvious place to type
   - No note for today: the tab shows today, and its first write creates today's note (`createDailyNote`), never writing into the latest earlier note as `resolveTargetFile` does now.
   - A clock still running in the latest earlier note: a "Still running from yesterday" card with "Since <day> HH:MM", Stop at <that day's bed time> (when set) and Stop at…. Such a clock does not count as running for the bar: it keeps Start, since a switch would close it at now.
   - A past note (via ‹ ›): everything works, under a "You're viewing <day> · Back to today" strip; the bar's placeholder reads "Add a task to <day>".
-  - Daily notes not set up: one sentence and a Create today's note button instead of "No daily note to act on."
+  - ~~Daily notes not set up: one sentence and a Create today's note button instead of "No daily note to act on."~~ Dropped while building (2026-11-12): with the core plugin's defaults there is always a today's note to target, so this case cannot happen.
 - **Empty state:** below the bar, "Type what you're working on and press Start. Tasks are saved as `- [ ]` lines in today's note." Gone once the note has a task.
 - Decision logic (target day, which buttons a row shows, ordering, End day's confirmation text) lives in core with unit tests; components only render.
 
@@ -187,9 +187,9 @@ The tracker tab becomes the beginner's starting point: one obvious place to type
 
 Day handling ships first: writing into yesterday's note and invisible overnight clocks give wrong data today, whatever the layout.
 
-- [ ] Target day in core: today's note created on first write instead of falling back to the latest note; past-note detection for the strip and placeholder; tested.
-- [ ] Overnight clocks: find a clock still running in the latest earlier note (one cached read through `DailyLogStore`), its card with Stop at bed time / Stop at…, kept out of the bar's switch logic; tested in core, E2E stopping one at bed time.
-- [ ] Past-day strip with Back to today; setup state with Create today's note.
+- [x] Target day in core: today's note created on first write instead of falling back to the latest note; past-note detection for the strip and placeholder; tested.
+- [x] Overnight clocks: find a clock still running in the latest earlier note (one cached read through `DailyLogStore`), its card with Stop at bed time / Stop at…, kept out of the bar's switch logic; tested in core, E2E stopping one at bed time.
+- [x] Past-day strip with Back to today. No separate setup state: the core plugin's defaults always name today's note, so the tab shows today's empty plan and the first write creates it.
 - [ ] Bar: in-view field on `AbstractInputSuggest` (bump `minAppVersion` to 1.4.10) with grouped suggestions, Start/Switch, ＋ alongside, Add to list on the create row; empty-state line.
 - [ ] Switch by default from the bar and the rows; ＋ alongside only while something runs; row order and button set decided in core, tested.
 - [ ] Now card: elapsed session + day total, Done / Stop, compact cards and Stop all from two running tasks, hidden when nothing runs; Interruption card with paused tasks and End interruption.

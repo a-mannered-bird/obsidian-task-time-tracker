@@ -1,14 +1,17 @@
 <script lang="ts">
 	import { onMount } from 'svelte'
 	import { completeJournal } from 'commands/completeJournal'
+	import { promptOvernightStop, stopOvernightClock } from 'commands/overnight'
 	import { runTimeCommand, TIME_COMMANDS } from 'commands/frontmatterTime'
 	import { runQuickAction } from 'commands/quickActions'
 	import { runTrackingSteps, setTaskTicked } from 'commands/tracking'
 	import type { DailyLog } from 'core/dailyLogs'
 	import { taskMinutes } from 'core/aggregate'
 	import { isRunning } from 'core/note'
+	import { describeDay, type OvernightNote } from 'core/overnight'
 	import { pickerLabel, sortForPicker } from 'core/taskPicker'
 	import { getStyleByTags } from 'core/tags'
+	import { formatTimeOfDay } from 'core/timeline'
 	import { formatHoursMinutes, getMinutesBetween } from 'core/time'
 	import type { Task } from 'types/tasks'
 	import { icon } from 'ui/icon'
@@ -17,11 +20,13 @@
 
 	type Props = {
 		plugin: TaskTimeTracker
+		/** Null until the note's first write creates it. */
 		log: DailyLog | null
+		overnight: OvernightNote | null
 		loading: boolean
 	}
 
-	const { plugin, log, loading }: Props = $props()
+	const { plugin, log, overnight, loading }: Props = $props()
 
 	let now = $state(new Date())
 	/** When on, the action buttons ask how many minutes ago it happened. */
@@ -67,9 +72,40 @@
 
 {#if loading}
 	<p class="muted">Loading…</p>
-{:else if !log}
-	<p class="muted">No daily note to act on.</p>
 {:else}
+	{#if overnight}
+		{@const earlier = overnight.log}
+		<section class="overnight" aria-labelledby="overnight-title">
+			<h2 id="overnight-title" class="overnight-title">
+				Still running from {describeDay(earlier.date, now)}
+			</h2>
+			{#each overnight.clocks as clock (`${clock.taskName} ${clock.start.valueOf()}`)}
+				<div class="overnight-clock">
+					<span class="now-name">⏳ {clock.taskName}</span>
+					<span class="muted">since {formatTimeOfDay(clock.start)}</span>
+				</div>
+				<div class="actions">
+					{#if clock.bedTime}
+						{@const bedTime = clock.bedTime}
+						<button
+							class="mod-cta"
+							onclick={() =>
+								void stopOvernightClock(plugin, earlier.file, clock, bedTime)}
+						>
+							Stop at {formatTimeOfDay(bedTime)}
+						</button>
+					{/if}
+					<button
+						onclick={() =>
+							void promptOvernightStop(plugin, earlier.file, clock)}
+					>
+						Stop at…
+					</button>
+				</div>
+			{/each}
+		</section>
+	{/if}
+
 	<div class="now">
 		{#if running.length === 0}
 			<span class="muted">Nothing running.</span>
@@ -175,6 +211,27 @@
 
 	.now {
 		margin-bottom: 0.75em;
+	}
+
+	.overnight {
+		margin-bottom: 1em;
+		padding: 0.6em 0.75em;
+		border: 1px solid var(--color-orange);
+		border-radius: var(--radius-m);
+	}
+
+	.overnight-title {
+		margin: 0 0 0.4em;
+		font-size: var(--font-ui-small);
+		font-weight: var(--font-semibold);
+		color: var(--color-orange);
+	}
+
+	.overnight-clock {
+		display: flex;
+		align-items: center;
+		gap: 0.5em;
+		margin-bottom: 0.5em;
 	}
 
 	.now-task {

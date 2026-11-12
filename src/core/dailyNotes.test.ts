@@ -5,7 +5,7 @@ import {
 	getAdjacentDailyNoteFile,
 	getDailyNoteDate,
 	getDailyNotePath,
-	resolveTargetFile,
+	resolveTarget,
 } from './dailyNotes'
 
 const date = new Date(2026, 7, 16, 13, 0, 0)
@@ -59,46 +59,48 @@ function file(path: string): TFile {
 	return { path } as TFile
 }
 
-/** Only the two calls resolveTargetFile makes. */
+/** Only the vault and workspace calls the functions under test make. */
 function appStub(activeFile: TFile | null, vaultFiles: string[]): App {
 	return {
 		workspace: { getActiveFile: () => activeFile },
 		vault: {
 			getMarkdownFiles: () => vaultFiles.map(file),
+			getFileByPath: (path: string) =>
+				vaultFiles.includes(path) ? file(path) : null,
 		},
 	} as unknown as App
 }
-describe('resolveTargetFile', () => {
-	it('returns the active file when it is a daily note', () => {
+describe('resolveTarget', () => {
+	it('returns the active file when it is a daily note, even a past one', () => {
 		const active = file('Journal/2026-08-10.md')
-		const app = appStub(active, ['Journal/2026-08-16.md'])
-		expect(resolveTargetFile(app, config, date)).toBe(active)
+		const app = appStub(active, [
+			'Journal/2026-08-10.md',
+			'Journal/2026-08-16.md',
+		])
+		expect(resolveTarget(app, config, date)).toEqual({
+			date: new Date(2026, 7, 10),
+			path: 'Journal/2026-08-10.md',
+			file: active,
+		})
 	})
 
-	it('falls back to the most recent daily note when the active file is not one', () => {
+	it("targets today's note when the active file is not a daily note", () => {
 		const app = appStub(file('Projects/plugin.md'), [
-			'Journal/2026-08-12.md',
 			'Journal/2026-08-15.md',
-			'Journal/tasks-dictionary.md',
+			'Journal/2026-08-16.md',
 		])
-		expect(resolveTargetFile(app, config, date)?.path).toBe(
-			'Journal/2026-08-15.md'
+		expect(resolveTarget(app, config, date).file?.path).toBe(
+			'Journal/2026-08-16.md'
 		)
 	})
 
-	it('ignores daily notes dated in the future', () => {
-		const app = appStub(null, [
-			'Journal/2026-08-15.md',
-			'Journal/2026-08-20.md',
-		])
-		expect(resolveTargetFile(app, config, date)?.path).toBe(
-			'Journal/2026-08-15.md'
-		)
-	})
-
-	it('returns null when there is no active daily note and none in the vault', () => {
-		const app = appStub(null, [])
-		expect(resolveTargetFile(app, config, date)).toBeNull()
+	it("targets today's note before it exists, never an earlier one", () => {
+		const app = appStub(null, ['Journal/2026-08-15.md'])
+		expect(resolveTarget(app, config, date)).toEqual({
+			date: new Date(2026, 7, 16),
+			path: 'Journal/2026-08-16.md',
+			file: null,
+		})
 	})
 })
 

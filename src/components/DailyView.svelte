@@ -5,9 +5,16 @@
 		createDailyNote,
 		getAdjacentDailyNoteFile,
 		getDailyNoteFile,
-		resolveTargetFile,
+		isSameDay,
+		resolveTarget,
+		type DailyTarget,
 	} from 'core/dailyNotes'
 	import type { DailyLog } from 'core/dailyLogs'
+	import {
+		describeDay,
+		findOvernightClocks,
+		type OvernightNote,
+	} from 'core/overnight'
 	import type { DailyViewTab } from '../settings'
 	import { icon } from 'ui/icon'
 	import DailyStats from './DailyStats.svelte'
@@ -30,7 +37,9 @@
 
 	// svelte-ignore state_referenced_locally -- deliberately only the initial value
 	let active = $state<DailyViewTab>(plugin.settings.lastDailyViewTab)
+	let target = $state<DailyTarget | null>(null)
 	let log = $state<DailyLog | null>(null)
+	let overnight = $state<OvernightNote | null>(null)
 	let loading = $state(true)
 
 	function select(tab: DailyViewTab) {
@@ -41,16 +50,42 @@
 
 	const dailyNotes = $derived(plugin.getDailyNotesConfig())
 	const previousFile = $derived(
-		log ? getAdjacentDailyNoteFile(app, dailyNotes, log.date, -1) : null
+		target ? getAdjacentDailyNoteFile(app, dailyNotes, target.date, -1) : null
 	)
 	const nextFile = $derived(
-		log ? getAdjacentDailyNoteFile(app, dailyNotes, log.date, 1) : null
+		target ? getAdjacentDailyNoteFile(app, dailyNotes, target.date, 1) : null
+	)
+	/** Set while the note shown is not today's, which actions then write to. */
+	const otherDay = $derived(
+		target && !isSameDay(target.date, new Date())
+			? describeDay(target.date, new Date())
+			: null
 	)
 
 	async function reload() {
-		const file = resolveTargetFile(app, dailyNotes)
-		log = file ? await plugin.dailyLogs.loadFile(file) : null
+		const now = new Date()
+		const next = resolveTarget(app, dailyNotes, now)
+		const nextLog = next.file
+			? await plugin.dailyLogs.loadFile(next.file)
+			: null
+		overnight = isSameDay(next.date, now)
+			? await findOvernight(next.date, now)
+			: null
+		target = next
+		log = nextLog
 		loading = false
+	}
+
+	/** Clocks still running in the note before today's. */
+	async function findOvernight(
+		today: Date,
+		now: Date
+	): Promise<OvernightNote | null> {
+		const file = getAdjacentDailyNoteFile(app, dailyNotes, today, -1)
+		const earlier = file ? await plugin.dailyLogs.loadFile(file) : null
+		if (!earlier) return null
+		const clocks = findOvernightClocks(earlier.tasks, earlier.bedTime, now)
+		return clocks.length > 0 ? { log: earlier, clocks } : null
 	}
 
 	/** Opens the note in the workspace so the view and commands follow it. */
@@ -89,7 +124,7 @@
 			onclick={() => void openNote(previousFile)}
 		></button>
 		<span class="note-date">
-			{log ? moment(log.date).format('dddd, LL') : 'No daily note'}
+			{target ? moment(target.date).format('dddd, LL') : ''}
 		</span>
 		<button
 			class="icon-button"
@@ -102,6 +137,15 @@
 			Today
 		</button>
 	</div>
+
+	{#if otherDay && active === 'tracker'}
+		<div class="other-day" role="status">
+			<span>You're viewing {otherDay}</span>
+			<button class="back-to-today" onclick={() => void openToday()}>
+				Back to today
+			</button>
+		</div>
+	{/if}
 
 	<div class="tabs" role="tablist">
 		{#each TABS as tab (tab.id)}
@@ -119,7 +163,7 @@
 
 	<div class="tab-panel" role="tabpanel">
 		{#if active === 'tracker'}
-			<TrackerTab {plugin} {log} {loading} />
+			<TrackerTab {plugin} {log} {overnight} {loading} />
 		{:else if active === 'timeline'}
 			<TimelineTab {plugin} {log} {loading} />
 		{:else}
@@ -188,6 +232,34 @@
 
 	.today-button:hover {
 		color: var(--text-normal);
+	}
+
+	.other-day {
+		display: flex;
+		align-items: center;
+		gap: 0.5em;
+		margin-top: 0.5em;
+		padding: 0.4em 0.6em;
+		border-radius: var(--radius-s);
+		background: var(--background-modifier-hover);
+		font-size: var(--font-ui-smaller);
+	}
+
+	.back-to-today {
+		all: unset;
+		cursor: pointer;
+		margin-left: auto;
+		color: var(--text-accent);
+		font-weight: var(--font-semibold);
+	}
+
+	.back-to-today:hover {
+		text-decoration: underline;
+	}
+
+	.back-to-today:focus-visible {
+		outline: 2px solid var(--interactive-accent);
+		outline-offset: 2px;
 	}
 
 	.tabs {

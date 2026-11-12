@@ -3,11 +3,9 @@ import { applyCompletion, isEmptyPlan, planCompletion } from 'core/complete'
 import { BED_TIME_PROPERTY, readFrontmatterTime } from 'core/time'
 import { confirm } from 'ui/ConfirmModal'
 import type TaskTimeTracker from '../main'
-import {
-	NOTICE_DURATION,
-	readTaskNote,
-	resolveTargetFileOrNotify,
-} from './target'
+import { currentTarget, NOTICE_DURATION, readTaskNote } from './target'
+
+const NOTHING_TO_COMPLETE = 'Nothing to complete.'
 
 export function registerCompleteJournalCommand(plugin: TaskTimeTracker) {
 	plugin.addCommand({
@@ -24,13 +22,16 @@ export function registerCompleteJournalCommand(plugin: TaskTimeTracker) {
  */
 export async function completeJournal(plugin: TaskTimeTracker) {
 	const { app } = plugin
-	const file = resolveTargetFileOrNotify(plugin)
-	if (!file) return
+	const { file } = currentTarget(plugin)
+	if (!file) {
+		new Notice(NOTHING_TO_COMPLETE, NOTICE_DURATION)
+		return
+	}
 
 	const note = await readTaskNote(plugin, file)
 	const plan = planCompletion(note)
 	if (isEmptyPlan(plan)) {
-		new Notice('Nothing to complete.', NOTICE_DURATION)
+		new Notice(NOTHING_TO_COMPLETE, NOTICE_DURATION)
 		return
 	}
 

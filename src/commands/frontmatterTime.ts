@@ -7,7 +7,7 @@ import {
 } from 'core/time'
 import { promptMinutes } from 'ui/MinutesPromptModal'
 import type TaskTimeTracker from '../main'
-import { NOTICE_DURATION, resolveTargetFileOrNotify } from './target'
+import { currentTarget, ensureTargetFile, NOTICE_DURATION } from './target'
 
 export type TimeCommand = {
 	id: string
@@ -52,9 +52,7 @@ export async function runTimeCommand(
 	command: TimeCommand
 ) {
 	const { app } = plugin
-	const file = resolveTargetFileOrNotify(plugin)
-	if (!file) return
-
+	const target = currentTarget(plugin)
 	const offset = await promptMinutes(app, {
 		title: command.name,
 		description:
@@ -66,7 +64,7 @@ export async function runTimeCommand(
 	const { property } = command
 	const value = formatLocalDateTime(addMinutes(new Date(), offset))
 	await app.fileManager.processFrontMatter(
-		file,
+		await ensureTargetFile(plugin, target),
 		(frontmatter: Record<string, unknown>) => {
 			frontmatter[property] = value
 		}
