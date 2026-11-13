@@ -141,9 +141,9 @@ const TRACKING_COMMANDS: TrackingCommand[] = [
 		],
 	},
 	{
-		id: 'toggle-quick-interruption',
+		id: 'toggle-interruption',
 		icon: 'zap',
-		name: 'Toggle quick interruption',
+		name: 'Toggle interruption',
 		steps: [{ switch: true, interruption: true }],
 	},
 	{

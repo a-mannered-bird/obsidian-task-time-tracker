@@ -767,6 +767,53 @@ describe('tracker tab', function () {
 		})
 	})
 
+	it('explains the interruption button in its tooltip', async function () {
+		await writeToday(['- [ ] Chores'])
+		await openTracker()
+		// The button has no aria-label of its own: the tooltip only exists
+		// if the hint is written before Obsidian's body listener looks.
+		await browser.$('button=Interruption').moveTo()
+		await expect(browser.$('.tooltip')).toHaveText(
+			expect.stringMatching(
+				/^Interruption\nPause the running tasks and count the time until you say what interrupted you\n/
+			)
+		)
+	})
+
+	it('shows a set shortcut after a row menu item', async function () {
+		await writeToday(['- [ ] Chores', `      [clock::${today.date}T00:00:00]`])
+		await openTracker()
+		await browser.executeObsidian(({ app }) => {
+			const { hotkeyManager } = app as unknown as WithHotkeys
+			hotkeyManager.setHotkeys('obsidian-task-time-tracker:set-task-duration', [
+				{ modifiers: ['Mod', 'Alt'], key: 'D' },
+			])
+		})
+
+		const more = await button('More actions for Chores').getElement()
+		await browser.execute((el) => el.click(), more)
+		const title = browser.$('.menu').$('.menu-item-title*=Set clock duration')
+		await expect(title).toBeDisplayed()
+		// Obsidian's menu shows the shortcut apart, without brackets.
+		await expect(title).toHaveText(
+			expect.stringMatching(/^Set clock duration\s+[^\s(]/)
+		)
+		// A native menu (macOS) takes the title's text: brackets keep it apart.
+		const nativeLabel = await browser.execute(
+			(el) => el.textContent,
+			await title.getElement()
+		)
+		assert.match(nativeLabel ?? '', /^Set clock duration \(\S.*\)$/)
+		await browser.keys('Escape')
+
+		await browser.executeObsidian(({ app }) => {
+			const { hotkeyManager } = app as unknown as WithHotkeys
+			hotkeyManager.removeHotkeys(
+				'obsidian-task-time-tracker:set-task-duration'
+			)
+		})
+	})
+
 	it('shows a task alone in the task manager from its menu', async function () {
 		await writeToday(['- [ ] Email', '- [ ] Emails'])
 		await openTracker()

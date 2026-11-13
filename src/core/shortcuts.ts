@@ -10,7 +10,7 @@ export const CONTROL_COMMANDS = {
 	stop: 'toggle-task',
 	done: 'toggle-tick-task',
 	fromLastEnd: 'toggle-task-from-last',
-	interruption: 'toggle-quick-interruption',
+	interruption: 'toggle-interruption',
 	plan: 'plan-task',
 	setDuration: 'set-task-duration',
 	migrateClock: 'migrate-current-task',

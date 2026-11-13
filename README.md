@@ -45,7 +45,7 @@ All commands act on the daily note you are currently in, or on today's daily not
 | Switch and tick task from… | Same, at a chosen time in the past.                                                                                                                                      |
 | Switch to previous task(s) | Close every running clock and restart the task(s) that ended last.                                                                                                       |
 | Log interruption from…     | "I was interrupted at 14:30 (or N minutes ago) by X": switch to X at that time, then switch back to what was running before.                                             |
-| Toggle quick interruption  | Start the `Interruption` task; run again to stop it and pick which task the time actually belongs to. The tracker tab lists that task only while it runs.                |
+| Toggle interruption        | Start the `Interruption` task; run again to stop it and pick which task the time actually belongs to. The tracker tab lists that task only while it runs.                |
 | Migrate current task       | Move the running clock line to another task (you clocked the wrong task).                                                                                                |
 | Set task duration          | For a running task, close its clock so that the session lasted the given number of minutes.                                                                              |
 | Plan a task                | Add a task from another daily note, or a new one, to the note without starting it.                                                                                       |

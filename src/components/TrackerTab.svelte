@@ -92,6 +92,14 @@
 	const interruptionActive = $derived(
 		layout.running.some((task) => task.name === INTERRUPTION_TASK)
 	)
+	function interruptionHint(): string {
+		const what = interruptionActive
+			? 'End it: say what interrupted you, its time goes there, and the paused tasks resume'
+			: 'Pause the running tasks and count the time until you say what interrupted you'
+		const shortcut = controlHint(plugin, 'interruption')
+		return shortcut ? `${what}\n${shortcut}` : what
+	}
+
 	const quickActions = $derived(
 		plugin.settings.quickActions.filter(
 			(action) => action.showInTracker && action.name && action.taskName
@@ -590,7 +598,7 @@
 				class="interruption-button"
 				class:is-active={interruptionActive}
 				aria-pressed={interruptionActive}
-				use:instantTooltip={() => controlHint(plugin, 'interruption')}
+				use:instantTooltip={interruptionHint}
 				onclick={() => void toggleInterruption(plugin)}
 			>
 				<span use:icon={'pause'}></span>
@@ -827,6 +835,20 @@
 
 	.chip {
 		border-radius: var(--radius-l);
+	}
+
+	/* Obsidian's own button hover barely shifts the background (white to
+	   #fafafa in the light theme). An overlay darkens or lightens whatever
+	   background the theme gives the button. */
+	@media (hover: hover) {
+		.buttons button:hover,
+		.end-day:hover {
+			cursor: pointer;
+			background-image: linear-gradient(
+				var(--background-modifier-hover),
+				var(--background-modifier-hover)
+			);
+		}
 	}
 
 	.interruption-button.is-active {

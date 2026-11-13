@@ -227,9 +227,20 @@
 	opacity: 0.5;
 }
 
-/* A command's shortcut after a menu item's title. */
+/* A command's shortcut after a menu item's title, on the right. */
+.menu-item-title:has(> .task-time-tracker-menu-shortcut) {
+	display: flex;
+	align-items: baseline;
+}
+
 .task-time-tracker-menu-shortcut {
-	margin-inline-start: var(--size-4-4);
+	margin-inline-start: auto;
+	padding-inline-start: var(--size-4-6);
 	color: var(--text-faint);
 	font-size: var(--font-ui-smaller);
+}
+
+/* Only read by native menus, which show the title's text. */
+.task-time-tracker-native-only {
+	display: none;
 }

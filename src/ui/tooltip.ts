@@ -61,7 +61,10 @@ export function instantTooltip(el: HTMLElement, hint?: TooltipHint) {
 		hovered = false
 		render()
 	}
-	el.addEventListener('pointerenter', enter)
+	// Not pointerenter: Obsidian opens tooltips from a pointerover listener
+	// on the body, which runs first, so a button without a label of its own
+	// would get none. pointerover reaches the element before the body.
+	el.addEventListener('pointerover', enter)
 	el.addEventListener('pointerleave', leave)
 	return {
 		update(next?: TooltipHint) {
@@ -69,7 +72,7 @@ export function instantTooltip(el: HTMLElement, hint?: TooltipHint) {
 		},
 		destroy() {
 			observer.disconnect()
-			el.removeEventListener('pointerenter', enter)
+			el.removeEventListener('pointerover', enter)
 			el.removeEventListener('pointerleave', leave)
 		},
 	}

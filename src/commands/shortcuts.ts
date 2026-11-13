@@ -39,7 +39,9 @@ export function controlHint(
 /**
  * A menu item's title with the command's shortcut after it, when one is
  * set; a menu has no tooltips, and an invitation on every item would
- * crowd it.
+ * crowd it. A native menu (macOS) shows only the title's text, so the
+ * brackets around the shortcut are in the text; Obsidian's own menu hides
+ * them and sets the shortcut apart on the right instead.
  */
 export function titleWithShortcut(
 	plugin: TaskTimeTracker,
@@ -50,9 +52,13 @@ export function titleWithShortcut(
 	if (!shortcut) return title
 	const fragment = new DocumentFragment()
 	fragment.appendText(title)
+	const bracket = (text: string) =>
+		fragment.createSpan({ cls: 'task-time-tracker-native-only', text })
+	bracket(' (')
 	fragment.createSpan({
 		cls: 'task-time-tracker-menu-shortcut',
 		text: shortcut,
 	})
+	bracket(')')
 	return fragment
 }
