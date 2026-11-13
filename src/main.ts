@@ -89,6 +89,8 @@ export default class TaskTimeTracker extends Plugin {
 		// Dropped settings; the wake/bed properties are fixed now.
 		delete data.wakeTimeProperty
 		delete data.bedTimeProperty
+		// Dropped setting; the pickers always offer every daily note's tasks.
+		delete data.includeVaultTasks
 		this.settings = Object.assign(
 			{},
 			DEFAULT_SETTINGS,

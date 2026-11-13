@@ -30,7 +30,7 @@ bed_time: 2026-08-16T23:40:00
 
 ## Tracking commands
 
-All commands act on the daily note you are currently in, or on today's daily note if the active file is not a daily note. Task pickers use Obsidian's fuzzy search and sort running tasks first, then unticked, then most recently worked on.
+All commands act on the daily note you are currently in, or on today's daily note if the active file is not a daily note. Task pickers use Obsidian's fuzzy search and sort running tasks first, then unticked, then most recently worked on. Below the note's tasks they list the tasks of every other daily note (picking one adds it to the note), and last they offer to create the task you typed.
 
 | Command                    | What it does                                                                                                                                                           |
 | -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

@@ -1,22 +1,21 @@
 <script lang="ts">
-	import { Platform, prepareFuzzySearch } from 'obsidian'
+	import { Platform, prepareFuzzySearch, type SearchResult } from 'obsidian'
 	import { loadVaultEntries } from 'commands/tracking'
 	import { addToPlan } from 'commands/plan'
 	import { startTask, type StartMode } from 'commands/trackerActions'
 	import { isRunning } from 'core/note'
 	import {
-		entryLabel,
+		groupBreaks,
 		prepareWordSearch,
+		suggestionChoice,
+		suggestionGroup,
+		suggestionLabel,
+		suggestionMeta,
+		taskSuggestions,
+		type TaskSuggestion,
 		type VaultPickerEntries,
 	} from 'core/taskPicker'
-	import { taskChoice, type TaskChoice } from 'core/toggle'
-	import {
-		barOptions,
-		barSuggestions,
-		primaryStartIcon,
-		startActions,
-		type BarOption,
-	} from 'core/tracker'
+	import { primaryStartIcon, startActions } from 'core/tracker'
 	import type { Task } from 'types/tasks'
 	import { icon } from 'ui/icon'
 	import { instantTooltip } from 'ui/tooltip'
@@ -44,46 +43,27 @@
 	let input = $state<HTMLInputElement | null>(null)
 
 	const actions = $derived(startActions(tasks.filter(isRunning)))
-	const suggestions = $derived(
-		barSuggestions(
+	const options = $derived(
+		taskSuggestions({
 			query,
 			tasks,
+			noteNames: tasks.map((task) => task.name),
 			vault,
-			prepareWordSearch(query, prepareFuzzySearch),
-			OTHER_LIMIT
-		)
+			match: prepareWordSearch(query, prepareFuzzySearch),
+			otherLimit: OTHER_LIMIT,
+			offersCreate: true,
+		})
 	)
-	const options = $derived(barOptions(suggestions))
+	const breaks = $derived(
+		groupBreaks(options.map(suggestionGroup), noteHeading)
+	)
 	const current = $derived(open ? (options[selected] ?? null) : null)
 
 	function optionId(index: number) {
 		return `${LISTBOX_ID}-${index}`
 	}
 
-	function label(option: BarOption): string {
-		const { tagMappings } = plugin.settings
-		if (option.kind === 'create') {
-			return `➕ Create "${[option.name, ...option.tags].join(' ')}"`
-		}
-		return entryLabel(option, tagMappings)
-	}
-
-	function meta(option: BarOption): string {
-		if (option.kind === 'note') return isRunning(option.task) ? 'running' : ''
-		if (option.kind === 'vault') {
-			const count = option.info.noteCount
-			return `${count} note${count === 1 ? '' : 's'}`
-		}
-		return ''
-	}
-
-	function choiceOf(option: BarOption): TaskChoice {
-		if (option.kind === 'note') return taskChoice(option.task)
-		if (option.kind === 'vault') {
-			return { name: option.info.name, tags: option.info.tags, running: false }
-		}
-		return { name: option.name, tags: option.tags, running: false }
-	}
+	type Option = TaskSuggestion<SearchResult>
 
 	function reset() {
 		query = ''
@@ -92,16 +72,16 @@
 		input?.blur()
 	}
 
-	function run(option: BarOption | null, mode: StartMode) {
+	function run(option: Option | null, mode: StartMode) {
 		if (!option) {
 			input?.focus()
 			return
 		}
 		reset()
-		void startTask(plugin, choiceOf(option), mode)
+		void startTask(plugin, suggestionChoice(option), mode)
 	}
 
-	function addOption(option: BarOption) {
+	function addOption(option: Option) {
 		if (option.kind !== 'create') return
 		reset()
 		void addToPlan(plugin, option.name, option.tags)
@@ -109,7 +89,7 @@
 
 	function onFocus() {
 		open = true
-		if (plugin.settings.includeVaultTasks && !vault) {
+		if (!vault) {
 			void loadVaultEntries(plugin).then((entries) => (vault = entries))
 		}
 	}
@@ -181,14 +161,11 @@
 				aria-label="Suggestions"
 				onmousedown={keepFocus}
 			>
-				{#if suggestions.today.length > 0}
-					<li class="group" role="presentation">{noteHeading}</li>
-				{/if}
 				{#each options as option, index (index)}
-					{#if index === suggestions.today.length && suggestions.other.length > 0}
-						<li class="group" role="presentation">Other notes</li>
-					{/if}
-					{#if option.kind === 'create' && options.length > 1}
+					{@const groupBreak = breaks.get(index)}
+					{#if groupBreak && 'heading' in groupBreak}
+						<li class="group" role="presentation">{groupBreak.heading}</li>
+					{:else if groupBreak}
 						<li class="separator" role="presentation"></li>
 					{/if}
 					<li
@@ -202,7 +179,9 @@
 						onclick={() => run(option, actions.primary)}
 						onkeydown={() => {}}
 					>
-						<span class="option-label">{label(option)}</span>
+						<span class="option-label"
+							>{suggestionLabel(option, plugin.settings.tagMappings)}</span
+						>
 						{#if option.kind === 'create'}
 							<button
 								class="add-button"
@@ -214,8 +193,8 @@
 							>
 								Add to list
 							</button>
-						{:else if meta(option)}
-							<span class="option-meta">{meta(option)}</span>
+						{:else if suggestionMeta(option)}
+							<span class="option-meta">{suggestionMeta(option)}</span>
 						{/if}
 					</li>
 				{/each}

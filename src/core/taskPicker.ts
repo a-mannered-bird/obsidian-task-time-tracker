@@ -3,6 +3,7 @@ import type { TagMapping } from 'types/tags'
 import type { Task } from 'types/tasks'
 import { getLastEnd, isRunning } from './note'
 import { parseTaskInput } from './parser'
+import { taskChoice, type TaskChoice } from './toggle'
 import type { VaultTaskInfo } from './vaultTaskIndex'
 
 /** Vault entries rendered besides the note's own tasks (display cap only). */
@@ -37,38 +38,119 @@ export function withoutNoteTasks(
 	}
 }
 
-/**
- * Note tasks in picker order, then the vault entries whose name is not among
- * them (`vaultInfos` keeps its order, usage-first from the index). Callers
- * must already have dropped vault entries present elsewhere in the note
- * (withoutNoteTasks).
- */
-export function buildPickerEntries(
-	noteTasks: Task[],
-	vaultInfos: VaultTaskInfo[]
-): PickerEntry[] {
-	const noteNames = new Set(noteTasks.map((task) => task.name))
-	return [
-		...sortForPicker(noteTasks).map((task) => ({
-			kind: 'note' as const,
-			task,
-		})),
-		...vaultInfos
-			.filter((info) => !noteNames.has(info.name))
-			.map((info) => ({ kind: 'vault' as const, info })),
-	]
+/** A picker row: a task of the note, another note's, or one to create. */
+export type TaskSuggestion<Match> =
+	| { kind: 'note'; task: Task; match: Match | null }
+	| { kind: 'vault'; info: VaultTaskInfo; match: Match | null }
+	| { kind: 'create'; name: string; tags: string[] }
+
+export type SuggestionRequest<Match> = {
+	query: string
+	/** The note's tasks offered. */
+	tasks: Task[]
+	/**
+	 * Every task name of the note, offered or not: neither the vault rows
+	 * nor the create row may offer a twin of one left out of `tasks`.
+	 */
+	noteNames: Iterable<string>
+	/** Null while the index loads or when vault tasks are off. */
+	vault: VaultPickerEntries | null
+	/** Scores a task name against the query; null when it does not match. */
+	match: (text: string) => Match | null
+	/** Other notes' tasks shown at most (resurfaced one aside). */
+	otherLimit: number
+	/** Whether a query naming no task becomes a create row. */
+	offersCreate: boolean
 }
 
 /**
- * Matches of the note's own tasks before the vault ones, each group keeping
- * its order (the fuzzy ranking while typing): today's tasks are what the
- * user most likely means, however well a vault task scores.
+ * The rows of both task pickers (the tracker's bar and the modal), in the
+ * order shown: the note's tasks in picker order (sortForPicker), then the
+ * other notes' (usage-first from the index), each group ranked by match
+ * score once something is typed — today's tasks come first however well a
+ * vault task scores. Last, a hidden task the query names exactly, or else
+ * an offer to create the typed task when it names none.
  */
-export function noteMatchesFirst<Match extends { item: PickerEntry }>(
-	matches: Match[]
-): Match[] {
-	const rank = (match: Match) => (match.item.kind === 'note' ? 0 : 1)
-	return [...matches].sort((a, b) => rank(a) - rank(b))
+export function taskSuggestions<Match extends { score: number }>(
+	request: SuggestionRequest<Match>
+): TaskSuggestion<Match>[] {
+	const { query, vault, match } = request
+	const typed = query.trim() !== ''
+	const noteNames = new Set(request.noteNames)
+	const ranked = <T>(items: T[], name: (item: T) => string) => {
+		if (!typed) return items.map((item) => ({ item, match: null }))
+		return items
+			.map((item) => ({ item, match: match(name(item)) }))
+			.filter(
+				(entry): entry is { item: T; match: Match } => entry.match !== null
+			)
+			.sort((a, b) => b.match.score - a.match.score)
+	}
+
+	const { visible, hidden } = withoutNoteTasks(
+		vault ?? { visible: [], hidden: [] },
+		noteNames
+	)
+	const resurfaced = typed ? resurfacedEntry(query, hidden) : null
+	const created =
+		typed && request.offersCreate
+			? createEntryFromQuery(query, [
+					...noteNames,
+					...visible.map((info) => info.name),
+					...hidden.map((info) => info.name),
+				])
+			: null
+
+	return [
+		...ranked(sortForPicker(request.tasks), (task) => task.name).map(
+			({ item, match }) => ({ kind: 'note' as const, task: item, match })
+		),
+		...ranked(visible, (info) => info.name)
+			.slice(0, request.otherLimit)
+			.map(({ item, match }) => ({
+				kind: 'vault' as const,
+				info: item,
+				match,
+			})),
+		...(resurfaced
+			? [{ kind: 'vault' as const, info: resurfaced, match: null }]
+			: []),
+		...(created ? [{ kind: 'create' as const, ...created }] : []),
+	]
+}
+
+/** The text of a row, the name prefixed by an emoji for tasks. */
+export function suggestionLabel(
+	row: TaskSuggestion<unknown>,
+	mappings: TagMapping[]
+): string {
+	if (row.kind === 'create') {
+		return `➕ Create "${[row.name, ...row.tags].join(' ')}"`
+	}
+	return entryLabel(row, mappings)
+}
+
+/** `running` for a running task of the note, the note count of a vault one. */
+export function suggestionMeta(row: TaskSuggestion<unknown>): string | null {
+	if (row.kind === 'note') return isRunning(row.task) ? 'running' : null
+	if (row.kind === 'vault') {
+		const count = row.info.noteCount
+		return `${count} note${count === 1 ? '' : 's'}`
+	}
+	return null
+}
+
+/** The task a row stands for; a vault or created task is not running. */
+export function suggestionChoice(row: TaskSuggestion<unknown>): TaskChoice {
+	if (row.kind === 'note') return taskChoice(row.task)
+	if (row.kind === 'vault') {
+		return { name: row.info.name, tags: row.info.tags, running: false }
+	}
+	return { name: row.name, tags: row.tags, running: false }
+}
+
+export function suggestionGroup(row: TaskSuggestion<unknown>): RowGroup {
+	return row.kind
 }
 
 type TextSearch = (text: string) => SearchResult | null

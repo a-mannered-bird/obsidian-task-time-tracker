@@ -1,29 +1,27 @@
 import {
 	FuzzySuggestModal,
 	prepareFuzzySearch,
-	sortSearchResults,
 	type App,
 	type FuzzyMatch,
+	type SearchResult,
 } from 'obsidian'
 import type { TagMapping } from 'types/tags'
 import type { Task } from 'types/tasks'
 import {
-	buildPickerEntries,
-	createEntryFromQuery,
-	entryLabel,
 	groupBreaks,
-	noteMatchesFirst,
 	prepareWordSearch,
-	resurfacedEntry,
+	suggestionChoice,
+	suggestionGroup,
+	suggestionLabel,
+	suggestionMeta,
+	taskSuggestions,
 	VAULT_DISPLAY_LIMIT,
-	withoutNoteTasks,
 	type GroupBreak,
-	type PickerEntry,
 	type RowGroup,
+	type TaskSuggestion,
 	type VaultPickerEntries,
 } from 'core/taskPicker'
-import { isRunning } from 'core/note'
-import { taskChoice, type TaskChoice } from 'core/toggle'
+import type { TaskChoice } from 'core/toggle'
 
 /** What the picker shows of one version of the note. */
 export type PickerNote = {
@@ -65,10 +63,7 @@ type Options = {
 
 /** Row shown while the vault index is still scanning; choosing it is a no-op. */
 const LOADING = { kind: 'loading' } as const
-type ModalItem =
-	| PickerEntry
-	| typeof LOADING
-	| { kind: 'create'; name: string; tags: string[] }
+type ModalItem = TaskSuggestion<SearchResult> | typeof LOADING
 
 /**
  * Fuzzy picker over the note's tasks plus the optional vault entries.
@@ -87,8 +82,7 @@ export function pickTask(
 class TaskSuggestModal extends FuzzySuggestModal<ModalItem> {
 	private chosen = false
 	private note: PickerNote
-	private allVaultEntries: VaultPickerEntries | null = null
-	/** allVaultEntries without the note's tasks; null while loading. */
+	/** Null while loading. */
 	private vaultEntries: VaultPickerEntries | null = null
 	private unwatch: (() => void) | null = null
 	/** The heading or separator shown above a row, by row. */
@@ -105,8 +99,7 @@ class TaskSuggestModal extends FuzzySuggestModal<ModalItem> {
 		this.limitToNote()
 		if (options.vaultEntries) {
 			void options.vaultEntries.then((entries) => {
-				this.allVaultEntries = entries
-				this.dedupeVaultEntries()
+				this.vaultEntries = entries
 				this.refreshSuggestions()
 			})
 		}
@@ -118,21 +111,18 @@ class TaskSuggestModal extends FuzzySuggestModal<ModalItem> {
 			this.options.watch?.((note) => {
 				this.note = note
 				this.limitToNote()
-				this.dedupeVaultEntries()
 				this.refreshSuggestions()
 			}) ?? null
 	}
 
-	getItems(): PickerEntry[] {
-		return buildPickerEntries(this.note.tasks, this.vaultEntries?.visible ?? [])
+	getItems(): ModalItem[] {
+		return this.rankedSuggestions('').map((match) => match.item)
 	}
 
 	/**
-	 * Fuzzy results with the note's tasks first, then the vault ones, plus a
-	 * create row as the very last suggestion when the typed text names no
-	 * existing task — Enter keeps selecting the best note match, so creating
-	 * a near-duplicate takes a deliberate arrow-down. A query naming a hidden
-	 * task exactly resurfaces it instead.
+	 * The rows of taskSuggestions, shared with the tracker's bar. The create
+	 * row comes last, so Enter keeps selecting the best match and creating a
+	 * near-duplicate takes a deliberate arrow-down.
 	 */
 	getSuggestions(query: string): FuzzyMatch<ModalItem>[] {
 		const suggestions = this.rankedSuggestions(query)
@@ -151,35 +141,50 @@ class TaskSuggestModal extends FuzzySuggestModal<ModalItem> {
 	private rankedSuggestions(query: string): FuzzyMatch<ModalItem>[] {
 		// Not super.getSuggestions: it matches the query as one string, so
 		// words typed in another order than the task name's would not match.
-		const search = prepareWordSearch(query, prepareFuzzySearch)
-		const ranked: FuzzyMatch<PickerEntry>[] = []
-		for (const item of this.getItems()) {
-			const match = search(this.getItemText(item))
-			if (match) ranked.push({ item, match })
+		const rows = taskSuggestions({
+			query,
+			tasks: this.note.tasks,
+			noteNames: this.note.names,
+			vault: this.vaultEntries,
+			match: prepareWordSearch(query, prepareFuzzySearch),
+			otherLimit: VAULT_DISPLAY_LIMIT,
+			offersCreate: this.options.vaultEntries !== undefined,
+		})
+		const matches: FuzzyMatch<ModalItem>[] = rows.map((row) => ({
+			item: row,
+			match: this.highlight(row),
+		}))
+		if (!this.options.vaultEntries || this.vaultEntries) return matches
+		// Where the vault rows will appear, before the create row. Not a
+		// fuzzy item: it would vanish as soon as the query stopped matching
+		// its own text.
+		const last = matches[matches.length - 1]
+		const loading = { item: LOADING, match: NO_MATCH }
+		return last?.item.kind === 'create'
+			? [...matches.slice(0, -1), loading, last]
+			: [...matches, loading]
+	}
+
+	/**
+	 * The match on the task name, moved past the emoji the shown text
+	 * starts with.
+	 */
+	private highlight(row: TaskSuggestion<SearchResult>): SearchResult {
+		if (row.kind === 'create' || !row.match) return NO_MATCH
+		const name = row.kind === 'note' ? row.task.name : row.info.name
+		const offset = this.getItemText(row).length - name.length
+		return {
+			score: row.match.score,
+			matches: row.match.matches.map(([start, end]) => [
+				start + offset,
+				end + offset,
+			]),
 		}
-		sortSearchResults(ranked)
-		const matches: FuzzyMatch<ModalItem>[] = noteMatchesFirst(ranked)
-		if (!this.options.vaultEntries) return matches
-		// Appended rather than searched: as a fuzzy item the loading row would
-		// vanish as soon as the query stopped matching its own text.
-		const suggestions =
-			this.vaultEntries === null ? [...matches, lastRow(LOADING)] : matches
-		const resurfaced = resurfacedEntry(query, this.vaultEntries?.hidden ?? [])
-		if (resurfaced) {
-			return [...suggestions, lastRow({ kind: 'vault', info: resurfaced })]
-		}
-		const create = createEntryFromQuery(query, this.knownNames())
-		return create
-			? [...suggestions, lastRow({ kind: 'create', ...create })]
-			: suggestions
 	}
 
 	getItemText(item: ModalItem): string {
 		if (item.kind === 'loading') return 'Scanning vault tasks…'
-		if (item.kind === 'create') {
-			return `➕ Create "${[item.name, ...item.tags].join(' ')}"`
-		}
-		return entryLabel(item, this.options.tagMappings)
+		return suggestionLabel(item, this.options.tagMappings)
 	}
 
 	renderSuggestion(match: FuzzyMatch<ModalItem>, el: HTMLElement): void {
@@ -193,7 +198,7 @@ class TaskSuggestModal extends FuzzySuggestModal<ModalItem> {
 			el.addClass('task-time-tracker-create-suggestion')
 			this.renderAddToPlan(item, el)
 		}
-		const meta = rowMeta(item)
+		const meta = item.kind === 'loading' ? null : suggestionMeta(item)
 		if (meta) {
 			el.createSpan({ cls: 'task-time-tracker-suggestion-meta', text: meta })
 		}
@@ -223,26 +228,7 @@ class TaskSuggestModal extends FuzzySuggestModal<ModalItem> {
 	onChooseItem(item: ModalItem): void {
 		if (item.kind === 'loading') return
 		this.chosen = true
-		if (item.kind === 'note') {
-			this.resolve(taskChoice(item.task))
-		} else if (item.kind === 'vault') {
-			const { name, tags } = item.info
-			this.resolve({ name, tags, running: false })
-		} else {
-			this.resolve({ name: item.name, tags: item.tags, running: false })
-		}
-	}
-
-	/**
-	 * Names the create row checks against: whole note plus vault entries,
-	 * hidden ones included — hiding must never enable a duplicate.
-	 */
-	private knownNames(): string[] {
-		return [
-			...this.note.names,
-			...(this.vaultEntries?.visible ?? []).map((info) => info.name),
-			...(this.vaultEntries?.hidden ?? []).map((info) => info.name),
-		]
+		this.resolve(suggestionChoice(item))
 	}
 
 	onClose(): void {
@@ -255,15 +241,12 @@ class TaskSuggestModal extends FuzzySuggestModal<ModalItem> {
 		})
 	}
 
-	/** Cap what is rendered, not what is searched: every note task plus the best vault matches. */
+	/**
+	 * taskSuggestions already caps the vault rows; room for every note task,
+	 * those rows and the last rows (loading, resurfaced, create).
+	 */
 	private limitToNote() {
-		this.limit = this.note.tasks.length + VAULT_DISPLAY_LIMIT
-	}
-
-	private dedupeVaultEntries() {
-		this.vaultEntries =
-			this.allVaultEntries &&
-			withoutNoteTasks(this.allVaultEntries, this.note.names)
+		this.limit = this.note.tasks.length + VAULT_DISPLAY_LIMIT + 3
 	}
 
 	/**
@@ -285,19 +268,7 @@ class TaskSuggestModal extends FuzzySuggestModal<ModalItem> {
 }
 
 function rowGroup(item: ModalItem): RowGroup {
-	if (item.kind === 'note') return 'note'
-	if (item.kind === 'create') return 'create'
-	return 'vault'
-}
-
-/** `running` for a running task of the note, the note count of a vault one. */
-function rowMeta(item: ModalItem): string | null {
-	if (item.kind === 'note') return isRunning(item.task) ? 'running' : null
-	if (item.kind === 'vault') {
-		const count = item.info.noteCount
-		return `${count} note${count === 1 ? '' : 's'}`
-	}
-	return null
+	return item.kind === 'loading' ? 'vault' : suggestionGroup(item)
 }
 
 /**
@@ -324,10 +295,7 @@ function itemKey(item: ModalItem): string {
 	return item.kind
 }
 
-/** Appended suggestion that never outranks a fuzzy match. */
-function lastRow(item: ModalItem): FuzzyMatch<ModalItem> {
-	return { item, match: { score: Number.NEGATIVE_INFINITY, matches: [] } }
-}
+const NO_MATCH: SearchResult = { score: 0, matches: [] }
 
 /** SuggestModal re-queries through this undocumented but stable method. */
 function hasUpdateSuggestions(

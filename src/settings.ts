@@ -13,8 +13,6 @@ import type { TagMapping } from './types/tags'
 
 export interface TaskTimeTrackerSettings {
 	unassignedTaskName: string
-	/** Task pickers also offer the tasks of every daily note in the vault. */
-	includeVaultTasks: boolean
 	/**
 	 * Custom chart color per task name, edited in the task management panel.
 	 * A CSS color: a theme variable for the presets, or a hex string.
@@ -48,7 +46,6 @@ export type DailyViewTab = 'tracker' | 'timeline' | 'stats'
 
 export const DEFAULT_SETTINGS: TaskTimeTrackerSettings = {
 	unassignedTaskName: 'Unassigned',
-	includeVaultTasks: true,
 	taskColors: {},
 	hiddenTasks: [],
 	skipOverlapJoinNotice: false,
@@ -181,20 +178,6 @@ export class TaskTimeTrackerSettingTab extends PluginSettingTab {
 
 	private displayTaskManagementSection(containerEl: HTMLElement) {
 		new Setting(containerEl).setName('Task management').setHeading()
-
-		new Setting(containerEl)
-			.setName('Suggest tasks from all daily notes')
-			.setDesc(
-				'Task pickers list the tasks of every daily note below the ones of the current note; picking one adds it to the note.'
-			)
-			.addToggle((toggle) =>
-				toggle
-					.setValue(this.plugin.settings.includeVaultTasks)
-					.onChange(async (value) => {
-						this.plugin.settings.includeVaultTasks = value
-						await this.plugin.saveSettings()
-					})
-			)
 
 		new Setting(containerEl)
 			.setName('Preview before joining overlapping clocks')

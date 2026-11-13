@@ -4,16 +4,11 @@ import { TaskNote } from './note'
 import { parseTasks } from './parser'
 import {
 	addTaskLine,
-	barOptions,
-	barSuggestions,
 	describeCompletion,
 	pausedByInterruption,
 	startActions,
 	trackerLayout,
-	type BarOption,
-	type QueryMatch,
 } from './tracker'
-import type { VaultTaskInfo } from './vaultTaskIndex'
 
 const names = (tasks: { name: string }[]) => tasks.map((task) => task.name)
 
@@ -126,88 +121,6 @@ describe('pausedByInterruption', () => {
 			'      [clock::2026-11-12T10:42:00--2026-11-12T11:02:00]',
 		])
 		expect(pausedByInterruption(tasks, 'Unassigned')).toEqual([])
-	})
-})
-
-describe('barSuggestions', () => {
-	const noteTasks = parseTasks([
-		'- [ ] Chores',
-		'- [ ] Call mum',
-		'- [ ] Email',
-	])
-	const info = (name: string): VaultTaskInfo => ({
-		name,
-		noteCount: 3,
-		lastUsed: new Date(2026, 10, 10),
-		tags: [],
-		totalMinutes: 60,
-	})
-	const vault = {
-		visible: [info('Call the bank'), info('Chores'), info('Laundry')],
-		hidden: [info('Old project')],
-	}
-	// Case-insensitive substring, scoring shorter texts higher.
-	const containing =
-		(query: string): QueryMatch =>
-		(text) =>
-			text.toLowerCase().includes(query.toLowerCase())
-				? { score: -text.length }
-				: null
-	const label = (option: BarOption) =>
-		option.kind === 'note'
-			? option.task.name
-			: option.kind === 'vault'
-				? option.info.name
-				: `Create ${option.name}`
-
-	it("shows today's tasks, then the other notes' ones, without twins, when nothing is typed", () => {
-		const suggestions = barSuggestions('', noteTasks, vault, containing(''), 10)
-		expect(barOptions(suggestions).map(label)).toEqual([
-			'Chores',
-			'Call mum',
-			'Email',
-			'Call the bank',
-			'Laundry',
-		])
-	})
-
-	it('ranks matches inside each group and offers to create the typed task last', () => {
-		const query = 'Call'
-		const suggestions = barSuggestions(
-			query,
-			noteTasks,
-			vault,
-			containing(query),
-			10
-		)
-		expect(suggestions.today.map(label)).toEqual(['Call mum'])
-		expect(suggestions.other.map(label)).toEqual(['Call the bank'])
-		expect(suggestions.create && label(suggestions.create)).toBe('Create Call')
-	})
-
-	it('offers no creation for a task that exists, whatever its case', () => {
-		const query = 'call MUM'
-		expect(
-			barSuggestions(query, noteTasks, vault, containing(query), 10).create
-		).toBeNull()
-	})
-
-	it('resurfaces a hidden task named exactly instead of creating a twin', () => {
-		const query = 'Old project'
-		const suggestions = barSuggestions(
-			query,
-			noteTasks,
-			vault,
-			containing(query),
-			10
-		)
-		expect(suggestions.other.map(label)).toEqual(['Old project'])
-		expect(suggestions.create).toBeNull()
-	})
-
-	it("caps the other notes' tasks", () => {
-		const suggestions = barSuggestions('', noteTasks, vault, containing(''), 1)
-		expect(suggestions.other.map(label)).toEqual(['Call the bank'])
 	})
 })
 

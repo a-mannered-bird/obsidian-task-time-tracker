@@ -256,7 +256,7 @@ describe('vault-wide picking', () => {
 		expect(duration.vaultFlags).toEqual([false])
 	})
 
-	it('still opens the picker on an empty note when vault tasks are available', async () => {
+	it("still opens the picker on an empty note, for other notes' tasks or a new one", async () => {
 		const note = new TaskNote('')
 		const { prompts, notices, offered } = scripted({ pick: [null] })
 		const changed = await toggleTasks(
@@ -265,30 +265,12 @@ describe('vault-wide picking', () => {
 			{
 				prompts,
 				unassignedTaskName: 'Unassigned',
-				vaultTasksAvailable: true,
 				now,
 			}
 		)
 		expect(changed).toBe(false)
 		expect(offered).toEqual([[]])
 		expect(notices).toEqual([])
-	})
-
-	it('notifies instead of opening an empty picker without vault tasks', async () => {
-		const note = new TaskNote('')
-		const { prompts, notices, offered } = scripted()
-		const changed = await toggleTasks(
-			note,
-			{},
-			{
-				prompts,
-				unassignedTaskName: 'Unassigned',
-				now,
-			}
-		)
-		expect(changed).toBe(false)
-		expect(offered).toEqual([])
-		expect(notices).toEqual(['No tasks found.'])
 	})
 })
 

@@ -198,9 +198,6 @@ export async function runTrackingSteps(
 	await applyTrackingSteps(targetIo(plugin, target), steps, {
 		prompts,
 		unassignedTaskName: settings.unassignedTaskName,
-		// The engine refuses to pick from an empty note unless vault tasks
-		// could fill the picker; a given choice needs no picker at all.
-		vaultTasksAvailable: settings.includeVaultTasks || choice !== undefined,
 		now: new Date(),
 	})
 }
@@ -216,7 +213,7 @@ function interactivePrompts(plugin: TaskTimeTracker, path: string): Prompts {
 
 /**
  * The task picker over the request's choices of the note, kept current
- * while the note changes, followed (when asked and enabled in the settings)
+ * while the note changes, followed (when asked)
  * by the vault's other tasks, and creating one from the typed text.
  */
 export function pickNoteTask(
@@ -226,7 +223,6 @@ export function pickNoteTask(
 	request: PickTaskRequest
 ): Promise<TaskChoice | null> {
 	const { app, settings } = plugin
-	const includeVault = request.includeVault && settings.includeVaultTasks
 	const shown = (version: TaskNote): PickerNote => ({
 		tasks: request.choices(version),
 		names: version.tasks.map((task) => task.name),
@@ -237,7 +233,7 @@ export function pickNoteTask(
 		note: shown(note),
 		watch: (update) =>
 			watchNote(plugin, path, (version) => update(shown(version))),
-		vaultEntries: includeVault ? loadVaultEntries(plugin) : undefined,
+		vaultEntries: request.includeVault ? loadVaultEntries(plugin) : undefined,
 		noteHeading: noteDayHeading(
 			getDailyNoteDate(plugin.getDailyNotesConfig(), path) ?? new Date(),
 			new Date()

@@ -176,6 +176,28 @@ describe('tracker tab', function () {
 		await expect(interruption).toHaveAttribute('aria-pressed', 'false')
 	})
 
+	it('lists the bar suggestions in the task switcher order', async function () {
+		await writeToday([
+			'- [x] Breakfast',
+			`      [clock::${today.date}T07:30:00--${today.date}T07:50:00]`,
+			'- [ ] Email',
+			'- [ ] Write',
+			`      [clock::${today.date}T08:00:00]`,
+		])
+		await openTracker()
+
+		const bar = browser.$('input[aria-label="Task to start"]')
+		await browser.execute((el) => el.focus(), await bar.getElement())
+		await expect(bar).toBeFocused()
+		// The list redraws once the other notes' tasks have loaded.
+		await expect(browser.$('li=Other notes')).toBeDisplayed()
+		// Running first, then open, then done: not the note's line order.
+		const option = (index: number) => browser.$$('[role="option"]')[index]!
+		await expect(option(0)).toHaveText(expect.stringContaining('Write'))
+		await expect(option(1)).toHaveText(expect.stringContaining('Email'))
+		await expect(option(2)).toHaveText(expect.stringContaining('Breakfast'))
+	})
+
 	it('unfolds the done tasks when nothing else is left', async function () {
 		await writeToday([
 			'- [x] Breakfast',

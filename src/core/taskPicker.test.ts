@@ -1,14 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import { parseTasks } from './parser'
 import {
-	buildPickerEntries,
 	createEntryFromQuery,
 	entryLabel,
-	noteMatchesFirst,
 	pickerLabel,
 	prepareWordSearch,
 	resurfacedEntry,
 	sortForPicker,
+	taskSuggestions,
+	type TaskSuggestion,
 	withoutNoteTasks,
 	groupBreaks,
 } from './taskPicker'
@@ -84,27 +84,83 @@ const info = (name: string, tags: string[] = []): VaultTaskInfo => ({
 	totalMinutes: 0,
 })
 
-describe('buildPickerEntries', () => {
-	it('lists note tasks in picker order, then unseen vault entries', () => {
-		const entries = buildPickerEntries(tasks, [
-			info('Deep work'),
-			info('Running now'),
-			info('Email'),
-		])
-		expect(
-			entries.map((entry) =>
-				entry.kind === 'note'
-					? `note:${entry.task.name}`
-					: `vault:${entry.info.name}`
-			)
-		).toEqual([
+describe('taskSuggestions', () => {
+	const vault = {
+		visible: [info('Deep work'), info('Running now'), info('Deep dive')],
+		hidden: [info('Old project')],
+	}
+	const noteNames = tasks.map((task) => task.name)
+	// Case-insensitive substring, scoring shorter names higher.
+	const containing = (query: string) => (text: string) =>
+		text.toLowerCase().includes(query.toLowerCase())
+			? { score: -text.length }
+			: null
+	const suggest = (
+		query: string,
+		options: Partial<{ otherLimit: number; offersCreate: boolean }> = {}
+	) =>
+		taskSuggestions({
+			query,
+			tasks,
+			noteNames,
+			vault,
+			match: containing(query),
+			otherLimit: options.otherLimit ?? 10,
+			offersCreate: options.offersCreate ?? true,
+		}).map(rowText)
+	const rowText = (row: TaskSuggestion<unknown>) =>
+		row.kind === 'note'
+			? `note:${row.task.name}`
+			: row.kind === 'vault'
+				? `vault:${row.info.name}`
+				: `create:${row.name}`
+
+	it("lists the note's tasks in picker order, then the other notes' without twins", () => {
+		expect(suggest('')).toEqual([
 			'note:Running now',
 			'note:Worked on last',
 			'note:Worked on first',
 			'note:Never started',
 			'note:Done early',
 			'vault:Deep work',
-			'vault:Email',
+			'vault:Deep dive',
+		])
+	})
+
+	it("ranks matches within each group, the note's first, then offers to create the typed task", () => {
+		// The vault names (9 letters) outscore "Done early" (10) but stay
+		// below it, and keep their usage order on a tie.
+		expect(suggest('e')).toEqual([
+			'note:Done early',
+			'note:Never started',
+			'note:Worked on last',
+			'note:Worked on first',
+			'vault:Deep work',
+			'vault:Deep dive',
+			'create:e',
+		])
+	})
+
+	it('offers no creation for a task that exists, whatever its case, nor when not asked', () => {
+		expect(suggest('deep WORK')).toEqual(['vault:Deep work'])
+		expect(suggest('Deep', { offersCreate: false })).toEqual([
+			'vault:Deep work',
+			'vault:Deep dive',
+		])
+	})
+
+	it('resurfaces a hidden task named exactly instead of creating a twin', () => {
+		expect(suggest('old project')).toEqual(['vault:Old project'])
+	})
+
+	it("caps the other notes' tasks", () => {
+		expect(suggest('', { otherLimit: 1 })).toEqual([
+			'note:Running now',
+			'note:Worked on last',
+			'note:Worked on first',
+			'note:Never started',
+			'note:Done early',
+			'vault:Deep work',
 		])
 	})
 })
@@ -189,38 +245,6 @@ describe('resurfacedEntry', () => {
 	it('ignores partial matches and empty queries', () => {
 		expect(resurfacedEntry('Old proj', hidden)).toBeNull()
 		expect(resurfacedEntry('', hidden)).toBeNull()
-	})
-})
-
-describe('noteMatchesFirst', () => {
-	it('moves note matches ahead of vault ones without reordering within', () => {
-		const note = (name: string) => ({
-			item: {
-				kind: 'note' as const,
-				task: tasks.find((t) => t.name === name)!,
-			},
-		})
-		const vault = (name: string) => ({
-			item: { kind: 'vault' as const, info: info(name) },
-		})
-		const ranked = [
-			vault('Deep work'),
-			note('Worked on last'),
-			vault('Deep dive'),
-			note('Done early'),
-		]
-		expect(
-			noteMatchesFirst(ranked).map((m) =>
-				m.item.kind === 'note'
-					? `note:${m.item.task.name}`
-					: `vault:${m.item.info.name}`
-			)
-		).toEqual([
-			'note:Worked on last',
-			'note:Done early',
-			'vault:Deep work',
-			'vault:Deep dive',
-		])
 	})
 })
 

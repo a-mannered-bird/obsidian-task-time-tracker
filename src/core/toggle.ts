@@ -76,8 +76,6 @@ export type Prompts = {
 export type ToggleContext = {
 	prompts: Prompts
 	unassignedTaskName: string
-	/** The pickers offer vault-wide tasks, so an empty note still picks. */
-	vaultTasksAvailable?: boolean
 	now: Date
 }
 
@@ -196,10 +194,6 @@ async function selectTasks(
 		return options.switch
 			? candidates.filter((task) => !isRunning(task))
 			: candidates
-	}
-	if (choices(note).length === 0 && !context.vaultTasksAvailable) {
-		prompts.notify('No tasks found.')
-		return null
 	}
 	const picked = await prompts.pickTask(note, {
 		choices,
