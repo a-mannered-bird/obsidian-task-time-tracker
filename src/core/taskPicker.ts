@@ -185,3 +185,27 @@ export function tagEmoji(
 	}
 	return null
 }
+
+/** What a picker row belongs to, for its group heading. */
+export type RowGroup = 'note' | 'vault' | 'create'
+
+/** Shown above a row: a group heading, or a separator before the create row. */
+export type GroupBreak = { heading: string } | { separator: true }
+
+/**
+ * The breaks above each row, by index: a heading where the note's tasks
+ * and the other notes' begin, a separator before the create row.
+ */
+export function groupBreaks(
+	groups: RowGroup[],
+	noteHeading: string
+): Map<number, GroupBreak> {
+	const breaks = new Map<number, GroupBreak>()
+	groups.forEach((group, index) => {
+		if (index > 0 && groups[index - 1] === group) return
+		if (group === 'note') breaks.set(index, { heading: noteHeading })
+		else if (group === 'vault') breaks.set(index, { heading: 'Other notes' })
+		else if (index > 0) breaks.set(index, { separator: true })
+	})
+	return breaks
+}

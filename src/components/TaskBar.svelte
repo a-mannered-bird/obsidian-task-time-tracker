@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { Platform, prepareFuzzySearch } from 'obsidian'
 	import { loadVaultEntries } from 'commands/tracking'
-	import { addToPlan, startTask, type StartMode } from 'commands/trackerActions'
+	import { addToPlan } from 'commands/plan'
+	import { startTask, type StartMode } from 'commands/trackerActions'
 	import { isRunning } from 'core/note'
 	import {
 		entryLabel,
@@ -23,9 +24,11 @@
 		plugin: TaskTimeTracker
 		tasks: Task[]
 		placeholder: string
+		/** Heading over the note's tasks: `Today`, or the note's day. */
+		noteHeading: string
 	}
 
-	const { plugin, tasks, placeholder }: Props = $props()
+	const { plugin, tasks, placeholder, noteHeading }: Props = $props()
 
 	/** Other notes' tasks listed before anything is typed, or once typed. */
 	const OTHER_LIMIT = 8
@@ -177,7 +180,7 @@
 				onmousedown={keepFocus}
 			>
 				{#if suggestions.today.length > 0}
-					<li class="group" role="presentation">Today</li>
+					<li class="group" role="presentation">{noteHeading}</li>
 				{/if}
 				{#each options as option, index (index)}
 					{#if index === suggestions.today.length && suggestions.other.length > 0}
@@ -311,7 +314,7 @@
 	}
 
 	.group {
-		padding: 0.6em 0.6em 0.2em;
+		padding: 0.8em 0.6em 0.5em;
 		font-size: var(--font-ui-smaller);
 		font-weight: var(--font-semibold);
 		text-transform: uppercase;

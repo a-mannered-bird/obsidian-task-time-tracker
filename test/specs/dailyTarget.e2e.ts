@@ -48,8 +48,9 @@ describe('daily target', function () {
 		const picker = browser.$('.prompt')
 		await expect(picker).toBeDisplayed()
 		await browser.keys([...'Plan the week'])
+		// The create row also offers Add to list, which Enter does not press.
 		await expect(picker.$('.suggestion-item.is-selected')).toHaveText(
-			'➕ Create "Plan the week"'
+			expect.stringContaining('➕ Create "Plan the week"')
 		)
 		await browser.keys('Enter')
 

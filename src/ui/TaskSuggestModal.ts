@@ -11,14 +11,18 @@ import {
 	buildPickerEntries,
 	createEntryFromQuery,
 	entryLabel,
+	groupBreaks,
 	noteMatchesFirst,
 	prepareWordSearch,
 	resurfacedEntry,
 	VAULT_DISPLAY_LIMIT,
 	withoutNoteTasks,
+	type GroupBreak,
 	type PickerEntry,
+	type RowGroup,
 	type VaultPickerEntries,
 } from 'core/taskPicker'
+import { isRunning } from 'core/note'
 import { taskChoice, type TaskChoice } from 'core/toggle'
 
 /** What the picker shows of one version of the note. */
@@ -50,6 +54,13 @@ type Options = {
 	 * text).
 	 */
 	vaultEntries?: Promise<VaultPickerEntries>
+	/** Heading over the note's tasks: `Today`, or the note's day. */
+	noteHeading: string
+	/**
+	 * Offer, on the create row, to add the typed task to the plan without
+	 * starting it; the picker then closes as dismissed.
+	 */
+	onAddToPlan?: (name: string, tags: string[]) => void
 }
 
 /** Row shown while the vault index is still scanning; choosing it is a no-op. */
@@ -80,6 +91,8 @@ class TaskSuggestModal extends FuzzySuggestModal<ModalItem> {
 	/** allVaultEntries without the note's tasks; null while loading. */
 	private vaultEntries: VaultPickerEntries | null = null
 	private unwatch: (() => void) | null = null
+	/** The heading or separator shown above a row, by row. */
+	private breaks = new Map<ModalItem, GroupBreak>()
 
 	constructor(
 		app: App,
@@ -122,6 +135,20 @@ class TaskSuggestModal extends FuzzySuggestModal<ModalItem> {
 	 * task exactly resurfaces it instead.
 	 */
 	getSuggestions(query: string): FuzzyMatch<ModalItem>[] {
+		const suggestions = this.rankedSuggestions(query)
+		const breaks = groupBreaks(
+			suggestions.map((match) => rowGroup(match.item)),
+			this.options.noteHeading
+		)
+		this.breaks = new Map()
+		for (const [index, entry] of breaks) {
+			const item = suggestions[index]?.item
+			if (item) this.breaks.set(item, entry)
+		}
+		return suggestions
+	}
+
+	private rankedSuggestions(query: string): FuzzyMatch<ModalItem>[] {
 		// Not super.getSuggestions: it matches the query as one string, so
 		// words typed in another order than the task name's would not match.
 		const search = prepareWordSearch(query, prepareFuzzySearch)
@@ -157,13 +184,40 @@ class TaskSuggestModal extends FuzzySuggestModal<ModalItem> {
 
 	renderSuggestion(match: FuzzyMatch<ModalItem>, el: HTMLElement): void {
 		super.renderSuggestion(match, el)
-		if (match.item.kind === 'vault') {
+		const { item } = match
+		if (item.kind === 'vault') {
 			el.addClass('task-time-tracker-vault-suggestion')
-		} else if (match.item.kind === 'loading') {
+		} else if (item.kind === 'loading') {
 			el.addClass('task-time-tracker-loading-suggestion')
-		} else if (match.item.kind === 'create') {
+		} else if (item.kind === 'create') {
 			el.addClass('task-time-tracker-create-suggestion')
+			this.renderAddToPlan(item, el)
 		}
+		const meta = rowMeta(item)
+		if (meta) {
+			el.createSpan({ cls: 'task-time-tracker-suggestion-meta', text: meta })
+		}
+		const entry = this.breaks.get(item)
+		if (entry) insertBreak(el, entry)
+	}
+
+	private renderAddToPlan(
+		item: { name: string; tags: string[] },
+		el: HTMLElement
+	) {
+		const { onAddToPlan } = this.options
+		if (!onAddToPlan) return
+		const button = el.createEl('button', {
+			text: 'Add to list',
+			cls: 'task-time-tracker-suggestion-action',
+		})
+		// The row chooses itself on a click: keep the button's click to it.
+		button.addEventListener('mousedown', (event) => event.stopPropagation())
+		button.addEventListener('click', (event) => {
+			event.stopPropagation()
+			onAddToPlan(item.name, item.tags)
+			this.close()
+		})
 	}
 
 	onChooseItem(item: ModalItem): void {
@@ -228,6 +282,39 @@ class TaskSuggestModal extends FuzzySuggestModal<ModalItem> {
 		)
 		if (index >= 0) chooser.setSelectedItem(index, undefined)
 	}
+}
+
+function rowGroup(item: ModalItem): RowGroup {
+	if (item.kind === 'note') return 'note'
+	if (item.kind === 'create') return 'create'
+	return 'vault'
+}
+
+/** `running` for a running task of the note, the note count of a vault one. */
+function rowMeta(item: ModalItem): string | null {
+	if (item.kind === 'note') return isRunning(item.task) ? 'running' : null
+	if (item.kind === 'vault') {
+		const count = item.info.noteCount
+		return `${count} note${count === 1 ? '' : 's'}`
+	}
+	return null
+}
+
+/**
+ * Put a heading or separator above the row, outside it: inside, it would
+ * be highlighted and chosen with the row. The rows are in the list when
+ * rendered; should one not be yet, the break goes at the row's top.
+ */
+function insertBreak(el: HTMLElement, entry: GroupBreak) {
+	const breakEl = el.doc.createElement('div')
+	if ('heading' in entry) {
+		breakEl.addClass('task-time-tracker-suggestion-group')
+		breakEl.setText(entry.heading)
+	} else {
+		breakEl.addClass('task-time-tracker-suggestion-separator')
+	}
+	if (el.parentElement) el.before(breakEl)
+	else el.prepend(breakEl)
 }
 
 /** Identity of a row across refreshes: a task by its name. */

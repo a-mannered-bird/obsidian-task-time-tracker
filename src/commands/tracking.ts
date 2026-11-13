@@ -1,5 +1,7 @@
 import { Notice, type IconName } from 'obsidian'
+import { getDailyNoteDate } from 'core/dailyNotes'
 import { TaskNote } from 'core/note'
+import { noteDayHeading } from 'core/overnight'
 import type {
 	PickTaskRequest,
 	Prompts,
@@ -11,6 +13,7 @@ import { applyTrackingSteps } from 'core/trackingRun'
 import { pickTask, type PickerNote } from 'ui/TaskSuggestModal'
 import { promptMinutes } from 'ui/MinutesPromptModal'
 import type TaskTimeTracker from '../main'
+import { addToPlan } from './plan'
 import {
 	currentTarget,
 	NOTICE_DURATION,
@@ -235,6 +238,13 @@ export function pickNoteTask(
 		watch: (update) =>
 			watchNote(plugin, path, (version) => update(shown(version))),
 		vaultEntries: includeVault ? loadVaultEntries(plugin) : undefined,
+		noteHeading: noteDayHeading(
+			getDailyNoteDate(plugin.getDailyNotesConfig(), path) ?? new Date(),
+			new Date()
+		),
+		onAddToPlan: request.offersPlan
+			? (name, tags) => void addToPlan(plugin, name, tags)
+			: undefined,
 	})
 }
 

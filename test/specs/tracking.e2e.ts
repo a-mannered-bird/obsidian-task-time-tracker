@@ -40,10 +40,10 @@ describe('tracking commands', function () {
 		)
 		const picker = browser.$('.prompt')
 		await expect(picker).toBeDisplayed()
-		// Running tasks come first, with the hourglass.
-		await expect(picker.$('.suggestion-item:nth-child(1)')).toHaveText(
-			'⏳ Task B'
-		)
+		// Running tasks come first, with the hourglass and a label.
+		const first = picker.$('.suggestion-item:nth-child(1 of .suggestion-item)')
+		await expect(first).toHaveText(expect.stringContaining('⏳ Task B'))
+		await expect(first.$('span=running')).toBeDisplayed()
 		await browser.keys('Escape')
 
 		// The pending change was saved, so the command's own write cannot
@@ -62,7 +62,9 @@ describe('tracking commands', function () {
 		const picker = browser.$('.prompt')
 		await expect(picker).toBeDisplayed()
 		await browser.keys([...'Email'])
-		await expect(picker.$('.suggestion-item:nth-child(1)')).toHaveText('Email')
+		await expect(
+			picker.$('.suggestion-item:nth-child(1 of .suggestion-item)')
+		).toHaveText('Email')
 		await browser.keys('Enter')
 		await browser.waitUntil(
 			async () => (await obsidianPage.read(NOTE)) !== before
@@ -87,9 +89,9 @@ describe('tracking commands', function () {
 		await expect(reopened).toBeDisplayed()
 		// No task runs any more, so the most recently stopped one leads; a
 		// running Email would come first with an hourglass.
-		await expect(reopened.$('.suggestion-item:nth-child(1)')).toHaveText(
-			'⭐️ Task B'
-		)
+		await expect(
+			reopened.$('.suggestion-item:nth-child(1 of .suggestion-item)')
+		).toHaveText('⭐️ Task B')
 		await browser.keys('Escape')
 		expect(await obsidianPage.read(NOTE)).toBe(before)
 	})
@@ -150,7 +152,9 @@ describe('tracking commands', function () {
 		)
 
 		await browser.keys([...'Email'])
-		await expect(picker.$('.suggestion-item:nth-child(1)')).toHaveText('Email')
+		await expect(
+			picker.$('.suggestion-item:nth-child(1 of .suggestion-item)')
+		).toHaveText('Email')
 		await browser.keys('Enter')
 
 		// The toggle lands on the synced note: Lunch is kept and Email gets
@@ -184,7 +188,9 @@ describe('tracking commands', function () {
 		)
 		const picker = browser.$('.prompt')
 		await expect(picker).toBeDisplayed()
-		const row = (n: number) => picker.$(`.suggestion-item:nth-child(${n})`)
+		// Counted among the rows only: group headings sit between them.
+		const row = (n: number) =>
+			picker.$(`.suggestion-item:nth-child(${n} of .suggestion-item)`)
 		// Queried anew each time: a kept reference would stay on the row that
 		// was highlighted when first found.
 		const highlighted = () => picker.$('.suggestion-item.is-selected')
@@ -205,11 +211,11 @@ describe('tracking commands', function () {
 
 		// The picker shows it running, first, without being reopened; the
 		// highlight stays on the task it was on, so Enter still means it.
-		await expect(row(1)).toHaveText('⏳ Email')
+		await expect(row(1)).toHaveText(expect.stringContaining('⏳ Email'))
 		await expect(row(2)).toHaveText('⭐️ Task B')
 		await expect(highlighted()).toHaveText('⭐️ Task B')
 		await browser.keys('ArrowUp')
-		await expect(highlighted()).toHaveText('⏳ Email')
+		await expect(highlighted()).toHaveText(expect.stringContaining('⏳ Email'))
 		await browser.keys('Enter')
 
 		// Picked as running, so the toggle stops the clock the other device
@@ -228,5 +234,34 @@ describe('tracking commands', function () {
 			lostClocks.forget(path)
 			lostClocks.acknowledge(path, '')
 		}, NOTE)
+	})
+
+	it('groups the picker rows and adds a typed task to the plan', async function () {
+		await obsidianPage.openFile(NOTE)
+		const before = await obsidianPage.read(NOTE)
+		await browser.executeObsidianCommand(
+			'obsidian-task-time-tracker:toggle-task'
+		)
+		const picker = browser.$('.prompt')
+		await expect(picker).toBeDisplayed()
+		// The note's tasks sit under its day, the vault's under Other notes.
+		await expect(picker.$('div=August 3, 2026')).toBeDisplayed()
+		await expect(picker.$('div=Other notes')).toBeDisplayed()
+
+		await browser.keys([...'Lunch break'])
+		const create = picker.$('.suggestion-item*=Create')
+		await expect(create).toHaveText(
+			expect.stringContaining('➕ Create "Lunch break"')
+		)
+		await create.$('button=Add to list').click()
+
+		// Added to the plan, not started: no clock line under it.
+		await browser.waitUntil(
+			async () => (await obsidianPage.read(NOTE)) !== before
+		)
+		assert.strictEqual(
+			await obsidianPage.read(NOTE),
+			`${before.trimEnd()}\n- [ ] Lunch break\n`
+		)
 	})
 })

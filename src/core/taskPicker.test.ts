@@ -10,6 +10,7 @@ import {
 	resurfacedEntry,
 	sortForPicker,
 	withoutNoteTasks,
+	groupBreaks,
 } from './taskPicker'
 import type { VaultTaskInfo } from './vaultTaskIndex'
 
@@ -268,5 +269,21 @@ describe('prepareWordSearch', () => {
 	it('matches every text when the query has no word', () => {
 		const search = prepareWordSearch('  ', prepareWord)
 		expect(search('Weekly report')).toEqual({ score: 0, matches: [] })
+	})
+})
+
+describe('groupBreaks', () => {
+	it('heads each group and separates the create row', () => {
+		expect(groupBreaks(['note', 'note', 'vault', 'create'], 'Today')).toEqual(
+			new Map([
+				[0, { heading: 'Today' }],
+				[2, { heading: 'Other notes' }],
+				[3, { separator: true }],
+			])
+		)
+	})
+
+	it('leaves a lone create row without a separator', () => {
+		expect(groupBreaks(['create'], 'Today')).toEqual(new Map())
 	})
 })

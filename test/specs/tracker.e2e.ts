@@ -144,11 +144,16 @@ describe('tracker tab', function () {
 		assert.deepStrictEqual(states(content, '- [ ] Chores'), ['closed'])
 		assert.deepStrictEqual(states(content, '- [ ] German podcast'), ['closed'])
 		await expect(interruption).toHaveAttribute('aria-pressed', 'true')
+		// The paused tasks say so in the plan; the interruption is one row.
+		await expect(browser.$('li*=Chores').$('span=paused')).toBeDisplayed()
 		await expect(
-			browser.$('p*=Paused: Chores, German podcast.')
+			browser.$('li*=German podcast').$('span=paused')
 		).toBeDisplayed()
 
-		await browser.$('button=End interruption').click()
+		// Notices open over the sidebar's top, where the running rows are:
+		// press the button through the DOM.
+		const end = await button('End interruption').getElement()
+		await browser.execute((el) => el.click(), end)
 		const picker = browser.$('.prompt')
 		await expect(picker).toBeDisplayed()
 		await browser.keys([...'Phone call'])
@@ -266,7 +271,12 @@ describe('tracker tab', function () {
 		])
 		await openTracker()
 
-		await browser.$('button=Started 00:00').click()
+		const elapsed = button('Change when Chores started')
+		await expect(elapsed).toHaveAttribute(
+			'title',
+			expect.stringContaining('Started 00:00')
+		)
+		await elapsed.click()
 		const modal = await modalTitled('Change when Chores started')
 		const input = modal.$('input[placeholder="HH:MM"]')
 		await input.setValue('00:05')
@@ -277,6 +287,9 @@ describe('tracker tab', function () {
 		assert.deepStrictEqual(clocksOf(content, '- [ ] Chores'), [
 			{ start: `${today.date}T00:05:00`, end: null },
 		])
-		await expect(browser.$('button=Started 00:05')).toBeDisplayed()
+		await expect(elapsed).toHaveAttribute(
+			'title',
+			expect.stringContaining('Started 00:05')
+		)
 	})
 })

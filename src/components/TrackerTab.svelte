@@ -13,7 +13,11 @@
 	import { runTrackingSteps, setTaskTicked } from 'commands/tracking'
 	import type { DailyLog } from 'core/dailyLogs'
 	import { taskMinutes } from 'core/aggregate'
-	import { describeDay, type OvernightNote } from 'core/overnight'
+	import {
+		describeDay,
+		noteDayHeading,
+		type OvernightNote,
+	} from 'core/overnight'
 	import { tagEmoji } from 'core/taskPicker'
 	import { getStyleByTags } from 'core/tags'
 	import { formatTimeOfDay } from 'core/timeline'
@@ -122,6 +126,20 @@
 	</button>
 {/snippet}
 
+{#snippet elapsedTime(task: Task)}
+	{@const start = runningClockStart(task)}
+	{#if start}
+		<button
+			class="elapsed"
+			aria-label={`Change when ${task.name} started`}
+			title={`Started ${formatTimeOfDay(start)} · ${formatHoursMinutes(taskMinutes(task, now))} today. Click to change when it started.`}
+			onclick={() => editStart(task, start)}
+		>
+			{elapsed(task)}
+		</button>
+	{/if}
+{/snippet}
+
 {#snippet checkbox(task: Task)}
 	<input
 		type="checkbox"
@@ -145,7 +163,7 @@
 			</h2>
 			{#each overnight.clocks as clock (`${clock.taskName} ${clock.start.valueOf()}`)}
 				<div class="overnight-clock">
-					<span class="card-name">⏳ {clock.taskName}</span>
+					<span class="overnight-name">⏳ {clock.taskName}</span>
 					<span class="muted">since {formatTimeOfDay(clock.start)}</span>
 				</div>
 				<div class="buttons">
@@ -177,6 +195,7 @@
 			placeholder={otherDay
 				? `Add a task to ${otherDay}`
 				: 'What are you working on?'}
+			noteHeading={noteDayHeading(log?.date ?? now, now)}
 		/>
 		<div class="buttons">
 			<button
@@ -201,11 +220,11 @@
 	</div>
 
 	{#if layout.running.length > 0}
-		{@const compact = layout.running.length > 1}
+		{@const several = layout.running.length > 1}
 		<section class="section" aria-labelledby="now-title">
 			<h2 id="now-title" class="section-title">
 				Now
-				{#if compact}
+				{#if several}
 					<span class="muted">· {layout.running.length} running</span>
 					<button
 						class="link-button"
@@ -219,73 +238,51 @@
 					</button>
 				{/if}
 			</h2>
-			<div class="cards">
+			<ul class="rows">
 				{#each layout.running as task (task.name)}
-					{@const start = runningClockStart(task)}
 					{#if task.name === unassigned}
-						<div class="card interruption">
-							<div class="card-name">Interruption</div>
-							<div class="elapsed">{elapsed(task)}</div>
-							{#if start}
-								<div class="muted">Started {formatTimeOfDay(start)}</div>
-							{/if}
-							{#if paused.length > 0}
-								<p class="paused">
-									Paused: {paused.map(displayName).join(', ')}. They resume when
-									you end the interruption, and you'll be asked what it was.
-								</p>
-							{/if}
-							<div class="buttons">
-								<button class="mod-cta" onclick={toggleInterruption}>
-									End interruption
-								</button>
-							</div>
-						</div>
+						<li class="row running interruption">
+							<span class="row-icon" use:icon={'pause'}></span>
+							<span
+								class="task-name interruption-name"
+								title={paused.length > 0
+									? `Paused: ${paused.map(displayName).join(', ')}. They resume when you end the interruption.`
+									: undefined}
+							>
+								Interruption
+							</span>
+							{@render elapsedTime(task)}
+							<button
+								class="mod-cta end-button"
+								aria-label="End interruption"
+								onclick={toggleInterruption}
+							>
+								End
+							</button>
+						</li>
 					{:else}
-						<div class="card" class:compact>
-							<div class="card-name">
-								<span class="dot"></span>{displayName(task)}
-							</div>
-							<div class="card-body">
-								<div>
-									<div class="elapsed">{elapsed(task)}</div>
-									<div class="muted">
-										{#if start}
-											<button
-												class="start-time"
-												title="Change when it started"
-												onclick={() => editStart(task, start)}
-											>
-												Started {formatTimeOfDay(start)}
-											</button>
-											·
-										{/if}
-										{formatHoursMinutes(taskMinutes(task, now))} today
-									</div>
-								</div>
-								<div class="buttons">
-									<button
-										aria-label={`Done: stop and tick ${task.name}`}
-										title="Done"
-										onclick={() => stop([task.name], true)}
-									>
-										<span use:icon={'check'}></span>
-										{#if !compact}Done{/if}
-									</button>
-									<button
-										aria-label={`Stop ${task.name}`}
-										title="Stop"
-										onclick={() => stop([task.name], false)}
-									>
-										<span use:icon={'square'}></span>
-										{#if !compact}Stop{/if}
-									</button>
-								</div>
-							</div>
-						</div>
+						<li class="row running">
+							<span class="dot"></span>
+							{@render taskName(task)}
+							{@render elapsedTime(task)}
+							<button
+								class="row-button"
+								aria-label={`Done: stop and tick ${task.name}`}
+								title="Done"
+								use:icon={'check'}
+								onclick={() => stop([task.name], true)}
+							></button>
+							<button
+								class="row-button"
+								aria-label={`Stop ${task.name}`}
+								title="Stop"
+								use:icon={'square'}
+								onclick={() => stop([task.name], false)}
+							></button>
+						</li>
 					{/if}
 				{/each}
-			</div>
+			</ul>
 		</section>
 	{/if}
 
@@ -427,18 +424,20 @@
 		color: var(--text-accent);
 	}
 
-	.start-time {
+	.elapsed {
 		all: unset;
 		cursor: pointer;
-		text-decoration: underline dotted;
-		text-underline-offset: 3px;
+		font-weight: var(--font-semibold);
+		font-variant-numeric: tabular-nums;
+		text-decoration: underline dotted var(--text-faint);
+		text-underline-offset: 4px;
 	}
 
-	.start-time:hover {
-		color: var(--text-normal);
+	.elapsed:hover {
+		text-decoration-color: var(--text-muted);
 	}
 
-	.start-time:focus-visible,
+	.elapsed:focus-visible,
 	.link-button:focus-visible,
 	.task-name:focus-visible,
 	.row-button:focus-visible {
@@ -446,79 +445,53 @@
 		outline-offset: 2px;
 	}
 
-	.cards {
-		display: flex;
-		flex-direction: column;
-		gap: 0.5em;
-	}
-
-	.card {
-		display: flex;
-		flex-direction: column;
-		gap: 0.2em;
-		padding: 0.7em 0.85em;
-		border: 1px solid var(--background-modifier-border);
-		border-radius: var(--radius-m);
+	/* Running rows keep the plan rows' height, set apart by a background. */
+	.row.running {
+		padding: 0 0.25em 0 0.6em;
+		border-radius: var(--radius-s);
 		background: var(--background-secondary);
 	}
 
-	.card.interruption {
-		border-color: var(--color-orange);
+	.row.running + .row.running {
+		margin-top: 4px;
 	}
 
-	.card.interruption .card-name {
-		color: var(--color-orange);
-	}
-
-	.card-name {
-		display: flex;
-		align-items: center;
-		gap: 0.5em;
+	.row.running .task-name {
 		font-weight: var(--font-semibold);
 	}
 
 	.dot {
 		width: 0.5em;
 		height: 0.5em;
+		margin: 0 0.15em;
 		flex: none;
 		border-radius: 50%;
 		background: var(--color-green);
 	}
 
-	.card-body {
-		display: flex;
-		flex-direction: column;
-		gap: 0.5em;
+	.row.interruption {
+		background: rgba(var(--color-orange-rgb), 0.12);
 	}
 
-	.card.compact .card-body {
-		flex-direction: row;
-		align-items: flex-end;
-		gap: 0.75em;
+	.row-icon {
+		display: inline-flex;
+		color: var(--color-orange);
 	}
 
-	.card.compact .card-body > :first-child {
-		flex: 1;
-		min-width: 0;
+	.interruption-name {
+		cursor: default;
+		color: var(--color-orange);
 	}
 
-	.card.compact .buttons {
-		flex-wrap: nowrap;
+	/* Orange like the rest of the interruption, not the accent. */
+	.end-button.mod-cta {
+		margin-left: 0.25em;
+		background: var(--color-orange);
+		color: var(--text-on-accent);
 	}
 
-	.elapsed {
-		font-size: 1.9em;
+	.overnight-name {
 		font-weight: var(--font-semibold);
-		font-variant-numeric: tabular-nums;
-		line-height: 1.15;
-	}
-
-	.card.compact .elapsed {
-		font-size: 1.5em;
-	}
-
-	.paused {
-		margin: 0.3em 0;
 	}
 
 	.overnight {

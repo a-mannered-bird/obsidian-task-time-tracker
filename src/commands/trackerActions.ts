@@ -14,7 +14,6 @@ import {
 	type TaskChoice,
 	type ToggleOptions,
 } from 'core/toggle'
-import { addTaskLine } from 'core/tracker'
 import { BUSY_NOTICE } from 'core/trackingRun'
 import { parseEndTime, parseStartTime, type TypedTime } from 'core/typedTime'
 import { promptText } from 'ui/TextPromptModal'
@@ -167,19 +166,6 @@ async function promptTime(
 	if (value === null) return null
 	const parsed = options.parse(value)
 	return 'at' in parsed ? parsed.at : null
-}
-
-/** Add a task to the note's plan without starting it. */
-export async function addToPlan(
-	plugin: TaskTimeTracker,
-	name: string,
-	tags: string[]
-): Promise<void> {
-	const outcome = await rewriteNote(
-		targetIo(plugin, currentTarget(plugin)),
-		(content) => addTaskLine(content, name, tags)
-	)
-	wrote(outcome)
 }
 
 /** Tell about a write that did not happen; true when it did. */

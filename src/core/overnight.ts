@@ -37,6 +37,13 @@ export function describeDay(date: Date, today: Date): string {
 	return moment(date).format('LL')
 }
 
+/** Heading over a note's tasks: `Today`, `Yesterday`, `Monday`, the date. */
+export function noteDayHeading(date: Date, today: Date): string {
+	if (isSameDay(date, today)) return 'Today'
+	const day = describeDay(date, today)
+	return day.charAt(0).toUpperCase() + day.slice(1)
+}
+
 /** The latest earlier note, holding clocks left running. */
 export type OvernightNote = {
 	log: DailyLog

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { parseTasks } from './parser'
-import { describeDay, findOvernightClocks } from './overnight'
+import { describeDay, findOvernightClocks, noteDayHeading } from './overnight'
 
 const now = new Date(2026, 10, 12, 8, 0)
 
@@ -44,5 +44,15 @@ describe('describeDay', () => {
 		expect(describeDay(new Date(2026, 10, 9), today)).toBe('Monday')
 		expect(describeDay(new Date(2026, 10, 14), today)).toBe('Saturday')
 		expect(describeDay(new Date(2026, 10, 2), today)).toBe('November 2, 2026')
+	})
+})
+
+describe('noteDayHeading', () => {
+	const today = new Date(2026, 10, 12)
+
+	it('says Today, else names the day with a capital', () => {
+		expect(noteDayHeading(new Date(2026, 10, 12), today)).toBe('Today')
+		expect(noteDayHeading(new Date(2026, 10, 11), today)).toBe('Yesterday')
+		expect(noteDayHeading(new Date(2026, 10, 9), today)).toBe('Monday')
 	})
 })
