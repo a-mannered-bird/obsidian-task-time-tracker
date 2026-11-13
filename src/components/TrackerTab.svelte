@@ -32,7 +32,7 @@
 		noteDayHeading,
 		type OvernightNote,
 	} from 'core/overnight'
-	import { tagEmoji } from 'core/taskPicker'
+	import { tagSlot } from 'core/rowTags'
 	import type { ViewControl } from 'core/shortcuts'
 	import { formatTimeOfDay } from 'core/timeline'
 	import { formatHoursMinutes, getMinutesBetween } from 'core/time'
@@ -55,6 +55,7 @@
 	import { rowMotion } from 'ui/rowMotion'
 	import { instantTooltip } from 'ui/tooltip'
 	import type TaskTimeTracker from '../main'
+	import TagEditor from './TagEditor.svelte'
 	import TaskBar from './TaskBar.svelte'
 
 	type Props = {
@@ -120,9 +121,38 @@
 		if (log) void changeStart(plugin, log.file, task.name, start)
 	}
 
-	function displayName(task: Task): string {
-		const emoji = tagEmoji(task.tags, plugin.settings.tagMappings)
-		return emoji ? `${emoji} ${task.name}` : task.name
+	/** The task whose tag editor is open, if any: one at a time. */
+	let editingTags = $state<string | null>(null)
+	const notePath = $derived(log?.file.path ?? null)
+	$effect.pre(() => {
+		void notePath
+		editingTags = null
+	})
+
+	function toggleTagEditor(name: string) {
+		editingTags = editingTags === name ? null : name
+	}
+
+	const tagSlots = new Map<string, HTMLElement>()
+	function registerTagSlot(node: HTMLElement, name: string) {
+		tagSlots.set(name, node)
+		return {
+			update(next: string) {
+				tagSlots.delete(name)
+				name = next
+				tagSlots.set(name, node)
+			},
+			destroy() {
+				if (tagSlots.get(name) === node) tagSlots.delete(name)
+			},
+		}
+	}
+
+	/** Closed from inside the editor: the focus goes back to its slot. */
+	function closeTagEditor() {
+		const name = editingTags
+		editingTags = null
+		if (name) tagSlots.get(name)?.focus()
 	}
 
 	function start(task: Task, mode: StartMode) {
@@ -173,6 +203,7 @@
 		names: string[]
 	) {
 		if (event.button !== 0 || !log) return
+		editingTags = null
 		const target = event.currentTarget
 		const row = target instanceof HTMLElement ? target.closest('li') : null
 		const list = row?.closest('ul')
@@ -498,8 +529,39 @@
 					)
 			: undefined}
 	>
-		{displayName(task)}
+		{task.name}
 	</span>
+{/snippet}
+
+{#snippet tags(task: Task)}
+	{@const slot = tagSlot(task.tags, plugin.settings.tagMappings)}
+	{@const open = editingTags === task.name}
+	<button
+		class="tag-slot"
+		class:is-empty={slot.emojis.length === 0 && slot.others === 0}
+		class:is-open={open}
+		use:instantTooltip
+		aria-label={`Tags of ${task.name}: ${slot.label}`}
+		aria-expanded={open}
+		use:registerTagSlot={task.name}
+		onclick={() => toggleTagEditor(task.name)}
+		>{#if slot.emojis.length === 0 && slot.others === 0}#{:else}{slot.emojis.join(
+				''
+			)}{#if slot.others > 0}<span class="tag-more">+{slot.others}</span
+				>{/if}{/if}</button
+	>
+{/snippet}
+
+{#snippet tagEditor(task: Task)}
+	{#if log && editingTags === task.name}
+		<TagEditor
+			{plugin}
+			file={log.file}
+			{task}
+			noteTasks={tasks}
+			onclose={closeTagEditor}
+		/>
+	{/if}
 {/snippet}
 
 {#snippet elapsedTime(task: Task)}
@@ -645,6 +707,7 @@
 				{#each layout.running as task (task.name)}
 					<li
 						class="row running"
+						class:has-tag-editor={editingTags === task.name}
 						class:interruption={task.name === INTERRUPTION_TASK}
 						in:motion.receive|global={{ key: task.name }}
 						out:motion.send|global={{ key: task.name }}
@@ -655,7 +718,7 @@
 							<span
 								class="task-name interruption-name"
 								title={paused.length > 0
-									? `Paused: ${paused.map(displayName).join(', ')}. They resume when you end the interruption.`
+									? `Paused: ${paused.map((task) => task.name).join(', ')}. They resume when you end the interruption.`
 									: undefined}
 							>
 								Interruption
@@ -673,6 +736,7 @@
 								{@render moreButton(task)}
 							</span>
 						{:else}
+							{@render tags(task)}
 							{@render taskName(task)}
 							{@render elapsedTime(task)}
 							<span class="row-actions">
@@ -692,6 +756,7 @@
 								></button>
 								{@render moreButton(task)}
 							</span>
+							{@render tagEditor(task)}
 						{/if}
 					</li>
 				{/each}
@@ -713,6 +778,7 @@
 					{@const minutes = taskMinutes(task, now)}
 					<li
 						class="row"
+						class:has-tag-editor={editingTags === task.name}
 						class:is-dragged={rowDrag?.name === task.name}
 						class:drop-before={dropSide(task) === 'before'}
 						class:drop-after={dropSide(task) === 'after'}
@@ -721,6 +787,7 @@
 						animate:motion.slide
 					>
 						{@render checkbox(task)}
+						{@render tags(task)}
 						{@render taskName(task, layout.open)}
 						{#if paused.includes(task)}
 							<span class="paused-label">paused</span>
@@ -749,6 +816,7 @@
 							{/if}
 							{@render moreButton(task)}
 						</span>
+						{@render tagEditor(task)}
 					</li>
 				{/each}
 			</ul>
@@ -760,6 +828,7 @@
 							{@const minutes = taskMinutes(task, now)}
 							<li
 								class="row is-done"
+								class:has-tag-editor={editingTags === task.name}
 								class:is-dragged={rowDrag?.name === task.name}
 								class:drop-before={dropSide(task) === 'before'}
 								class:drop-after={dropSide(task) === 'after'}
@@ -768,6 +837,7 @@
 								animate:motion.slide
 							>
 								{@render checkbox(task)}
+								{@render tags(task)}
 								{@render taskName(task, layout.done)}
 								{#if minutes > 0}
 									<span class="muted total">{formatHoursMinutes(minutes)}</span>
@@ -775,6 +845,7 @@
 								<span class="row-actions">
 									{@render moreButton(task)}
 								</span>
+								{@render tagEditor(task)}
 							</li>
 						{/each}
 					</ul>
@@ -1010,6 +1081,11 @@
 		-webkit-touch-callout: none;
 	}
 
+	/* Only while open, so the dragged row's copy keeps its fixed position. */
+	.row.has-tag-editor {
+		position: relative;
+	}
+
 	.row.is-dragged {
 		opacity: 0.5;
 	}
@@ -1042,6 +1118,50 @@
 	.row-actions {
 		display: flex;
 		flex: none;
+	}
+
+	/* Wide enough for one emoji, so names line up whatever the tags. */
+	.tag-slot {
+		all: unset;
+		cursor: pointer;
+		flex: none;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		gap: 0.15em;
+		min-width: 24px;
+		height: 24px;
+		padding: 0 2px;
+		border-radius: var(--radius-s);
+		font-size: var(--font-ui-small);
+	}
+
+	.tag-slot:hover,
+	.tag-slot.is-open {
+		background: var(--background-modifier-hover);
+	}
+
+	.tag-slot:focus-visible {
+		outline: 2px solid var(--interactive-accent);
+		outline-offset: 2px;
+	}
+
+	.tag-slot.is-empty {
+		color: var(--text-muted);
+	}
+
+	.tag-more {
+		padding: 0 0.35em;
+		border-radius: 1em;
+		background: var(--background-modifier-hover);
+		color: var(--text-muted);
+		font-size: var(--font-ui-smaller);
+		line-height: 1.5;
+	}
+
+	:global(body.is-mobile) .tag-slot {
+		min-width: 36px;
+		height: 36px;
 	}
 
 	.row-button {

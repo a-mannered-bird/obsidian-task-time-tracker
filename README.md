@@ -55,6 +55,8 @@ All commands act on the daily note you are currently in, or on today's daily not
 
 In the daily view's tracker tab, each row's ⋯ menu runs these actions on that task directly: for a running task, stop it when the last task ended, change its start, set its stop time or duration, migrate its clock, show the task or clock line, show the task in the task manager, delete the clock or the task; for an idle one, start it from when the last task ended, migrate its last clock, move it up, down, to the top or bottom of its list, show it in the note or the task manager, delete its last clock or the task. Deleting a task there removes it from that note only.
 
+Before each name, a tag slot shows the emojis of the task's tags (with `+n` for tags without an emoji, `#` when it has none). Click it to add or remove tags on that task's line in this note; other notes are left as they are (Manage tasks changes a task's tags everywhere).
+
 Commands ship without default hotkeys; assign your own in Obsidian's Hotkeys settings. On mobile, each command has an icon for the toolbar.
 
 ## Statistics
@@ -96,7 +98,7 @@ Arrows next to the rendered date range step to the previous or next period (a mo
 ## Settings
 
 - The daily notes folder and date format are inherited from the core Daily notes plugin.
-- Tag mapping: for each tag, an emoji shown in pickers.
+- Tag mapping: for each tag, an emoji shown in pickers and in the tracker tab's tag slots.
 - An Apply button reloads the open views after changing settings.
 
 ## Development

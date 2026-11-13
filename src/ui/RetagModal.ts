@@ -1,8 +1,9 @@
 import { Modal, Setting, type App, type ButtonComponent } from 'obsidian'
 import {
 	diffTags,
-	isTag,
+	TAG_FORMAT_HELP,
 	tagChangeApplies,
+	typedTag,
 	type TagChange,
 } from 'core/taskEdits'
 import { TagSuggest } from './TagSuggest'
@@ -160,11 +161,9 @@ class RetagModal extends Modal {
 	private addTyped(): void {
 		const typed = this.inputEl?.value.trim() ?? ''
 		if (!typed) return
-		const tag = typed.startsWith('#') ? typed : `#${typed}`
-		if (!isTag(tag)) {
-			this.errorEl?.setText(
-				'A tag is one word: letters, digits, "_", "-" or "/".'
-			)
+		const tag = typedTag(typed)
+		if (!tag) {
+			this.errorEl?.setText(TAG_FORMAT_HELP)
 			return
 		}
 		this.errorEl?.setText('')

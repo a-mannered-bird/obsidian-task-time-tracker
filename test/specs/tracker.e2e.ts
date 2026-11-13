@@ -100,15 +100,18 @@ async function chooseFromRowMenu(taskName: string, choice: string) {
 	await item.click()
 }
 
+/** A row's text: the tag slot's emojis or `#`, then the name. */
+function rowText(name: string): RegExp {
+	return new RegExp(`^(\\S+\\s+)?${name}(\\s|$)`)
+}
+
 /** The plan's rows, by name, in the order shown. */
 async function expectPlan(names: string[]) {
 	const rows = browser.$('section[aria-labelledby="plan-title"] > ul')
 	await expect(rows).toHaveChildren(names.length)
 	for (const [index, name] of names.entries()) {
-		// A row reads its name first, then its total.
-		await expect(rows.$(`li:nth-child(${index + 1})`)).toHaveText(
-			new RegExp(`^${name}(\\s|$)`)
-		)
+		// A row reads its tag slot, its name, then its total.
+		await expect(rows.$(`li:nth-child(${index + 1})`)).toHaveText(rowText(name))
 	}
 }
 
@@ -128,7 +131,7 @@ async function dragName(name: string, onto: string, offset: number) {
 	// Held mid-drag: a copy of the dragged row follows the pointer.
 	const ghost = browser.$('body > li[aria-hidden="true"]')
 	await expect(ghost).toBeDisplayed()
-	await expect(ghost).toHaveText(new RegExp(`^${name}(\\s|$)`))
+	await expect(ghost).toHaveText(rowText(name))
 	await pointer().up().perform()
 	// Positive matchers only (see AGENTS.md): the trace mislabels `.not`.
 	assert.strictEqual(await ghost.isExisting(), false)
@@ -858,6 +861,63 @@ describe('tracker tab', function () {
 				'obsidian-task-time-tracker:set-task-duration'
 			)
 		})
+	})
+
+	it('edits the tags of a task in this note only', async function () {
+		let content = await writeToday([
+			'- [ ] Email #work #admin',
+			'- [ ] Gym #project',
+		])
+		await openTracker()
+		// #project maps to ⭐️ by default; #work and #admin have no emoji.
+		await expect(button('Tags of Gym: #project')).toHaveText('⭐️')
+		await expect(button('Tags of Email: #work #admin')).toHaveText('+2')
+
+		await button('Tags of Email: #work #admin').click()
+		const editor = browser.$('div[role="dialog"][aria-label="Tags of Email"]')
+		await expect(editor).toBeDisplayed()
+		const chips = editor.$('div[role="group"][aria-label="Tags"]')
+		// Two chips, then the input.
+		await expect(chips).toHaveChildren(3)
+		const input = editor.$('input[aria-label="Add a tag"]')
+		await expect(input).toBeFocused()
+
+		await editor.$('button[aria-label="Remove #admin"]').click()
+		await expect(chips).toHaveChildren(2)
+		await input.setValue('deep')
+		await browser.keys('Enter')
+		await expect(chips).toHaveChildren(3)
+		await expect(input).toHaveValue('')
+		// Enter on the empty field saves.
+		await browser.keys('Enter')
+		content = await waitForChange(content)
+		assert.strictEqual(content, '- [ ] Email #work #deep\n- [ ] Gym #project\n')
+		await expect(button('Tags of Email: #work #deep')).toHaveAttribute(
+			'aria-expanded',
+			'false'
+		)
+		// The task's line in an earlier note keeps its tags.
+		assert.match(await obsidianPage.read('2026-08-03.md'), /^- \[ \] Email$/m)
+
+		// Escape drops the edits.
+		await button('Tags of Gym: #project').click()
+		const gymEditor = browser.$('div[role="dialog"][aria-label="Tags of Gym"]')
+		await expect(gymEditor).toBeDisplayed()
+		await gymEditor.$('button[aria-label="Remove #project"]').click()
+		await expect(
+			gymEditor.$('div[role="group"][aria-label="Tags"]')
+		).toHaveChildren(1)
+		// The suggestions open with the field: the first Escape closes them,
+		// the second the editor, handing the focus back to the slot.
+		await browser.keys('Escape')
+		await expect(gymEditor).toBeDisplayed()
+		await browser.keys('Escape')
+		await expect(button('Tags of Gym: #project')).toBeFocused()
+		await expect(button('Tags of Gym: #project')).toHaveAttribute(
+			'aria-expanded',
+			'false'
+		)
+		assert.strictEqual(await obsidianPage.read(today.path), content)
 	})
 
 	it('shows a task alone in the task manager from its menu', async function () {

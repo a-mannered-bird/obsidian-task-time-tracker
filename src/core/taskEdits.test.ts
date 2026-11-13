@@ -5,6 +5,7 @@ import {
 	isTag,
 	retagTaskLines,
 	tagChangeApplies,
+	typedTag,
 } from './taskEdits'
 
 const content = [
@@ -119,5 +120,17 @@ describe('isTag', () => {
 		expect(isTag('project')).toBe(false)
 		expect(isTag('#two #tags')).toBe(false)
 		expect(isTag('#with space')).toBe(false)
+	})
+})
+
+describe('typedTag', () => {
+	it('adds the hash when it was left out and trims the text', () => {
+		expect(typedTag(' deep ')).toBe('#deep')
+		expect(typedTag('#deep')).toBe('#deep')
+	})
+
+	it('gives null for text that is not one tag', () => {
+		expect(typedTag('two words')).toBeNull()
+		expect(typedTag('#')).toBeNull()
 	})
 })

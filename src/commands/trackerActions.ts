@@ -10,6 +10,7 @@ import {
 } from 'core/handOff'
 import { rewriteNote, type RewriteOutcome } from 'core/noteRewrite'
 import { parseTasks } from 'core/parser'
+import { setNoteTaskTags } from 'core/rowTags'
 import { formatTimeOfDay } from 'core/timeline'
 import { moveTaskLine, removeTaskLine, type TaskMove } from 'core/tracker'
 import {
@@ -133,6 +134,20 @@ export async function moveTask(
 	wrote(
 		await rewriteNote(noteIo(plugin, file), (content) =>
 			moveTaskLine(content, taskName, move)
+		)
+	)
+}
+
+/** Give the task's line in this note exactly these tags. */
+export async function setTaskTags(
+	plugin: TaskTimeTracker,
+	file: TFile,
+	taskName: string,
+	tags: string[]
+): Promise<void> {
+	wrote(
+		await rewriteNote(noteIo(plugin, file), (content) =>
+			setNoteTaskTags(content, taskName, tags)
 		)
 	)
 }

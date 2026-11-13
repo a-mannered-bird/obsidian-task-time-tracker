@@ -15,6 +15,7 @@ Roadmap and todo lists for the Task Time Tracker plugin. Decisions recorded here
 - One shared data layer (`DailyLogStore.loadRange → DailyLog[]`, cached, invalidated on vault events) and one line-based parser used for both reading stats and rewriting the note. Prerequisite for the flexible views.
 - Flexible views: `task-stats` code block first (saved view = code block in a note), sidebar controls later, both on the same Svelte components.
 - Renamed 2026-11-13: wake/bed time became start/end of day, so the day window fits any use (waking hours, a work day). Frontmatter `day_start` / `day_end`, commands `set-day-start` / `set-day-end`, quick-action flags `setDayStart` / `setDayEnd`, and the "sleep" statistic became "off time". No migration: the only user renamed the properties in their notes by hand. Wake/bed wording below predates this.
+- Day boundaries (2026-11-13): the start of day is never after the end of day, and the end of day never before the start nor the note's clocks (a closed clock's end, a running one's start, since End day closes it). Typed in a prompt, an end time of day before that floor means the next day, while minutes ago before it are refused; a start after the end is refused. In the timeline the Start and End labels are handles: dragged, the line snaps like a clock edge and stops at those bounds; clicked, they open the same prompt.
 - Ranges: today, this week (Monday start), last 7 days, this month, last month, last 3 months, this year, last year, all, custom `from..to`.
 - Group by: task name, tag. Metrics: total, per-day average (option to skip empty days), per-day breakdown as charts, time-of-day (sleep, unlogged, average wake and bed time). Loading a range also loads the day before `range.start` (previous bed time).
 - Charts: hand-rolled SVG in Svelte, themed with Obsidian CSS variables. No chart library for now.
@@ -192,6 +193,15 @@ The tracker tab becomes the beginner's starting point: one obvious place to type
 - **Shortcut tooltips** (added 2026-11-13), to turn beginners into keyboard users: every control of the daily view that does what a plugin command does shows that command's shortcut under its label in the tooltip ("Shortcut: ⌘ ⇧ T"), or, when none is set, `No shortcut yet: set one for "Toggle task" in Settings → Hotkeys`. Controls and their commands (`CONTROL_COMMANDS` in `core/shortcuts.ts`): Start (row and bar) and Start alongside → Toggle task, Switch → Switch task, Stop → Toggle task, Done → Toggle and tick task, Interruption and End interruption → Toggle interruption, Plan → Plan a task, End day, start / end of day, and each quick action chip → its own command. Menus have no tooltips, so the row menu (Start / Stop from last task end, Set clock duration, Migrate clock) and the view's Manage tasks item show the shortcut after the title only when one is set. Read through Obsidian's private `app.hotkeyManager.printHotkeyForCommand` (verified on 1.15.1; nothing shows if it disappears), at hover time, since it fires no change event. Obsidian's tooltip is the aria-label, so the hint is written there only while the pointer is over the control and the plain label comes back on leave, keeping the accessible name. Not on mobile. Controls without a plugin command (Stop all, change start / stop time, note navigation, Back to today) get no hint.
 - Decision logic (target day, which buttons a row shows, ordering, End day's confirmation text) lives in core with unit tests; components only render.
 
+## Decisions (2026-11-13): tags in the tracker tab
+
+Four directions were mocked up (chips under the name, emoji slot + popover, plan grouped by tag, tag strip + edit mode); the emoji slot + popover was chosen, as it keeps rows at their height and puts every tag one click away.
+
+- **Tag slot:** every task row (Now, plan, Done; not the interruption) starts with a fixed-width slot before the name, replacing the single emoji prefixed to the name today. It shows the emojis of the task's mapped tags (mapping order), then a `+n` pill counting the tags without an emoji; an untagged task shows a muted `#`. The slot is a button whose tooltip and accessible name list the tags (`#work #admin`); it is not a drag handle.
+- **Editing:** clicking the slot opens a popover anchored under the row: the line's tags as removable chips, an Add a tag field with autocomplete (the note's own tags first, then the vault's; an unknown tag is created, as in Manage tasks' retag), Cancel / Save. Enter on a typed tag adds it, Enter on the empty field saves; Escape cancels, and the focus goes back to the slot. One editor at a time; it stays open on a click elsewhere (decided while building: Obsidian renders the suggestions outside the popover, so an outside click cannot tell them apart without relying on its private markup). The suggestions open with the field, so the first Escape closes them and the second the editor. Save rewrites this note's task line only (`setNoteTaskTags` in `rowTags.ts`, reusing `retagTaskLines`) through `rewriteNote` and compare-and-swap; nothing is written when the tags did not change.
+- **No drift here:** the tracker tab neither signals nor settles tag drift across notes. The popover shows no other notes' tags and offers no apply-to-all-notes option; drift stays the job of Manage tasks (drift issue + retag).
+- Slot content (emojis, `+n`, label) and the suggestion order are decided in core with unit tests.
+
 ## Phase 11: Tracker tab redesign
 
 Day handling ships first: writing into yesterday's note and invisible overnight clocks give wrong data today, whatever the layout.
@@ -210,6 +220,8 @@ Day handling ships first: writing into yesterday's note and invisible overnight 
 - [x] Revised 2026-11-13: no Add to list button inside a row (a button in an already clickable row was confusing). Planning is a mode of its own: a "Plan a task" command (`plan-task`, picker over other notes' tasks and the create row) and a third bar button, "Plan task without starting timer" (list-plus), sticky like Start alongside (`BarMode`/`barAction` in core) with its own placeholder; in that mode the bar lists only other notes' tasks and new ones, as the note's own are already planned.
 
 - [x] Row ⋯ menu on running and idle rows (`rowActions`, `moveTaskLine`, `removeTaskLine` in core, tested); E2E for set stop time, stop from last task end, moves, migrate last clock, delete task.
+- [x] Tag slot on every task row (emojis, `+n`, muted `#`; content decided in core, tested).
+- [x] Tag popover editing this note's line only (suggestions ordered in core, tested); E2E adding and removing a tag, asserting the exact markdown of the note.
 
 ## Later
 
@@ -221,3 +233,4 @@ Day handling ships first: writing into yesterday's note and invisible overnight 
 - [ ] Release pipeline: build `main.js` in CI, GitHub release, community plugin submission.
 - [ ] ~~Improve the daily view's tag legend (currently a plain list of styled tag names; needs a clearer layout/design).~~ Dropped (2026-11-13): tag mappings no longer style text (bold / italic / underline removed), so there is no legend left.
 - [ ] Add a custom color per tag mapping in the settings, used in the legend (and by extension in table rows / charts).
+- [ ] Group the tracker tab's plan by tag (mocked up 2026-11-13): a header per first tag with the day's total for it, a "No tag" group, other tags after the name, dragging across a header retags. Open questions: tasks with several tags, and how it combines with drag to reorder.

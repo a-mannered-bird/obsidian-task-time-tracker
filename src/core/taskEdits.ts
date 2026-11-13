@@ -107,6 +107,16 @@ export function isTag(text: string): boolean {
 	return input.name === '' && input.tags.length === 1 && input.tags[0] === text
 }
 
+export const TAG_FORMAT_HELP =
+	'A tag is one word: letters, digits, "_", "-" or "/".'
+
+/** The tag typed in a tag editor, the hash optional; null when not a tag. */
+export function typedTag(text: string): string | null {
+	const trimmed = text.trim()
+	const tag = trimmed.startsWith('#') ? trimmed : `#${trimmed}`
+	return isTag(tag) ? tag : null
+}
+
 const TASK_PREFIX = /^(\s*- \[[ xX]\] )(.*)$/
 
 function retagLine(line: string, change: TagChange): string {
