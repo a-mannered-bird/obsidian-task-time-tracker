@@ -111,6 +111,9 @@
 			filtered.every((info) => selected.includes(info.name))
 	)
 	const someSelected = $derived(selected.length > 0 && !allSelected)
+	const singleSelected = $derived(
+		selected.length === 1 ? (selected[0] ?? null) : null
+	)
 	const selectedHidden = $derived(
 		selected.length > 0 && selected.every((name) => isHidden(name))
 	)
@@ -351,18 +354,29 @@
 <div class="selection-bar" class:idle={selected.length === 0}>
 	{#if selected.length === 0}
 		<span class="muted">
-			No task selected. Tick tasks to merge, retag, recolor, hide or delete them
-			together.
+			No task selected. Tick tasks to rename, merge, retag, recolor, hide or
+			delete them together.
 		</span>
 	{:else}
 		<span>{selected.length} selected</span>
-		<button
-			disabled={selected.length < 2 || busy}
-			title="Merge the selected tasks into one: pick the surviving name, every daily note is rewritten and their clocks joined (needs at least two)"
-			onclick={() => void runAction(() => mergeTasks(plugin, selected))}
-		>
-			Merge…
-		</button>
+		{#if singleSelected !== null}
+			{@const name = singleSelected}
+			<button
+				disabled={busy}
+				title="Rename the selected task in every daily note"
+				onclick={() => void runAction(() => renameTask(plugin, name))}
+			>
+				Rename…
+			</button>
+		{:else}
+			<button
+				disabled={busy}
+				title="Merge the selected tasks into one: pick the surviving name, every daily note is rewritten and their clocks joined"
+				onclick={() => void runAction(() => mergeTasks(plugin, selected))}
+			>
+				Merge…
+			</button>
+		{/if}
 		<button
 			disabled={busy}
 			title="Set the tags of every line of the selected tasks, in every daily note, to the ones you pick"
