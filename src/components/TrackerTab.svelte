@@ -327,9 +327,12 @@
 {/snippet}
 
 {#snippet checkbox(task: Task)}
+	{@const color = plugin.settings.taskColors[task.name]}
 	<input
 		type="checkbox"
 		class="task-list-item-checkbox"
+		class:has-task-color={color !== undefined}
+		style:--task-color={color}
 		use:instantTooltip
 		aria-label={task.ticked
 			? `Mark ${task.name} not done`
@@ -753,6 +756,17 @@
 	.row .task-list-item-checkbox {
 		margin: 0;
 		flex: none;
+	}
+
+	.row .task-list-item-checkbox.has-task-color {
+		--checkbox-color: var(--task-color);
+		--checkbox-color-hover: color-mix(
+			in srgb,
+			var(--task-color) 80%,
+			var(--text-normal)
+		);
+		--checkbox-border-color: var(--task-color);
+		--checkbox-border-color-hover: var(--checkbox-color-hover);
 	}
 
 	.task-name {
