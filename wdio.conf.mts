@@ -1,5 +1,33 @@
 import * as path from 'path'
 
+/**
+ * On macOS every Obsidian the run starts takes the focus from the app you
+ * are typing in. Hiding it right away hands the focus back; the tests drive
+ * it through WebDriver, which needs no focus. `E2E_FOREGROUND=1` keeps the
+ * windows visible, to watch a run.
+ */
+const inBackground =
+	process.platform === 'darwin' && process.env.E2E_FOREGROUND !== '1'
+
+type ElectronRemote = {
+	app: { hide(): void }
+	getCurrentWebContents(): { setBackgroundThrottling(allowed: boolean): void }
+}
+
+async function sendToBackground() {
+	await browser.execute(() => {
+		const electron = (
+			window as unknown as {
+				require(id: 'electron'): { remote: ElectronRemote }
+			}
+		).require('electron')
+		// A hidden window otherwise pauses its timers and animation frames,
+		// which the views (and the tests waiting on them) rely on.
+		electron.remote.getCurrentWebContents().setBackgroundThrottling(false)
+		electron.remote.app.hide()
+	})
+}
+
 export const config: WebdriverIO.Config = {
 	runner: 'local',
 	framework: 'mocha',
@@ -34,6 +62,14 @@ export const config: WebdriverIO.Config = {
 			await plugin.loadSettings()
 			await plugin.saveSettings()
 		})
+	},
+
+	before: async () => {
+		if (inBackground) await sendToBackground()
+	},
+	// A reload starts a new Obsidian, which takes the focus again.
+	afterCommand: async (command) => {
+		if (inBackground && command === 'reloadObsidian') await sendToBackground()
 	},
 
 	services: ['obsidian'],

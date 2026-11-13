@@ -15,6 +15,8 @@ export const config: WebdriverIO.Config = {
 	before: async () => {
 		await inlineStylesheets()
 	},
+	// Watched live: keep Obsidian on screen after a reload too.
+	afterCommand: undefined,
 	services: [
 		...(base.services ?? []),
 		[

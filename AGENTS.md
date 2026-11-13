@@ -54,7 +54,7 @@ Three layers, each with its own job:
 - **Plugin settings are reset before every spec** (`beforeSuite` in `wdio.conf.mts`): the launcher copies this folder's `data.json` — the developer's live settings, since the repo is a vault's plugin folder — into the sandbox, so without the reset a task hidden or a warning dismissed at home breaks the tests. Tests that change settings restore them at the end.
 - **The fixture vault must keep `nativeMenus: false`** (`test/vaults/daily/.obsidian/app.json`): Obsidian's native macOS menus do not exist in the DOM, so WebDriver cannot open the issue and color menus without it.
 - **Reset in `beforeEach`, expect the last frame to lie.** `obsidianPage.resetVault()` runs before each test and is not a recorded command, so the screenshot of a test's final step may already show the restored vault. That is snapshot latency, not a failing assertion.
-- Real Obsidian windows open during a local run; keep hands off the keyboard for the few seconds it takes.
+- Real Obsidian windows open during a local run. On macOS, `wdio.conf.mts` hides each one as soon as it starts (`app.hide()`, with background throttling off so a hidden window keeps its timers and animation frames), handing the focus back to the app you were using; each launch can still flash it for a moment. `E2E_FOREGROUND=1 npm run test:e2e` keeps them visible to watch; the debug and trace configs never hide them.
 
 ## References
 
