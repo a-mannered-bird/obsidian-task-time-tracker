@@ -187,4 +187,17 @@ describe('daily target', function () {
 		})
 		await expect(browser.$(`span=${today.date}`)).toBeDisplayed()
 	})
+
+	it('shows the past note Obsidian reopens at startup', async function () {
+		await obsidianPage.openFile(LATEST_FIXTURE)
+		await openTrackerTab()
+		await expect(browser.$('span=2026-08-03')).toBeDisplayed()
+		await browser.executeObsidian(({ app }) =>
+			app.workspace.requestSaveLayout.run()
+		)
+
+		await browser.reloadObsidian()
+
+		await expect(browser.$('span=2026-08-03')).toBeDisplayed()
+	})
 })

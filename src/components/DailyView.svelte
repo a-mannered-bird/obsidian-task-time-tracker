@@ -71,15 +71,22 @@
 			: null
 	)
 
+	let latestReload = 0
+
 	async function reload() {
+		// Reloads overlap (note changes, leaf changes); an older one finishing
+		// last would show the note that was active when it started.
+		const reloadId = ++latestReload
 		const now = new Date()
 		const next = resolveTarget(app, dailyNotes, now)
 		const nextLog = next.file
 			? await plugin.dailyLogs.loadFile(next.file)
 			: null
-		overnight = isSameDay(next.date, now)
+		const nextOvernight = isSameDay(next.date, now)
 			? await findOvernight(next.date, now)
 			: null
+		if (reloadId !== latestReload) return
+		overnight = nextOvernight
 		target = next
 		log = nextLog
 		loading = false
@@ -126,7 +133,9 @@
 	onMount(() => {
 		const unsubscribe = plugin.dailyLogs.onChange(() => void reload())
 		const leafRef = app.workspace.on('active-leaf-change', () => void reload())
-		void reload()
+		// Restored at startup, the view mounts before the note leaves: the
+		// active file is not known yet and would resolve to today's note.
+		app.workspace.onLayoutReady(() => void reload())
 		return () => {
 			unsubscribe()
 			app.workspace.offref(leafRef)
