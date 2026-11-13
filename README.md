@@ -35,7 +35,7 @@ All commands act on the daily note you are currently in, or on today's daily not
 | Command                    | What it does                                                                                                                                                           |
 | -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Toggle task                | Pick a task; starts a clock on it if it is off, closes the running clock if it is on.                                                                                  |
-| Toggle task from…          | Same, but asks how many minutes ago (or ahead, with a negative value) the toggle happened.                                                                             |
+| Toggle task from…          | Same, but asks when the toggle happened: a time of day (`14:30`) or minutes ago (`15`; negative for later).                                                            |
 | Toggle task from last      | Same, but the toggle happens at the moment the last finished task ended (no gap between tasks).                                                                        |
 | Toggle and tick task       | Toggle, and mark the task as done (`- [x]`).                                                                                                                           |
 | Toggle and tick task from… | Toggle and tick, at a chosen time in the past.                                                                                                                         |
@@ -44,7 +44,7 @@ All commands act on the daily note you are currently in, or on today's daily not
 | Switch and tick task       | Close and tick every running task, then start the picked one.                                                                                                          |
 | Switch and tick task from… | Same, at a chosen time in the past.                                                                                                                                    |
 | Switch to previous task(s) | Close every running clock and restart the task(s) that ended last.                                                                                                     |
-| Log interruption from…     | "I was interrupted N minutes ago by X": switch to X at that time, then switch back to what was running before.                                                         |
+| Log interruption from…     | "I was interrupted at 14:30 (or N minutes ago) by X": switch to X at that time, then switch back to what was running before.                                           |
 | Toggle quick interruption  | Start the `Interruption` task; run again to stop it and pick which task the time actually belongs to. The tracker tab lists that task only while it runs.              |
 | Migrate current task       | Move the running clock line to another task (you clocked the wrong task).                                                                                              |
 | Set task duration          | For a running task, close its clock so that the session lasted the given number of minutes.                                                                            |

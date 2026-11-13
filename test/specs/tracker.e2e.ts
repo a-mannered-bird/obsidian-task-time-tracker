@@ -384,7 +384,7 @@ describe('tracker tab', function () {
 		const notice = browser.$('.notice*=Switched from Chores to Email at')
 		await clickNoticeButton(notice, 'Change')
 		const modal = await modalTitled('Change the time')
-		const input = modal.$('input[placeholder="HH:MM"]')
+		const input = modal.$('input[placeholder="14:30 or 15"]')
 		await input.setValue('00:01')
 		await expect(input).toHaveValue('00:01')
 		await modal.$('button=Change').click()
@@ -416,7 +416,7 @@ describe('tracker tab', function () {
 		)
 		await elapsed.click()
 		const modal = await modalTitled('Change when Chores started')
-		const input = modal.$('input[placeholder="HH:MM"]')
+		const input = modal.$('input[placeholder="14:30 or 15"]')
 		await input.setValue('00:05')
 		await expect(input).toHaveValue('00:05')
 		await modal.$('button=Change').click()
@@ -440,7 +440,7 @@ describe('tracker tab', function () {
 
 		await chooseFromRowMenu('Chores', 'Set clock stop time')
 		const modal = await modalTitled('Set when Chores stopped')
-		const input = modal.$('input[placeholder="HH:MM"]')
+		const input = modal.$('input[placeholder="14:30 or 15"]')
 		await input.setValue('00:10')
 		await expect(input).toHaveValue('00:10')
 		await modal.$('button=Stop').click()
@@ -582,5 +582,62 @@ describe('tracker tab', function () {
 		content = await waitForChange(content)
 		assert.deepStrictEqual(content.trimEnd().split('\n'), ['- [ ] Run'])
 		await expectPlan(['Run'])
+	})
+
+	it('moves the start of a running task by minutes ago', async function () {
+		let content = await writeToday([
+			'- [ ] Chores',
+			`      [clock::${today.date}T00:00:00]`,
+		])
+		await openTracker()
+
+		await chooseFromRowMenu('Chores', 'Change clock start time')
+		const modal = await modalTitled('Change when Chores started')
+		const input = modal.$('input[placeholder="14:30 or 15"]')
+		await input.setValue('5')
+		await expect(input).toHaveValue('5')
+		// The typed minutes are previewed as the time they stand for.
+		await expect(modal.$('p*=· 5m ago')).toBeDisplayed()
+		const typedAt = Date.now()
+		await modal.$('button=Change').click()
+
+		content = await waitForChange(content)
+		const [clock] = clocksOf(content, '- [ ] Chores')
+		assert.strictEqual(clock?.end, null)
+		// Five minutes before the click, give or take the seconds it took.
+		const start = new Date(clock.start).valueOf()
+		const expected = typedAt - 5 * 60 * 1000
+		assert.ok(
+			Math.abs(start - expected) < 60 * 1000,
+			`started at ${clock.start}`
+		)
+	})
+
+	it('toggles at a time of day from the task switcher command', async function () {
+		let content = await writeToday(['- [ ] Chores'])
+		await openTracker()
+
+		await browser.executeObsidianCommand(
+			'obsidian-task-time-tracker:toggle-task-from'
+		)
+		const picker = browser.$('.prompt')
+		await expect(picker).toBeDisplayed()
+		await browser.keys([...'Chores'])
+		await expect(picker.$('.suggestion-item.is-selected')).toHaveText(
+			expect.stringContaining('Chores')
+		)
+		await browser.keys('Enter')
+
+		const modal = await modalTitled('When did it happen?')
+		const input = modal.$('input[placeholder="14:30 or 15"]')
+		await input.setValue('00:05')
+		await expect(input).toHaveValue('00:05')
+		await expect(modal.$('p*=00:05 ·')).toBeDisplayed()
+		await modal.$('button=OK').click()
+
+		content = await waitForChange(content)
+		assert.deepStrictEqual(clocksOf(content, '- [ ] Chores'), [
+			{ start: `${today.date}T00:05:00`, end: null },
+		])
 	})
 })

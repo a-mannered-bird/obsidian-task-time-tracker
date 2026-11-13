@@ -22,6 +22,17 @@
 	margin: 0;
 }
 
+/* Muted while it previews the value, red once it holds an error. */
+.task-time-tracker-prompt-status {
+	color: var(--text-muted);
+	min-height: 1.5em;
+	margin: 0;
+}
+
+.task-time-tracker-prompt-status.is-error {
+	color: var(--text-error);
+}
+
 .task-time-tracker-block-error {
 	color: var(--text-error);
 	border: 1px solid var(--background-modifier-error);

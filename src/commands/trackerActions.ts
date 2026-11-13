@@ -18,9 +18,9 @@ import {
 	type ToggleOptions,
 } from 'core/toggle'
 import { BUSY_NOTICE } from 'core/trackingRun'
-import { parseEndTime, parseStartTime, type TypedTime } from 'core/typedTime'
+import { parseEndTime, parseStartTime, timeInputHelp } from 'core/typedTime'
 import { confirmAction } from 'ui/ConfirmActionModal'
-import { promptText } from 'ui/TextPromptModal'
+import { promptTime } from 'ui/timePrompt'
 import { showActionNotice } from 'ui/undoNotice'
 import type TaskTimeTracker from '../main'
 import { retimeClockLine } from './timelineEdits'
@@ -181,10 +181,11 @@ async function changeHandOff(
 	const latestStart = new Date(
 		Math.max(...handOff.stopped.map((clock) => clock.start.valueOf()))
 	)
-	const at = await promptTime(plugin, {
+	const at = await promptTime(plugin.app, {
 		title: 'Change the time',
-		description: `${message}. When did it happen? A time before ${formatTimeOfDay(latestStart)} means the next day.`,
+		description: `${message}. When did it really happen? ${timeInputHelp()} A time of day before ${formatTimeOfDay(latestStart)} means the next day.`,
 		parse: (text) => parseEndTime(text, latestStart, new Date()),
+		confirmText: 'Change',
 	})
 	if (!at) return
 	const outcome = await rewriteNote(targetIo(plugin, target), (content) =>
@@ -210,10 +211,11 @@ export async function changeStart(
 	taskName: string,
 	start: Date
 ): Promise<void> {
-	const at = await promptTime(plugin, {
+	const at = await promptTime(plugin.app, {
 		title: `Change when ${taskName} started`,
-		description: `It started at ${formatTimeOfDay(start)} as far as the note knows.`,
+		description: `It started at ${formatTimeOfDay(start)} as far as the note knows. When did it really start? ${timeInputHelp()}`,
 		parse: (text) => parseStartTime(text, start, new Date()),
+		confirmText: 'Change',
 	})
 	if (!at) return
 	await retimeClockLine(
@@ -231,9 +233,9 @@ export async function setStop(
 	taskName: string,
 	start: Date
 ): Promise<void> {
-	const at = await promptTime(plugin, {
+	const at = await promptTime(plugin.app, {
 		title: `Set when ${taskName} stopped`,
-		description: `It started at ${formatTimeOfDay(start)}. A time before that means the next day.`,
+		description: `It started at ${formatTimeOfDay(start)}. When did it stop? ${timeInputHelp()} A time of day before the start means the next day.`,
 		parse: (text) => parseEndTime(text, start, new Date()),
 		confirmText: 'Stop',
 	})
@@ -244,31 +246,6 @@ export async function setStop(
 		{ taskName, start, end: null },
 		{ start, end: at }
 	)
-}
-
-async function promptTime(
-	plugin: TaskTimeTracker,
-	options: {
-		title: string
-		description: string
-		parse: (text: string) => TypedTime
-		confirmText?: string
-	}
-): Promise<Date | null> {
-	const value = await promptText(plugin.app, {
-		title: options.title,
-		description: options.description,
-		label: 'Time',
-		placeholder: 'HH:MM',
-		confirmText: options.confirmText ?? 'Change',
-		validate: (text) => {
-			const parsed = options.parse(text)
-			return 'error' in parsed ? parsed.error : null
-		},
-	})
-	if (value === null) return null
-	const parsed = options.parse(value)
-	return 'at' in parsed ? parsed.at : null
 }
 
 /** Tell about a write that did not happen; true when it did. */

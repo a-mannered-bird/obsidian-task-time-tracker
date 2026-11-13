@@ -2,6 +2,7 @@ import type { Task } from 'types/tasks'
 import { taskMinutes } from './aggregate'
 import { getLastEnd, isRunning, type TaskNote } from './note'
 import { addMinutes, formatLocalDateTime, getMinutesBetween } from './time'
+import { parseToggleTime, timeInputHelp, type TypedTime } from './typedTime'
 
 /**
  * What a tracking command does. Every command of the plugin is one fixed
@@ -18,7 +19,7 @@ export type ToggleOptions = {
 	switch?: boolean
 	/** Mark the toggled tasks as done (when switching: only the closed ones). */
 	tick?: boolean
-	/** Ask how many minutes ago the toggle happened. */
+	/** Ask when the toggle happened: a time of day or minutes ago. */
 	timeTravel?: boolean
 	/** Toggle at the moment the last finished task ended. */
 	fromLastTask?: boolean
@@ -60,6 +61,13 @@ export function taskChoice(task: Task): TaskChoice {
 	return { name: task.name, tags: task.tags, running: isRunning(task) }
 }
 
+/** A time to ask for; `parse` reads what the user types. */
+export type TimeRequest = {
+	title: string
+	description: string
+	parse: (text: string) => TypedTime
+}
+
 /** User interaction the engine needs; the commands wire it to modals. */
 export type Prompts = {
 	pickTask(note: TaskNote, request: PickTaskRequest): Promise<TaskChoice | null>
@@ -68,6 +76,7 @@ export type Prompts = {
 		description?: string
 		defaultValue?: number
 	}): Promise<number | null>
+	promptTime(request: TimeRequest): Promise<Date | null>
 	notify(message: string): void
 }
 
@@ -270,12 +279,15 @@ async function resolveTime(
 		at = end
 	}
 	if (options.timeTravel) {
-		const minutes = await prompts.promptMinutes({
-			title: 'How many minutes ago?',
-			description: 'Use a negative value to toggle in the future.',
+		const reference = at
+		const names = selected.map((task) => `"${task.name}"`).join(', ')
+		const picked = await prompts.promptTime({
+			title: 'When did it happen?',
+			description: `Toggles ${names} at the time you enter. ${timeInputHelp(options.fromLastTask ? reference : 'now')} Negative minutes are in the future.`,
+			parse: (text) => parseToggleTime(text, reference),
 		})
-		if (minutes === null) return null
-		at = addMinutes(at, -minutes)
+		if (!picked) return null
+		at = picked
 	}
 	return at
 }

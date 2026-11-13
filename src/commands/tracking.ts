@@ -12,6 +12,7 @@ import type { VaultPickerEntries } from 'core/taskPicker'
 import { applyTrackingSteps } from 'core/trackingRun'
 import { pickTask, type PickerNote } from 'ui/TaskSuggestModal'
 import { promptMinutes } from 'ui/MinutesPromptModal'
+import { promptTime } from 'ui/timePrompt'
 import type TaskTimeTracker from '../main'
 import {
 	currentTarget,
@@ -204,6 +205,7 @@ function interactivePrompts(plugin: TaskTimeTracker, path: string): Prompts {
 	return {
 		pickTask: (note, request) => pickNoteTask(plugin, path, note, request),
 		promptMinutes: (promptOptions) => promptMinutes(app, promptOptions),
+		promptTime: (request) => promptTime(app, request),
 		notify: (message) => new Notice(message, NOTICE_DURATION),
 	}
 }

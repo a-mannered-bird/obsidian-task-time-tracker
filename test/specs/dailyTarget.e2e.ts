@@ -131,17 +131,21 @@ describe('daily target', function () {
 		const modals = await browser.$$('.modal-container').getElements()
 		const modal = modals[modals.length - 1]!.$('.modal')
 		await expect(modal.$('.modal-title')).toHaveText('Stop Write blog post')
-		const input = modal.$('input[placeholder="HH:MM"]')
+		const input = modal.$('input[placeholder="14:30 or 15"]')
 		await expect(input).toBeFocused()
 
 		// An impossible time keeps the prompt open and says why.
 		await input.setValue('25:00')
 		await expect(input).toHaveValue('25:00')
 		await modal.$('button=Stop').click()
-		await expect(modal.$('p=Enter a time like 23:15.')).toBeDisplayed()
+		await expect(
+			modal.$('p=Enter a time of day like 14:30, or minutes ago like 15.')
+		).toBeDisplayed()
 
+		// The line under the field turns into the time it would set.
 		await input.setValue('23:30')
 		await expect(input).toHaveValue('23:30')
+		await expect(modal.$('p*=23:30 yesterday ·')).toBeDisplayed()
 		await modal.$('button=Stop').click()
 
 		await browser.waitUntil(

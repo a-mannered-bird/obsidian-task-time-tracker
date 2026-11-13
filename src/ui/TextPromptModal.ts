@@ -9,6 +9,8 @@ type Options = {
 	confirmText?: string
 	/** Error shown under the input for an unacceptable value; null = fine. */
 	validate?: (value: string) => string | null
+	/** What the value means, shown under the input as it is typed. */
+	preview?: (value: string) => string | null
 }
 
 /**
@@ -24,7 +26,8 @@ export function promptText(app: App, options: Options): Promise<string | null> {
 class TextPromptModal extends Modal {
 	private submitted = false
 	private value: string
-	private errorEl: HTMLElement | null = null
+	/** The line under the input: the preview, or the error after a submit. */
+	private statusEl: HTMLElement | null = null
 
 	constructor(
 		app: App,
@@ -45,7 +48,10 @@ class TextPromptModal extends Modal {
 			text
 				.setPlaceholder(this.options.placeholder ?? '')
 				.setValue(this.value)
-				.onChange((value) => (this.value = value))
+				.onChange((value) => {
+					this.value = value
+					this.showPreview()
+				})
 			text.inputEl.addEventListener('keydown', (event) => {
 				if (event.key === 'Enter') {
 					event.preventDefault()
@@ -55,9 +61,10 @@ class TextPromptModal extends Modal {
 			window.setTimeout(() => text.inputEl.select())
 		})
 
-		this.errorEl = this.contentEl.createEl('p', {
-			cls: 'task-time-tracker-prompt-error',
+		this.statusEl = this.contentEl.createEl('p', {
+			cls: 'task-time-tracker-prompt-status',
 		})
+		this.showPreview()
 
 		new Setting(this.contentEl)
 			.addButton((button) =>
@@ -76,11 +83,18 @@ class TextPromptModal extends Modal {
 		if (!this.submitted) this.resolve(null)
 	}
 
+	private showPreview(): void {
+		const text = this.options.preview?.(this.value.trim()) ?? null
+		this.statusEl?.removeClass('is-error')
+		this.statusEl?.setText(text ?? '')
+	}
+
 	private submit(): void {
 		const value = this.value.trim()
 		const error = this.options.validate?.(value) ?? null
 		if (error) {
-			this.errorEl?.setText(error)
+			this.statusEl?.addClass('is-error')
+			this.statusEl?.setText(error)
 			return
 		}
 		this.submitted = true

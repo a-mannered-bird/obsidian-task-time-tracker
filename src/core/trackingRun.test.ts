@@ -29,7 +29,7 @@ function fakeNote(lines: string[]) {
 	const picking = (
 		name: string,
 		during?: () => void,
-		{ live = false, minutes = null as number | null } = {}
+		{ live = false, time = null as string | null } = {}
 	): Prompts => ({
 		pickTask: (note, request) => {
 			prompted++
@@ -40,7 +40,12 @@ function fakeNote(lines: string[]) {
 		},
 		promptMinutes: () => {
 			prompted++
-			return Promise.resolve(minutes)
+			return Promise.resolve(null)
+		},
+		promptTime: (request) => {
+			prompted++
+			const parsed = time === null ? null : request.parse(time)
+			return Promise.resolve(parsed && 'at' in parsed ? parsed.at : null)
 		},
 		notify: (message) => notices.push(message),
 	})
@@ -150,17 +155,16 @@ describe('applyTrackingSteps', () => {
 				'- [ ] Walk the dog',
 				'      [clock::2026-08-16T08:00:00--2026-08-16T08:30:00]',
 			])
-		await note.run(
-			note.picking('Emails', synced, { live: true, minutes: 15 }),
-			[{ timeTravel: true }]
-		)
+		await note.run(note.picking('Emails', synced, { live: true, time: '15' }), [
+			{ timeTravel: true },
+		])
 		expect(note.lines()).toEqual([
 			'- [ ] Emails',
 			'      [clock::2026-08-16T11:45:00]',
 			'- [ ] Walk the dog',
 			'      [clock::2026-08-16T08:00:00--2026-08-16T08:30:00]',
 		])
-		// One pick, one minutes prompt: the restart replayed the pick.
+		// One pick, one time prompt: the restart replayed the pick.
 		expect(note.prompted()).toBe(2)
 	})
 })

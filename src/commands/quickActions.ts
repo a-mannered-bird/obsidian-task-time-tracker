@@ -22,7 +22,7 @@ export type QuickAction = {
 	name: string
 	taskName: string
 	verb: QuickActionVerb
-	/** Ask how many minutes ago the action happened. */
+	/** Ask when the action happened (a time of day or minutes ago). */
 	timeTravel: boolean
 	/** Show as a button in the tracker tab. */
 	showInTracker: boolean

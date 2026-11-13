@@ -24,12 +24,15 @@ const content = [
 type Script = {
 	pick?: (string | null)[]
 	minutes?: (number | null)[]
+	/** Text typed in time prompts, read by the request's parser. */
+	times?: (string | null)[]
 }
 
 /** Prompts answering from a script; records every notice. */
 function scripted(script: Script = {}) {
 	const picks = [...(script.pick ?? [])]
 	const minutes = [...(script.minutes ?? [])]
+	const times = [...(script.times ?? [])]
 	const notices: string[] = []
 	const offered: string[][] = []
 	const vaultFlags: boolean[] = []
@@ -43,6 +46,11 @@ function scripted(script: Script = {}) {
 			return Promise.resolve(task ? taskChoice(task) : null)
 		},
 		promptMinutes: () => Promise.resolve(minutes.shift() ?? null),
+		promptTime: (request) => {
+			const text = times.shift() ?? null
+			const parsed = text === null ? null : request.parse(text)
+			return Promise.resolve(parsed && 'at' in parsed ? parsed.at : null)
+		},
 		notify: (message) => notices.push(message),
 	}
 	return { prompts, notices, offered, vaultFlags }
@@ -95,9 +103,21 @@ describe('toggleTasks', () => {
 	it('time travel toggles in the past, from last task toggles at the last end', async () => {
 		const past = await run(
 			{ timeTravel: true },
-			{ pick: ['Walk the dog'], minutes: [15] }
+			{ pick: ['Walk the dog'], times: ['15'] }
 		)
 		expect(past.lines[3]).toBe(`      [clock::${at(11, 45)}]`)
+
+		const atTime = await run(
+			{ timeTravel: true },
+			{ pick: ['Walk the dog'], times: ['11:20'] }
+		)
+		expect(atTime.lines[3]).toBe(`      [clock::${at(11, 20)}]`)
+
+		const ahead = await run(
+			{ timeTravel: true },
+			{ pick: ['Walk the dog'], times: ['-10'] }
+		)
+		expect(ahead.lines[3]).toBe(`      [clock::${at(12, 10)}]`)
 
 		const fromLast = await run(
 			{ fromLastTask: true },

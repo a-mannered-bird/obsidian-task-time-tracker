@@ -1,8 +1,15 @@
 import { describe, expect, it } from 'vitest'
-import { parseEndTime, parseStartTime } from './typedTime'
+import {
+	describeTypedTime,
+	parseEndTime,
+	parseStartTime,
+	parseToggleTime,
+} from './typedTime'
 
 const now = new Date(2026, 10, 12, 8, 0)
-const notATime = { error: 'Enter a time like 23:15.' }
+const notATime = {
+	error: 'Enter a time of day like 14:30, or minutes ago like 15.',
+}
 const stillToCome = { error: 'That time is still to come.' }
 
 describe('parseEndTime', () => {
@@ -22,6 +29,20 @@ describe('parseEndTime', () => {
 
 	it('refuses a time still to come', () => {
 		expect(parseEndTime('9:00', start, now)).toEqual(stillToCome)
+		expect(parseEndTime('-5', start, now)).toEqual(stillToCome)
+	})
+
+	it('counts minutes back from now, after the start only', () => {
+		expect(parseEndTime('15', start, now)).toEqual({
+			at: new Date(2026, 10, 12, 7, 45),
+		})
+		expect(parseEndTime('15 min', start, now)).toEqual({
+			at: new Date(2026, 10, 12, 7, 45),
+		})
+		// 10h ago is 22:00 the day before, earlier than the 22:40 start.
+		expect(parseEndTime('600', start, now)).toEqual({
+			error: 'That is not after the start, 22:40.',
+		})
 	})
 
 	it('refuses text that is not a time of day', () => {
@@ -45,5 +66,47 @@ describe('parseStartTime', () => {
 
 	it('refuses a time still to come', () => {
 		expect(parseStartTime('8:30', start, now)).toEqual(stillToCome)
+	})
+
+	it('counts minutes back from now, before or after the start', () => {
+		expect(parseStartTime('5', start, now)).toEqual({
+			at: new Date(2026, 10, 12, 7, 55),
+		})
+		expect(parseStartTime('30m', start, now)).toEqual({
+			at: new Date(2026, 10, 12, 7, 30),
+		})
+	})
+})
+
+describe('parseToggleTime', () => {
+	it('takes a time of day, or minutes before the reference, either way', () => {
+		expect(parseToggleTime('7:20', now)).toEqual({
+			at: new Date(2026, 10, 12, 7, 20),
+		})
+		expect(parseToggleTime('15', now)).toEqual({
+			at: new Date(2026, 10, 12, 7, 45),
+		})
+		expect(parseToggleTime('-10', now)).toEqual({
+			at: new Date(2026, 10, 12, 8, 10),
+		})
+		expect(parseToggleTime('soon', now)).toEqual(notATime)
+	})
+})
+
+describe('describeTypedTime', () => {
+	it('gives the time with how far it is from now', () => {
+		expect(describeTypedTime(new Date(2026, 10, 12, 7, 45), now)).toBe(
+			'07:45 · 15m ago'
+		)
+		expect(describeTypedTime(new Date(2026, 10, 12, 9, 10), now)).toBe(
+			'09:10 · in 1h 10m'
+		)
+		expect(describeTypedTime(now, now)).toBe('08:00 · now')
+	})
+
+	it('names the day when it is not today', () => {
+		expect(describeTypedTime(new Date(2026, 10, 11, 23, 15), now)).toBe(
+			'23:15 yesterday · 8h 45m ago'
+		)
 	})
 })

@@ -20,6 +20,7 @@ export type NoteIo = {
 type Answer =
 	| { kind: 'task'; picked: TaskChoice | null }
 	| { kind: 'minutes'; minutes: number | null }
+	| { kind: 'time'; at: Date | null }
 
 /** The note changed so much that the recorded answers no longer apply. */
 class StaleAnswersError extends Error {}
@@ -153,6 +154,16 @@ function passPrompts(
 			const minutes = await live.promptMinutes(options)
 			await record({ kind: 'minutes', minutes }, minutes === null)
 			return minutes
+		},
+		promptTime: async (request) => {
+			const answer = replayed()
+			if (answer) {
+				if (answer.kind !== 'time') throw new StaleAnswersError()
+				return answer.at
+			}
+			const at = await live.promptTime(request)
+			await record({ kind: 'time', at }, at === null)
+			return at
 		},
 		notify: (message) => notices.push(message),
 	}
