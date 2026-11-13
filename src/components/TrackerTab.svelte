@@ -456,7 +456,7 @@
 	}
 
 	.row.running + .row.running {
-		margin-top: 4px;
+		margin-top: 2px;
 	}
 
 	.row.running .task-name {
@@ -528,7 +528,8 @@
 		display: flex;
 		align-items: center;
 		gap: 0.6em;
-		min-height: 44px;
+		/* Dense with a mouse; finger-sized on mobile, below. */
+		min-height: 32px;
 	}
 
 	.row .task-list-item-checkbox {
@@ -571,10 +572,19 @@
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
-		width: 36px;
-		height: 36px;
+		width: 28px;
+		height: 28px;
 		border-radius: var(--radius-s);
 		color: var(--text-muted);
+	}
+
+	:global(body.is-mobile) .row {
+		min-height: 44px;
+	}
+
+	:global(body.is-mobile) .row-button {
+		width: 36px;
+		height: 36px;
 	}
 
 	.row-button:hover {
