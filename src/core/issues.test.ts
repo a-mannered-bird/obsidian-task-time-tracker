@@ -203,16 +203,16 @@ describe('issuesByTask', () => {
 })
 
 describe('detectIssues: clocks outside the day window', () => {
-	const note = (body: string[], wake?: string, bed?: string) =>
+	const note = (body: string[], start?: string, end?: string) =>
 		[
 			'---',
-			...(wake ? [`wake_time: ${wake}`] : []),
-			...(bed ? [`bed_time: ${bed}`] : []),
+			...(start ? [`day_start: ${start}`] : []),
+			...(end ? [`day_end: ${end}`] : []),
 			'---',
 			...body,
 		].join('\n')
 
-	it('flags clocks wholly before wake or after bed, touching ones included in the day', async () => {
+	it('flags clocks wholly before the start or after the end of day, touching ones included in the day', async () => {
 		const issues = await issuesOf({
 			'2026-08-01.md': note(
 				[
@@ -239,7 +239,7 @@ describe('detectIssues: clocks outside the day window', () => {
 				start: new Date(2026, 7, 1, 23, 30, 0),
 				end: new Date(2026, 7, 1, 23, 45, 0),
 				boundary: new Date(2026, 7, 1, 23, 0, 0),
-				side: 'after-bed',
+				side: 'after-end',
 			},
 			{
 				kind: 'outside-day',
@@ -249,12 +249,12 @@ describe('detectIssues: clocks outside the day window', () => {
 				start: new Date(2026, 7, 1, 3, 0, 0),
 				end: new Date(2026, 7, 1, 3, 20, 0),
 				boundary: new Date(2026, 7, 1, 7, 0, 0),
-				side: 'before-wake',
+				side: 'before-start',
 			},
 		])
 	})
 
-	it('accepts clocks past midnight when the bed time is too', async () => {
+	it('accepts clocks past midnight when the end of day is too', async () => {
 		const issues = await issuesOf({
 			'2026-08-01.md': note(
 				[
@@ -275,12 +275,12 @@ describe('detectIssues: clocks outside the day window', () => {
 				start: new Date(2026, 7, 2, 1, 30, 0),
 				end: null,
 				boundary: new Date(2026, 7, 2, 1, 0, 0),
-				side: 'after-bed',
+				side: 'after-end',
 			},
 		])
 	})
 
-	it('checks nothing without the corresponding wake or bed time', async () => {
+	it('checks nothing without the corresponding start or end of day', async () => {
 		const body = [
 			'- [ ] Deep work',
 			'      [clock::2026-08-01T03:00:00--2026-08-01T03:20:00]',
@@ -288,14 +288,14 @@ describe('detectIssues: clocks outside the day window', () => {
 		]
 		const noTimes = await issuesOf({ '2026-08-01.md': note(body) })
 		expect(ofKind(noTimes, 'outside-day')).toEqual([])
-		const wakeOnly = await issuesOf({
+		const startOnly = await issuesOf({
 			'2026-08-01.md': note(body, '2026-08-01T07:00:00'),
 		})
 		expect(
-			ofKind(wakeOnly, 'outside-day').map(
+			ofKind(startOnly, 'outside-day').map(
 				(i) => i.kind === 'outside-day' && i.side
 			)
-		).toEqual(['before-wake'])
+		).toEqual(['before-start'])
 	})
 })
 
@@ -317,7 +317,7 @@ describe('describeIssue', () => {
 				start: new Date(2026, 7, 1, 9, 0, 0),
 			})
 		).toBe('Overlapping clocks in 2026-08-01')
-		const outside = (side: 'before-wake' | 'after-bed') =>
+		const outside = (side: 'before-start' | 'after-end') =>
 			describeIssue({
 				kind: 'outside-day',
 				name: 'Deep work',
@@ -328,8 +328,10 @@ describe('describeIssue', () => {
 				boundary: new Date(2026, 7, 1, 9, 15, 0),
 				side,
 			})
-		expect(outside('before-wake')).toBe('Before the wake time in 2026-08-01')
-		expect(outside('after-bed')).toBe('After the bed time in 2026-08-01')
+		expect(outside('before-start')).toBe(
+			'Before the start of day in 2026-08-01'
+		)
+		expect(outside('after-end')).toBe('After the end of day in 2026-08-01')
 	})
 
 	it('names the note by its path and formats the specifics', () => {
@@ -420,10 +422,10 @@ describe('explainOutsideDay', () => {
 				start: new Date(2026, 7, 1, 3, 0, 0),
 				end: new Date(2026, 7, 1, 3, 20, 0),
 				boundary: new Date(2026, 7, 1, 7, 0, 0),
-				side: 'before-wake',
+				side: 'before-start',
 			})
 		).toBe(
-			'"Night feed" clocked 2026-08-01 03:00–03:20 ends before the wake time of 2026-08-01, 2026-08-01 07:00. Either the clock belongs to another note, or the wake time is wrong.'
+			'"Night feed" clocked 2026-08-01 03:00–03:20 ends before the start of day recorded in 2026-08-01, 2026-08-01 07:00. Either the clock belongs to another note, or the start of day is wrong.'
 		)
 		expect(
 			explainOutsideDay({
@@ -434,10 +436,10 @@ describe('explainOutsideDay', () => {
 				start: new Date(2026, 7, 2, 1, 30, 0),
 				end: null,
 				boundary: new Date(2026, 7, 2, 1, 0, 0),
-				side: 'after-bed',
+				side: 'after-end',
 			})
 		).toBe(
-			'"Deep work" clocked 2026-08-02 01:30, still running starts after the bed time of 2026-08-01, 2026-08-02 01:00. Either the clock belongs to another note, or the bed time is wrong.'
+			'"Deep work" clocked 2026-08-02 01:30, still running starts after the end of day recorded in 2026-08-01, 2026-08-02 01:00. Either the clock belongs to another note, or the end of day is wrong.'
 		)
 	})
 })

@@ -2,9 +2,9 @@ import type { TFile } from 'obsidian'
 import type { BulkEditVault } from 'core/bulkEdit'
 import { parseTasks } from 'core/parser'
 import {
-	BED_TIME_PROPERTY,
+	DAY_END_PROPERTY,
 	readFrontmatterTime,
-	WAKE_TIME_PROPERTY,
+	DAY_START_PROPERTY,
 } from 'core/time'
 import type { VaultTaskChange, VaultTaskSource } from 'core/vaultTaskIndex'
 
@@ -24,10 +24,10 @@ export function fakeVault(notes: Record<string, string>) {
 			`${path.replace(/^.*\//, '').replace(/\.md$/, '')}T00:00:00`
 		),
 		tasks: parseTasks(content.split('\n')),
-		wakeTime: readFrontmatterTime(
-			frontmatterValue(content, WAKE_TIME_PROPERTY)
+		dayStart: readFrontmatterTime(
+			frontmatterValue(content, DAY_START_PROPERTY)
 		),
-		bedTime: readFrontmatterTime(frontmatterValue(content, BED_TIME_PROPERTY)),
+		dayEnd: readFrontmatterTime(frontmatterValue(content, DAY_END_PROPERTY)),
 	})
 	const fileOf = (path: string) => ({ path }) as TFile
 	const notify = (change?: VaultTaskChange) =>

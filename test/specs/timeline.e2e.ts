@@ -94,7 +94,7 @@ describe('timeline tab', function () {
 	it('opens a note fitted to its day', async function () {
 		await setFitOnOpen(true)
 		await openTimeline()
-		// The note has no wake or bed time: its clocks, 09:00 to 09:45, fill
+		// The note has no start or end of day: its clocks, 09:00 to 09:45, fill
 		// the view from its top (or as much of it as the zoom limit allows).
 		const fitted = () =>
 			browser.execute(() => {

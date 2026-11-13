@@ -199,7 +199,7 @@
 		'tag-drift': 'tags',
 		'clock-overlap': 'layers',
 		'stale-clock': 'alarm-clock',
-		'outside-day': 'moon',
+		'outside-day': 'calendar-x',
 	}
 
 	/** Remember not to show these warnings again, or a whole kind of them. */

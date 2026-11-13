@@ -10,8 +10,8 @@ Everything is stored as plain text in your daily notes: a task is a checkbox lin
 
 ```markdown
 ---
-wake_time: 2026-08-16T07:12:00
-bed_time: 2026-08-16T23:40:00
+day_start: 2026-08-16T07:12:00
+day_end: 2026-08-16T23:40:00
 ---
 
 - [ ] Write obsidian plugin #project #selfDev
@@ -25,33 +25,33 @@ bed_time: 2026-08-16T23:40:00
 - A **task** is a top-level checkbox line: `- [ ]` / `- [x]`, followed by the task name and any number of `#tags`.
 - A **clock line** is an indented `[clock::START]` (running) or `[clock::START--END]` (finished) line right below its task. Timestamps are local `YYYY-MM-DDTHH:mm:ss`.
 - A task can have several clock lines (several sessions in a day). Several tasks can be running at the same time; overlapping time is detected in the statistics.
-- `wake_time` and `bed_time` frontmatter properties bound the "loggable" part of the day and are used for sleep / unlogged-time statistics.
+- `day_start` and `day_end` frontmatter properties bound the "loggable" part of the day (waking hours, a work day…) and are used for off-time / unlogged-time statistics.
 - The plugin only looks at files inside the configured daily notes folder whose name matches the configured date format (defaults: vault root, `YYYY-MM-DD`, same as the core Daily Notes plugin).
 
 ## Tracking commands
 
 All commands act on the daily note you are currently in, or on today's daily note if the active file is not a daily note. Task pickers use Obsidian's fuzzy search and sort running tasks first, then unticked, then most recently worked on. Below the note's tasks they list the tasks of every other daily note (picking one adds it to the note), and last they offer to create the task you typed.
 
-| Command                    | What it does                                                                                                                                                           |
-| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Toggle task                | Pick a task; starts a clock on it if it is off, closes the running clock if it is on.                                                                                  |
-| Toggle task from…          | Same, but asks when the toggle happened: a time of day (`14:30`) or minutes ago (`15`; negative for later).                                                            |
-| Toggle task from last      | Same, but the toggle happens at the moment the last finished task ended (no gap between tasks).                                                                        |
-| Toggle and tick task       | Toggle, and mark the task as done (`- [x]`).                                                                                                                           |
-| Toggle and tick task from… | Toggle and tick, at a chosen time in the past.                                                                                                                         |
-| Switch task                | Close every running clock and start the picked task.                                                                                                                   |
-| Switch task from…          | Switch, at a chosen time in the past.                                                                                                                                  |
-| Switch and tick task       | Close and tick every running task, then start the picked one.                                                                                                          |
-| Switch and tick task from… | Same, at a chosen time in the past.                                                                                                                                    |
-| Switch to previous task(s) | Close every running clock and restart the task(s) that ended last.                                                                                                     |
-| Log interruption from…     | "I was interrupted at 14:30 (or N minutes ago) by X": switch to X at that time, then switch back to what was running before.                                           |
-| Toggle quick interruption  | Start the `Interruption` task; run again to stop it and pick which task the time actually belongs to. The tracker tab lists that task only while it runs.              |
-| Migrate current task       | Move the running clock line to another task (you clocked the wrong task).                                                                                              |
-| Set task duration          | For a running task, close its clock so that the session lasted the given number of minutes.                                                                            |
-| Plan a task                | Add a task from another daily note, or a new one, to the note without starting it.                                                                                     |
-| Set wake time              | Set the `wake_time` property to now (with an optional minute offset, default -3).                                                                                      |
-| Set bed time               | Set the `bed_time` property to now (with an optional minute offset).                                                                                                   |
-| End day                    | End-of-day cleanup: ask for the bed time when it is missing, close still-running clocks at it, tick every task that has a clock, remove tasks that were never clocked. |
+| Command                    | What it does                                                                                                                                                             |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Toggle task                | Pick a task; starts a clock on it if it is off, closes the running clock if it is on.                                                                                    |
+| Toggle task from…          | Same, but asks when the toggle happened: a time of day (`14:30`) or minutes ago (`15`; negative for later).                                                              |
+| Toggle task from last      | Same, but the toggle happens at the moment the last finished task ended (no gap between tasks).                                                                          |
+| Toggle and tick task       | Toggle, and mark the task as done (`- [x]`).                                                                                                                             |
+| Toggle and tick task from… | Toggle and tick, at a chosen time in the past.                                                                                                                           |
+| Switch task                | Close every running clock and start the picked task.                                                                                                                     |
+| Switch task from…          | Switch, at a chosen time in the past.                                                                                                                                    |
+| Switch and tick task       | Close and tick every running task, then start the picked one.                                                                                                            |
+| Switch and tick task from… | Same, at a chosen time in the past.                                                                                                                                      |
+| Switch to previous task(s) | Close every running clock and restart the task(s) that ended last.                                                                                                       |
+| Log interruption from…     | "I was interrupted at 14:30 (or N minutes ago) by X": switch to X at that time, then switch back to what was running before.                                             |
+| Toggle quick interruption  | Start the `Interruption` task; run again to stop it and pick which task the time actually belongs to. The tracker tab lists that task only while it runs.                |
+| Migrate current task       | Move the running clock line to another task (you clocked the wrong task).                                                                                                |
+| Set task duration          | For a running task, close its clock so that the session lasted the given number of minutes.                                                                              |
+| Plan a task                | Add a task from another daily note, or a new one, to the note without starting it.                                                                                       |
+| Set start of day           | Set the `day_start` property to now (with an optional minute offset, default -3).                                                                                        |
+| Set end of day             | Set the `day_end` property to now (with an optional minute offset).                                                                                                      |
+| End day                    | End-of-day cleanup: ask for the end of day when it is missing, close still-running clocks at it, tick every task that has a clock, remove tasks that were never clocked. |
 
 In the daily view's tracker tab, each row's ⋯ menu runs these actions on that task directly: for a running task, stop it when the last task ended, change its start, set its stop time or duration, migrate its clock, show the task or clock line, show the task in the task manager, delete the clock or the task; for an idle one, start it from when the last task ended, migrate its last clock, move it up, down, to the top or bottom of its list, show it in the note or the task manager, delete its last clock or the task. Deleting a task there removes it from that note only.
 
@@ -63,7 +63,7 @@ Commands ship without default hotkeys; assign your own in Obsidian's Hotkeys set
 
 A side panel (ribbon icon or command "Open daily view") that follows the daily note you are looking at and shows:
 
-- loggable time (wake → bed), total logged, remaining, slept, unlogged so far;
+- loggable time (start → end of day), total logged, remaining, off time, unlogged so far;
 - tasks by time spent;
 - tags by time spent.
 
@@ -87,7 +87,7 @@ The metrics:
 - **total**: total time over the range, plus a table of tasks (or tags) with time spent and share.
 - **average**: per-day average, or per-logged-day with `skipEmptyDays`.
 - **per-day**: a stacked bar chart, one bar per calendar day, colored by task/tag with the theme's colors; hover a bar for the full date and its per-task breakdown. A plain per-day table sits underneath, collapsed.
-- **time-of-day**: average sleep, unlogged time (awake time with no clock running, always computed from all tasks even with a `filter`), wake and bed times.
+- **time-of-day**: average off time, unlogged time (time within the day with no clock running, always computed from all tasks even with a `filter`), start and end of day.
 
 Weeks start on Monday. The `all` range starts at your oldest daily note. Everything refreshes live when a note changes.
 

@@ -28,7 +28,7 @@ export function isEmptyPlan(plan: CompletionPlan): boolean {
 	)
 }
 
-/** Apply the plan; running clocks are closed at `at` (typically the bed time). */
+/** Apply the plan; running clocks are closed at `at` (typically the end of day). */
 export function applyCompletion(
 	note: TaskNote,
 	plan: CompletionPlan,

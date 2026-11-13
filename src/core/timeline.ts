@@ -140,8 +140,8 @@ export function sameTaskOverlaps(blocks: TimelineBlock[]): Set<string> {
 export type TimelineAxis = { start: Date; end: Date }
 
 /**
- * The note's day, stretched to whole hours around `marks` (clocks, wake and
- * bed) that fall outside it, but never more than a day either way: a clock
+ * The note's day, stretched to whole hours around `marks` (clocks, start and
+ * end of day) that fall outside it, but never more than a day either way: a clock
  * with a mistyped date would otherwise stretch it over months.
  */
 export function timelineAxis(day: Date, marks: Date[]): TimelineAxis {
@@ -169,34 +169,34 @@ function ceilToHour(date: Date): Date {
 	return floored < date ? new Date(floored.valueOf() + HOUR) : floored
 }
 
-/** Where the timeline opens: now on today's note, else wake, else the first clock. */
+/** Where the timeline opens: now on today's note, else the start of day, else the first clock. */
 export function initialScrollTime(
 	day: Date,
 	now: Date,
-	wakeTime: Date | null,
+	dayStart: Date | null,
 	blocks: TimelineBlock[]
 ): Date | null {
 	if (startOfDay(day).valueOf() === startOfDay(now).valueOf()) return now
-	return wakeTime ?? blocks[0]?.start ?? null
+	return dayStart ?? blocks[0]?.start ?? null
 }
 
 /**
- * Range the Fit button shows: wake to bed, else the first to the last clock.
- * A bed time still ahead is only planned, so the range then ends with the
+ * Range the Fit button shows: start to end of day, else the first to the last clock.
+ * A end of day still ahead is only planned, so the range then ends with the
  * last clock (now while one runs), or now when nothing is logged yet.
  */
 export function fitRange(
-	wakeTime: Date | null,
-	bedTime: Date | null,
+	dayStart: Date | null,
+	dayEnd: Date | null,
 	blocks: TimelineBlock[],
 	now: Date
 ): TimelineAxis | null {
 	const lastEnd = blocks.length
 		? new Date(Math.max(...blocks.map((block) => block.end.valueOf())))
 		: null
-	if (wakeTime && bedTime && bedTime > wakeTime) {
-		const end = bedTime > now ? (lastEnd ?? now) : bedTime
-		return { start: wakeTime, end: end > wakeTime ? end : bedTime }
+	if (dayStart && dayEnd && dayEnd > dayStart) {
+		const end = dayEnd > now ? (lastEnd ?? now) : dayEnd
+		return { start: dayStart, end: end > dayStart ? end : dayEnd }
 	}
 	if (!lastEnd) return null
 	return { start: blocks[0]!.start, end: lastEnd }
@@ -238,7 +238,7 @@ export type SnapOptions = {
 
 /**
  * Snap targets for a block being dragged: the other blocks' edges, now, and
- * the wake and bed times when recorded.
+ * the start and end of day when recorded.
  */
 export function magnetsFor(
 	blocks: TimelineBlock[],

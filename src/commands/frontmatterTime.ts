@@ -1,9 +1,9 @@
 import { Notice, type IconName } from 'obsidian'
 import {
 	addMinutes,
-	BED_TIME_PROPERTY,
+	DAY_END_PROPERTY,
 	formatLocalDateTime,
-	WAKE_TIME_PROPERTY,
+	DAY_START_PROPERTY,
 } from 'core/time'
 import { promptMinutes } from 'ui/MinutesPromptModal'
 import type TaskTimeTracker from '../main'
@@ -18,27 +18,24 @@ export type TimeCommand = {
 	defaultOffset: number
 }
 
-export const WAKE_TIME_COMMAND: TimeCommand = {
-	id: 'set-wake-time',
-	name: 'Set wake time',
+export const DAY_START_COMMAND: TimeCommand = {
+	id: 'set-day-start',
+	name: 'Set start of day',
 	icon: 'sunrise',
-	property: WAKE_TIME_PROPERTY,
-	// Reaching the note takes a few minutes after actually getting up.
+	property: DAY_START_PROPERTY,
+	// Reaching the note takes a few minutes after the day actually started.
 	defaultOffset: -3,
 }
 
-export const BED_TIME_COMMAND: TimeCommand = {
-	id: 'set-bed-time',
-	name: 'Set bed time',
-	icon: 'moon',
-	property: BED_TIME_PROPERTY,
+export const DAY_END_COMMAND: TimeCommand = {
+	id: 'set-day-end',
+	name: 'Set end of day',
+	icon: 'sunset',
+	property: DAY_END_PROPERTY,
 	defaultOffset: 0,
 }
 
-export const TIME_COMMANDS: TimeCommand[] = [
-	WAKE_TIME_COMMAND,
-	BED_TIME_COMMAND,
-]
+export const TIME_COMMANDS: TimeCommand[] = [DAY_START_COMMAND, DAY_END_COMMAND]
 
 export function registerFrontmatterTimeCommands(plugin: TaskTimeTracker) {
 	for (const command of TIME_COMMANDS) {

@@ -21,14 +21,14 @@ export type TaskIssue =
 	| ({ kind: 'clock-overlap'; name: string } & ClockRef)
 	/** A clock still running in a note that is not today's. */
 	| ({ kind: 'stale-clock'; name: string } & ClockRef)
-	/** A clock lying entirely before the note's wake time or after its bed time. */
+	/** A clock lying entirely before the note's start of day or after its end of day. */
 	| ({
 			kind: 'outside-day'
 			name: string
-			side: 'before-wake' | 'after-bed'
+			side: 'before-start' | 'after-end'
 			/** The clock's end; null while running. */
 			end: Date | null
-			/** The wake or bed time the clock falls outside of. */
+			/** The start or end of day the clock falls outside of. */
 			boundary: Date
 	  } & ClockRef)
 
@@ -50,7 +50,7 @@ export const ISSUE_TITLES: Record<IssueKind, string> = {
 	'tag-drift': 'Tags differ between notes',
 	'clock-overlap': 'Overlapping clocks',
 	'stale-clock': 'Clock still running in a past note',
-	'outside-day': 'Clock outside the wake–bed window',
+	'outside-day': 'Clock outside the start and end of day',
 }
 
 /** What the user chose not to see again (see visibleIssues). */
@@ -90,7 +90,7 @@ export function issueKey(issue: TaskIssue): string {
 
 /**
  * The full story behind an outside-day warning, for a notice next to the
- * opened note: which clock, against which wake or bed time — so the user
+ * opened note: which clock, against which start or end of day — so the user
  * can tell at a glance whether the clock or the time is wrong.
  */
 export function explainOutsideDay(
@@ -100,10 +100,10 @@ export function explainOutsideDay(
 		? `${formatDateTime(issue.start)}–${formatTime(issue.end)}`
 		: `${formatDateTime(issue.start)}, still running`
 	const [relation, boundary] =
-		issue.side === 'before-wake'
-			? ['ends before', 'wake time']
-			: ['starts after', 'bed time']
-	return `"${issue.name}" clocked ${clock} ${relation} the ${boundary} of ${noteName(issue.path)}, ${formatDateTime(issue.boundary)}. Either the clock belongs to another note, or the ${boundary} is wrong.`
+		issue.side === 'before-start'
+			? ['ends before', 'start of day']
+			: ['starts after', 'end of day']
+	return `"${issue.name}" clocked ${clock} ${relation} the ${boundary} recorded in ${noteName(issue.path)}, ${formatDateTime(issue.boundary)}. Either the clock belongs to another note, or the ${boundary} is wrong.`
 }
 
 function formatDateTime(date: Date): string {
@@ -185,7 +185,7 @@ export function describeIssue(issue: TaskIssue): string {
 		case 'stale-clock':
 			return `Still running since ${formatLocalDateTime(issue.start).replace('T', ' ')} in ${noteName(issue.path)}`
 		case 'outside-day':
-			return `${issue.side === 'before-wake' ? 'Before the wake time' : 'After the bed time'} in ${noteName(issue.path)}`
+			return `${issue.side === 'before-start' ? 'Before the start of day' : 'After the end of day'} in ${noteName(issue.path)}`
 	}
 }
 
@@ -387,18 +387,18 @@ function staleClocks(
 // ----- clocks outside the day's window -----
 
 /**
- * Clocks wholly before the note's wake time or wholly after its bed time:
+ * Clocks wholly before the note's start of day or wholly after its end of day:
  * by the plugin's own definition of a day they belong to another note (or
  * the times are wrong — only a human can tell, so this is jump-to-line
  * material). A boundary that is not recorded is not checked; touching one
- * is inside. A running clock can only be after bed.
+ * is inside. A running clock can only be after the end of day.
  */
 function outsideDay(
 	name: string,
 	occurrences: VaultTaskOccurrence[]
 ): TaskIssue[] {
 	const issues: TaskIssue[] = []
-	for (const { path, task, wakeTime, bedTime } of occurrences) {
+	for (const { path, task, dayStart, dayEnd } of occurrences) {
 		for (const clock of task.clocks) {
 			const ref = {
 				name,
@@ -407,18 +407,18 @@ function outsideDay(
 				start: clock.start,
 				end: clock.end,
 			}
-			if (wakeTime && clock.end && clock.end < wakeTime) {
+			if (dayStart && clock.end && clock.end < dayStart) {
 				issues.push({
 					kind: 'outside-day',
-					side: 'before-wake',
-					boundary: wakeTime,
+					side: 'before-start',
+					boundary: dayStart,
 					...ref,
 				})
-			} else if (bedTime && clock.start > bedTime) {
+			} else if (dayEnd && clock.start > dayEnd) {
 				issues.push({
 					kind: 'outside-day',
-					side: 'after-bed',
-					boundary: bedTime,
+					side: 'after-end',
+					boundary: dayEnd,
 					...ref,
 				})
 			}

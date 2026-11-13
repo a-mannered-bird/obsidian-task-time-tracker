@@ -65,11 +65,11 @@ describe('daily target', function () {
 		assert.strictEqual(await obsidianPage.read(LATEST_FIXTURE), latestBefore)
 	})
 
-	it('stops a clock left running yesterday at its bed time', async function () {
+	it('stops a clock left running yesterday at its end of day', async function () {
 		const yesterday = dayNote(-1)
 		const note = [
 			'---',
-			`bed_time: ${yesterday.date}T23:15:00`,
+			`day_end: ${yesterday.date}T23:15:00`,
 			'---',
 			'- [ ] Write blog post',
 			`      [clock::${yesterday.date}T22:40:00]`,
@@ -123,7 +123,7 @@ describe('daily target', function () {
 		await openTrackerTab()
 
 		await expect(browser.$('h2=Still running from yesterday')).toBeDisplayed()
-		// Without a bed time, typing the time is the only way offered.
+		// Without a end of day, typing the time is the only way offered.
 		const stop = browser.$('button=Stop at…')
 		await expect(stop).toBeEnabled()
 		await stop.click()

@@ -1,10 +1,10 @@
 import { Notice, type TFile } from 'obsidian'
 import { applyCompletion, isEmptyPlan, planCompletion } from 'core/complete'
-import { BED_TIME_PROPERTY, readFrontmatterTime } from 'core/time'
+import { DAY_END_PROPERTY, readFrontmatterTime } from 'core/time'
 import { describeCompletion } from 'core/tracker'
 import { confirm } from 'ui/ConfirmModal'
 import type TaskTimeTracker from '../main'
-import { BED_TIME_COMMAND, runTimeCommand } from './frontmatterTime'
+import { DAY_END_COMMAND, runTimeCommand } from './frontmatterTime'
 import { currentTarget, NOTICE_DURATION, readTaskNote } from './target'
 
 const NOTHING_TO_COMPLETE = 'Nothing to complete.'
@@ -20,12 +20,12 @@ export function registerCompleteJournalCommand(plugin: TaskTimeTracker) {
 }
 
 /**
- * End-of-day cleanup: ask for the bed time when the note has none, then
+ * End-of-day cleanup: ask for the end of day when the note has none, then
  * close running clocks at it, tick every clocked task and delete the tasks
- * that were never clocked. `bedTime` is one just written by the caller,
+ * that were never clocked. `dayEnd` is one just written by the caller,
  * which the metadata cache may not show yet.
  */
-export async function endDay(plugin: TaskTimeTracker, bedTime?: Date) {
+export async function endDay(plugin: TaskTimeTracker, dayEnd?: Date) {
 	const { app } = plugin
 	const { file } = currentTarget(plugin)
 	if (!file || isEmptyPlan(planCompletion(await readTaskNote(plugin, file)))) {
@@ -34,12 +34,12 @@ export async function endDay(plugin: TaskTimeTracker, bedTime?: Date) {
 	}
 
 	const at =
-		bedTime ??
-		savedBedTime(plugin, file) ??
-		(await runTimeCommand(plugin, BED_TIME_COMMAND))
+		dayEnd ??
+		savedDayEnd(plugin, file) ??
+		(await runTimeCommand(plugin, DAY_END_COMMAND))
 	if (!at) return
 
-	// Read after the bed time was written, or writing the note would undo it.
+	// Read after the end of day was written, or writing the note would undo it.
 	const note = await readTaskNote(plugin, file)
 	const plan = planCompletion(note)
 	if (plan.toRemove.length > 0) {
@@ -62,7 +62,7 @@ export async function endDay(plugin: TaskTimeTracker, bedTime?: Date) {
 	)
 }
 
-function savedBedTime(plugin: TaskTimeTracker, file: TFile): Date | null {
+function savedDayEnd(plugin: TaskTimeTracker, file: TFile): Date | null {
 	const frontmatter = plugin.app.metadataCache.getFileCache(file)?.frontmatter
-	return readFrontmatterTime(frontmatter?.[BED_TIME_PROPERTY])
+	return readFrontmatterTime(frontmatter?.[DAY_END_PROPERTY])
 }

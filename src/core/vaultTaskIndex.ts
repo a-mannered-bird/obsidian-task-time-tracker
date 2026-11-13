@@ -3,7 +3,7 @@ import type { Task } from 'types/tasks'
 import { taskMinutes } from './aggregate'
 import type { DailyLog } from './dailyLogs'
 
-type NoteTasks = Pick<DailyLog, 'date' | 'tasks' | 'wakeTime' | 'bedTime'>
+type NoteTasks = Pick<DailyLog, 'date' | 'tasks' | 'dayStart' | 'dayEnd'>
 
 /** Structural counterpart of DailyLogChange, holding only what is read. */
 export type VaultTaskChange = { path: string; log: NoteTasks | null }
@@ -33,9 +33,9 @@ export type VaultTaskOccurrence = {
 	path: string
 	date: Date
 	task: Task
-	/** The note's wake/bed times, when recorded; the day's window. */
-	wakeTime: Date | null
-	bedTime: Date | null
+	/** The note's start and end of day, when recorded; the day's window. */
+	dayStart: Date | null
+	dayEnd: Date | null
 }
 
 type NoteEntry = NoteTasks
@@ -130,8 +130,8 @@ export class VaultTaskIndex {
 						path,
 						date: entry.date,
 						task,
-						wakeTime: entry.wakeTime,
-						bedTime: entry.bedTime,
+						dayStart: entry.dayStart,
+						dayEnd: entry.dayEnd,
 					})
 				}
 			}
@@ -175,7 +175,7 @@ function noteEntry(log: NoteTasks): NoteEntry {
 	return {
 		date: log.date,
 		tasks: log.tasks,
-		wakeTime: log.wakeTime,
-		bedTime: log.bedTime,
+		dayStart: log.dayStart,
+		dayEnd: log.dayEnd,
 	}
 }

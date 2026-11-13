@@ -50,28 +50,28 @@
 	)
 	const tagTimes = $derived(sortByMinutes(minutesByTag(tasks, now)))
 
-	const wakeTime = $derived(today?.wakeTime ?? null)
-	const bedTime = $derived(today?.bedTime ?? null)
-	const previousBedTime = $derived(yesterday?.bedTime ?? null)
+	const dayStart = $derived(today?.dayStart ?? null)
+	const dayEnd = $derived(today?.dayEnd ?? null)
+	const previousDayEnd = $derived(yesterday?.dayEnd ?? null)
 
 	const totalTime = $derived(totalMinutes(tasks, now))
 	const coveredTime = $derived(coveredMinutes(tasksToIntervals(tasks, now)))
 	const loggableTime = $derived(
-		wakeTime && bedTime ? getMinutesBetween(wakeTime, bedTime) : null
+		dayStart && dayEnd ? getMinutesBetween(dayStart, dayEnd) : null
 	)
-	const sleepTime = $derived(
-		previousBedTime && wakeTime
-			? getMinutesBetween(previousBedTime, wakeTime)
+	const offTime = $derived(
+		previousDayEnd && dayStart
+			? getMinutesBetween(previousDayEnd, dayStart)
 			: null
 	)
 	const remainingTime = $derived(
-		bedTime ? Math.max(0, getMinutesBetween(now, bedTime)) : null
+		dayEnd ? Math.max(0, getMinutesBetween(now, dayEnd)) : null
 	)
 	const unloggedTime = $derived.by(() => {
-		if (!wakeTime) return null
-		const end = bedTime && bedTime < now ? bedTime : now
+		if (!dayStart) return null
+		const end = dayEnd && dayEnd < now ? dayEnd : now
 		return uncoveredMinutes(tasksToIntervals(tasks, now), {
-			start: wakeTime,
+			start: dayStart,
 			end,
 		})
 	})
@@ -106,8 +106,8 @@
 		<span>{format(remainingTime, loggableTime)}</span>
 	</div>
 	<div class="stats-item">
-		<b>💤 Time slept: </b>
-		<span>{format(sleepTime, MINUTES_PER_DAY)}</span>
+		<b>⏸ Time off: </b>
+		<span>{format(offTime, MINUTES_PER_DAY)}</span>
 	</div>
 	<div class="stats-item">
 		<b>🍃 Time unlogged (so far): </b>

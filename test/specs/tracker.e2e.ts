@@ -358,10 +358,10 @@ describe('tracker tab', function () {
 		])
 		await expect(button('Start Call the bank')).toBeDisplayed()
 
-		// No bed time yet: End day asks for it, then confirms the deletion
+		// No end of day yet: End day asks for it, then confirms the deletion
 		// of the two tasks never clocked.
 		await browser.$('button=End day').click()
-		await (await modalTitled('Set bed time')).$('button=OK').click()
+		await (await modalTitled('Set end of day')).$('button=OK').click()
 		const modal = await modalTitled('End day')
 		await expect(modal.$('li=Call the bank')).toBeDisplayed()
 		await modal.$('button=End day').click()
@@ -371,7 +371,7 @@ describe('tracker tab', function () {
 			{ timeoutMsg: 'the day was not ended' }
 		)
 		content = await obsidianPage.read(today.path)
-		assert.match(content, new RegExp(`^---\\nbed_time: ${today.date}T`))
+		assert.match(content, new RegExp(`^---\\nday_end: ${today.date}T`))
 		assert.deepStrictEqual(
 			content.split('\n').filter((line) => line.startsWith('- [')),
 			['- [x] Write']

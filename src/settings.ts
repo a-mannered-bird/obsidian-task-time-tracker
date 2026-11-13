@@ -247,8 +247,8 @@ export class TaskTimeTrackerSettingTab extends PluginSettingTab {
 				key:
 					| 'timeTravel'
 					| 'showInTracker'
-					| 'setWakeTime'
-					| 'setBedTime'
+					| 'setDayStart'
+					| 'setDayEnd'
 					| 'completeJournal'
 			}[] = [
 				{
@@ -262,14 +262,14 @@ export class TaskTimeTrackerSettingTab extends PluginSettingTab {
 					key: 'showInTracker',
 				},
 				{
-					label: 'wake',
-					tooltip: 'Also set the wake time',
-					key: 'setWakeTime',
+					label: 'start of day',
+					tooltip: 'Also set the start of day',
+					key: 'setDayStart',
 				},
 				{
-					label: 'bed',
-					tooltip: 'Also set the bed time',
-					key: 'setBedTime',
+					label: 'end of day',
+					tooltip: 'Also set the end of day',
+					key: 'setDayEnd',
 				},
 				{
 					label: 'complete',

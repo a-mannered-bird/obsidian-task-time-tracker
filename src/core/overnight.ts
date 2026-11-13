@@ -7,13 +7,13 @@ import { addDays, isSameDay } from './dailyNotes'
 export type OvernightClock = {
 	taskName: string
 	start: Date
-	/** That note's bed time, when it can end the clock (after its start, past). */
-	bedTime: Date | null
+	/** That note's end of day, when it can end the clock (after its start, past). */
+	dayEnd: Date | null
 }
 
 export function findOvernightClocks(
 	tasks: Task[],
-	bedTime: Date | null,
+	dayEnd: Date | null,
 	now: Date
 ): OvernightClock[] {
 	return tasks.flatMap((task) =>
@@ -22,8 +22,7 @@ export function findOvernightClocks(
 			.map((clock) => ({
 				taskName: task.name,
 				start: clock.start,
-				bedTime:
-					bedTime && bedTime > clock.start && bedTime <= now ? bedTime : null,
+				dayEnd: dayEnd && dayEnd > clock.start && dayEnd <= now ? dayEnd : null,
 			}))
 	)
 }

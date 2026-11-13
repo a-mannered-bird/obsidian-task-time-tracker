@@ -14,7 +14,7 @@ import { getMinutesBetween } from './time'
 export type GroupBy = 'task' | 'tag' | 'filter'
 
 export type StatsOptions = {
-	/** Resolved range; logs outside it only feed the sleep of the first day. */
+	/** Resolved range; logs outside it only feed the off time of the first day. */
 	range: { start: Date; end: Date }
 	groupBy: GroupBy
 	/** Keep only tasks whose name or one of whose tags is listed. */
@@ -28,11 +28,11 @@ export type DayPoint = {
 	minutes: MinutesByKey
 	total: number
 	/** Null when the note is missing or the frontmatter times are not set. */
-	sleep: number | null
+	offTime: number | null
 	unlogged: number | null
-	/** Minutes since the day's midnight; bed times past midnight exceed 1440. */
-	wake: number | null
-	bed: number | null
+	/** Minutes since the day's midnight; day ends past midnight exceed 1440. */
+	dayStart: number | null
+	dayEnd: number | null
 }
 
 export type RangeStats = {
@@ -47,16 +47,16 @@ export type RangeStats = {
 	averagePerDay: number
 	averagePerLoggedDay: number
 	timeOfDay: {
-		sleep: number | null
+		offTime: number | null
 		unlogged: number | null
-		wake: number | null
-		bed: number | null
+		dayStart: number | null
+		dayEnd: number | null
 	}
 }
 
 /**
  * Statistics over a range of daily logs. `logs` may contain the day before
- * the range (needed for the first day's sleep); days without a note produce
+ * the range (needed for the first day's off time); days without a note produce
  * an empty point so charts keep a continuous axis.
  */
 export function computeRangeStats(
@@ -101,10 +101,10 @@ export function computeRangeStats(
 		averagePerDay: days ? totalMinutes / days : 0,
 		averagePerLoggedDay: loggedDays ? totalMinutes / loggedDays : 0,
 		timeOfDay: {
-			sleep: average(perDay.map((p) => p.sleep)),
+			offTime: average(perDay.map((p) => p.offTime)),
 			unlogged: average(perDay.map((p) => p.unlogged)),
-			wake: average(perDay.map((p) => p.wake)),
-			bed: average(perDay.map((p) => p.bed)),
+			dayStart: average(perDay.map((p) => p.dayStart)),
+			dayEnd: average(perDay.map((p) => p.dayEnd)),
 		},
 	}
 }
@@ -156,32 +156,35 @@ function timeOfDay(
 	previous: DailyLog | undefined,
 	tasks: Task[],
 	now: Date
-): Pick<DayPoint, 'sleep' | 'unlogged' | 'wake' | 'bed'> {
-	const wakeTime = log?.wakeTime ?? null
-	const bedTime = log?.bedTime ?? null
-	const previousBed = previous?.bedTime ?? null
+): Pick<DayPoint, 'offTime' | 'unlogged' | 'dayStart' | 'dayEnd'> {
+	const dayStart = log?.dayStart ?? null
+	const dayEnd = log?.dayEnd ?? null
+	const previousDayEnd = previous?.dayEnd ?? null
 	const midnight = log ? startOfDay(log.date) : null
 
-	const sleep =
-		previousBed && wakeTime ? getMinutesBetween(previousBed, wakeTime) : null
+	const offTime =
+		previousDayEnd && dayStart
+			? getMinutesBetween(previousDayEnd, dayStart)
+			: null
 
 	let unlogged: number | null = null
-	if (wakeTime) {
-		const end = bedTime && bedTime < now ? bedTime : now
+	if (dayStart) {
+		const end = dayEnd && dayEnd < now ? dayEnd : now
 		unlogged =
-			end > wakeTime
+			end > dayStart
 				? uncoveredMinutes(tasksToIntervals(tasks, now), {
-						start: wakeTime,
+						start: dayStart,
 						end,
 					})
 				: null
 	}
 
 	return {
-		sleep,
+		offTime,
 		unlogged,
-		wake: wakeTime && midnight ? getMinutesBetween(midnight, wakeTime) : null,
-		bed: bedTime && midnight ? getMinutesBetween(midnight, bedTime) : null,
+		dayStart:
+			dayStart && midnight ? getMinutesBetween(midnight, dayStart) : null,
+		dayEnd: dayEnd && midnight ? getMinutesBetween(midnight, dayEnd) : null,
 	}
 }
 

@@ -10,14 +10,14 @@ const now = d(18, 20, 0)
 function log(
 	day: number,
 	lines: string[],
-	times: { wake?: Date; bed?: Date } = {}
+	times: { start?: Date; end?: Date } = {}
 ): DailyLog {
 	return {
 		date: d(day),
 		file: { path: `Journal/2026-08-${day}.md` } as TFile,
 		tasks: parseTasks(lines),
-		wakeTime: times.wake ?? null,
-		bedTime: times.bed ?? null,
+		dayStart: times.start ?? null,
+		dayEnd: times.end ?? null,
 	}
 }
 
@@ -25,8 +25,8 @@ const clock = (day: number, from: string, to: string) =>
 	`      [clock::2026-08-${day}T${from}:00--2026-08-${day}T${to}:00]`
 
 const logs = [
-	// Day before the range: only its bed time matters (sleep of the 16th).
-	log(15, [], { bed: d(15, 23, 0) }),
+	// Day before the range: only its end of day matters (off time of the 16th).
+	log(15, [], { end: d(15, 23, 0) }),
 	log(
 		16,
 		[
@@ -35,13 +35,13 @@ const logs = [
 			'- [ ] Walk the dog #routine #outside',
 			clock(16, '08:00', '08:30'),
 		],
-		{ wake: d(16, 7, 0), bed: d(16, 23, 30) }
+		{ start: d(16, 7, 0), end: d(16, 23, 30) }
 	),
 	// 17th has no note at all.
 	log(
 		18,
 		['- [ ] Write plugin #project', clock(18, '14:00', '15:00'), '- [ ] Idle'],
-		{ wake: d(18, 8, 0) }
+		{ start: d(18, 8, 0) }
 	),
 ]
 const range = { start: d(16), end: d(18) }
@@ -78,33 +78,33 @@ describe('computeRangeStats', () => {
 		])
 	})
 
-	it('computes sleep, unlogged, wake and bed per day and on average', () => {
+	it('computes off time, unlogged, start and end of day per day and on average', () => {
 		const [day16, day17, day18] = stats.perDay
 		expect(day16).toMatchObject({
-			sleep: 480,
-			unlogged: 990 - 150, // wake→bed minus the logged 150 minutes
-			wake: 420,
-			bed: 1410,
+			offTime: 480,
+			unlogged: 990 - 150, // start→end of day minus the logged 150 minutes
+			dayStart: 420,
+			dayEnd: 1410,
 		})
 		expect(day17).toMatchObject({
-			sleep: null,
+			offTime: null,
 			unlogged: null,
-			wake: null,
-			bed: null,
+			dayStart: null,
+			dayEnd: null,
 		})
-		// No bed time yet: unlogged runs up to `now`, bed and sleep are unknown.
+		// No end of day yet: unlogged runs up to `now`, end of day and off time are unknown.
 		expect(day18).toMatchObject({
-			sleep: null,
+			offTime: null,
 			unlogged: 720 - 60,
-			wake: 480,
-			bed: null,
+			dayStart: 480,
+			dayEnd: null,
 		})
 
 		expect(stats.timeOfDay).toEqual({
-			sleep: 480,
+			offTime: 480,
 			unlogged: (840 + 660) / 2,
-			wake: 450,
-			bed: 1410,
+			dayStart: 450,
+			dayEnd: 1410,
 		})
 	})
 

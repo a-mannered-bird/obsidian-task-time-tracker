@@ -8,7 +8,7 @@ import {
 
 const note = [
 	'---',
-	'wake_time: 2026-08-16T07:00:00',
+	'day_start: 2026-08-16T07:00:00',
 	'---',
 	'',
 	'- [ ] Write plugin #project #selfDev',

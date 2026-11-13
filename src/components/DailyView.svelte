@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { Menu, type App, type TFile } from 'obsidian'
 	import {
-		BED_TIME_COMMAND,
+		DAY_END_COMMAND,
 		runTimeCommand,
-		WAKE_TIME_COMMAND,
+		DAY_START_COMMAND,
 	} from 'commands/frontmatterTime'
 	import { onMount } from 'svelte'
 	import {
@@ -103,7 +103,7 @@
 		const file = getAdjacentDailyNoteFile(app, dailyNotes, today, -1)
 		const earlier = file ? await plugin.dailyLogs.loadFile(file) : null
 		if (!earlier) return null
-		const clocks = findOvernightClocks(earlier.tasks, earlier.bedTime, now)
+		const clocks = findOvernightClocks(earlier.tasks, earlier.dayEnd, now)
 		return clocks.length > 0 ? { log: earlier, clocks } : null
 	}
 
@@ -180,27 +180,27 @@
 		<div class="day-status">
 			<button
 				class="day-time"
-				class:is-reminder={!log?.wakeTime && !otherDay}
+				class:is-reminder={!log?.dayStart && !otherDay}
 				use:instantTooltip
-				aria-label={log?.wakeTime
-					? `Wake time ${formatTimeOfDay(log.wakeTime)}, change`
-					: 'Set wake time'}
-				onclick={() => void runTimeCommand(plugin, WAKE_TIME_COMMAND)}
+				aria-label={log?.dayStart
+					? `Start of day ${formatTimeOfDay(log.dayStart)}, change`
+					: 'Set start of day'}
+				onclick={() => void runTimeCommand(plugin, DAY_START_COMMAND)}
 			>
 				<span use:icon={'sunrise'}></span>
-				{log?.wakeTime ? formatTimeOfDay(log.wakeTime) : 'Set wake time'}
+				{log?.dayStart ? formatTimeOfDay(log.dayStart) : 'Set start of day'}
 			</button>
 			<span aria-hidden="true">·</span>
 			<button
 				class="day-time"
 				use:instantTooltip
-				aria-label={log?.bedTime
-					? `Bed time ${formatTimeOfDay(log.bedTime)}, change`
-					: 'Set bed time'}
-				onclick={() => void runTimeCommand(plugin, BED_TIME_COMMAND)}
+				aria-label={log?.dayEnd
+					? `End of day ${formatTimeOfDay(log.dayEnd)}, change`
+					: 'Set end of day'}
+				onclick={() => void runTimeCommand(plugin, DAY_END_COMMAND)}
 			>
-				<span use:icon={'moon'}></span>
-				{log?.bedTime ? formatTimeOfDay(log.bedTime) : 'Set bed time'}
+				<span use:icon={'sunset'}></span>
+				{log?.dayEnd ? formatTimeOfDay(log.dayEnd) : 'Set end of day'}
 			</button>
 		</div>
 	{/if}

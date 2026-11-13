@@ -14,6 +14,7 @@ Roadmap and todo lists for the Task Time Tracker plugin. Decisions recorded here
 - "Complete journal entry": close still-open clocks (same timestamp as bed time), tick clocked tasks, remove unclocked ones, with a confirm modal listing what will be deleted.
 - One shared data layer (`DailyLogStore.loadRange → DailyLog[]`, cached, invalidated on vault events) and one line-based parser used for both reading stats and rewriting the note. Prerequisite for the flexible views.
 - Flexible views: `task-stats` code block first (saved view = code block in a note), sidebar controls later, both on the same Svelte components.
+- Renamed 2026-11-13: wake/bed time became start/end of day, so the day window fits any use (waking hours, a work day). Frontmatter `day_start` / `day_end`, commands `set-day-start` / `set-day-end`, quick-action flags `setDayStart` / `setDayEnd`, and the "sleep" statistic became "off time". No migration: the only user renamed the properties in their notes by hand. Wake/bed wording below predates this.
 - Ranges: today, this week (Monday start), last 7 days, this month, last month, last 3 months, this year, last year, all, custom `from..to`.
 - Group by: task name, tag. Metrics: total, per-day average (option to skip empty days), per-day breakdown as charts, time-of-day (sleep, unlogged, average wake and bed time). Loading a range also loads the day before `range.start` (previous bed time).
 - Charts: hand-rolled SVG in Svelte, themed with Obsidian CSS variables. No chart library for now.

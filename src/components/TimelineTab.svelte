@@ -116,7 +116,7 @@
 		log
 			? timelineAxis(log.date, [
 					...shown.flatMap((block) => [block.start, block.end]),
-					...[log.wakeTime, log.bedTime].filter((date) => date !== null),
+					...[log.dayStart, log.dayEnd].filter((date) => date !== null),
 				])
 			: null
 	)
@@ -272,8 +272,8 @@
 			stepMinutes: snapStepMinutes(zoom),
 			magnets: magnetsFor(shown, draggedId, [
 				now,
-				log?.wakeTime ?? null,
-				log?.bedTime ?? null,
+				log?.dayStart ?? null,
+				log?.dayEnd ?? null,
 			]),
 			magnetMs: (MAGNET_PX / zoom) * HOUR,
 			free: event.altKey,
@@ -515,7 +515,7 @@
 	/** Zoom to the day; `remember` saves the zoom, as a chosen one. */
 	async function fit(remember = true) {
 		if (!log || !scroller) return
-		const range = fitRange(log.wakeTime, log.bedTime, shown, now)
+		const range = fitRange(log.dayStart, log.dayEnd, shown, now)
 		if (!range || !axis) return
 		const end = Math.min(range.end.valueOf(), axis.end.valueOf())
 		const visible = scroller.clientHeight - toolbarHeight()
@@ -566,12 +566,12 @@
 		scrolledFor = path
 		if (
 			plugin.settings.timelineFitOnOpen &&
-			fitRange(log.wakeTime, log.bedTime, shown, now)
+			fitRange(log.dayStart, log.dayEnd, shown, now)
 		) {
 			void tick().then(() => fit(false))
 			return
 		}
-		const target = initialScrollTime(log.date, new Date(), log.wakeTime, blocks)
+		const target = initialScrollTime(log.date, new Date(), log.dayStart, blocks)
 		if (target) void tick().then(() => scrollToTime(target))
 	})
 
@@ -660,7 +660,7 @@
 			class="clickable-icon"
 			aria-label="Fit the day"
 			use:icon={'fold-vertical'}
-			disabled={!fitRange(log.wakeTime, log.bedTime, shown, now)}
+			disabled={!fitRange(log.dayStart, log.dayEnd, shown, now)}
 			onclick={() => void fit()}
 		></button>
 	</div>
@@ -672,11 +672,11 @@
 		bind:this={canvas}
 		onpointerdown={() => (selectedId = null)}
 	>
-		{#if log.wakeTime && log.bedTime && log.bedTime > log.wakeTime}
+		{#if log.dayStart && log.dayEnd && log.dayEnd > log.dayStart}
 			<div
-				class="awake"
-				style:top="{y(log.wakeTime)}px"
-				style:height="{y(log.bedTime) - y(log.wakeTime)}px"
+				class="in-day"
+				style:top="{y(log.dayStart)}px"
+				style:height="{y(log.dayEnd) - y(log.dayStart)}px"
 			></div>
 		{/if}
 
@@ -690,14 +690,14 @@
 			</div>
 		{/each}
 
-		{#if log.wakeTime && inAxis(log.wakeTime)}
-			<div class="mark wake" style:top="{y(log.wakeTime)}px">
-				<span>Wake</span>
+		{#if log.dayStart && inAxis(log.dayStart)}
+			<div class="mark day-start" style:top="{y(log.dayStart)}px">
+				<span>Start</span>
 			</div>
 		{/if}
-		{#if log.bedTime && inAxis(log.bedTime)}
-			<div class="mark bed" style:top="{y(log.bedTime)}px">
-				<span>Bed</span>
+		{#if log.dayEnd && inAxis(log.dayEnd)}
+			<div class="mark day-end" style:top="{y(log.dayEnd)}px">
+				<span>End</span>
 			</div>
 		{/if}
 		{#if inAxis(now)}
@@ -825,7 +825,7 @@
 		font-size: var(--font-ui-smaller);
 	}
 
-	.awake {
+	.in-day {
 		position: absolute;
 		left: var(--gutter);
 		right: 0;
@@ -867,8 +867,8 @@
 		font-size: var(--font-ui-smaller);
 	}
 
-	.mark.wake,
-	.mark.bed {
+	.mark.day-start,
+	.mark.day-end {
 		border-top: 1px dashed var(--text-muted);
 	}
 

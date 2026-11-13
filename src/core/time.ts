@@ -1,6 +1,6 @@
-/** Frontmatter properties holding the day's wake and bed timestamps. */
-export const WAKE_TIME_PROPERTY = 'wake_time'
-export const BED_TIME_PROPERTY = 'bed_time'
+/** Frontmatter properties holding the day's start and end of daytamps. */
+export const DAY_START_PROPERTY = 'day_start'
+export const DAY_END_PROPERTY = 'day_end'
 
 const pad = (n: number) => n.toString().padStart(2, '0')
 

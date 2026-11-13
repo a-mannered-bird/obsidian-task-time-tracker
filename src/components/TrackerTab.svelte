@@ -539,14 +539,14 @@
 					<span class="muted">since {formatTimeOfDay(clock.start)}</span>
 				</div>
 				<div class="buttons">
-					{#if clock.bedTime}
-						{@const bedTime = clock.bedTime}
+					{#if clock.dayEnd}
+						{@const dayEnd = clock.dayEnd}
 						<button
 							class="mod-cta"
 							onclick={() =>
-								void stopOvernightClock(plugin, earlier.file, clock, bedTime)}
+								void stopOvernightClock(plugin, earlier.file, clock, dayEnd)}
 						>
-							Stop at {formatTimeOfDay(bedTime)}
+							Stop at {formatTimeOfDay(dayEnd)}
 						</button>
 					{/if}
 					<button
@@ -774,7 +774,7 @@
 	{#if tasks.length > 0}
 		<div class="footer">
 			<button class="end-day" onclick={() => void endDay(plugin)}>
-				<span use:icon={'moon'}></span>
+				<span use:icon={'sunset'}></span>
 				End day
 			</button>
 		</div>

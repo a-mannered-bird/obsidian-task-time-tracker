@@ -140,18 +140,18 @@ describe('VaultTaskIndex.allTags', () => {
 })
 
 describe('VaultTaskIndex.occurrences', () => {
-	it('carries the note wake and bed times', async () => {
+	it('carries the note start and end of day', async () => {
 		const { index } = await makeBuiltIndex({
 			'Journal/2026-08-01.md': [
 				'---',
-				'wake_time: 2026-08-01T07:00:00',
+				'day_start: 2026-08-01T07:00:00',
 				'---',
 				'- [ ] Deep work',
 			].join('\n'),
 		})
 		expect(index.occurrences('Deep work')[0]).toMatchObject({
-			wakeTime: new Date(2026, 7, 1, 7, 0, 0),
-			bedTime: null,
+			dayStart: new Date(2026, 7, 1, 7, 0, 0),
+			dayEnd: null,
 		})
 	})
 

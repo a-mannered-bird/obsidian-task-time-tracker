@@ -11,7 +11,7 @@ export type LoadedRangeStats = {
 
 /**
  * Resolve the range (the `all` preset starts at the oldest daily note), load
- * the logs plus the day before (previous bed time), and compute the stats.
+ * the logs plus the day before (previous end of day), and compute the stats.
  * A non-zero `offset` steps that many periods away from the written range
  * (see shiftRange). Returns null when the range cannot be resolved or holds
  * no note at all.

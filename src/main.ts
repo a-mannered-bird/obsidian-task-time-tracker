@@ -88,7 +88,7 @@ export default class TaskTimeTracker extends Plugin {
 		delete data.dateFormat
 		// Dropped setting; the tracking commands no longer ship default hotkeys.
 		delete data.defaultToggleHotkey
-		// Dropped settings; the wake/bed properties are fixed now.
+		// Dropped settings; the start/end of day properties are fixed now.
 		delete data.wakeTimeProperty
 		delete data.bedTimeProperty
 		// Dropped setting; the pickers always offer every daily note's tasks.

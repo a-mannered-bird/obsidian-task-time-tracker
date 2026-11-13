@@ -205,12 +205,18 @@
 
 	{#if show('time-of-day')}
 		<div class="stats-summary">
-			<div><b>💤 Sleep</b> <span>{duration(stats.timeOfDay.sleep)}</span></div>
+			<div>
+				<b>⏸ Off time</b> <span>{duration(stats.timeOfDay.offTime)}</span>
+			</div>
 			<div>
 				<b>🍃 Unlogged</b> <span>{duration(stats.timeOfDay.unlogged)}</span>
 			</div>
-			<div><b>🌅 Wake</b> <span>{clock(stats.timeOfDay.wake)}</span></div>
-			<div><b>🌙 Bed</b> <span>{clock(stats.timeOfDay.bed)}</span></div>
+			<div>
+				<b>🌅 Start of day</b> <span>{clock(stats.timeOfDay.dayStart)}</span>
+			</div>
+			<div>
+				<b>🌇 End of day</b> <span>{clock(stats.timeOfDay.dayEnd)}</span>
+			</div>
 		</div>
 	{/if}
 

@@ -2,9 +2,9 @@ import type { ToggleOptions } from 'core/toggle'
 import type TaskTimeTracker from '../main'
 import { endDay } from './completeJournal'
 import {
-	BED_TIME_COMMAND,
+	DAY_END_COMMAND,
 	runTimeCommand,
-	WAKE_TIME_COMMAND,
+	DAY_START_COMMAND,
 } from './frontmatterTime'
 import { runTrackingSteps } from './tracking'
 
@@ -26,10 +26,10 @@ export type QuickAction = {
 	timeTravel: boolean
 	/** Show as a button in the tracker tab. */
 	showInTracker: boolean
-	/** Also prompt for the wake time, like the old "Getting up" macro. */
-	setWakeTime: boolean
-	/** Also prompt for the bed time. */
-	setBedTime: boolean
+	/** Also prompt for the start of day, like the old "Getting up" macro. */
+	setDayStart: boolean
+	/** Also prompt for the end of day. */
+	setDayEnd: boolean
 	/** Then run the end-of-day cleanup, like the old "Getting to bed" macro. */
 	completeJournal: boolean
 }
@@ -41,8 +41,8 @@ export function emptyQuickAction(): QuickAction {
 		verb: 'switch',
 		timeTravel: false,
 		showInTracker: true,
-		setWakeTime: false,
-		setBedTime: false,
+		setDayStart: false,
+		setDayEnd: false,
 		completeJournal: false,
 	}
 }
@@ -67,12 +67,12 @@ export async function runQuickAction(
 	const step = VERB_STEPS[action.verb](action.taskName)
 	if (action.timeTravel) step.timeTravel = true
 	await runTrackingSteps(plugin, [step])
-	if (action.setWakeTime) await runTimeCommand(plugin, WAKE_TIME_COMMAND)
-	// Bed time first: ending the day closes clocks at the bed time.
-	const bedTime = action.setBedTime
-		? await runTimeCommand(plugin, BED_TIME_COMMAND)
+	if (action.setDayStart) await runTimeCommand(plugin, DAY_START_COMMAND)
+	// End of day first: ending the day closes clocks at the end of day.
+	const dayEnd = action.setDayEnd
+		? await runTimeCommand(plugin, DAY_END_COMMAND)
 		: null
-	if (action.completeJournal) await endDay(plugin, bedTime ?? undefined)
+	if (action.completeJournal) await endDay(plugin, dayEnd ?? undefined)
 }
 
 /**

@@ -167,7 +167,7 @@ describe('initialScrollTime', () => {
 		expect(initialScrollTime(day, now, at(7), blocks)).toEqual(now)
 	})
 
-	it('opens on the wake time, else the first clock, for another day', () => {
+	it('opens on the start of day, else the first clock, for another day', () => {
 		const later = at(24 * 3)
 		expect(initialScrollTime(day, later, at(7), blocks)).toEqual(at(7))
 		expect(initialScrollTime(day, later, null, blocks)).toEqual(at(9))
@@ -178,14 +178,14 @@ describe('initialScrollTime', () => {
 describe('fitRange', () => {
 	const blocks = blocksOf(note)
 
-	it('fits wake to bed when both are recorded', () => {
+	it('fits the start to the end of day when both are recorded', () => {
 		expect(fitRange(at(7), at(13), blocks, now)).toEqual({
 			start: at(7),
 			end: at(13),
 		})
 	})
 
-	it('stops at the last clock when bed time is still ahead', () => {
+	it('stops at the last clock when end of day is still ahead', () => {
 		const finished = blocks.filter((block) => !block.running)
 		expect(fitRange(at(7), at(23), finished, now)).toEqual({
 			start: at(7),

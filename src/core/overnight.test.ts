@@ -18,21 +18,19 @@ describe('findOvernightClocks', () => {
 			{
 				taskName: 'Write blog post',
 				start: new Date(2026, 10, 11, 22, 40),
-				bedTime: null,
+				dayEnd: null,
 			},
 		])
 	})
 
-	it("offers the note's bed time when it can end the clock", () => {
-		const bedTime = new Date(2026, 10, 11, 23, 15)
-		expect(findOvernightClocks(tasks, bedTime, now)[0]?.bedTime).toEqual(
-			bedTime
-		)
+	it("offers the note's end of day when it can end the clock", () => {
+		const dayEnd = new Date(2026, 10, 11, 23, 15)
+		expect(findOvernightClocks(tasks, dayEnd, now)[0]?.dayEnd).toEqual(dayEnd)
 	})
 
-	it('does not offer a bed time before the clock started', () => {
-		const bedTime = new Date(2026, 10, 11, 22, 0)
-		expect(findOvernightClocks(tasks, bedTime, now)[0]?.bedTime).toBeNull()
+	it('does not offer a end of day before the clock started', () => {
+		const dayEnd = new Date(2026, 10, 11, 22, 0)
+		expect(findOvernightClocks(tasks, dayEnd, now)[0]?.dayEnd).toBeNull()
 	})
 })
 

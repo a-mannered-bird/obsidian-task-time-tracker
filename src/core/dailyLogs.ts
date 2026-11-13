@@ -15,17 +15,17 @@ import {
 } from './dailyNotes'
 import { parseTasks } from './parser'
 import {
-	BED_TIME_PROPERTY,
+	DAY_END_PROPERTY,
 	readFrontmatterTime,
-	WAKE_TIME_PROPERTY,
+	DAY_START_PROPERTY,
 } from './time'
 
 export type DailyLog = {
 	date: Date
 	file: TFile
 	tasks: Task[]
-	wakeTime: Date | null
-	bedTime: Date | null
+	dayStart: Date | null
+	dayEnd: Date | null
 }
 
 type CacheEntry = { mtime: number; log: DailyLog }
@@ -160,8 +160,8 @@ export class DailyLogStore {
 			date: getDailyNoteDate(this.getConfig(), file.path) ?? new Date(NaN),
 			file,
 			tasks: parseTasks(content.split('\n')),
-			wakeTime: readFrontmatterTime(frontmatter[WAKE_TIME_PROPERTY]),
-			bedTime: readFrontmatterTime(frontmatter[BED_TIME_PROPERTY]),
+			dayStart: readFrontmatterTime(frontmatter[DAY_START_PROPERTY]),
+			dayEnd: readFrontmatterTime(frontmatter[DAY_END_PROPERTY]),
 		}
 	}
 
