@@ -51,7 +51,10 @@
 	let overnight = $state<OvernightNote | null>(null)
 	let loading = $state(true)
 
+	let trackerTab = $state<TrackerTab | null>(null)
+
 	function select(tab: DailyViewTab) {
+		if (tab !== active) trackerTab?.leave()
 		active = tab
 		plugin.settings.lastDailyViewTab = tab
 		void plugin.saveSettings()
@@ -227,7 +230,14 @@
 
 	<div class="tab-panel" role="tabpanel">
 		{#if active === 'tracker'}
-			<TrackerTab {plugin} {log} {overnight} {otherDay} {loading} />
+			<TrackerTab
+				bind:this={trackerTab}
+				{plugin}
+				{log}
+				{overnight}
+				{otherDay}
+				{loading}
+			/>
 		{:else if active === 'timeline'}
 			<TimelineTab {plugin} {log} {loading} />
 		{:else}

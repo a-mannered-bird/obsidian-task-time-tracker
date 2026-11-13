@@ -30,6 +30,7 @@
 	} from 'core/tracker'
 	import type { Task } from 'types/tasks'
 	import { icon } from 'ui/icon'
+	import { rowMotion } from 'ui/rowMotion'
 	import { instantTooltip } from 'ui/tooltip'
 	import type TaskTimeTracker from '../main'
 	import TaskBar from './TaskBar.svelte'
@@ -47,6 +48,20 @@
 	const { plugin, log, overnight, otherDay, loading }: Props = $props()
 
 	let now = $state(new Date())
+
+	const motion = rowMotion()
+	$effect.pre(() => {
+		motion.show(log?.file.path ?? null)
+	})
+
+	/**
+	 * Call before switching to another tab: the rows' transitions are global
+	 * (they must play when a section opens or closes), so removing the tab
+	 * would otherwise play them too and keep it on screen meanwhile.
+	 */
+	export function leave() {
+		motion.stop()
+	}
 
 	const tasks = $derived(log?.tasks ?? [])
 	const unassigned = $derived(plugin.settings.unassignedTaskName)
@@ -219,7 +234,11 @@
 
 	{#if layout.running.length > 0}
 		{@const several = layout.running.length > 1}
-		<section class="section" aria-labelledby="now-title">
+		<section
+			class="section"
+			aria-labelledby="now-title"
+			transition:motion.section|global
+		>
 			<h2 id="now-title" class="section-title">
 				Now
 				{#if several}
@@ -238,8 +257,14 @@
 			</h2>
 			<ul class="rows">
 				{#each layout.running as task (task.name)}
-					{#if task.name === unassigned}
-						<li class="row running interruption">
+					<li
+						class="row running"
+						class:interruption={task.name === unassigned}
+						in:motion.receive|global={{ key: task.name }}
+						out:motion.send|global={{ key: task.name }}
+						animate:motion.slide
+					>
+						{#if task.name === unassigned}
 							<span class="row-icon" use:icon={'pause'}></span>
 							<span
 								class="task-name interruption-name"
@@ -258,9 +283,7 @@
 							>
 								End
 							</button>
-						</li>
-					{:else}
-						<li class="row running">
+						{:else}
 							{@render taskName(task)}
 							{@render elapsedTime(task)}
 							<span class="row-actions">
@@ -279,22 +302,31 @@
 									onclick={() => stop([task.name], false)}
 								></button>
 							</span>
-						</li>
-					{/if}
+						{/if}
+					</li>
 				{/each}
 			</ul>
 		</section>
 	{/if}
 
 	{#if layout.open.length > 0 || layout.done.length > 0}
-		<section class="section" aria-labelledby="plan-title">
+		<section
+			class="section"
+			aria-labelledby="plan-title"
+			transition:motion.section|global
+		>
 			<h2 id="plan-title" class="section-title">
 				{otherDay ? `Plan for ${otherDay}` : "Today's plan"}
 			</h2>
 			<ul class="rows">
 				{#each layout.open as task (task.name)}
 					{@const minutes = taskMinutes(task, now)}
-					<li class="row">
+					<li
+						class="row"
+						in:motion.receive|global={{ key: task.name }}
+						out:motion.send|global={{ key: task.name }}
+						animate:motion.slide
+					>
 						{@render checkbox(task)}
 						{@render taskName(task)}
 						{#if paused.includes(task)}
@@ -332,7 +364,12 @@
 					<ul class="rows">
 						{#each layout.done as task (task.name)}
 							{@const minutes = taskMinutes(task, now)}
-							<li class="row is-done">
+							<li
+								class="row is-done"
+								in:motion.receive|global={{ key: task.name }}
+								out:motion.send|global={{ key: task.name }}
+								animate:motion.slide
+							>
 								{@render checkbox(task)}
 								{@render taskName(task)}
 								{#if minutes > 0}
