@@ -183,7 +183,7 @@ async function changeHandOff(
 	)
 	const at = await promptTime(plugin.app, {
 		title: 'Change the time',
-		description: `${message}. When did it really happen? ${timeInputHelp()} A time of day before ${formatTimeOfDay(latestStart)} means the next day.`,
+		description: `${message}. ${timeInputHelp()} A time of day before ${formatTimeOfDay(latestStart)} means the next day.`,
 		parse: (text) => parseEndTime(text, latestStart, new Date()),
 		confirmText: 'Change',
 	})
@@ -213,7 +213,7 @@ export async function changeStart(
 ): Promise<void> {
 	const at = await promptTime(plugin.app, {
 		title: `Change when ${taskName} started`,
-		description: `It started at ${formatTimeOfDay(start)} as far as the note knows. When did it really start? ${timeInputHelp()}`,
+		description: `It started at ${formatTimeOfDay(start)} as far as the note knows. ${timeInputHelp()}`,
 		parse: (text) => parseStartTime(text, start, new Date()),
 		confirmText: 'Change',
 	})
@@ -235,7 +235,7 @@ export async function setStop(
 ): Promise<void> {
 	const at = await promptTime(plugin.app, {
 		title: `Set when ${taskName} stopped`,
-		description: `It started at ${formatTimeOfDay(start)}. When did it stop? ${timeInputHelp()} A time of day before the start means the next day.`,
+		description: `It started at ${formatTimeOfDay(start)}. ${timeInputHelp()} A time of day before the start means the next day.`,
 		parse: (text) => parseEndTime(text, start, new Date()),
 		confirmText: 'Stop',
 	})

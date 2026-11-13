@@ -30,7 +30,7 @@ export async function promptOvernightStop(
 ): Promise<void> {
 	const at = await promptTime(plugin.app, {
 		title: `Stop ${clock.taskName}`,
-		description: `Running since ${formatTimeOfDay(clock.start)}. When did it stop? ${timeInputHelp()} A time of day before the start means the next day.`,
+		description: `Running since ${formatTimeOfDay(clock.start)}. ${timeInputHelp()} A time of day before the start means the next day.`,
 		parse: (text) => parseEndTime(text, clock.start, new Date()),
 		confirmText: 'Stop',
 	})

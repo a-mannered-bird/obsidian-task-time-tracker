@@ -613,6 +613,34 @@ describe('tracker tab', function () {
 		)
 	})
 
+	it('moves the start of a running task into the future', async function () {
+		let content = await writeToday([
+			'- [ ] Chores',
+			`      [clock::${today.date}T00:00:00]`,
+		])
+		await openTracker()
+
+		await chooseFromRowMenu('Chores', 'Change clock start time')
+		const modal = await modalTitled('Change when Chores started')
+		const input = modal.$('input[placeholder="14:30 or 15"]')
+		// Negative minutes are ahead of now, as in the tracking commands.
+		await input.setValue('-10')
+		await expect(input).toHaveValue('-10')
+		await expect(modal.$('p*=· in 10m')).toBeDisplayed()
+		const typedAt = Date.now()
+		await modal.$('button=Change').click()
+
+		content = await waitForChange(content)
+		const [clock] = clocksOf(content, '- [ ] Chores')
+		assert.strictEqual(clock?.end, null)
+		const start = new Date(clock.start).valueOf()
+		const expected = typedAt + 10 * 60 * 1000
+		assert.ok(
+			Math.abs(start - expected) < 60 * 1000,
+			`started at ${clock.start}`
+		)
+	})
+
 	it('toggles at a time of day from the task switcher command', async function () {
 		let content = await writeToday(['- [ ] Chores'])
 		await openTracker()

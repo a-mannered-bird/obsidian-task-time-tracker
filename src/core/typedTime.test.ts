@@ -10,7 +10,6 @@ const now = new Date(2026, 10, 12, 8, 0)
 const notATime = {
 	error: 'Enter a time of day like 14:30, or minutes ago like 15.',
 }
-const stillToCome = { error: 'That time is still to come.' }
 
 describe('parseEndTime', () => {
 	const start = new Date(2026, 10, 11, 22, 40)
@@ -27,9 +26,13 @@ describe('parseEndTime', () => {
 		})
 	})
 
-	it('refuses a time still to come', () => {
-		expect(parseEndTime('9:00', start, now)).toEqual(stillToCome)
-		expect(parseEndTime('-5', start, now)).toEqual(stillToCome)
+	it('accepts a time still to come, as the tracking commands do', () => {
+		expect(parseEndTime('9:00', start, now)).toEqual({
+			at: new Date(2026, 10, 12, 9, 0),
+		})
+		expect(parseEndTime('-5', start, now)).toEqual({
+			at: new Date(2026, 10, 12, 8, 5),
+		})
 	})
 
 	it('counts minutes back from now, after the start only', () => {
@@ -64,8 +67,13 @@ describe('parseStartTime', () => {
 		})
 	})
 
-	it('refuses a time still to come', () => {
-		expect(parseStartTime('8:30', start, now)).toEqual(stillToCome)
+	it('accepts a time still to come, as the tracking commands do', () => {
+		expect(parseStartTime('8:30', start, now)).toEqual({
+			at: new Date(2026, 10, 12, 8, 30),
+		})
+		expect(parseStartTime('-10', start, now)).toEqual({
+			at: new Date(2026, 10, 12, 8, 10),
+		})
 	})
 
 	it('counts minutes back from now, before or after the start', () => {

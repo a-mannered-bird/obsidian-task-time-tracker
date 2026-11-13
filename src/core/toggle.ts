@@ -283,7 +283,7 @@ async function resolveTime(
 		const names = selected.map((task) => `"${task.name}"`).join(', ')
 		const picked = await prompts.promptTime({
 			title: 'When did it happen?',
-			description: `Toggles ${names} at the time you enter. ${timeInputHelp(options.fromLastTask ? reference : 'now')} Negative minutes are in the future.`,
+			description: `Toggles ${names} at the time you enter. ${timeInputHelp(options.fromLastTask ? reference : 'now')}`,
 			parse: (text) => parseToggleTime(text, reference),
 		})
 		if (!picked) return null
