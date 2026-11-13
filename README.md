@@ -53,6 +53,8 @@ All commands act on the daily note you are currently in, or on today's daily not
 | Set bed time               | Set the `bed_time` property to now (with an optional minute offset).                                                                                                   |
 | End day                    | End-of-day cleanup: ask for the bed time when it is missing, close still-running clocks at it, tick every task that has a clock, remove tasks that were never clocked. |
 
+In the daily view's tracker tab, each row's ⋯ menu runs these actions on that task directly: for a running task, stop it when the last task ended, change its start, set its stop time or duration, migrate its clock, show the task or clock line, delete the clock or the task; for an idle one, start it from when the last task ended, migrate its last clock, move it up, down, to the top or bottom of its list, show it, delete its last clock or the task. Deleting a task there removes it from that note only.
+
 Commands ship without default hotkeys; assign your own in Obsidian's Hotkeys settings. On mobile, each command has an icon for the toolbar.
 
 ## Statistics

@@ -26,7 +26,10 @@ export type ToggleOptions = {
 	targetState?: 'on' | 'off'
 	/** Start the interruption task, or stop it and move its time to a real task. */
 	interruption?: boolean
-	/** Move the running clock to another task instead of toggling. */
+	/**
+	 * Move a clock to another task instead of toggling: the last clock of
+	 * `taskName` (running or not), else the running clock.
+	 */
 	migrate?: boolean
 	/** Close the running clock of a task so that it lasted N minutes. */
 	setDuration?: boolean
@@ -87,7 +90,7 @@ export async function toggleTasks(
 ): Promise<boolean> {
 	const { prompts, now } = context
 
-	if (options.migrate) return migrateRunningClock(note, options, context)
+	if (options.migrate) return migrateClock(note, options, context)
 
 	if (options.setDuration && note.getRunningTasks().length === 0) {
 		prompts.notify('No running task found.')
@@ -315,21 +318,32 @@ function toggleOne(
 	prompts.notify(`${message}.`)
 }
 
-async function migrateRunningClock(
+async function migrateClock(
 	note: TaskNote,
 	options: ToggleOptions,
 	context: ToggleContext
 ): Promise<boolean> {
-	const running = note.getRunningTasks()[0]
-	if (!running) {
-		context.prompts.notify('No running task to migrate.')
+	const { prompts } = context
+	const { taskName } = options
+	const from =
+		taskName === undefined ? note.getRunningTasks()[0] : note.findTask(taskName)
+	if (!from) {
+		prompts.notify(
+			taskName === undefined
+				? 'No running task to migrate.'
+				: `Couldn't find "${taskName}".`
+		)
+		return false
+	}
+	if (from.clocks.length === 0) {
+		prompts.notify(`"${from.name}" has no clock to migrate.`)
 		return false
 	}
 	return moveLastClockTo(
 		note,
-		running,
+		from,
 		options.placeholder ?? 'Which task to migrate to?',
-		context.prompts
+		prompts
 	)
 }
 

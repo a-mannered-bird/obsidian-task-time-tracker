@@ -1,6 +1,6 @@
-import type { Task } from 'types/tasks'
+import type { Clock, Task } from 'types/tasks'
 import type { CompletionPlan } from './complete'
-import { isRunning, TaskNote } from './note'
+import { getLastEnd, isRunning, TaskNote } from './note'
 import { getLastEndedTasks, INTERRUPTION_TASK } from './toggle'
 
 /** The tracker tab's sections, each in the note's order. */
@@ -78,6 +78,140 @@ export function pausedByInterruption(tasks: Task[]): Task[] {
 		(task) => task.name === INTERRUPTION_TASK && isRunning(task)
 	)
 	return interruption ? getLastEndedTasks(tasks) : []
+}
+
+/** What the ⋯ menu of a row offers, in menu order. */
+export type RowAction =
+	| 'stop-from-last-end'
+	| 'change-start'
+	| 'set-stop'
+	| 'set-duration'
+	| 'migrate-clock'
+	| 'start-from-last-end'
+	| 'migrate-last-clock'
+	| 'move-up'
+	| 'move-down'
+	| 'move-to-bottom'
+	| 'move-to-top'
+	| 'show-task'
+	| 'show-clock'
+	| 'show-last-clock'
+	| 'delete-clock'
+	| 'delete-last-clock'
+	| 'delete-task'
+
+/**
+ * The menu of a row of the note's `tasks`. Stopping at the last task end
+ * is offered only when that end is after the running clock started; moves
+ * only within the row's section (plan or Done), where they can be seen.
+ */
+export function rowActions(task: Task, tasks: Task[]): RowAction[] {
+	const lastEnd = lastTaskEnd(tasks)
+	const running = task.clocks.find((clock) => clock.end === null)
+	if (running) {
+		return [
+			...when(
+				lastEnd !== null && lastEnd > running.start,
+				'stop-from-last-end'
+			),
+			'change-start',
+			'set-stop',
+			'set-duration',
+			'migrate-clock',
+			'show-task',
+			'show-clock',
+			'delete-clock',
+			'delete-task',
+		]
+	}
+	const section = sectionOf(trackerLayout(tasks), task.name)
+	const index = section.findIndex((other) => other.name === task.name)
+	const notFirst = index > 0
+	const notLast = index >= 0 && index < section.length - 1
+	const clocked = task.clocks.length > 0
+	return [
+		...when(lastEnd !== null, 'start-from-last-end'),
+		...when(clocked, 'migrate-last-clock'),
+		...when(notFirst, 'move-up'),
+		...when(notLast, 'move-down'),
+		...when(notLast, 'move-to-bottom'),
+		...when(notFirst, 'move-to-top'),
+		'show-task',
+		...when(clocked, 'show-last-clock'),
+		...when(clocked, 'delete-last-clock'),
+		'delete-task',
+	]
+}
+
+function when(condition: boolean, action: RowAction): RowAction[] {
+	return condition ? [action] : []
+}
+
+/**
+ * When the last stopped task ended, where "from last task end" starts or
+ * stops a clock (the engine's `fromLastTask`); null when none ended yet.
+ */
+export function lastTaskEnd(tasks: Task[]): Date | null {
+	const last = getLastEndedTasks(tasks)[0]
+	return last ? getLastEnd(last) : null
+}
+
+/** The clock a row's menu acts on: the running one, else the last line. */
+export function rowClock(task: Task): Clock | undefined {
+	return (
+		task.clocks.find((clock) => clock.end === null) ??
+		task.clocks[task.clocks.length - 1]
+	)
+}
+
+export type TaskMove = 'up' | 'down' | 'top' | 'bottom'
+
+/**
+ * The note with the task's block moved among the tasks of its section in
+ * the tracker (plan or Done), so a move is always visible there; null when
+ * the task is gone, unchanged when it cannot move that way.
+ */
+export function moveTaskLine(
+	content: string,
+	name: string,
+	move: TaskMove
+): string | null {
+	const note = new TaskNote(content)
+	const task = note.findTask(name)
+	if (!task) return null
+	const section = sectionOf(trackerLayout(note.tasks), name)
+	const index = section.findIndex((other) => other.name === name)
+	if (index < 0) return content
+	const target = {
+		up: section[index - 1],
+		down: section[index + 1],
+		top: section[0],
+		bottom: section[section.length - 1],
+	}[move]
+	if (!target) return content
+	note.moveTask(
+		task,
+		target,
+		move === 'up' || move === 'top' ? 'before' : 'after'
+	)
+	return note.toString()
+}
+
+function sectionOf(layout: TrackerLayout, name: string): Task[] {
+	return (
+		[layout.open, layout.done].find((section) =>
+			section.some((task) => task.name === name)
+		) ?? []
+	)
+}
+
+/** The note without the task line and its clock lines; null when gone. */
+export function removeTaskLine(content: string, name: string): string | null {
+	const note = new TaskNote(content)
+	const task = note.findTask(name)
+	if (!task) return null
+	note.removeTask(task)
+	return note.toString()
 }
 
 /** The note with a new unticked task line, or unchanged when it has one. */

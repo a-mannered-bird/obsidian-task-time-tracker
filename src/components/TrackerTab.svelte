@@ -1,12 +1,20 @@
 <script lang="ts">
+	import { Menu } from 'obsidian'
 	import { onMount } from 'svelte'
 	import { endDay } from 'commands/completeJournal'
 	import { promptOvernightStop, stopOvernightClock } from 'commands/overnight'
 	import { runQuickAction } from 'commands/quickActions'
 	import { openNoteAtLine } from 'commands/taskActions'
+	import { deleteClockLine } from 'commands/timelineEdits'
 	import {
 		changeStart,
+		deleteTaskFromNote,
+		migrateLastClock,
+		moveTask,
+		setDuration,
+		setStop,
 		startTask,
+		stopFromLastEnd,
 		stopTasks,
 		type StartMode,
 	} from 'commands/trackerActions'
@@ -25,8 +33,11 @@
 	import {
 		pausedByInterruption,
 		primaryStartIcon,
+		rowActions,
+		rowClock,
 		startActions,
 		trackerLayout,
+		type RowAction,
 	} from 'core/tracker'
 	import type { Task } from 'types/tasks'
 	import { icon } from 'ui/icon'
@@ -111,6 +122,163 @@
 		if (log) void openNoteAtLine(plugin, log.file.path, task.lineIndex)
 	}
 
+	// ----- row menu -----
+
+	type MenuGroup = 'track' | 'move' | 'show' | 'delete'
+
+	const ROW_ITEMS: Record<
+		RowAction,
+		{ title: string; icon: string; group: MenuGroup }
+	> = {
+		'stop-from-last-end': {
+			title: 'Stop from last task end',
+			icon: 'step-forward',
+			group: 'track',
+		},
+		'change-start': {
+			title: 'Change clock start time',
+			icon: 'clock',
+			group: 'track',
+		},
+		'set-stop': {
+			title: 'Set clock stop time',
+			icon: 'timer-off',
+			group: 'track',
+		},
+		'set-duration': {
+			title: 'Set clock duration',
+			icon: 'hourglass',
+			group: 'track',
+		},
+		'migrate-clock': {
+			title: 'Migrate clock to another task',
+			icon: 'move',
+			group: 'track',
+		},
+		'start-from-last-end': {
+			title: 'Start from last task end',
+			icon: 'step-forward',
+			group: 'track',
+		},
+		'migrate-last-clock': {
+			title: 'Migrate last clock to another task',
+			icon: 'move',
+			group: 'track',
+		},
+		'move-up': { title: 'Move up', icon: 'arrow-up', group: 'move' },
+		'move-down': { title: 'Move down', icon: 'arrow-down', group: 'move' },
+		'move-to-bottom': {
+			title: 'Move to the bottom',
+			icon: 'arrow-down-to-line',
+			group: 'move',
+		},
+		'move-to-top': {
+			title: 'Move to the top',
+			icon: 'arrow-up-to-line',
+			group: 'move',
+		},
+		'show-task': {
+			title: 'Show task in daily note',
+			icon: 'file-text',
+			group: 'show',
+		},
+		'show-clock': {
+			title: 'Show clock in daily note',
+			icon: 'file-clock',
+			group: 'show',
+		},
+		'show-last-clock': {
+			title: 'Show last clock in daily note',
+			icon: 'file-clock',
+			group: 'show',
+		},
+		'delete-clock': {
+			title: 'Delete clock',
+			icon: 'trash-2',
+			group: 'delete',
+		},
+		'delete-last-clock': {
+			title: 'Delete last clock',
+			icon: 'trash-2',
+			group: 'delete',
+		},
+		'delete-task': {
+			title: 'Delete task and all clocks',
+			icon: 'trash-2',
+			group: 'delete',
+		},
+	}
+
+	function openRowMenu(event: MouseEvent, task: Task) {
+		const menu = new Menu()
+		let group: MenuGroup | null = null
+		for (const action of rowActions(task, tasks)) {
+			const item = ROW_ITEMS[action]
+			if (group && item.group !== group) menu.addSeparator()
+			group = item.group
+			menu.addItem((menuItem) =>
+				menuItem
+					.setTitle(item.title)
+					.setIcon(item.icon)
+					.setWarning(item.group === 'delete')
+					.onClick(() => runRowAction(action, task))
+			)
+		}
+		// Under the button, whether opened by a click or the keyboard.
+		const rect =
+			event.currentTarget instanceof HTMLElement
+				? event.currentTarget.getBoundingClientRect()
+				: { left: event.clientX, bottom: event.clientY }
+		menu.showAtPosition({ x: rect.left, y: rect.bottom })
+	}
+
+	function runRowAction(action: RowAction, task: Task) {
+		if (!log) return
+		const { file } = log
+		const name = task.name
+		const clock = rowClock(task)
+		switch (action) {
+			case 'stop-from-last-end':
+				return void stopFromLastEnd(plugin, name)
+			case 'change-start':
+				if (clock) editStart(task, clock.start)
+				return
+			case 'set-stop':
+				if (clock) void setStop(plugin, file, name, clock.start)
+				return
+			case 'set-duration':
+				return void setDuration(plugin, name)
+			case 'migrate-clock':
+			case 'migrate-last-clock':
+				return void migrateLastClock(plugin, name)
+			case 'start-from-last-end':
+				return start(task, 'fromLastEnd')
+			case 'move-up':
+				return void moveTask(plugin, file, name, 'up')
+			case 'move-down':
+				return void moveTask(plugin, file, name, 'down')
+			case 'move-to-bottom':
+				return void moveTask(plugin, file, name, 'bottom')
+			case 'move-to-top':
+				return void moveTask(plugin, file, name, 'top')
+			case 'show-task':
+				return reveal(task)
+			case 'show-clock':
+			case 'show-last-clock':
+				if (clock) void openNoteAtLine(plugin, file.path, clock.lineIndex)
+				return
+			case 'delete-clock':
+			case 'delete-last-clock':
+				if (clock) {
+					const key = { taskName: name, start: clock.start, end: clock.end }
+					void deleteClockLine(plugin, file, key, task.tags)
+				}
+				return
+			case 'delete-task':
+				return void deleteTaskFromNote(plugin, file, name, task.clocks.length)
+		}
+	}
+
 	// Clock math compares against `now`; a stale value would make a clock
 	// started after the last minute tick look negative.
 	$effect(() => {
@@ -146,6 +314,16 @@
 			{elapsed(task)}
 		</button>
 	{/if}
+{/snippet}
+
+{#snippet moreButton(task: Task)}
+	<button
+		class="row-button"
+		use:instantTooltip
+		aria-label={`More actions for ${task.name}`}
+		use:icon={'more-horizontal'}
+		onclick={(event) => openRowMenu(event, task)}
+	></button>
 {/snippet}
 
 {#snippet checkbox(task: Task)}
@@ -285,6 +463,9 @@
 							>
 								End
 							</button>
+							<span class="row-actions">
+								{@render moreButton(task)}
+							</span>
 						{:else}
 							{@render taskName(task)}
 							{@render elapsedTime(task)}
@@ -303,6 +484,7 @@
 									use:icon={'square'}
 									onclick={() => stop([task.name], false)}
 								></button>
+								{@render moreButton(task)}
 							</span>
 						{/if}
 					</li>
@@ -356,6 +538,7 @@
 									onclick={() => start(task, 'alongside')}
 								></button>
 							{/if}
+							{@render moreButton(task)}
 						</span>
 					</li>
 				{/each}
@@ -377,6 +560,9 @@
 								{#if minutes > 0}
 									<span class="muted total">{formatHoursMinutes(minutes)}</span>
 								{/if}
+								<span class="row-actions">
+									{@render moreButton(task)}
+								</span>
 							</li>
 						{/each}
 					</ul>

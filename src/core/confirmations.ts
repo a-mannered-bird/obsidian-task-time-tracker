@@ -115,6 +115,15 @@ export function listNames(names: string[], shown = 5): string {
 		: quoted.join(', ')
 }
 
+/**
+ * Removing a task from one note (the tracker row's Delete task): other
+ * notes keep their lines of that name, unlike the vault-wide deletion.
+ */
+export function describeNoteTaskRemoval(name: string, clocks: number): string {
+	const what = clocks ? `and its ${plural(clocks, 'clock')} are` : 'is'
+	return `${quote(name)} ${what} removed from this note. Other daily notes keep theirs.`
+}
+
 export function plural(count: number, noun: string): string {
 	return `${count} ${noun}${count === 1 ? '' : 's'}`
 }

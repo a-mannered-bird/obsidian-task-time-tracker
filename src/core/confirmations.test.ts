@@ -3,6 +3,7 @@ import {
 	confirmationMatches,
 	describeConsolidation,
 	describeDeletion,
+	describeNoteTaskRemoval,
 	describeRetag,
 	listNames,
 	referenceWarnings,
@@ -98,6 +99,17 @@ describe('describeDeletion / describeRetag', () => {
 			)
 		).toBe(
 			'Remove every tag of "Deep work" on 1 task line across 1 daily note (removing "#focus").'
+		)
+	})
+})
+
+describe('describeNoteTaskRemoval', () => {
+	it('counts the clocks going with the task, when it has any', () => {
+		expect(describeNoteTaskRemoval('Email', 2)).toBe(
+			'"Email" and its 2 clocks are removed from this note. Other daily notes keep theirs.'
+		)
+		expect(describeNoteTaskRemoval('Email', 0)).toBe(
+			'"Email" is removed from this note. Other daily notes keep theirs.'
 		)
 	})
 })

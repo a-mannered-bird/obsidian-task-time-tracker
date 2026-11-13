@@ -179,6 +179,27 @@ describe('toggleTasks', () => {
 		])
 	})
 
+	it("migrates a named task's last finished clock", async () => {
+		const result = await run(
+			{ migrate: true, taskName: 'Write plugin' },
+			{ pick: ['Walk the dog'] }
+		)
+		// Running tasks are not offered, the named one neither.
+		expect(result.offered[0]).toEqual(['Walk the dog', 'Interruption'])
+		expect(result.lines.slice(0, 3)).toEqual([
+			'- [ ] Write plugin #project',
+			'- [ ] Walk the dog #routine',
+			'      [clock::2026-08-16T09:00:00--2026-08-16T10:00:00]',
+		])
+	})
+
+	it('migrates nothing from a named task without clocks', async () => {
+		const result = await run({ migrate: true, taskName: 'Walk the dog' })
+		expect(result.changed).toBe(false)
+		expect(result.offered).toEqual([])
+		expect(result.notices).toEqual(['"Walk the dog" has no clock to migrate.'])
+	})
+
 	it('quick interruption starts Interruption, then ends it, returns to previous and reassigns', async () => {
 		// Start: Interruption is off, Emails is running → switch to Interruption.
 		const start = await run({ interruption: true, switch: true })

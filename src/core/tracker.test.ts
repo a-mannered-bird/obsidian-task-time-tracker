@@ -5,8 +5,11 @@ import { parseTasks } from './parser'
 import {
 	addTaskLine,
 	describeCompletion,
+	moveTaskLine,
 	pausedByInterruption,
 	barAction,
+	removeTaskLine,
+	rowActions,
 	startActions,
 	trackerLayout,
 } from './tracker'
@@ -196,5 +199,128 @@ describe('describeCompletion', () => {
 			'2 tasks will be ticked.',
 			'These tasks were never clocked and will be deleted:',
 		])
+	})
+})
+
+describe('rowActions', () => {
+	const tasks = parseTasks([
+		'- [ ] Write blog post',
+		'      [clock::2026-11-12T09:00:00--2026-11-12T10:00:00]',
+		'- [ ] Chores',
+		'      [clock::2026-11-12T09:30:00]',
+		'- [ ] Email',
+		'      [clock::2026-11-12T10:30:00]',
+		'- [ ] Plan trip',
+		'- [ ] Call bank',
+		'- [x] Breakfast',
+	])
+	const actionsOf = (name: string) =>
+		rowActions(tasks.find((task) => task.name === name)!, tasks)
+
+	it('offers to stop at the last task end only when it is after the start', () => {
+		// Write blog post ended at 10:00: after Chores started, before Email.
+		expect(actionsOf('Chores')[0]).toBe('stop-from-last-end')
+		expect(actionsOf('Email')).toEqual([
+			'change-start',
+			'set-stop',
+			'set-duration',
+			'migrate-clock',
+			'show-task',
+			'show-clock',
+			'delete-clock',
+			'delete-task',
+		])
+	})
+
+	it('offers clock actions on idle rows only when they have a clock', () => {
+		expect(actionsOf('Write blog post')).toContain('delete-last-clock')
+		expect(actionsOf('Plan trip')).toEqual([
+			'start-from-last-end',
+			'move-up',
+			'move-down',
+			'move-to-bottom',
+			'move-to-top',
+			'show-task',
+			'delete-task',
+		])
+	})
+
+	it('moves only within the section, as far as it goes', () => {
+		// The plan lists Write blog post, Plan trip, Call bank.
+		expect(actionsOf('Write blog post')).not.toContain('move-up')
+		expect(actionsOf('Call bank')).not.toContain('move-down')
+		expect(actionsOf('Breakfast').filter((a) => a.startsWith('move'))).toEqual(
+			[]
+		)
+	})
+
+	it('does not offer to start from the last task end before any ended', () => {
+		const fresh = parseTasks(['- [ ] Email'])
+		expect(rowActions(fresh[0]!, fresh)[0]).toBe('show-task')
+	})
+})
+
+describe('moveTaskLine', () => {
+	const content = [
+		'- [ ] Write blog post',
+		'      [clock::2026-11-12T09:00:00--2026-11-12T10:00:00]',
+		'- [x] Breakfast',
+		'- [ ] Chores',
+		'      [clock::2026-11-12T10:42:00]',
+		'Some notes',
+		'- [ ] Email',
+		'- [ ] Plan trip',
+	].join('\n')
+
+	it('moves a block above the previous task of its section', () => {
+		// Breakfast (Done) and Chores (running) are not in the plan: Email
+		// goes right above Write blog post.
+		expect(moveTaskLine(content, 'Email', 'up')?.split('\n')).toEqual([
+			'- [ ] Email',
+			'- [ ] Write blog post',
+			'      [clock::2026-11-12T09:00:00--2026-11-12T10:00:00]',
+			'- [x] Breakfast',
+			'- [ ] Chores',
+			'      [clock::2026-11-12T10:42:00]',
+			'Some notes',
+			'- [ ] Plan trip',
+		])
+	})
+
+	it('moves a block with its clocks to the bottom, leaving other lines', () => {
+		expect(
+			moveTaskLine(content, 'Write blog post', 'bottom')?.split('\n')
+		).toEqual([
+			'- [x] Breakfast',
+			'- [ ] Chores',
+			'      [clock::2026-11-12T10:42:00]',
+			'Some notes',
+			'- [ ] Email',
+			'- [ ] Plan trip',
+			'- [ ] Write blog post',
+			'      [clock::2026-11-12T09:00:00--2026-11-12T10:00:00]',
+		])
+	})
+
+	it('leaves the note as it is at the edge of the section', () => {
+		expect(moveTaskLine(content, 'Plan trip', 'down')).toBe(content)
+		expect(moveTaskLine(content, 'Write blog post', 'top')).toBe(content)
+	})
+
+	it('tells when the task is gone', () => {
+		expect(moveTaskLine(content, 'Read news', 'up')).toBeNull()
+	})
+})
+
+describe('removeTaskLine', () => {
+	it('removes the task line with its clocks only', () => {
+		const content = [
+			'- [ ] Write blog post',
+			'      [clock::2026-11-12T09:00:00--2026-11-12T10:00:00]',
+			'      [clock::2026-11-12T11:00:00--2026-11-12T11:30:00]',
+			'Some notes',
+		].join('\n')
+		expect(removeTaskLine(content, 'Write blog post')).toBe('Some notes')
+		expect(removeTaskLine(content, 'Email')).toBeNull()
 	})
 })

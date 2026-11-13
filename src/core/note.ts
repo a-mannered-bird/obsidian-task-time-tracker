@@ -174,6 +174,23 @@ export class TaskNote {
 		this.invalidate()
 	}
 
+	/**
+	 * Move the task line and its clock lines right before or after the
+	 * block of `other`. Lines between tasks (notes, subtasks) stay put.
+	 */
+	moveTask(task: Task, other: Task, side: 'before' | 'after'): void {
+		if (task.name === other.name) return
+		const target =
+			side === 'before' ? other.lineIndex : this.clockBlockEnd(other)
+		const block = this.lines.splice(
+			task.lineIndex,
+			this.clockBlockEnd(task) - task.lineIndex
+		)
+		const insertAt = target > task.lineIndex ? target - block.length : target
+		this.lines.splice(insertAt, 0, ...block)
+		this.invalidate()
+	}
+
 	/** Index of the first line after the task's clock block. */
 	private clockBlockEnd(task: Task): number {
 		const lastClock = task.clocks[task.clocks.length - 1]

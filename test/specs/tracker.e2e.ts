@@ -85,6 +85,27 @@ async function modalTitled(title: string) {
 	return modal
 }
 
+/** Open a row's ⋯ menu and pick the item titled `choice`. */
+async function chooseFromRowMenu(taskName: string, choice: string) {
+	// Pressed through the DOM: a notice of an earlier step can cover the row.
+	const more = await button(`More actions for ${taskName}`).getElement()
+	await browser.execute((el) => el.click(), more)
+	const item = browser.$('.menu').$(`.menu-item-title=${choice}`)
+	await expect(item).toBeDisplayed()
+	await item.click()
+}
+
+/** The plan's rows, by name, in the order shown. */
+async function expectPlan(names: string[]) {
+	const rows = browser.$('section[aria-labelledby="plan-title"] > ul')
+	await expect(rows).toHaveChildren(names.length)
+	for (const [index, name] of names.entries()) {
+		await expect(
+			rows.$(`li:nth-child(${index + 1}) button[title="Show in the note"]`)
+		).toHaveText(name)
+	}
+}
+
 describe('tracker tab', function () {
 	beforeEach(async function () {
 		await resetVault()
@@ -385,5 +406,122 @@ describe('tracker tab', function () {
 			'aria-label',
 			expect.stringContaining('Started 00:05')
 		)
+	})
+
+	it('stops a running task at a typed time from its menu', async function () {
+		let content = await writeToday([
+			'- [ ] Chores',
+			`      [clock::${today.date}T00:00:00]`,
+		])
+		await openTracker()
+
+		await chooseFromRowMenu('Chores', 'Set clock stop time')
+		const modal = await modalTitled('Set when Chores stopped')
+		const input = modal.$('input[placeholder="HH:MM"]')
+		await input.setValue('00:10')
+		await expect(input).toHaveValue('00:10')
+		await modal.$('button=Stop').click()
+
+		content = await waitForChange(content)
+		assert.deepStrictEqual(clocksOf(content, '- [ ] Chores'), [
+			{ start: `${today.date}T00:00:00`, end: `${today.date}T00:10:00` },
+		])
+		await expect(button('Start Chores')).toBeDisplayed()
+	})
+
+	it('stops a running task when the last task ended', async function () {
+		let content = await writeToday([
+			'- [ ] Email',
+			`      [clock::${today.date}T00:00:00--${today.date}T00:20:00]`,
+			'- [ ] Chores',
+			`      [clock::${today.date}T00:10:00]`,
+		])
+		await openTracker()
+
+		await chooseFromRowMenu('Chores', 'Stop from last task end')
+		content = await waitForChange(content)
+		// Email ended at 00:20, so Chores, which ran alongside it, does too.
+		assert.deepStrictEqual(clocksOf(content, '- [ ] Chores'), [
+			{ start: `${today.date}T00:10:00`, end: `${today.date}T00:20:00` },
+		])
+		await expect(button('Start Chores')).toBeDisplayed()
+	})
+
+	it('reorders the plan from the row menus', async function () {
+		let content = await writeToday([
+			'- [ ] Email',
+			`      [clock::${today.date}T00:00:00--${today.date}T00:20:00]`,
+			'- [x] Breakfast',
+			'- [ ] Run',
+			'- [ ] Call the bank',
+		])
+		await openTracker()
+		await expectPlan(['Email', 'Run', 'Call the bank'])
+
+		await chooseFromRowMenu('Call the bank', 'Move to the top')
+		content = await waitForChange(content)
+		await expectPlan(['Call the bank', 'Email', 'Run'])
+		assert.deepStrictEqual(content.trimEnd().split('\n'), [
+			'- [ ] Call the bank',
+			'- [ ] Email',
+			`      [clock::${today.date}T00:00:00--${today.date}T00:20:00]`,
+			'- [x] Breakfast',
+			'- [ ] Run',
+		])
+
+		// Breakfast is in Done, not the plan: Email moves past it, below Run.
+		await chooseFromRowMenu('Email', 'Move down')
+		content = await waitForChange(content)
+		await expectPlan(['Call the bank', 'Run', 'Email'])
+		assert.deepStrictEqual(content.trimEnd().split('\n'), [
+			'- [ ] Call the bank',
+			'- [x] Breakfast',
+			'- [ ] Run',
+			'- [ ] Email',
+			`      [clock::${today.date}T00:00:00--${today.date}T00:20:00]`,
+		])
+	})
+
+	it('migrates the last clock of a task to another one', async function () {
+		let content = await writeToday([
+			'- [ ] Email',
+			`      [clock::${today.date}T00:00:00--${today.date}T00:20:00]`,
+			'- [ ] Run',
+		])
+		await openTracker()
+
+		await chooseFromRowMenu('Email', 'Migrate last clock to another task')
+		const picker = browser.$('.prompt')
+		await expect(picker).toBeDisplayed()
+		await browser.keys([...'Run'])
+		await expect(picker.$('.suggestion-item.is-selected')).toHaveText(
+			expect.stringContaining('Run')
+		)
+		await browser.keys('Enter')
+
+		content = await waitForChange(content)
+		assert.deepStrictEqual(content.trimEnd().split('\n'), [
+			'- [ ] Email',
+			'- [ ] Run',
+			`      [clock::${today.date}T00:00:00--${today.date}T00:20:00]`,
+		])
+	})
+
+	it('deletes a task and its clocks from this note only', async function () {
+		let content = await writeToday([
+			'- [ ] Email',
+			`      [clock::${today.date}T00:00:00--${today.date}T00:20:00]`,
+			'- [ ] Run',
+		])
+		await openTracker()
+
+		await chooseFromRowMenu('Email', 'Delete task and all clocks')
+		const modal = await modalTitled('Delete "Email"')
+		await expect(modal.$('p*=and its 1 clock are removed')).toBeDisplayed()
+		await modal.$('button=Delete').click()
+
+		content = await waitForChange(content)
+		assert.deepStrictEqual(content.trimEnd().split('\n'), ['- [ ] Run'])
+		await expectPlan(['Run'])
 	})
 })
