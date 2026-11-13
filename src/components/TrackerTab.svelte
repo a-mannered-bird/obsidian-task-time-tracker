@@ -31,6 +31,8 @@
 	import { formatHoursMinutes, getMinutesBetween } from 'core/time'
 	import { INTERRUPTION_TASK, taskChoice } from 'core/toggle'
 	import {
+		dropMove,
+		dropSlot,
 		pausedByInterruption,
 		primaryStartIcon,
 		rowActions,
@@ -38,6 +40,7 @@
 		startActions,
 		trackerLayout,
 		type RowAction,
+		type TaskMove,
 	} from 'core/tracker'
 	import type { Task } from 'types/tasks'
 	import { icon } from 'ui/icon'
@@ -120,6 +123,157 @@
 
 	function reveal(task: Task) {
 		if (log) void openNoteAtLine(plugin, log.file.path, task.lineIndex)
+	}
+
+	// ----- reordering by dragging a name -----
+
+	/** Movement before a press becomes a drag, so a click stays a click. */
+	const DRAG_THRESHOLD_PX = 4
+	/** Finger movement before the long press that means "scroll" instead. */
+	const SCROLL_SLOP_PX = 8
+	const LONG_PRESS_MS = 400
+
+	type RowPress = {
+		name: string
+		/** The names of the dragged row's section, in order. */
+		names: string[]
+		list: HTMLElement
+		row: HTMLElement
+		/** The copy of the row following the pointer, once the drag is on. */
+		ghost: HTMLElement | null
+		/** Where in the row it was grabbed, so the ghost keeps that hold. */
+		grabOffset: number
+		pointerId: number
+		x0: number
+		y0: number
+		touch: boolean
+		/** Movement now drags: a mouse, or a finger after the long press. */
+		armed: boolean
+		timer: number
+	}
+	let rowPress: RowPress | null = null
+	/** The row being dragged and where it would land, while a drag is on. */
+	let rowDrag = $state<{ name: string; move: TaskMove | null } | null>(null)
+
+	function onNamePointerDown(
+		event: PointerEvent,
+		name: string,
+		names: string[]
+	) {
+		if (event.button !== 0 || !log) return
+		const target = event.currentTarget
+		const row = target instanceof HTMLElement ? target.closest('li') : null
+		const list = row?.closest('ul')
+		if (!row || !list) return
+		const touch = event.pointerType === 'touch'
+		const press: RowPress = {
+			name,
+			names,
+			list,
+			row,
+			ghost: null,
+			grabOffset: event.clientY - row.getBoundingClientRect().top,
+			pointerId: event.pointerId,
+			x0: event.clientX,
+			y0: event.clientY,
+			touch,
+			armed: !touch,
+			timer: 0,
+		}
+		if (touch) {
+			press.timer = window.setTimeout(() => {
+				press.armed = true
+				rowDrag = { name, move: null }
+				showGhost(press, press.y0)
+				navigator.vibrate?.(15)
+			}, LONG_PRESS_MS)
+		}
+		rowPress = press
+	}
+
+	function onRowPointerMove(event: PointerEvent) {
+		const press = rowPress
+		if (!press || event.pointerId !== press.pointerId) return
+		if (!rowDrag) {
+			const distance = Math.hypot(
+				event.clientX - press.x0,
+				event.clientY - press.y0
+			)
+			if (!press.armed) {
+				if (distance > SCROLL_SLOP_PX) endRowPress()
+				return
+			}
+			if (distance < DRAG_THRESHOLD_PX) return
+		}
+		showGhost(press, event.clientY)
+		const middles = Array.from(press.list.children).map((row) => {
+			const rect = row.getBoundingClientRect()
+			return rect.top + rect.height / 2
+		})
+		rowDrag = {
+			name: press.name,
+			move: dropMove(press.names, press.name, dropSlot(middles, event.clientY)),
+		}
+	}
+
+	function onRowPointerUp(event: PointerEvent) {
+		const press = rowPress
+		if (!press || event.pointerId !== press.pointerId) return
+		const move = rowDrag?.move
+		endRowPress()
+		if (move && log) void moveTask(plugin, log.file, press.name, move)
+	}
+
+	function endRowPress() {
+		if (rowPress) {
+			window.clearTimeout(rowPress.timer)
+			rowPress.ghost?.remove()
+		}
+		rowPress = null
+		rowDrag = null
+	}
+
+	/**
+	 * A copy of the row, made on the drag's first move, that follows the
+	 * pointer up and down while the row itself stays in place, faded.
+	 */
+	function showGhost(press: RowPress, y: number) {
+		if (!press.ghost) {
+			const ghost = press.row.cloneNode(true)
+			if (!(ghost instanceof HTMLElement)) return
+			const rect = press.row.getBoundingClientRect()
+			ghost.classList.remove('is-dragged', 'drop-before', 'drop-after')
+			ghost.classList.add('task-time-tracker-drag-ghost')
+			ghost.inert = true
+			ghost.setAttribute('aria-hidden', 'true')
+			ghost.setCssStyles({ left: `${rect.left}px`, width: `${rect.width}px` })
+			press.row.ownerDocument.body.appendChild(ghost)
+			press.ghost = ghost
+		}
+		press.ghost.setCssStyles({ top: `${y - press.grabOffset}px` })
+	}
+
+	function onRowTouchMove(event: TouchEvent) {
+		// Once a finger holds a name, its moves drag instead of scrolling.
+		if (rowPress?.touch && rowPress.armed && event.cancelable) {
+			event.preventDefault()
+		}
+	}
+
+	/** A held finger would otherwise also open the system's long-press menu. */
+	function onRowContextMenu(event: MouseEvent) {
+		if (rowPress?.touch) event.preventDefault()
+	}
+
+	function onRowKeyUp(event: KeyboardEvent) {
+		if (event.key === 'Escape' && rowDrag) endRowPress()
+	}
+
+	function dropSide(task: Task): 'before' | 'after' | null {
+		const move = rowDrag?.move
+		return move && typeof move === 'object' && move.next === task.name
+			? move.side
+			: null
 	}
 
 	// ----- row menu -----
@@ -288,18 +442,41 @@
 
 	onMount(() => {
 		const tick = window.setInterval(() => (now = new Date()), 60 * 1000)
-		return () => window.clearInterval(tick)
+		window.addEventListener('pointermove', onRowPointerMove)
+		window.addEventListener('pointerup', onRowPointerUp)
+		window.addEventListener('pointercancel', endRowPress)
+		window.addEventListener('keyup', onRowKeyUp)
+		window.addEventListener('contextmenu', onRowContextMenu)
+		// Not through Svelte attributes: those make touchmove passive.
+		window.addEventListener('touchmove', onRowTouchMove, { passive: false })
+		return () => {
+			window.clearInterval(tick)
+			window.removeEventListener('pointermove', onRowPointerMove)
+			window.removeEventListener('pointerup', onRowPointerUp)
+			window.removeEventListener('pointercancel', endRowPress)
+			window.removeEventListener('keyup', onRowKeyUp)
+			window.removeEventListener('contextmenu', onRowContextMenu)
+			window.removeEventListener('touchmove', onRowTouchMove)
+			endRowPress()
+		}
 	})
 </script>
 
-{#snippet taskName(task: Task)}
-	<button
+{#snippet taskName(task: Task, section?: Task[])}
+	<span
 		class="task-name"
-		title="Show in the note"
-		onclick={() => reveal(task)}
+		class:is-draggable={section !== undefined}
+		onpointerdown={section
+			? (event) =>
+					onNamePointerDown(
+						event,
+						task.name,
+						section.map((other) => other.name)
+					)
+			: undefined}
 	>
 		{displayName(task)}
-	</button>
+	</span>
 {/snippet}
 
 {#snippet elapsedTime(task: Task)}
@@ -510,12 +687,15 @@
 					{@const minutes = taskMinutes(task, now)}
 					<li
 						class="row"
+						class:is-dragged={rowDrag?.name === task.name}
+						class:drop-before={dropSide(task) === 'before'}
+						class:drop-after={dropSide(task) === 'after'}
 						in:motion.receive|global={{ key: task.name }}
 						out:motion.send|global={{ key: task.name }}
 						animate:motion.slide
 					>
 						{@render checkbox(task)}
-						{@render taskName(task)}
+						{@render taskName(task, layout.open)}
 						{#if paused.includes(task)}
 							<span class="paused-label">paused</span>
 						{/if}
@@ -554,12 +734,15 @@
 							{@const minutes = taskMinutes(task, now)}
 							<li
 								class="row is-done"
+								class:is-dragged={rowDrag?.name === task.name}
+								class:drop-before={dropSide(task) === 'before'}
+								class:drop-after={dropSide(task) === 'after'}
 								in:motion.receive|global={{ key: task.name }}
 								out:motion.send|global={{ key: task.name }}
 								animate:motion.slide
 							>
 								{@render checkbox(task)}
-								{@render taskName(task)}
+								{@render taskName(task, layout.done)}
 								{#if minutes > 0}
 									<span class="muted total">{formatHoursMinutes(minutes)}</span>
 								{/if}
@@ -669,7 +852,6 @@
 
 	.elapsed:focus-visible,
 	.link-button:focus-visible,
-	.task-name:focus-visible,
 	.row-button:focus-visible {
 		outline: 2px solid var(--interactive-accent);
 		outline-offset: 2px;
@@ -770,8 +952,6 @@
 	}
 
 	.task-name {
-		all: unset;
-		cursor: pointer;
 		flex: 1;
 		min-width: 0;
 		overflow: hidden;
@@ -779,8 +959,23 @@
 		white-space: nowrap;
 	}
 
-	.task-name:hover {
-		color: var(--text-accent-hover);
+	.task-name.is-draggable {
+		cursor: grab;
+		user-select: none;
+		-webkit-user-select: none;
+		-webkit-touch-callout: none;
+	}
+
+	.row.is-dragged {
+		opacity: 0.5;
+	}
+
+	.row.drop-before {
+		box-shadow: inset 0 2px 0 var(--interactive-accent);
+	}
+
+	.row.drop-after {
+		box-shadow: inset 0 -2px 0 var(--interactive-accent);
 	}
 
 	.is-done .task-name {

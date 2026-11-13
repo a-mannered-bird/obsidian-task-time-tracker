@@ -100,10 +100,33 @@ async function expectPlan(names: string[]) {
 	const rows = browser.$('section[aria-labelledby="plan-title"] > ul')
 	await expect(rows).toHaveChildren(names.length)
 	for (const [index, name] of names.entries()) {
-		await expect(
-			rows.$(`li:nth-child(${index + 1}) button[title="Show in the note"]`)
-		).toHaveText(name)
+		// A row reads its name first, then its total.
+		await expect(rows.$(`li:nth-child(${index + 1})`)).toHaveText(
+			new RegExp(`^${name}(\\s|$)`)
+		)
 	}
+}
+
+/**
+ * Drag a plan row's name onto another row, `offset` px from its middle:
+ * above the middle drops before that row, below it after.
+ */
+async function dragName(name: string, onto: string, offset: number) {
+	const plan = browser.$('section[aria-labelledby="plan-title"] > ul')
+	const pointer = () =>
+		browser.action('pointer', { parameters: { pointerType: 'mouse' } })
+	await pointer()
+		.move({ origin: plan.$(`span=${name}`) })
+		.down()
+		.move({ origin: plan.$(`span=${onto}`), y: offset })
+		.perform(true)
+	// Held mid-drag: a copy of the dragged row follows the pointer.
+	const ghost = browser.$('body > li[aria-hidden="true"]')
+	await expect(ghost).toBeDisplayed()
+	await expect(ghost).toHaveText(new RegExp(`^${name}(\\s|$)`))
+	await pointer().up().perform()
+	// Positive matchers only (see AGENTS.md): the trace mislabels `.not`.
+	assert.strictEqual(await ghost.isExisting(), false)
 }
 
 describe('tracker tab', function () {
@@ -471,6 +494,42 @@ describe('tracker tab', function () {
 
 		// Breakfast is in Done, not the plan: Email moves past it, below Run.
 		await chooseFromRowMenu('Email', 'Move down')
+		content = await waitForChange(content)
+		await expectPlan(['Call the bank', 'Run', 'Email'])
+		assert.deepStrictEqual(content.trimEnd().split('\n'), [
+			'- [ ] Call the bank',
+			'- [x] Breakfast',
+			'- [ ] Run',
+			'- [ ] Email',
+			`      [clock::${today.date}T00:00:00--${today.date}T00:20:00]`,
+		])
+	})
+
+	it('reorders the plan by dragging task names', async function () {
+		let content = await writeToday([
+			'- [ ] Email',
+			`      [clock::${today.date}T00:00:00--${today.date}T00:20:00]`,
+			'- [x] Breakfast',
+			'- [ ] Run',
+			'- [ ] Call the bank',
+		])
+		await openTracker()
+		await expectPlan(['Email', 'Run', 'Call the bank'])
+
+		// Dropped on the upper half of a row: the task lands above it.
+		await dragName('Call the bank', 'Email', -6)
+		content = await waitForChange(content)
+		await expectPlan(['Call the bank', 'Email', 'Run'])
+		assert.deepStrictEqual(content.trimEnd().split('\n'), [
+			'- [ ] Call the bank',
+			'- [ ] Email',
+			`      [clock::${today.date}T00:00:00--${today.date}T00:20:00]`,
+			'- [x] Breakfast',
+			'- [ ] Run',
+		])
+
+		// Below the last row: Email goes after Run, past Breakfast (in Done).
+		await dragName('Email', 'Run', 6)
 		content = await waitForChange(content)
 		await expectPlan(['Call the bank', 'Run', 'Email'])
 		assert.deepStrictEqual(content.trimEnd().split('\n'), [

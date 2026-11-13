@@ -164,7 +164,13 @@ export function rowClock(task: Task): Clock | undefined {
 	)
 }
 
-export type TaskMove = 'up' | 'down' | 'top' | 'bottom'
+export type TaskMove =
+	| 'up'
+	| 'down'
+	| 'top'
+	| 'bottom'
+	/** Next to another task of the same section, where a drag dropped it. */
+	| { next: string; side: 'before' | 'after' }
 
 /**
  * The note with the task's block moved among the tasks of its section in
@@ -182,19 +188,57 @@ export function moveTaskLine(
 	const section = sectionOf(trackerLayout(note.tasks), name)
 	const index = section.findIndex((other) => other.name === name)
 	if (index < 0) return content
-	const target = {
-		up: section[index - 1],
-		down: section[index + 1],
-		top: section[0],
-		bottom: section[section.length - 1],
-	}[move]
+	const { target, side } = moveTarget(section, index, move)
 	if (!target) return content
-	note.moveTask(
-		task,
-		target,
-		move === 'up' || move === 'top' ? 'before' : 'after'
-	)
+	note.moveTask(task, target, side)
 	return note.toString()
+}
+
+function moveTarget(
+	section: Task[],
+	index: number,
+	move: TaskMove
+): { target: Task | undefined; side: 'before' | 'after' } {
+	switch (move) {
+		case 'up':
+			return { target: section[index - 1], side: 'before' }
+		case 'down':
+			return { target: section[index + 1], side: 'after' }
+		case 'top':
+			return { target: section[0], side: 'before' }
+		case 'bottom':
+			return { target: section[section.length - 1], side: 'after' }
+		default:
+			return {
+				target: section.find((other) => other.name === move.next),
+				side: move.side,
+			}
+	}
+}
+
+/**
+ * Where a row dragged over a list lands: the number of rows whose middle is
+ * above the pointer, from 0 (above the first row) to the row count.
+ */
+export function dropSlot(rowMiddles: number[], pointerY: number): number {
+	return rowMiddles.filter((middle) => middle < pointerY).length
+}
+
+/**
+ * The move that drops `dragged` into `slot` of the list of `names` (as given
+ * by `dropSlot`); null when it would land where it already is.
+ */
+export function dropMove(
+	names: string[],
+	dragged: string,
+	slot: number
+): TaskMove | null {
+	const index = names.indexOf(dragged)
+	if (index < 0 || slot === index || slot === index + 1) return null
+	const before = names[slot]
+	if (before !== undefined) return { next: before, side: 'before' }
+	const last = names[names.length - 1]
+	return last === undefined ? null : { next: last, side: 'after' }
 }
 
 function sectionOf(layout: TrackerLayout, name: string): Task[] {

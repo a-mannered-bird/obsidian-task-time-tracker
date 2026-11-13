@@ -5,6 +5,8 @@ import { parseTasks } from './parser'
 import {
 	addTaskLine,
 	describeCompletion,
+	dropMove,
+	dropSlot,
 	moveTaskLine,
 	pausedByInterruption,
 	barAction,
@@ -307,8 +309,72 @@ describe('moveTaskLine', () => {
 		expect(moveTaskLine(content, 'Write blog post', 'top')).toBe(content)
 	})
 
+	it('moves a block next to the task it was dropped on', () => {
+		expect(
+			moveTaskLine(content, 'Plan trip', {
+				next: 'Email',
+				side: 'before',
+			})?.split('\n')
+		).toEqual([
+			'- [ ] Write blog post',
+			'      [clock::2026-11-12T09:00:00--2026-11-12T10:00:00]',
+			'- [x] Breakfast',
+			'- [ ] Chores',
+			'      [clock::2026-11-12T10:42:00]',
+			'Some notes',
+			'- [ ] Plan trip',
+			'- [ ] Email',
+		])
+	})
+
+	it('does not move a task next to one of another section', () => {
+		// Breakfast is in Done, Write blog post in the plan.
+		expect(
+			moveTaskLine(content, 'Write blog post', {
+				next: 'Breakfast',
+				side: 'after',
+			})
+		).toBe(content)
+	})
+
 	it('tells when the task is gone', () => {
 		expect(moveTaskLine(content, 'Read news', 'up')).toBeNull()
+	})
+})
+
+describe('dropSlot', () => {
+	it('counts the rows whose middle is above the pointer', () => {
+		const middles = [10, 30, 50]
+		expect(dropSlot(middles, 5)).toBe(0)
+		expect(dropSlot(middles, 31)).toBe(2)
+		expect(dropSlot(middles, 80)).toBe(3)
+	})
+})
+
+describe('dropMove', () => {
+	const names = ['Email', 'Plan trip', 'Write blog post']
+
+	it('drops before the task under the slot', () => {
+		expect(dropMove(names, 'Write blog post', 0)).toEqual({
+			next: 'Email',
+			side: 'before',
+		})
+		expect(dropMove(names, 'Email', 2)).toEqual({
+			next: 'Write blog post',
+			side: 'before',
+		})
+	})
+
+	it('drops after the last task below the list', () => {
+		expect(dropMove(names, 'Email', 3)).toEqual({
+			next: 'Write blog post',
+			side: 'after',
+		})
+	})
+
+	it('does nothing when the task would land where it is', () => {
+		expect(dropMove(names, 'Plan trip', 1)).toBeNull()
+		expect(dropMove(names, 'Plan trip', 2)).toBeNull()
 	})
 })
 
