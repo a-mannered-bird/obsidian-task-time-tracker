@@ -500,4 +500,57 @@ describe('timeline tab', function () {
 			)
 		)
 	})
+
+	it('drags the end and start of day lines, never past each other', async function () {
+		await obsidianPage.write(
+			NOTE,
+			[
+				'---',
+				'day_start: 2026-08-03T08:00:00',
+				'day_end: 2026-08-03T10:00:00',
+				'---',
+				'- [ ] Task A #project',
+				'      [clock::2026-08-03T09:00:00--2026-08-03T09:30:00]',
+				'- [ ] Task B #project',
+				'      [clock::2026-08-03T09:15:00--2026-08-03T09:45:00]',
+				'',
+			].join('\n')
+		)
+		await openTimeline()
+		const end = browser.$(
+			'button[aria-label^="End of day"][aria-label$="drag or click to change"]'
+		)
+		const start = browser.$(
+			'button[aria-label^="Start of day"][aria-label$="drag or click to change"]'
+		)
+		await expect(end).toHaveText('End 10:00')
+		await expect(start).toHaveText('Start 08:00')
+
+		// 60 px up is an hour: 09:00, but Task B ends at 09:45 and the day
+		// cannot end before its last clock, so the line stops there.
+		let content = await obsidianPage.read(NOTE)
+		await browser
+			.action('pointer', { parameters: { pointerType: 'mouse' } })
+			.move({ origin: end })
+			.down()
+			.move({ origin: 'pointer', y: -60 })
+			.up()
+			.perform()
+		await expect(end).toHaveText('End 09:45')
+		content = await waitForChange(content)
+		assert.match(content, /\nday_end: 2026-08-03T09:45:00\n/)
+
+		// 120 px down would start the day at 10:00, after its 09:45 end:
+		// the start stops at the end.
+		await browser
+			.action('pointer', { parameters: { pointerType: 'mouse' } })
+			.move({ origin: start })
+			.down()
+			.move({ origin: 'pointer', y: 120 })
+			.up()
+			.perform()
+		await expect(start).toHaveText('Start 09:45')
+		content = await waitForChange(content)
+		assert.match(content, /\nday_start: 2026-08-03T09:45:00\n/)
+	})
 })

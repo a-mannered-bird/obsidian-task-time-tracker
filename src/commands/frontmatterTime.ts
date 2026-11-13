@@ -1,4 +1,4 @@
-import { Notice, type IconName } from 'obsidian'
+import { Notice, type IconName, type TFile } from 'obsidian'
 import {
 	DAY_END_PROPERTY,
 	DAY_START_PROPERTY,
@@ -9,7 +9,7 @@ import { formatTimeOfDay } from 'core/timeline'
 import {
 	dayEndFloor,
 	parseDayEnd,
-	parseToggleTime,
+	parseDayStart,
 	timeInputHelp,
 } from 'core/typedTime'
 import { promptTime } from 'ui/timePrompt'
@@ -65,37 +65,51 @@ export async function runTimeCommand(
 ): Promise<Date | null> {
 	const { app } = plugin
 	const target = currentTarget(plugin)
+	const frontmatter =
+		target.file && app.metadataCache.getFileCache(target.file)?.frontmatter
+	const dayStart = readFrontmatterTime(frontmatter?.[DAY_START_PROPERTY])
+	const dayEnd = readFrontmatterTime(frontmatter?.[DAY_END_PROPERTY])
 	const floor =
 		command.endsDay && target.file
-			? dayEndFloor(
-					(await readTaskNote(plugin, target.file)).tasks,
-					readFrontmatterTime(
-						app.metadataCache.getFileCache(target.file)?.frontmatter?.[
-							DAY_START_PROPERTY
-						]
-					)
-				)
+			? dayEndFloor((await readTaskNote(plugin, target.file)).tasks, dayStart)
 			: null
 	const time = await promptTime(app, {
 		title: command.name,
-		description: floor
-			? `${timeInputHelp()} A time of day before ${formatTimeOfDay(floor.at)}, ${floor.what}, means the next day.`
-			: timeInputHelp(),
+		description: command.endsDay
+			? floor
+				? `${timeInputHelp()} A time of day before ${formatTimeOfDay(floor.at)}, ${floor.what}, means the next day.`
+				: timeInputHelp()
+			: dayEnd
+				? `${timeInputHelp()} It cannot be after the end of day, ${formatTimeOfDay(dayEnd)}.`
+				: timeInputHelp(),
 		parse: (text) =>
 			command.endsDay
 				? parseDayEnd(text, target.date, floor, new Date())
-				: parseToggleTime(text, new Date(), { day: target.date }),
+				: parseDayStart(text, target.date, dayEnd, new Date()),
 	})
 	if (time === null) return null
-
-	const { property } = command
-	const value = formatLocalDateTime(time)
-	await app.fileManager.processFrontMatter(
+	await writeDayTime(
+		plugin,
 		await ensureTargetFile(plugin, target),
+		command.property,
+		time
+	)
+	return time
+}
+
+/** Write a start or end of day to the note's frontmatter. */
+export async function writeDayTime(
+	plugin: TaskTimeTracker,
+	file: TFile,
+	property: string,
+	time: Date
+): Promise<void> {
+	const value = formatLocalDateTime(time)
+	await plugin.app.fileManager.processFrontMatter(
+		file,
 		(frontmatter: Record<string, unknown>) => {
 			frontmatter[property] = value
 		}
 	)
 	new Notice(`${property}: ${value}`, NOTICE_DURATION)
-	return time
 }

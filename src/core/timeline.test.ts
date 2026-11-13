@@ -6,6 +6,7 @@ import {
 	describeClockDeleted,
 	describeClockAdded,
 	describeClockEdit,
+	dragDayMark,
 	dragTimes,
 	drawnTimes,
 	fitRange,
@@ -317,6 +318,24 @@ describe('dragTimes', () => {
 			start: at(13, 45),
 			end: null,
 		})
+	})
+})
+
+describe('dragDayMark', () => {
+	const open = { min: null, max: null }
+
+	it('snaps a dragged line like a clock edge, magnet first', () => {
+		expect(dragDayMark(at(7, 4), minutes(20), open, grid)).toEqual(at(7, 30))
+		const options = { ...grid, magnets: [at(7, 22)], magnetMs: minutes(5) }
+		expect(dragDayMark(at(7, 4), minutes(20), open, options)).toEqual(at(7, 22))
+	})
+
+	it('holds the line within its bounds', () => {
+		const bounds = { min: at(8), max: at(22) }
+		// The start of day dragged past the 22:00 end of day stops there.
+		expect(dragDayMark(at(21), minutes(120), bounds, grid)).toEqual(at(22))
+		// The end of day dragged before the 08:00 floor stops there.
+		expect(dragDayMark(at(9), minutes(-120), bounds, grid)).toEqual(at(8))
 	})
 })
 

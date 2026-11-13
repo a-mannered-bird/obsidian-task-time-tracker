@@ -120,6 +120,25 @@ export function parseToggleTime(
 	return { at: after && tooEarly(at, after) ? addDays(at, 1) : at }
 }
 
+/**
+ * The start of day typed for the note of `day`: a time of day on that day,
+ * or minutes before now; never after the note's end of day.
+ */
+export function parseDayStart(
+	text: string,
+	day: Date,
+	dayEnd: Date | null,
+	now: Date
+): TypedTime {
+	const parsed = parseToggleTime(text, now, { day })
+	if ('at' in parsed && dayEnd && parsed.at > dayEnd) {
+		return {
+			error: `That is after the end of day, ${formatTimeOfDay(dayEnd)}.`,
+		}
+	}
+	return parsed
+}
+
 /** What an end of day must come after, and how to name it to the user. */
 export type DayEndFloor = { at: Date; what: string }
 

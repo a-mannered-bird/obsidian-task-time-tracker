@@ -297,6 +297,25 @@ export function dragTimes(
 	)
 }
 
+/** The earliest and latest a dragged start or end of day line may reach. */
+export type MarkBounds = { min: Date | null; max: Date | null }
+
+/**
+ * Where a dragged start or end of day line lands: snapped like a clock
+ * edge (magnet first, then the grid), then held within `bounds`.
+ */
+export function dragDayMark(
+	original: Date,
+	deltaMs: number,
+	bounds: MarkBounds,
+	options: SnapOptions
+): Date {
+	const at = snap(new Date(original.valueOf() + deltaMs), options)
+	if (bounds.min && at < bounds.min) return bounds.min
+	if (bounds.max && at > bounds.max) return bounds.max
+	return at
+}
+
 function moveCorrection(start: Date, end: Date, options: SnapOptions) {
 	if (options.free) return roundToMinute(start).valueOf() - start.valueOf()
 	const toStart = magnetFor(start, options)

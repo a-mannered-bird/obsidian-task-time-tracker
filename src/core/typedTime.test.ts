@@ -4,6 +4,7 @@ import {
 	dayEndFloor,
 	describeTypedTime,
 	parseDayEnd,
+	parseDayStart,
 	parseEndTime,
 	parseStartTime,
 	parseToggleTime,
@@ -199,6 +200,34 @@ describe('parseDayEnd', () => {
 	it('takes any time of day on the note without a floor', () => {
 		expect(parseDayEnd('06:00', day, null, now)).toEqual({
 			at: new Date(2026, 10, 11, 6, 0),
+		})
+	})
+})
+
+describe('parseDayStart', () => {
+	const day = new Date(2026, 10, 11)
+	const dayEnd = new Date(2026, 10, 11, 23, 0)
+
+	it("places a time of day on the note's day", () => {
+		expect(parseDayStart('07:30', day, dayEnd, now)).toEqual({
+			at: new Date(2026, 10, 11, 7, 30),
+		})
+	})
+
+	it('accepts the end of day itself, nothing after it', () => {
+		expect(parseDayStart('23:00', day, dayEnd, now)).toEqual({ at: dayEnd })
+		expect(parseDayStart('23:30', day, dayEnd, now)).toEqual({
+			error: 'That is after the end of day, 23:00.',
+		})
+		// now is 2026-11-12 08:00: 15 minutes ago is past the end of day.
+		expect(parseDayStart('15', day, dayEnd, now)).toEqual({
+			error: 'That is after the end of day, 23:00.',
+		})
+	})
+
+	it('takes any time without an end of day', () => {
+		expect(parseDayStart('23:30', day, null, now)).toEqual({
+			at: new Date(2026, 10, 11, 23, 30),
 		})
 	})
 })

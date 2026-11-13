@@ -1,6 +1,12 @@
 <script lang="ts">
 	import { Menu } from 'obsidian'
 	import { onMount, tick } from 'svelte'
+	import {
+		DAY_END_COMMAND,
+		DAY_START_COMMAND,
+		runTimeCommand,
+		writeDayTime,
+	} from 'commands/frontmatterTime'
 	import { openNoteAtLine } from 'commands/taskActions'
 	import {
 		addClockLine,
@@ -8,12 +14,15 @@
 		retimeClockLine,
 	} from 'commands/timelineEdits'
 	import type { DailyLog } from 'core/dailyLogs'
+	import { DAY_END_PROPERTY, DAY_START_PROPERTY } from 'core/time'
+	import { dayEndFloor } from 'core/typedTime'
 	import { tagEmoji } from 'core/taskPicker'
 	import {
 		blockId,
 		blockLabel,
 		clampZoom,
 		clockActions,
+		dragDayMark,
 		dragTimes,
 		drawnTimes,
 		fitRange,
@@ -31,6 +40,7 @@
 		ZOOM_MIN,
 		type ClockAction,
 		type DragEdge,
+		type MarkBounds,
 		type SnapOptions,
 		type TimelineBlock,
 	} from 'core/timeline'
@@ -66,6 +76,13 @@
 	let ghost = $state<{ id: string; times: ClockTimes } | null>(null)
 	/** A new clock drawn over empty space, shown until its task is picked. */
 	let drawn = $state<FinishedClockTimes | null>(null)
+	type DayMark = 'start' | 'end'
+	/** Where the start or end of day line being dragged would land. */
+	let markGhost = $state<{ mark: DayMark; at: Date } | null>(null)
+	/** A start or end of day being written, shown until the note reloads. */
+	let markPending = $state<{ mark: DayMark; at: Date } | null>(null)
+	/** The click ending a line's drag must not open its prompt. */
+	let markDragged = false
 	/** Block chosen by a long press on touch screens; its edges grow. */
 	let selectedId = $state<string | null>(null)
 
@@ -80,6 +97,7 @@
 		| { kind: 'block'; block: TimelineBlock; edge: DragEdge }
 		/** A press on empty space, drawing a new clock from `anchor`. */
 		| { kind: 'create'; anchor: Date }
+		| { kind: 'mark'; mark: DayMark; at: Date }
 	type Press = PressTarget & {
 		pointerId: number
 		x0: number
@@ -110,6 +128,8 @@
 				: block
 		)
 	)
+	const dayStart = $derived(shownMark('start', log?.dayStart ?? null))
+	const dayEnd = $derived(shownMark('end', log?.dayEnd ?? null))
 	const layout = $derived(layoutBlocks(shown))
 	const overlapping = $derived(sameTaskOverlaps(shown))
 	const axis = $derived(
@@ -139,6 +159,12 @@
 	// time worked, so a block would change color while its clock is dragged.
 	function blockColor(taskName: string): string {
 		return plugin.settings.taskColors[taskName] ?? 'var(--interactive-accent)'
+	}
+
+	function shownMark(mark: DayMark, recorded: Date | null): Date | null {
+		if (markGhost?.mark === mark) return markGhost.at
+		if (markPending?.mark === mark) return markPending.at
+		return recorded
 	}
 
 	function y(date: Date): number {
@@ -200,7 +226,62 @@
 		if (!written && pending?.id === id) pending = null
 	}
 
+	async function writeMark(mark: DayMark, at: Date) {
+		if (!log) return
+		const recorded = mark === 'start' ? log.dayStart : log.dayEnd
+		if (recorded?.valueOf() === at.valueOf()) return
+		markPending = { mark, at }
+		try {
+			await writeDayTime(
+				plugin,
+				log.file,
+				mark === 'start' ? DAY_START_PROPERTY : DAY_END_PROPERTY,
+				at
+			)
+		} catch (error) {
+			// The line goes back to the recorded time; nothing was written.
+			console.error(error)
+			if (markPending?.mark === mark) markPending = null
+		}
+	}
+
+	/**
+	 * How far a line may go: the start of day never after the end, the end
+	 * never before the start nor the clocks it closes, both on the axis.
+	 */
+	function markBounds(mark: DayMark): MarkBounds {
+		if (!log || !axis) return { min: null, max: null }
+		if (mark === 'start') {
+			const max = log.dayEnd && log.dayEnd < axis.end ? log.dayEnd : axis.end
+			return { min: axis.start, max }
+		}
+		const floor = dayEndFloor(log.tasks, log.dayStart)?.at
+		return {
+			min: floor && floor > axis.start ? floor : axis.start,
+			max: axis.end,
+		}
+	}
+
+	function openMarkPrompt(mark: DayMark) {
+		if (markDragged) {
+			markDragged = false
+			return
+		}
+		void runTimeCommand(
+			plugin,
+			mark === 'start' ? DAY_START_COMMAND : DAY_END_COMMAND
+		)
+	}
+
 	// ----- pointer -----
+
+	function onMarkPointerDown(event: PointerEvent, mark: DayMark, at: Date) {
+		if (event.button !== 0 || !log) return
+		event.stopPropagation()
+		flushNudge()
+		markDragged = false
+		startPress({ kind: 'mark', mark, at }, event, event.pointerType !== 'touch')
+	}
 
 	function onPointerDown(
 		event: PointerEvent,
@@ -267,14 +348,14 @@
 		return new Date(start + ((clientY - top) / zoom) * HOUR)
 	}
 
-	function snapOptions(event: PointerEvent, draggedId: string): SnapOptions {
+	function snapOptions(
+		event: PointerEvent,
+		draggedId: string,
+		marks: (Date | null)[] = [log?.dayStart ?? null, log?.dayEnd ?? null]
+	): SnapOptions {
 		return {
 			stepMinutes: snapStepMinutes(zoom),
-			magnets: magnetsFor(shown, draggedId, [
-				now,
-				log?.dayStart ?? null,
-				log?.dayEnd ?? null,
-			]),
+			magnets: magnetsFor(shown, draggedId, [now, ...marks]),
 			magnetMs: (MAGNET_PX / zoom) * HOUR,
 			free: event.altKey,
 			now: editLimit,
@@ -303,6 +384,19 @@
 			if (times && fitsInAxis(times)) drawn = times
 			return
 		}
+		if (current.kind === 'mark') {
+			const other = current.mark === 'start' ? log?.dayEnd : log?.dayStart
+			markGhost = {
+				mark: current.mark,
+				at: dragDayMark(
+					current.at,
+					(dy / zoom) * HOUR,
+					markBounds(current.mark),
+					snapOptions(event, '', [other ?? null])
+				),
+			}
+			return
+		}
 		const { block } = current
 		const times = dragTimes(
 			timesOf(block),
@@ -319,6 +413,13 @@
 		endPress()
 		if (current.kind === 'create') {
 			if (current.active && drawn) void pickTaskFor(drawn)
+			return
+		}
+		if (current.kind === 'mark') {
+			const landed = markGhost
+			markGhost = null
+			if (current.active) markDragged = true
+			if (current.active && landed) void writeMark(landed.mark, landed.at)
 			return
 		}
 		if (current.active) {
@@ -349,6 +450,7 @@
 	function cancelDrag() {
 		endPress()
 		ghost = null
+		markGhost = null
 		if (!picking) drawn = null
 	}
 
@@ -556,6 +658,7 @@
 		void log
 		now = new Date()
 		pending = null
+		markPending = null
 	})
 
 	// Open each note at its interesting part, not wherever the last one was.
@@ -672,11 +775,11 @@
 		bind:this={canvas}
 		onpointerdown={() => (selectedId = null)}
 	>
-		{#if log.dayStart && log.dayEnd && log.dayEnd > log.dayStart}
+		{#if dayStart && dayEnd && dayEnd > dayStart}
 			<div
 				class="in-day"
-				style:top="{y(log.dayStart)}px"
-				style:height="{y(log.dayEnd) - y(log.dayStart)}px"
+				style:top="{y(dayStart)}px"
+				style:height="{y(dayEnd) - y(dayStart)}px"
 			></div>
 		{/if}
 
@@ -690,14 +793,32 @@
 			</div>
 		{/each}
 
-		{#if log.dayStart && inAxis(log.dayStart)}
-			<div class="mark day-start" style:top="{y(log.dayStart)}px">
-				<span>Start</span>
+		{#if dayStart && inAxis(dayStart)}
+			{@const at = dayStart}
+			<div class="mark day-start" style:top="{y(at)}px">
+				<button
+					class="mark-handle"
+					aria-label="Start of day {formatTimeOfDay(
+						at
+					)}, drag or click to change"
+					onpointerdown={(event) => onMarkPointerDown(event, 'start', at)}
+					onclick={() => openMarkPrompt('start')}
+				>
+					Start {formatTimeOfDay(at)}
+				</button>
 			</div>
 		{/if}
-		{#if log.dayEnd && inAxis(log.dayEnd)}
-			<div class="mark day-end" style:top="{y(log.dayEnd)}px">
-				<span>End</span>
+		{#if dayEnd && inAxis(dayEnd)}
+			{@const at = dayEnd}
+			<div class="mark day-end" style:top="{y(at)}px">
+				<button
+					class="mark-handle"
+					aria-label="End of day {formatTimeOfDay(at)}, drag or click to change"
+					onpointerdown={(event) => onMarkPointerDown(event, 'end', at)}
+					onclick={() => openMarkPrompt('end')}
+				>
+					End {formatTimeOfDay(at)}
+				</button>
 			</div>
 		{/if}
 		{#if inAxis(now)}
@@ -859,12 +980,34 @@
 		pointer-events: none;
 	}
 
-	.mark span {
+	/* The label is the line's handle: the line itself crosses the blocks,
+	   which must stay draggable underneath it. */
+	.mark-handle {
+		all: unset;
 		position: absolute;
 		right: 0;
+		z-index: 3;
 		transform: translateY(-100%);
+		padding: 0 0.25em;
+		border-radius: var(--radius-s);
 		color: var(--text-muted);
 		font-size: var(--font-ui-smaller);
+		font-variant-numeric: tabular-nums;
+		cursor: ns-resize;
+		pointer-events: auto;
+		touch-action: pan-y;
+		user-select: none;
+		-webkit-user-select: none;
+	}
+
+	.mark-handle:hover {
+		background: var(--background-modifier-hover);
+		color: var(--text-normal);
+	}
+
+	.mark-handle:focus-visible {
+		outline: 2px solid var(--interactive-accent);
+		outline-offset: 2px;
 	}
 
 	.mark.day-start,
