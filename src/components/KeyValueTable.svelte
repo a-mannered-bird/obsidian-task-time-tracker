@@ -1,15 +1,12 @@
 <script lang="ts">
-	import type { TagStyle } from 'types/tags'
-
 	type Props = {
 		columns: {
 			label: string
 		}[]
 		rows: string[][]
-		rowClasses: TagStyle[]
 	}
 
-	const { columns, rows, rowClasses }: Props = $props()
+	const { columns, rows }: Props = $props()
 </script>
 
 <table>
@@ -21,26 +18,12 @@
 		</tr>
 	</thead>
 	<tbody>
-		{#each rows as row, i}
-			<tr class={rowClasses[i]}>
-				{#each row as cell, i}
+		{#each rows as row}
+			<tr>
+				{#each row as cell}
 					<td>{cell}</td>
 				{/each}
 			</tr>
 		{/each}
 	</tbody>
 </table>
-
-<style>
-	.italic {
-		font-style: italic;
-	}
-
-	.bold {
-		font-weight: bold;
-	}
-
-	.underline {
-		text-decoration: underline;
-	}
-</style>

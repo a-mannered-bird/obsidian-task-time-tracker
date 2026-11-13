@@ -49,18 +49,12 @@ describe('pickerLabel', () => {
 		{
 			tag: '#project',
 			emoji: '⭐️',
-			bold: false,
-			italic: false,
-			underline: false,
 		},
 		{
 			tag: '#routine',
 			emoji: '🔂',
-			bold: false,
-			italic: false,
-			underline: false,
 		},
-		{ tag: '#chores', emoji: '', bold: false, italic: false, underline: false },
+		{ tag: '#chores', emoji: '' },
 	]
 	const byName = (name: string) => tasks.find((t) => t.name === name)!
 
@@ -134,9 +128,6 @@ describe('entryLabel', () => {
 		{
 			tag: '#project',
 			emoji: '⭐️',
-			bold: false,
-			italic: false,
-			underline: false,
 		},
 	]
 

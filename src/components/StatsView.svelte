@@ -5,7 +5,6 @@
 	import { loadRangeStats, type LoadedRangeStats } from 'core/loadRangeStats'
 	import { shiftRange } from 'core/ranges'
 	import type { StatsBlockOptions } from 'core/statsOptions'
-	import { getStyleByTags } from 'core/tags'
 	import { formatClockMinutes, formatHoursMinutes } from 'core/time'
 	import { icon } from 'ui/icon'
 	import KeyValueTable from './KeyValueTable.svelte'
@@ -33,7 +32,6 @@
 	let canGoNext = $state(false)
 
 	const stats = $derived(loaded?.stats ?? null)
-	const tagMappings = $derived(plugin.settings.tagMappings)
 	const show = (metric: StatsBlockOptions['metrics'][number]) =>
 		options.metrics.includes(metric)
 
@@ -105,12 +103,6 @@
 
 	function clock(minutes: number | null) {
 		return minutes === null ? 'n/a' : formatClockMinutes(minutes)
-	}
-
-	function rowStyle(key: string) {
-		// With "filter" grouping a key may be a tag; a task name matches no
-		// mapping anyway, so passing it along is harmless.
-		return getStyleByTags(options.groupBy === 'task' ? [] : [key], tagMappings)
 	}
 
 	function formatDay(date: Date) {
@@ -208,7 +200,6 @@
 				formatHoursMinutes(minutes),
 				`${Math.round((minutes / stats.totalMinutes) * 100)}%`,
 			])}
-			rowClasses={byKey.map(([key]) => rowStyle(key))}
 		/>
 	{/if}
 
@@ -233,7 +224,6 @@
 					formatDay(point.date),
 					formatHoursMinutes(point.total),
 				])}
-				rowClasses={stats.perDay.map(() => rowStyle(''))}
 			/>
 		</details>
 	{/if}

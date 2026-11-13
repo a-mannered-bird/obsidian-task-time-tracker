@@ -64,8 +64,6 @@ A side panel (ribbon icon or command "Open daily view") that follows the daily n
 - tasks by time spent;
 - tags by time spent.
 
-Rows are styled (bold / italic / underline / emoji) according to the tag mapping in the settings.
-
 ### Range statistics
 
 A `task-stats` code block renders statistics for a date range inside any note, so a weekly or monthly review template can embed its own charts. All options are optional; invalid ones are listed in an error box in the note.
@@ -95,7 +93,7 @@ Arrows next to the rendered date range step to the previous or next period (a mo
 ## Settings
 
 - The daily notes folder and date format are inherited from the core Daily notes plugin.
-- Tag mapping: for each tag, an emoji shown in pickers and a text style (bold / italic / underline) used in the statistics tables.
+- Tag mapping: for each tag, an emoji shown in pickers.
 - Name of the "unassigned" task used by quick interruptions.
 - An Apply button reloads the open views after changing settings.
 

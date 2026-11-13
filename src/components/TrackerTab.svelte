@@ -19,7 +19,6 @@
 		type OvernightNote,
 	} from 'core/overnight'
 	import { tagEmoji } from 'core/taskPicker'
-	import { getStyleByTags } from 'core/tags'
 	import { formatTimeOfDay } from 'core/timeline'
 	import { formatHoursMinutes, getMinutesBetween } from 'core/time'
 	import { taskChoice } from 'core/toggle'
@@ -81,10 +80,6 @@
 		return emoji ? `${emoji} ${task.name}` : task.name
 	}
 
-	function textStyle(task: Task) {
-		return getStyleByTags(task.tags, plugin.settings.tagMappings)
-	}
-
 	function start(task: Task, mode: StartMode) {
 		void startTask(plugin, taskChoice(task), mode)
 	}
@@ -117,9 +112,6 @@
 {#snippet taskName(task: Task)}
 	<button
 		class="task-name"
-		class:bold={textStyle(task).bold}
-		class:italic={textStyle(task).italic}
-		class:underline={textStyle(task).underline}
 		title="Show in the note"
 		onclick={() => reveal(task)}
 	>
@@ -623,17 +615,5 @@
 	.end-day {
 		width: 100%;
 		justify-content: center;
-	}
-
-	.bold {
-		font-weight: bold;
-	}
-
-	.italic {
-		font-style: italic;
-	}
-
-	.underline {
-		text-decoration: underline;
 	}
 </style>

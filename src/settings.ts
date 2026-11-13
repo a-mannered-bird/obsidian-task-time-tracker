@@ -62,30 +62,18 @@ export const DEFAULT_SETTINGS: TaskTimeTrackerSettings = {
 		{
 			tag: '#project',
 			emoji: '⭐️',
-			bold: true,
-			italic: false,
-			underline: true,
 		},
 		{
 			tag: '#tracker',
 			emoji: '👣',
-			bold: true,
-			italic: false,
-			underline: false,
 		},
 		{
 			tag: '#routine',
 			emoji: '🔂',
-			bold: false,
-			italic: true,
-			underline: false,
 		},
 		{
 			tag: '#chores',
 			emoji: '🧼',
-			bold: false,
-			italic: true,
-			underline: false,
 		},
 	],
 }
@@ -98,7 +86,7 @@ type StringSettingKey = {
 }[keyof TaskTimeTrackerSettings]
 
 function emptyMapping(): TagMapping {
-	return { tag: '', emoji: '', bold: false, italic: false, underline: false }
+	return { tag: '', emoji: '' }
 }
 
 export class TaskTimeTrackerSettingTab extends PluginSettingTab {
@@ -358,7 +346,7 @@ export class TaskTimeTrackerSettingTab extends PluginSettingTab {
 			for (const { label, tooltip, key } of toggles) {
 				setting.controlEl.createSpan({
 					text: label,
-					cls: 'task-time-tracker-style-label',
+					cls: 'task-time-tracker-toggle-label',
 				})
 				setting.addToggle((toggle) =>
 					toggle
@@ -387,9 +375,7 @@ export class TaskTimeTrackerSettingTab extends PluginSettingTab {
 	private displayTagMappingsSection(containerEl: HTMLElement) {
 		new Setting(containerEl)
 			.setName('Tag mappings')
-			.setDesc(
-				'For each tag: an emoji shown in task pickers and the text style used in statistics tables.'
-			)
+			.setDesc('For each tag: an emoji shown in task pickers.')
 			.setHeading()
 			.addButton((button) =>
 				button
@@ -426,22 +412,6 @@ export class TaskTimeTrackerSettingTab extends PluginSettingTab {
 							await this.plugin.saveSettings()
 						})
 				})
-
-			for (const style of ['bold', 'italic', 'underline'] as const) {
-				setting.controlEl.createSpan({
-					text: style,
-					cls: `task-time-tracker-style-label task-time-tracker-${style}`,
-				})
-				setting.addToggle((toggle) =>
-					toggle
-						.setTooltip(style)
-						.setValue(mapping[style])
-						.onChange(async (value) => {
-							mapping[style] = value
-							await this.plugin.saveSettings()
-						})
-				)
-			}
 
 			setting.addExtraButton((button) =>
 				button

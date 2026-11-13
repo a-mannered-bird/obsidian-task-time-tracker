@@ -207,5 +207,5 @@ Day handling ships first: writing into yesterday's note and invisible overnight 
 - [ ] Clocks spanning midnight / previous-day time travel.
 - [ ] Charts: tooltips, donut for tag share, if needed.
 - [ ] Release pipeline: build `main.js` in CI, GitHub release, community plugin submission.
-- [ ] Improve the daily view's tag legend (currently a plain list of styled tag names; needs a clearer layout/design).
+- [ ] ~~Improve the daily view's tag legend (currently a plain list of styled tag names; needs a clearer layout/design).~~ Dropped (2026-11-13): tag mappings no longer style text (bold / italic / underline removed), so there is no legend left.
 - [ ] Add a custom color per tag mapping in the settings, used in the legend (and by extension in table rows / charts).

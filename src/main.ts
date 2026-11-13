@@ -96,6 +96,10 @@ export default class TaskTimeTracker extends Plugin {
 		)
 		this.settings.quickActions =
 			this.settings.quickActions.map(normalizeQuickAction)
+		// Drops the bold / italic / underline flags of older mappings.
+		this.settings.tagMappings = this.settings.tagMappings.map(
+			({ tag, emoji }) => ({ tag, emoji })
+		)
 	}
 
 	async saveSettings() {

@@ -11,21 +11,9 @@
 	width: 4em;
 }
 
-.task-time-tracker-style-label {
+.task-time-tracker-toggle-label {
 	color: var(--text-muted);
 	font-size: var(--font-ui-smaller);
-}
-
-.task-time-tracker-bold {
-	font-weight: bold;
-}
-
-.task-time-tracker-italic {
-	font-style: italic;
-}
-
-.task-time-tracker-underline {
-	text-decoration: underline;
 }
 
 .task-time-tracker-prompt-error {

@@ -13,7 +13,6 @@
 		tasksToIntervals,
 		uncoveredMinutes,
 	} from 'core/intervals'
-	import { getStyleByTags } from 'core/tags'
 	import { formatDuration, getMinutesBetween } from 'core/time'
 	import KeyValueTable from './KeyValueTable.svelte'
 	import type TaskTimeTracker from '../main'
@@ -26,11 +25,6 @@
 
 	const { plugin, log, loading }: Props = $props()
 	const MINUTES_PER_DAY = 24 * 60
-
-	const tagMappings = $derived(plugin.settings.tagMappings)
-	const styledMappings = $derived(
-		tagMappings.filter((m) => m.bold || m.italic || m.underline)
-	)
 
 	const today = $derived(log)
 	let yesterday = $state<DailyLog | null>(null)
@@ -128,7 +122,6 @@
 			task.name,
 			format(taskMinutes(task, now), loggableTime),
 		])}
-		rowClasses={tasks.map((task) => getStyleByTags(task.tags, tagMappings))}
 	/>
 
 	<h3>Tags by total time spent</h3>
@@ -139,40 +132,9 @@
 			tag,
 			format(minutes, loggableTime),
 		])}
-		rowClasses={tagTimes.map(([tag]) => getStyleByTags([tag], tagMappings))}
 	/>
-	{#if styledMappings.length}
-		<p class="legend">
-			{#each styledMappings as mapping (mapping.tag)}
-				<span class={getStyleByTags([mapping.tag], tagMappings)}
-					>{mapping.tag}</span
-				>
-			{/each}
-		</p>
-	{/if}
 {:else if loading}
 	Loading
 {:else}
 	No daily note found
 {/if}
-
-<style>
-	.legend {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 0.75em;
-		color: var(--text-muted);
-	}
-
-	.italic {
-		font-style: italic;
-	}
-
-	.bold {
-		font-weight: bold;
-	}
-
-	.underline {
-		text-decoration: underline;
-	}
-</style>
