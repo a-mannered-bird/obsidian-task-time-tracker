@@ -13,6 +13,7 @@
 	import {
 		barOptions,
 		barSuggestions,
+		primaryStartIcon,
 		startActions,
 		type BarOption,
 	} from 'core/tracker'
@@ -224,15 +225,15 @@
 
 	<button
 		class="mod-cta start-button"
+		aria-label={actions.primary === 'switch' ? 'Switch' : 'Start'}
+		use:instantTooltip
+		use:icon={primaryStartIcon(actions.primary)}
 		onmousedown={keepFocus}
 		onclick={() => run(current, actions.primary)}
-	>
-		<span use:icon={'play'}></span>
-		{actions.primary === 'switch' ? 'Switch' : 'Start'}
-	</button>
+	></button>
 	{#if actions.alongside}
 		<button
-			class="alongside-button"
+			class="mod-cta alongside-button"
 			aria-label="Start alongside"
 			use:instantTooltip
 			use:icon={'plus'}
@@ -259,7 +260,7 @@
 
 	.field {
 		display: flex;
-		align-items: center;
+		align-items: baseline;
 		gap: 0.4em;
 		height: 100%;
 		padding: 0 0.6em;
@@ -274,8 +275,13 @@
 		box-shadow: 0 0 0 2px var(--background-modifier-border-focus);
 	}
 
+	/* Centering the boxes leaves the icon off by a font-dependent amount:
+	   the icon's bottom sits on the text baseline instead, then moves so
+	   the magnifier's circle (centered 11/24 down the Lucide glyph) meets
+	   the middle of the capitals, whatever the font size. */
 	.field-icon {
 		display: inline-flex;
+		translate: 0 calc(100% * 13 / 24 - 0.5cap);
 	}
 
 	.field input {
@@ -290,11 +296,15 @@
 		color: var(--text-faint);
 	}
 
+	/* Auto height lets the bar stretch them to the field's height, which
+	   Obsidian's fixed button height would otherwise override. */
 	.start-button,
 	.alongside-button {
 		display: inline-flex;
 		align-items: center;
-		gap: 0.3em;
+		justify-content: center;
+		height: auto;
+		padding: 0 var(--size-4-3);
 	}
 
 	.options {

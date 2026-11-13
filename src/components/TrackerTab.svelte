@@ -24,6 +24,7 @@
 	import { taskChoice } from 'core/toggle'
 	import {
 		pausedByInterruption,
+		primaryStartIcon,
 		startActions,
 		trackerLayout,
 	} from 'core/tracker'
@@ -260,20 +261,22 @@
 							<span class="dot"></span>
 							{@render taskName(task)}
 							{@render elapsedTime(task)}
-							<button
-								class="row-button"
-								use:instantTooltip
-								aria-label={`Done: stop and tick ${task.name}`}
-								use:icon={'check'}
-								onclick={() => stop([task.name], true)}
-							></button>
-							<button
-								class="row-button"
-								use:instantTooltip
-								aria-label={`Stop ${task.name}`}
-								use:icon={'square'}
-								onclick={() => stop([task.name], false)}
-							></button>
+							<span class="row-actions">
+								<button
+									class="row-button"
+									use:instantTooltip
+									aria-label={`Done: stop and tick ${task.name}`}
+									use:icon={'check'}
+									onclick={() => stop([task.name], true)}
+								></button>
+								<button
+									class="row-button"
+									use:instantTooltip
+									aria-label={`Stop ${task.name}`}
+									use:icon={'square'}
+									onclick={() => stop([task.name], false)}
+								></button>
+							</span>
 						</li>
 					{/if}
 				{/each}
@@ -298,24 +301,26 @@
 						{#if minutes > 0}
 							<span class="muted total">{formatHoursMinutes(minutes)}</span>
 						{/if}
-						<button
-							class="row-button"
-							use:instantTooltip
-							aria-label={actions.primary === 'switch'
-								? `Switch to ${task.name}`
-								: `Start ${task.name}`}
-							use:icon={'play'}
-							onclick={() => start(task, actions.primary)}
-						></button>
-						{#if actions.alongside}
+						<span class="row-actions">
 							<button
 								class="row-button"
 								use:instantTooltip
-								aria-label={`Start ${task.name} alongside`}
-								use:icon={'plus'}
-								onclick={() => start(task, 'alongside')}
+								aria-label={actions.primary === 'switch'
+									? `Switch to ${task.name}`
+									: `Start ${task.name}`}
+								use:icon={primaryStartIcon(actions.primary)}
+								onclick={() => start(task, actions.primary)}
 							></button>
-						{/if}
+							{#if actions.alongside}
+								<button
+									class="row-button"
+									use:instantTooltip
+									aria-label={`Start ${task.name} alongside`}
+									use:icon={'plus'}
+									onclick={() => start(task, 'alongside')}
+								></button>
+							{/if}
+						</span>
 					</li>
 				{/each}
 			</ul>
@@ -556,6 +561,13 @@
 	.paused-label {
 		font-size: var(--font-ui-smaller);
 		color: var(--color-orange);
+	}
+
+	/* The row's gap spaces the text; the buttons' own boxes already space
+	   their icons. */
+	.row-actions {
+		display: flex;
+		flex: none;
 	}
 
 	.row-button {

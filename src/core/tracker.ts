@@ -56,6 +56,11 @@ export function startActions(running: Task[]): StartActions {
 	return { primary: busy ? 'switch' : 'start', alongside: busy }
 }
 
+/** Lucide icon of the primary start button, in the bar and on the rows. */
+export function primaryStartIcon(primary: StartActions['primary']): string {
+	return primary === 'switch' ? 'fast-forward' : 'play'
+}
+
 /**
  * The tasks a running interruption paused, which ending it restarts: the
  * ones stopped last, as the engine resumes them. Empty when no interruption
