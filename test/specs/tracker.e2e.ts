@@ -373,7 +373,11 @@ describe('tracker tab', function () {
 		// No end of day yet: End day asks for it, then confirms the deletion
 		// of the two tasks never clocked.
 		await browser.$('button=End day').click()
-		await (await modalTitled('Set end of day')).$('button=OK').click()
+		const setEnd = await modalTitled('Set end of day')
+		const endInput = setEnd.$('input[placeholder="14:30 or 15"]')
+		await endInput.setValue('0')
+		await expect(endInput).toHaveValue('0')
+		await setEnd.$('button=OK').click()
 		const modal = await modalTitled('End day')
 		await expect(modal.$('li=Call the bank')).toBeDisplayed()
 		await modal.$('button=End day').click()
@@ -388,6 +392,43 @@ describe('tracker tab', function () {
 			content.split('\n').filter((line) => line.startsWith('- [')),
 			['- [x] Write']
 		)
+	})
+
+	it('takes a time of day for the end of day, past midnight included', async function () {
+		const content = await writeToday([
+			'---',
+			`day_start: ${today.date}T08:00:00`,
+			'---',
+			'- [ ] Chores',
+		])
+		await openTracker()
+
+		// Pressed through the DOM: a notice in the corner can cover the header.
+		const setEnd = await browser
+			.$('button[aria-label="Set end of day"]')
+			.getElement()
+		await browser.execute((el) => el.click(), setEnd)
+		const modal = await modalTitled('Set end of day')
+		const input = modal.$('input[placeholder="14:30 or 15"]')
+		await expect(input).toHaveValue('')
+		// Before the 08:00 start of day, a time of day is the next day.
+		await input.setValue('00:30')
+		await expect(input).toHaveValue('00:30')
+		await expect(modal.$('p*=00:30 tomorrow ·')).toBeDisplayed()
+		await modal.$('button=OK').click()
+
+		await waitForChange(content)
+		await browser.waitUntil(
+			async () => (await obsidianPage.read(today.path)).includes('day_end'),
+			{ timeoutMsg: 'the end of day was not written' }
+		)
+		assert.match(
+			await obsidianPage.read(today.path),
+			new RegExp(`\\nday_end: ${dayNote(1).date}T00:30:00\\n`)
+		)
+		await expect(
+			browser.$('button[aria-label="End of day 00:30, change"]')
+		).toBeDisplayed()
 	})
 
 	it('moves a switch to the time it really happened', async function () {

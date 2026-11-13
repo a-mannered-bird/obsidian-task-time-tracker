@@ -1,11 +1,13 @@
 import { Notice, type IconName } from 'obsidian'
 import {
-	addMinutes,
 	DAY_END_PROPERTY,
-	formatLocalDateTime,
 	DAY_START_PROPERTY,
+	formatLocalDateTime,
+	readFrontmatterTime,
 } from 'core/time'
-import { promptMinutes } from 'ui/MinutesPromptModal'
+import { formatTimeOfDay } from 'core/timeline'
+import { parseToggleTime, timeInputHelp } from 'core/typedTime'
+import { promptTime } from 'ui/timePrompt'
 import type TaskTimeTracker from '../main'
 import { currentTarget, ensureTargetFile, NOTICE_DURATION } from './target'
 
@@ -14,8 +16,11 @@ export type TimeCommand = {
 	name: string
 	icon: IconName
 	property: string
-	/** Minutes pre-filled in the prompt; negative = in the past. */
-	defaultOffset: number
+	/**
+	 * The property this time must come after: a time of day typed before
+	 * it means the next day (a day ending past midnight).
+	 */
+	afterProperty?: string
 }
 
 export const DAY_START_COMMAND: TimeCommand = {
@@ -23,8 +28,6 @@ export const DAY_START_COMMAND: TimeCommand = {
 	name: 'Set start of day',
 	icon: 'sunrise',
 	property: DAY_START_PROPERTY,
-	// Reaching the note takes a few minutes after the day actually started.
-	defaultOffset: -3,
 }
 
 export const DAY_END_COMMAND: TimeCommand = {
@@ -32,7 +35,7 @@ export const DAY_END_COMMAND: TimeCommand = {
 	name: 'Set end of day',
 	icon: 'sunset',
 	property: DAY_END_PROPERTY,
-	defaultOffset: 0,
+	afterProperty: DAY_START_PROPERTY,
 }
 
 export const TIME_COMMANDS: TimeCommand[] = [DAY_START_COMMAND, DAY_END_COMMAND]
@@ -55,16 +58,22 @@ export async function runTimeCommand(
 ): Promise<Date | null> {
 	const { app } = plugin
 	const target = currentTarget(plugin)
-	const offset = await promptMinutes(app, {
+	const saved =
+		target.file && app.metadataCache.getFileCache(target.file)?.frontmatter
+	const after = command.afterProperty
+		? readFrontmatterTime(saved?.[command.afterProperty])
+		: null
+	const time = await promptTime(app, {
 		title: command.name,
-		description:
-			'Minutes relative to now: negative values go back in time, positive ones forward.',
-		defaultValue: command.defaultOffset,
+		description: after
+			? `${timeInputHelp()} A time of day before ${formatTimeOfDay(after)} means the next day.`
+			: timeInputHelp(),
+		parse: (text) =>
+			parseToggleTime(text, new Date(), { day: target.date, after }),
 	})
-	if (offset === null) return null
+	if (time === null) return null
 
 	const { property } = command
-	const time = addMinutes(new Date(), offset)
 	const value = formatLocalDateTime(time)
 	await app.fileManager.processFrontMatter(
 		await ensureTargetFile(plugin, target),
