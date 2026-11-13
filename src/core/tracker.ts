@@ -14,6 +14,8 @@ export type TrackerLayout = {
 	running: Task[]
 	open: Task[]
 	done: Task[]
+	/** Folded, Done would leave a note holding only done tasks looking empty. */
+	doneUnfolded: boolean
 }
 
 /**
@@ -30,10 +32,12 @@ export function trackerLayout(
 			!isRunning(task) &&
 			!(task.name === unassignedTaskName && task.clocks.length === 0)
 	)
+	const open = idle.filter((task) => !task.ticked)
 	return {
 		running,
-		open: idle.filter((task) => !task.ticked),
+		open,
 		done: idle.filter((task) => task.ticked),
+		doneUnfolded: running.length === 0 && open.length === 0,
 	}
 }
 

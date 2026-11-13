@@ -35,6 +35,31 @@ describe('trackerLayout', () => {
 		expect(names(layout.running)).toEqual(['Chores'])
 		expect(names(layout.open)).toEqual(['Write blog post', 'Email'])
 		expect(names(layout.done)).toEqual(['Breakfast', 'Read news'])
+		expect(layout.doneUnfolded).toBe(false)
+	})
+
+	it('unfolds the done tasks when nothing else is left', () => {
+		const layout = trackerLayout(
+			parseTasks([
+				'- [x] Breakfast',
+				'      [clock::2026-11-12T07:30:00--2026-11-12T07:50:00]',
+				'- [x] Read news',
+			]),
+			'Unassigned'
+		)
+		expect(layout.doneUnfolded).toBe(true)
+	})
+
+	it('keeps the done tasks folded while a task runs', () => {
+		const layout = trackerLayout(
+			parseTasks([
+				'- [x] Breakfast',
+				'- [ ] Chores',
+				'      [clock::2026-11-12T10:42:00]',
+			]),
+			'Unassigned'
+		)
+		expect(layout.doneUnfolded).toBe(false)
 	})
 
 	it('keeps a ticked task that still runs among the running ones', () => {

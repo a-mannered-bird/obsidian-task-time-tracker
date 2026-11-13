@@ -176,6 +176,18 @@ describe('tracker tab', function () {
 		await expect(interruption).toHaveAttribute('aria-pressed', 'false')
 	})
 
+	it('unfolds the done tasks when nothing else is left', async function () {
+		await writeToday([
+			'- [x] Breakfast',
+			`      [clock::${today.date}T07:30:00--${today.date}T07:50:00]`,
+			'- [x] Read news',
+		])
+		await openTracker()
+
+		await expect(browser.$('summary=Done (2)')).toBeDisplayed()
+		await expect(browser.$('span=Read news')).toBeDisplayed()
+	})
+
 	it('marks a task done, adds one to the plan, then ends the day', async function () {
 		let content = await writeToday([
 			'- [ ] Write',

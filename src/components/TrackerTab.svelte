@@ -328,7 +328,7 @@
 				{/each}
 			</ul>
 			{#if layout.done.length > 0}
-				<details class="done">
+				<details class="done" open={layout.doneUnfolded}>
 					<summary>Done ({layout.done.length})</summary>
 					<ul class="rows">
 						{#each layout.done as task (task.name)}
