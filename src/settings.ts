@@ -12,7 +12,6 @@ import { openTaskManager } from './ui/TaskManagerModal'
 import type { TagMapping } from './types/tags'
 
 export interface TaskTimeTrackerSettings {
-	unassignedTaskName: string
 	/**
 	 * Custom chart color per task name, edited in the task management panel.
 	 * A CSS color: a theme variable for the presets, or a hex string.
@@ -45,7 +44,6 @@ export interface TaskTimeTrackerSettings {
 export type DailyViewTab = 'tracker' | 'timeline' | 'stats'
 
 export const DEFAULT_SETTINGS: TaskTimeTrackerSettings = {
-	unassignedTaskName: 'Unassigned',
 	taskColors: {},
 	hiddenTasks: [],
 	skipOverlapJoinNotice: false,
@@ -75,13 +73,6 @@ export const DEFAULT_SETTINGS: TaskTimeTrackerSettings = {
 	],
 }
 
-/** Fields holding free text; union-typed fields like the tab are excluded. */
-type StringSettingKey = {
-	[K in keyof TaskTimeTrackerSettings]: string extends TaskTimeTrackerSettings[K]
-		? K
-		: never
-}[keyof TaskTimeTrackerSettings]
-
 function emptyMapping(): TagMapping {
 	return { tag: '', emoji: '' }
 }
@@ -98,7 +89,6 @@ export class TaskTimeTrackerSettingTab extends PluginSettingTab {
 		const { containerEl } = this
 		containerEl.empty()
 
-		this.displayTrackingSection(containerEl)
 		this.displayTimelineSection(containerEl)
 		this.displayTaskManagementSection(containerEl)
 		this.displayWarningsSection(containerEl)
@@ -117,45 +107,6 @@ export class TaskTimeTrackerSettingTab extends PluginSettingTab {
 						new Notice('Task time tracker: views reloaded.')
 					})
 			)
-	}
-
-	/**
-	 * Text setting bound to a string field. Empty input falls back to the
-	 * default value, unless `allowEmpty` is set (e.g. folder = vault root).
-	 */
-	private addTextSetting(
-		containerEl: HTMLElement,
-		key: StringSettingKey,
-		options: {
-			name: string
-			desc: string
-			placeholder?: string
-			allowEmpty?: boolean
-		}
-	) {
-		new Setting(containerEl)
-			.setName(options.name)
-			.setDesc(options.desc)
-			.addText((text) =>
-				text
-					.setPlaceholder(options.placeholder ?? DEFAULT_SETTINGS[key])
-					.setValue(this.plugin.settings[key])
-					.onChange(async (value) => {
-						const trimmed = value.trim()
-						this.plugin.settings[key] =
-							trimmed || options.allowEmpty ? trimmed : DEFAULT_SETTINGS[key]
-						await this.plugin.saveSettings()
-					})
-			)
-	}
-
-	private displayTrackingSection(containerEl: HTMLElement) {
-		new Setting(containerEl).setName('Tracking').setHeading()
-
-		this.addTextSetting(containerEl, 'unassignedTaskName', {
-			name: 'Unassigned task name',
-			desc: 'Task used by quick interruptions until the time gets assigned to a real task.',
-		})
 	}
 
 	private displayTimelineSection(containerEl: HTMLElement) {

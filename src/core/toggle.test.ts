@@ -18,7 +18,7 @@ const content = [
 	'- [ ] Walk the dog #routine',
 	'- [ ] Emails',
 	'      [clock::2026-08-16T11:00:00]',
-	'- [ ] Unassigned',
+	'- [ ] Interruption',
 ].join('\n')
 
 type Script = {
@@ -56,7 +56,6 @@ async function run(
 	const { prompts, notices, offered, vaultFlags } = scripted(script)
 	const changed = await toggleTasks(note, options, {
 		prompts,
-		unassignedTaskName: 'Unassigned',
 		now,
 	})
 	return {
@@ -115,7 +114,7 @@ describe('toggleTasks', () => {
 		expect(result.offered[0]).toEqual([
 			'Write plugin',
 			'Walk the dog',
-			'Unassigned',
+			'Interruption',
 		])
 		expect(result.lines).toEqual([
 			'- [ ] Write plugin #project',
@@ -124,7 +123,7 @@ describe('toggleTasks', () => {
 			`      [clock::${at(12)}]`,
 			'- [x] Emails',
 			`      [clock::${at(11)}--${at(12)}]`,
-			'- [ ] Unassigned',
+			'- [ ] Interruption',
 		])
 	})
 
@@ -169,7 +168,7 @@ describe('toggleTasks', () => {
 		expect(result.offered[0]).toEqual([
 			'Write plugin',
 			'Walk the dog',
-			'Unassigned',
+			'Interruption',
 		])
 		expect(result.lines.slice(0, 5)).toEqual([
 			'- [ ] Write plugin #project',
@@ -180,20 +179,20 @@ describe('toggleTasks', () => {
 		])
 	})
 
-	it('quick interruption starts Unassigned, then ends it, returns to previous and reassigns', async () => {
-		// Start: Unassigned is off, Emails is running → switch to Unassigned.
+	it('quick interruption starts Interruption, then ends it, returns to previous and reassigns', async () => {
+		// Start: Interruption is off, Emails is running → switch to Interruption.
 		const start = await run({ interruption: true, switch: true })
 		expect(start.lines[4]).toBe(`      [clock::${at(11)}--${at(12)}]`)
 		expect(start.lines[6]).toBe(`      [clock::${at(12)}]`)
 
-		// End: Unassigned is running → back to Emails, interruption was the dog walk.
+		// End: Interruption is running → back to Emails, interruption was the dog walk.
 		const note = new TaskNote(start.lines.join('\n'))
 		const later = new Date(2026, 7, 16, 12, 10, 0)
 		const { prompts, offered } = scripted({ pick: ['Walk the dog'] })
 		await toggleTasks(
 			note,
 			{ interruption: true, switch: true },
-			{ prompts, unassignedTaskName: 'Unassigned', now: later }
+			{ prompts, now: later }
 		)
 		expect(offered[0]).toEqual(['Write plugin', 'Walk the dog'])
 		expect(note.toString().split('\n')).toEqual([
@@ -204,13 +203,13 @@ describe('toggleTasks', () => {
 			'- [ ] Emails',
 			`      [clock::${at(11)}--${at(12)}]`,
 			`      [clock::${at(12, 10)}]`,
-			'- [ ] Unassigned',
+			'- [ ] Interruption',
 		])
 	})
 })
 
-describe('quick interruption on a note without the unassigned task', () => {
-	it('adds the unassigned task, then starts it', async () => {
+describe('quick interruption on a note without the interruption task', () => {
+	it('adds the interruption task, then starts it', async () => {
 		const note = new TaskNote(
 			['- [ ] Emails', '      [clock::2026-08-16T11:00:00]'].join('\n')
 		)
@@ -218,13 +217,13 @@ describe('quick interruption on a note without the unassigned task', () => {
 		const changed = await toggleTasks(
 			note,
 			{ interruption: true, switch: true },
-			{ prompts, unassignedTaskName: 'Unassigned', now }
+			{ prompts, now }
 		)
 		expect(changed).toBe(true)
 		expect(note.toString().split('\n')).toEqual([
 			'- [ ] Emails',
 			`      [clock::${at(11)}--${at(12)}]`,
-			'- [ ] Unassigned',
+			'- [ ] Interruption',
 			`      [clock::${at(12)}]`,
 		])
 	})
@@ -264,7 +263,6 @@ describe('vault-wide picking', () => {
 			{},
 			{
 				prompts,
-				unassignedTaskName: 'Unassigned',
 				now,
 			}
 		)

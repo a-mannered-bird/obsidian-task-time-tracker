@@ -47,7 +47,6 @@ function fakeNote(lines: string[]) {
 	const run = (prompts: Prompts, steps: ToggleOptions[] = [{}]) =>
 		applyTrackingSteps(io, steps, {
 			prompts,
-			unassignedTaskName: 'Unassigned',
 			now,
 		})
 	return {

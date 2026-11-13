@@ -12,7 +12,6 @@ const settings = {
 		{ name: 'Focus', taskName: 'Deep wok', verb: 'toggle' },
 		{ name: 'Lunch', taskName: 'Lunch', verb: 'toggle' },
 	],
-	unassignedTaskName: 'Deep wok',
 }
 
 describe('migrateTaskNames', () => {
@@ -32,7 +31,6 @@ describe('migrateTaskNames', () => {
 			{ name: 'Focus', taskName: 'Deep work', verb: 'toggle' },
 			{ name: 'Lunch', taskName: 'Lunch', verb: 'toggle' },
 		])
-		expect(migrated.unassignedTaskName).toBe('Deep work')
 		// The dismissal about the old name is dropped; the other one stays.
 		expect(migrated.dismissedIssues).toEqual([
 			'["tag-drift","Task A","#project"]',
@@ -81,6 +79,5 @@ describe('forgetTaskName', () => {
 			'["tag-drift","Task A","#project"]',
 		])
 		expect(forgotten.quickActions).toEqual(settings.quickActions)
-		expect(forgotten.unassignedTaskName).toBe('Deep wok')
 	})
 })

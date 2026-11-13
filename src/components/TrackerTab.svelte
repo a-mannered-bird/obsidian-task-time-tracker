@@ -21,7 +21,7 @@
 	import { tagEmoji } from 'core/taskPicker'
 	import { formatTimeOfDay } from 'core/timeline'
 	import { formatHoursMinutes, getMinutesBetween } from 'core/time'
-	import { taskChoice } from 'core/toggle'
+	import { INTERRUPTION_TASK, taskChoice } from 'core/toggle'
 	import {
 		pausedByInterruption,
 		primaryStartIcon,
@@ -64,12 +64,11 @@
 	}
 
 	const tasks = $derived(log?.tasks ?? [])
-	const unassigned = $derived(plugin.settings.unassignedTaskName)
-	const layout = $derived(trackerLayout(tasks, unassigned))
+	const layout = $derived(trackerLayout(tasks))
 	const actions = $derived(startActions(layout.running))
-	const paused = $derived(pausedByInterruption(tasks, unassigned))
+	const paused = $derived(pausedByInterruption(tasks))
 	const interruptionActive = $derived(
-		layout.running.some((task) => task.name === unassigned)
+		layout.running.some((task) => task.name === INTERRUPTION_TASK)
 	)
 	const quickActions = $derived(
 		plugin.settings.quickActions.filter(
@@ -259,12 +258,12 @@
 				{#each layout.running as task (task.name)}
 					<li
 						class="row running"
-						class:interruption={task.name === unassigned}
+						class:interruption={task.name === INTERRUPTION_TASK}
 						in:motion.receive|global={{ key: task.name }}
 						out:motion.send|global={{ key: task.name }}
 						animate:motion.slide
 					>
-						{#if task.name === unassigned}
+						{#if task.name === INTERRUPTION_TASK}
 							<span class="row-icon" use:icon={'pause'}></span>
 							<span
 								class="task-name interruption-name"

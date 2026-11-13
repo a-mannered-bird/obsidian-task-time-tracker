@@ -91,6 +91,8 @@ export default class TaskTimeTracker extends Plugin {
 		delete data.bedTimeProperty
 		// Dropped setting; the pickers always offer every daily note's tasks.
 		delete data.includeVaultTasks
+		// Dropped setting; interruptions always record into "Interruption".
+		delete data.unassignedTaskName
 		this.settings = Object.assign(
 			{},
 			DEFAULT_SETTINGS,

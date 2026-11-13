@@ -25,8 +25,7 @@ describe('trackerLayout', () => {
 				'      [clock::2026-11-12T10:42:00]',
 				'- [ ] Email',
 				'- [x] Read news',
-			]),
-			'Unassigned'
+			])
 		)
 		expect(names(layout.running)).toEqual(['Chores'])
 		expect(names(layout.open)).toEqual(['Write blog post', 'Email'])
@@ -40,8 +39,7 @@ describe('trackerLayout', () => {
 				'- [x] Breakfast',
 				'      [clock::2026-11-12T07:30:00--2026-11-12T07:50:00]',
 				'- [x] Read news',
-			]),
-			'Unassigned'
+			])
 		)
 		expect(layout.doneUnfolded).toBe(true)
 	})
@@ -52,32 +50,41 @@ describe('trackerLayout', () => {
 				'- [x] Breakfast',
 				'- [ ] Chores',
 				'      [clock::2026-11-12T10:42:00]',
-			]),
-			'Unassigned'
+			])
 		)
 		expect(layout.doneUnfolded).toBe(false)
 	})
 
 	it('keeps a ticked task that still runs among the running ones', () => {
 		const layout = trackerLayout(
-			parseTasks(['- [x] Chores', '      [clock::2026-11-12T10:42:00]']),
-			'Unassigned'
+			parseTasks(['- [x] Chores', '      [clock::2026-11-12T10:42:00]'])
 		)
 		expect(names(layout.running)).toEqual(['Chores'])
 		expect(layout.done).toEqual([])
 	})
 
-	it('leaves out the unassigned task once its time went elsewhere', () => {
-		const layout = trackerLayout(
+	it('lists the interruption task only while it runs', () => {
+		const idle = trackerLayout(
 			parseTasks([
 				'- [ ] Email',
-				'- [ ] Unassigned',
-				'- [ ] Phone call',
+				'- [ ] Interruption',
+				'      [clock::2026-11-12T10:00:00--2026-11-12T10:05:00]',
+				'- [x] Phone call',
 				'      [clock::2026-11-12T11:02:00--2026-11-12T11:10:00]',
-			]),
-			'Unassigned'
+			])
 		)
-		expect(names(layout.open)).toEqual(['Email', 'Phone call'])
+		expect(names(idle.open)).toEqual(['Email'])
+		expect(names(idle.done)).toEqual(['Phone call'])
+
+		const running = trackerLayout(
+			parseTasks([
+				'- [ ] Email',
+				'- [ ] Interruption',
+				'      [clock::2026-11-12T11:02:00]',
+			])
+		)
+		expect(names(running.running)).toEqual(['Interruption'])
+		expect(names(running.open)).toEqual(['Email'])
 	})
 })
 
@@ -123,10 +130,10 @@ describe('pausedByInterruption', () => {
 			'      [clock::2026-11-12T10:42:00--2026-11-12T11:02:00]',
 			'- [ ] German podcast',
 			'      [clock::2026-11-12T10:36:00--2026-11-12T11:02:00]',
-			'- [ ] Unassigned',
+			'- [ ] Interruption',
 			'      [clock::2026-11-12T11:02:00]',
 		])
-		expect(names(pausedByInterruption(tasks, 'Unassigned'))).toEqual([
+		expect(names(pausedByInterruption(tasks))).toEqual([
 			'Chores',
 			'German podcast',
 		])
@@ -137,7 +144,7 @@ describe('pausedByInterruption', () => {
 			'- [ ] Chores',
 			'      [clock::2026-11-12T10:42:00--2026-11-12T11:02:00]',
 		])
-		expect(pausedByInterruption(tasks, 'Unassigned')).toEqual([])
+		expect(pausedByInterruption(tasks)).toEqual([])
 	})
 })
 

@@ -19,7 +19,7 @@ bed_time: 2026-08-16T23:40:00
       [clock::2026-08-16T14:00:00]
 - [x] Walk the dog #routine
       [clock::2026-08-16T08:00:00--2026-08-16T08:30:00]
-- [ ] Unassigned
+- [ ] Interruption
 ```
 
 - A **task** is a top-level checkbox line: `- [ ]` / `- [x]`, followed by the task name and any number of `#tags`.
@@ -45,7 +45,7 @@ All commands act on the daily note you are currently in, or on today's daily not
 | Switch and tick task from… | Same, at a chosen time in the past.                                                                                                                                    |
 | Switch to previous task(s) | Close every running clock and restart the task(s) that ended last.                                                                                                     |
 | Log interruption from…     | "I was interrupted N minutes ago by X": switch to X at that time, then switch back to what was running before.                                                         |
-| Toggle quick interruption  | Start the `Unassigned` task; run again to stop it and pick which task the time actually belongs to.                                                                    |
+| Toggle quick interruption  | Start the `Interruption` task; run again to stop it and pick which task the time actually belongs to. The tracker tab lists that task only while it runs.              |
 | Migrate current task       | Move the running clock line to another task (you clocked the wrong task).                                                                                              |
 | Set task duration          | For a running task, close its clock so that the session lasted the given number of minutes.                                                                            |
 | Set wake time              | Set the `wake_time` property to now (with an optional minute offset, default -3).                                                                                      |
@@ -94,7 +94,6 @@ Arrows next to the rendered date range step to the previous or next period (a mo
 
 - The daily notes folder and date format are inherited from the core Daily notes plugin.
 - Tag mapping: for each tag, an emoji shown in pickers.
-- Name of the "unassigned" task used by quick interruptions.
 - An Apply button reloads the open views after changing settings.
 
 ## Development

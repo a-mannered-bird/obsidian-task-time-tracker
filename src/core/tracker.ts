@@ -1,7 +1,7 @@
 import type { Task } from 'types/tasks'
 import type { CompletionPlan } from './complete'
 import { isRunning, TaskNote } from './note'
-import { getLastEndedTasks } from './toggle'
+import { getLastEndedTasks, INTERRUPTION_TASK } from './toggle'
 
 /** The tracker tab's sections, each in the note's order. */
 export type TrackerLayout = {
@@ -13,18 +13,13 @@ export type TrackerLayout = {
 }
 
 /**
- * The unassigned task is left without clocks once an interruption's time
- * went to the task it was: not something the user planned, so not listed.
+ * The interruption task is listed only while it runs: it is not something
+ * the user plans or finishes, and the Interruption button stands for it.
  */
-export function trackerLayout(
-	tasks: Task[],
-	unassignedTaskName: string
-): TrackerLayout {
+export function trackerLayout(tasks: Task[]): TrackerLayout {
 	const running = tasks.filter(isRunning)
 	const idle = tasks.filter(
-		(task) =>
-			!isRunning(task) &&
-			!(task.name === unassignedTaskName && task.clocks.length === 0)
+		(task) => !isRunning(task) && task.name !== INTERRUPTION_TASK
 	)
 	const open = idle.filter((task) => !task.ticked)
 	return {
@@ -76,12 +71,9 @@ export function primaryStartIcon(primary: StartActions['primary']): string {
  * ones stopped last, as the engine resumes them. Empty when no interruption
  * runs.
  */
-export function pausedByInterruption(
-	tasks: Task[],
-	unassignedTaskName: string
-): Task[] {
+export function pausedByInterruption(tasks: Task[]): Task[] {
 	const interruption = tasks.find(
-		(task) => task.name === unassignedTaskName && isRunning(task)
+		(task) => task.name === INTERRUPTION_TASK && isRunning(task)
 	)
 	return interruption ? getLastEndedTasks(tasks) : []
 }

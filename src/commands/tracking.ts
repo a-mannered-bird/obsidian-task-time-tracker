@@ -184,7 +184,6 @@ export async function runTrackingSteps(
 	steps: ToggleOptions[],
 	options: { choice?: TaskChoice; notify?: (message: string) => void } = {}
 ) {
-	const { settings } = plugin
 	const { choice, notify } = options
 	const target = currentTarget(plugin)
 	const interactive = interactivePrompts(plugin, target.path)
@@ -197,7 +196,6 @@ export async function runTrackingSteps(
 	}
 	await applyTrackingSteps(targetIo(plugin, target), steps, {
 		prompts,
-		unassignedTaskName: settings.unassignedTaskName,
 		now: new Date(),
 	})
 }

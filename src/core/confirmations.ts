@@ -4,6 +4,7 @@ import type {
 	DeletionPreview,
 	RetagPreview,
 } from './taskOperations'
+import { INTERRUPTION_TASK } from './toggle'
 
 /** Shown by every irreversible operation; the plugin keeps no undo. */
 export const IRREVERSIBLE_NOTE =
@@ -20,7 +21,6 @@ export function confirmationMatches(typed: string, expected: string): boolean {
 /** The name-keyed settings an operation may leave dangling. */
 export type ReferenceSettings = {
 	quickActions: { name: string; taskName: string }[]
-	unassignedTaskName: string
 }
 
 /**
@@ -40,9 +40,9 @@ export function referenceWarnings(
 			)
 		}
 	}
-	if (affected.has(settings.unassignedTaskName)) {
+	if (affected.has(INTERRUPTION_TASK)) {
 		warnings.push(
-			`"${settings.unassignedTaskName}" is the unassigned task: quick interruptions depend on it.`
+			`"${INTERRUPTION_TASK}" holds the time of quick interruptions not assigned to a task yet.`
 		)
 	}
 	return warnings

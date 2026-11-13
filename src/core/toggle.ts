@@ -24,7 +24,7 @@ export type ToggleOptions = {
 	fromLastTask?: boolean
 	/** Desired end state; tasks already in it are left untouched. */
 	targetState?: 'on' | 'off'
-	/** Start the unassigned task, or stop it and move its time to a real task. */
+	/** Start the interruption task, or stop it and move its time to a real task. */
 	interruption?: boolean
 	/** Move the running clock to another task instead of toggling. */
 	migrate?: boolean
@@ -73,9 +73,11 @@ export type Prompts = {
 	notify(message: string): void
 }
 
+/** The task a quick interruption records its time in until it is assigned. */
+export const INTERRUPTION_TASK = 'Interruption'
+
 export type ToggleContext = {
 	prompts: Prompts
-	unassignedTaskName: string
 	now: Date
 }
 
@@ -97,21 +99,21 @@ export async function toggleTasks(
 		return false
 	}
 
-	// A quick interruption starts the unassigned task when it is off, and
+	// A quick interruption starts the interruption task when it is off, and
 	// otherwise ends it by going back to the tasks that were running before.
-	const unassigned = options.interruption
-		? note.findTask(context.unassignedTaskName)
+	const interruption = options.interruption
+		? note.findTask(INTERRUPTION_TASK)
 		: undefined
-	const endingInterruption = Boolean(unassigned && isRunning(unassigned))
+	const endingInterruption = Boolean(interruption && isRunning(interruption))
 	// Interruptions must work on any note, not only on those planned with
-	// the unassigned task in them.
-	if (options.interruption && !unassigned) {
-		note.insertTask(context.unassignedTaskName, [])
+	// the interruption task in them.
+	if (options.interruption && !interruption) {
+		note.insertTask(INTERRUPTION_TASK, [])
 	}
 	const effective: ToggleOptions = endingInterruption
 		? { ...options, taskName: undefined, previous: true }
 		: options.interruption
-			? { ...options, taskName: context.unassignedTaskName }
+			? { ...options, taskName: INTERRUPTION_TASK }
 			: options
 
 	let selected = await selectTasks(note, effective, context)
@@ -149,10 +151,10 @@ export async function toggleTasks(
 		changed = true
 	}
 
-	if (endingInterruption && unassigned) {
+	if (endingInterruption && interruption) {
 		await moveLastClockTo(
 			note,
-			unassigned,
+			interruption,
 			'What was the interruption?',
 			prompts
 		)

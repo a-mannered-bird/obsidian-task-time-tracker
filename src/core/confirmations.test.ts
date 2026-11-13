@@ -22,13 +22,12 @@ describe('referenceWarnings', () => {
 			{ name: 'Start focus', taskName: 'Deep work' },
 			{ name: 'Lunch', taskName: 'Lunch' },
 		],
-		unassignedTaskName: 'Unassigned',
 	}
 
-	it('names the quick actions and the unassigned task pointing at the names', () => {
-		expect(referenceWarnings(settings, ['Deep work', 'Unassigned'])).toEqual([
+	it('names the quick actions and the interruption task among the names', () => {
+		expect(referenceWarnings(settings, ['Deep work', 'Interruption'])).toEqual([
 			'The quick action "Start focus" targets "Deep work".',
-			'"Unassigned" is the unassigned task: quick interruptions depend on it.',
+			'"Interruption" holds the time of quick interruptions not assigned to a task yet.',
 		])
 	})
 
