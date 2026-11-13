@@ -200,6 +200,50 @@ describe('toggleTasks', () => {
 		])
 	})
 
+	it('asks which running clock to migrate when several run', async () => {
+		const note = new TaskNote(
+			[
+				'- [ ] Write plugin #project',
+				'      [clock::2026-08-16T09:00:00]',
+				'- [ ] Walk the dog #routine',
+				'- [ ] Emails',
+				'      [clock::2026-08-16T11:00:00]',
+			].join('\n')
+		)
+		const { prompts, offered, vaultFlags } = scripted({
+			pick: ['Write plugin', 'Walk the dog'],
+		})
+		expect(await toggleTasks(note, { migrate: true }, { prompts, now })).toBe(
+			true
+		)
+		// First the running tasks only, then where to move the picked clock.
+		expect(offered).toEqual([['Write plugin', 'Emails'], ['Walk the dog']])
+		expect(vaultFlags[0]).toBe(false)
+		expect(note.toString().split('\n')).toEqual([
+			'- [ ] Write plugin #project',
+			'- [ ] Walk the dog #routine',
+			'      [clock::2026-08-16T09:00:00]',
+			'- [ ] Emails',
+			'      [clock::2026-08-16T11:00:00]',
+		])
+	})
+
+	it('migrates nothing when the running clock to migrate is not picked', async () => {
+		const note = new TaskNote(
+			[
+				'- [ ] Write plugin',
+				'      [clock::2026-08-16T09:00:00]',
+				'- [ ] Emails',
+				'      [clock::2026-08-16T11:00:00]',
+			].join('\n')
+		)
+		const { prompts, offered } = scripted({ pick: [null] })
+		expect(await toggleTasks(note, { migrate: true }, { prompts, now })).toBe(
+			false
+		)
+		expect(offered).toHaveLength(1)
+	})
+
 	it("migrates a named task's last finished clock", async () => {
 		const result = await run(
 			{ migrate: true, taskName: 'Write plugin' },

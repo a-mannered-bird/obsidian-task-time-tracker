@@ -32,7 +32,8 @@ export type ToggleOptions = {
 	interruption?: boolean
 	/**
 	 * Move a clock to another task instead of toggling: the last clock of
-	 * `taskName` (running or not), else the running clock.
+	 * `taskName` (running or not), else the running clock, asking which one
+	 * when several run.
 	 */
 	migrate?: boolean
 	/** Close the running clock of a task so that it lasted N minutes. */
@@ -380,13 +381,11 @@ async function migrateClock(
 	const { prompts } = context
 	const { taskName } = options
 	const from =
-		taskName === undefined ? note.getRunningTasks()[0] : note.findTask(taskName)
+		taskName === undefined
+			? await pickRunningTask(note, prompts)
+			: note.findTask(taskName)
 	if (!from) {
-		prompts.notify(
-			taskName === undefined
-				? 'No running task to migrate.'
-				: `Couldn't find "${taskName}".`
-		)
+		if (taskName !== undefined) prompts.notify(`Couldn't find "${taskName}".`)
 		return false
 	}
 	if (from.clocks.length === 0) {
@@ -399,6 +398,25 @@ async function migrateClock(
 		options.placeholder ?? 'Which task to migrate to?',
 		prompts
 	)
+}
+
+/** The running task, asking which one when several run. */
+async function pickRunningTask(
+	note: TaskNote,
+	prompts: Prompts
+): Promise<Task | null> {
+	const running = note.getRunningTasks()
+	if (running.length === 0) {
+		prompts.notify('No running task to migrate.')
+		return null
+	}
+	if (running.length === 1) return running[0] ?? null
+	const picked = await prompts.pickTask(note, {
+		choices: (version) => version.getRunningTasks(),
+		placeholder: 'Which running clock to migrate?',
+		includeVault: false,
+	})
+	return picked ? (note.findTask(picked.name) ?? null) : null
 }
 
 async function moveLastClockTo(
