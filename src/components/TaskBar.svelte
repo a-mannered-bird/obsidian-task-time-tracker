@@ -18,6 +18,7 @@
 	} from 'core/tracker'
 	import type { Task } from 'types/tasks'
 	import { icon } from 'ui/icon'
+	import { instantTooltip } from 'ui/tooltip'
 	import type TaskTimeTracker from '../main'
 
 	type Props = {
@@ -233,7 +234,7 @@
 		<button
 			class="alongside-button"
 			aria-label="Start alongside"
-			title="Start alongside"
+			use:instantTooltip
 			use:icon={'plus'}
 			onmousedown={keepFocus}
 			onclick={() => run(current, 'alongside')}

@@ -271,9 +271,12 @@ describe('tracker tab', function () {
 		])
 		await openTracker()
 
-		const elapsed = button('Change when Chores started')
+		// One label, shown by Obsidian as the tooltip: start, total, action.
+		const elapsed = browser.$(
+			'button[aria-label$="Click to change when Chores started."]'
+		)
 		await expect(elapsed).toHaveAttribute(
-			'title',
+			'aria-label',
 			expect.stringContaining('Started 00:00')
 		)
 		await elapsed.click()
@@ -288,7 +291,7 @@ describe('tracker tab', function () {
 			{ start: `${today.date}T00:05:00`, end: null },
 		])
 		await expect(elapsed).toHaveAttribute(
-			'title',
+			'aria-label',
 			expect.stringContaining('Started 00:05')
 		)
 	})

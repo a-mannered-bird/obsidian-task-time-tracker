@@ -23,6 +23,7 @@
 	import type { DailyViewTab } from '../settings'
 	import { formatTimeOfDay } from 'core/timeline'
 	import { icon } from 'ui/icon'
+	import { instantTooltip } from 'ui/tooltip'
 	import { openTaskManager } from 'ui/TaskManagerModal'
 	import DailyStats from './DailyStats.svelte'
 	import TimelineTab from './TimelineTab.svelte'
@@ -137,6 +138,7 @@
 		<button
 			class="icon-button"
 			aria-label="Previous daily note"
+			use:instantTooltip
 			use:icon={'chevron-left'}
 			disabled={!previousFile}
 			onclick={() => void openNote(previousFile)}
@@ -147,6 +149,7 @@
 		<button
 			class="icon-button"
 			aria-label="Next daily note"
+			use:instantTooltip
 			use:icon={'chevron-right'}
 			disabled={!nextFile}
 			onclick={() => void openNote(nextFile)}
@@ -157,6 +160,7 @@
 		<button
 			class="icon-button"
 			aria-label="More actions"
+			use:instantTooltip
 			use:icon={'more-horizontal'}
 			onclick={openMoreMenu}
 		></button>
@@ -167,6 +171,7 @@
 			<button
 				class="day-time"
 				class:is-reminder={!log?.wakeTime && !otherDay}
+				use:instantTooltip
 				aria-label={log?.wakeTime
 					? `Wake time ${formatTimeOfDay(log.wakeTime)}, change`
 					: 'Set wake time'}
@@ -178,6 +183,7 @@
 			<span aria-hidden="true">·</span>
 			<button
 				class="day-time"
+				use:instantTooltip
 				aria-label={log?.bedTime
 					? `Bed time ${formatTimeOfDay(log.bedTime)}, change`
 					: 'Set bed time'}

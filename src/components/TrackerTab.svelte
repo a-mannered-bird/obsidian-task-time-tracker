@@ -30,6 +30,7 @@
 	} from 'core/tracker'
 	import type { Task } from 'types/tasks'
 	import { icon } from 'ui/icon'
+	import { instantTooltip } from 'ui/tooltip'
 	import type TaskTimeTracker from '../main'
 	import TaskBar from './TaskBar.svelte'
 
@@ -131,8 +132,8 @@
 	{#if start}
 		<button
 			class="elapsed"
-			aria-label={`Change when ${task.name} started`}
-			title={`Started ${formatTimeOfDay(start)} · ${formatHoursMinutes(taskMinutes(task, now))} today. Click to change when it started.`}
+			use:instantTooltip
+			aria-label={`Started ${formatTimeOfDay(start)} · ${formatHoursMinutes(taskMinutes(task, now))} today. Click to change when ${task.name} started.`}
 			onclick={() => editStart(task, start)}
 		>
 			{elapsed(task)}
@@ -144,6 +145,7 @@
 	<input
 		type="checkbox"
 		class="task-list-item-checkbox"
+		use:instantTooltip
 		aria-label={task.ticked
 			? `Mark ${task.name} not done`
 			: `Mark ${task.name} done`}
@@ -255,6 +257,7 @@
 							<button
 								class="mod-cta end-button"
 								aria-label="End interruption"
+								use:instantTooltip
 								onclick={toggleInterruption}
 							>
 								End
@@ -267,15 +270,15 @@
 							{@render elapsedTime(task)}
 							<button
 								class="row-button"
+								use:instantTooltip
 								aria-label={`Done: stop and tick ${task.name}`}
-								title="Done"
 								use:icon={'check'}
 								onclick={() => stop([task.name], true)}
 							></button>
 							<button
 								class="row-button"
+								use:instantTooltip
 								aria-label={`Stop ${task.name}`}
-								title="Stop"
 								use:icon={'square'}
 								onclick={() => stop([task.name], false)}
 							></button>
@@ -305,18 +308,18 @@
 						{/if}
 						<button
 							class="row-button"
+							use:instantTooltip
 							aria-label={actions.primary === 'switch'
 								? `Switch to ${task.name}`
 								: `Start ${task.name}`}
-							title={actions.primary === 'switch' ? 'Switch to this' : 'Start'}
 							use:icon={'play'}
 							onclick={() => start(task, actions.primary)}
 						></button>
 						{#if actions.alongside}
 							<button
 								class="row-button"
+								use:instantTooltip
 								aria-label={`Start ${task.name} alongside`}
-								title="Start alongside"
 								use:icon={'plus'}
 								onclick={() => start(task, 'alongside')}
 							></button>
