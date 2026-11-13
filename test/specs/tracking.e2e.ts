@@ -40,9 +40,9 @@ describe('tracking commands', function () {
 		)
 		const picker = browser.$('.prompt')
 		await expect(picker).toBeDisplayed()
-		// Running tasks come first, with the hourglass and a label.
+		// Running tasks come first, with a label.
 		const first = picker.$('.suggestion-item:nth-child(1 of .suggestion-item)')
-		await expect(first).toHaveText(expect.stringContaining('⏳ Task B'))
+		await expect(first).toHaveText(expect.stringContaining('Task B'))
 		await expect(first.$('span=running')).toBeDisplayed()
 		await browser.keys('Escape')
 
@@ -211,11 +211,11 @@ describe('tracking commands', function () {
 
 		// The picker shows it running, first, without being reopened; the
 		// highlight stays on the task it was on, so Enter still means it.
-		await expect(row(1)).toHaveText(expect.stringContaining('⏳ Email'))
+		await expect(row(1)).toHaveText(expect.stringContaining('Email'))
 		await expect(row(2)).toHaveText('⭐️ Task B')
 		await expect(highlighted()).toHaveText('⭐️ Task B')
 		await browser.keys('ArrowUp')
-		await expect(highlighted()).toHaveText(expect.stringContaining('⏳ Email'))
+		await expect(highlighted()).toHaveText(expect.stringContaining('Email'))
 		await browser.keys('Enter')
 
 		// Picked as running, so the toggle stops the clock the other device

@@ -11,6 +11,7 @@
 		suggestionGroup,
 		suggestionLabel,
 		suggestionMeta,
+		suggestionRunning,
 		taskSuggestions,
 		type TaskSuggestion,
 		type VaultPickerEntries,
@@ -173,6 +174,7 @@
 						class="option"
 						class:is-selected={index === selected}
 						class:create={option.kind === 'create'}
+						class:running={suggestionRunning(option)}
 						role="option"
 						aria-selected={index === selected}
 						onmousemove={() => onSelect(index)}
@@ -341,6 +343,15 @@
 	}
 
 	.option.create .option-label {
+		color: var(--text-accent);
+	}
+
+	.option.running .option-label {
+		font-weight: var(--font-semibold);
+		color: var(--text-accent);
+	}
+
+	.option.running .option-meta {
 		color: var(--text-accent);
 	}
 

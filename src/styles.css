@@ -42,6 +42,11 @@
 	color: var(--text-accent);
 }
 
+.task-time-tracker-running-suggestion {
+	font-weight: var(--font-semibold);
+	color: var(--text-accent);
+}
+
 .task-time-tracker-suggestion-group {
 	padding: var(--size-4-3) var(--size-4-3) var(--size-4-2);
 	font-size: var(--font-ui-smaller);
@@ -65,7 +70,12 @@
 
 .task-time-tracker-suggestion-meta {
 	font-size: var(--font-ui-smaller);
+	font-weight: var(--font-normal);
 	color: var(--text-muted);
+}
+
+.task-time-tracker-running-suggestion .task-time-tracker-suggestion-meta {
+	color: var(--text-accent);
 }
 
 .task-time-tracker-suggestion-action {

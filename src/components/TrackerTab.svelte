@@ -158,7 +158,7 @@
 			</h2>
 			{#each overnight.clocks as clock (`${clock.taskName} ${clock.start.valueOf()}`)}
 				<div class="overnight-clock">
-					<span class="overnight-name">⏳ {clock.taskName}</span>
+					<span class="overnight-name">{clock.taskName}</span>
 					<span class="muted">since {formatTimeOfDay(clock.start)}</span>
 				</div>
 				<div class="buttons">
@@ -258,7 +258,6 @@
 						</li>
 					{:else}
 						<li class="row running">
-							<span class="dot"></span>
 							{@render taskName(task)}
 							{@render elapsedTime(task)}
 							<span class="row-actions">
@@ -456,17 +455,10 @@
 		margin-top: 2px;
 	}
 
+	/* Accent and weight mark a running task, here and in the pickers. */
 	.row.running .task-name {
 		font-weight: var(--font-semibold);
-	}
-
-	.dot {
-		width: 0.5em;
-		height: 0.5em;
-		margin: 0 0.15em;
-		flex: none;
-		border-radius: 50%;
-		background: var(--color-green);
+		color: var(--text-accent);
 	}
 
 	.row.interruption {
@@ -492,6 +484,7 @@
 
 	.overnight-name {
 		font-weight: var(--font-semibold);
+		color: var(--text-accent);
 	}
 
 	.overnight {

@@ -58,9 +58,9 @@ describe('pickerLabel', () => {
 	]
 	const byName = (name: string) => tasks.find((t) => t.name === name)!
 
-	it('marks running and ticked tasks before looking at tags', () => {
-		expect(pickerLabel(byName('Running now'), mappings)).toBe('⏳ Running now')
+	it('marks ticked tasks before looking at tags, and running ones not at all', () => {
 		expect(pickerLabel(byName('Done early'), mappings)).toBe('✅ Done early')
+		expect(pickerLabel(byName('Running now'), mappings)).toBe('Running now')
 	})
 
 	it('uses the emoji of the first mapped tag, or none', () => {
@@ -197,8 +197,8 @@ describe('entryLabel', () => {
 	})
 
 	it('delegates note entries to pickerLabel', () => {
-		const task = tasks.find((t) => t.name === 'Running now')!
-		expect(entryLabel({ kind: 'note', task }, mappings)).toBe('⏳ Running now')
+		const task = tasks.find((t) => t.name === 'Done early')!
+		expect(entryLabel({ kind: 'note', task }, mappings)).toBe('✅ Done early')
 	})
 })
 

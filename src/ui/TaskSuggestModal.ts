@@ -14,6 +14,7 @@ import {
 	suggestionGroup,
 	suggestionLabel,
 	suggestionMeta,
+	suggestionRunning,
 	taskSuggestions,
 	VAULT_DISPLAY_LIMIT,
 	type GroupBreak,
@@ -190,6 +191,9 @@ class TaskSuggestModal extends FuzzySuggestModal<ModalItem> {
 	renderSuggestion(match: FuzzyMatch<ModalItem>, el: HTMLElement): void {
 		super.renderSuggestion(match, el)
 		const { item } = match
+		if (item.kind !== 'loading' && suggestionRunning(item)) {
+			el.addClass('task-time-tracker-running-suggestion')
+		}
 		if (item.kind === 'vault') {
 			el.addClass('task-time-tracker-vault-suggestion')
 		} else if (item.kind === 'loading') {

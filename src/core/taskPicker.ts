@@ -130,6 +130,11 @@ export function suggestionLabel(
 	return entryLabel(row, mappings)
 }
 
+/** Whether a row is a task of the note with a clock running. */
+export function suggestionRunning(row: TaskSuggestion<unknown>): boolean {
+	return row.kind === 'note' && isRunning(row.task)
+}
+
 /** `running` for a running task of the note, the note count of a vault one. */
 export function suggestionMeta(row: TaskSuggestion<unknown>): string | null {
 	if (row.kind === 'note') return isRunning(row.task) ? 'running' : null
@@ -236,11 +241,12 @@ export function sortForPicker(tasks: Task[]): Task[] {
 }
 
 /**
- * Label shown in the picker: a status emoji (running, ticked) or the emoji of
+ * Label shown in the picker: ✅ for a ticked task, otherwise the emoji of
  * the first tag that has one in the mappings, followed by the task name.
+ * Running tasks are told apart by their style (suggestionRunning).
  */
 export function pickerLabel(task: Task, mappings: TagMapping[]): string {
-	const emoji = statusEmoji(task) ?? tagEmoji(task.tags, mappings)
+	const emoji = task.ticked ? '✅' : tagEmoji(task.tags, mappings)
 	return emoji ? `${emoji} ${task.name}` : task.name
 }
 
@@ -249,12 +255,6 @@ export function entryLabel(entry: PickerEntry, mappings: TagMapping[]): string {
 	if (entry.kind === 'note') return pickerLabel(entry.task, mappings)
 	const emoji = tagEmoji(entry.info.tags, mappings)
 	return emoji ? `${emoji} ${entry.info.name}` : entry.info.name
-}
-
-function statusEmoji(task: Task): string | null {
-	if (isRunning(task)) return '⏳'
-	if (task.ticked) return '✅'
-	return null
 }
 
 /** Emoji of the first of the tags that has one in the mappings. */
