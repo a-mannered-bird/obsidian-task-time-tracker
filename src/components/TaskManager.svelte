@@ -36,9 +36,11 @@
 		plugin: TaskTimeTracker
 		/** Close the hosting modal (after navigating to a note). */
 		close: () => void
+		/** The filter the table opens with. */
+		initialQuery?: string
 	}
 
-	const { plugin, close }: Props = $props()
+	const { plugin, close, initialQuery = '' }: Props = $props()
 
 	let infos = $state<VaultTaskInfo[] | null>(null)
 	// Local mirrors of the settings so the rows re-render on change; the
@@ -51,7 +53,8 @@
 	let hiddenTasks = $state<string[]>([...plugin.settings.hiddenTasks])
 	/** Detected issues per task name, refreshed with the table. */
 	let issues = $state<Map<string, TaskIssue[]>>(new Map())
-	let query = $state('')
+	// svelte-ignore state_referenced_locally
+	let query = $state(initialQuery)
 	let hiddenOnly = $state(false)
 	let issuesOnly = $state(false)
 	let sortKey = $state<TaskSortKey>('usage')
@@ -306,7 +309,7 @@
 <div class="toolbar">
 	<input
 		type="search"
-		placeholder="Filter by name or tag…"
+		placeholder={'Filter by name or tag, "Name" for an exact name'}
 		bind:value={query}
 	/>
 	<button

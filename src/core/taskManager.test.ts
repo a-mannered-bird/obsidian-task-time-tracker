@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { filterTaskInfos, sortTaskInfos } from './taskManager'
+import { exactNameQuery, filterTaskInfos, sortTaskInfos } from './taskManager'
 import type { VaultTaskInfo } from './vaultTaskIndex'
 
 const info = (
@@ -33,6 +33,15 @@ describe('filterTaskInfos', () => {
 		expect(filterTaskInfos(infos, '#rout').map((i) => i.name)).toEqual([
 			'Workout',
 		])
+	})
+
+	it('matches one name exactly, case included, in quotes', () => {
+		const names = (query: string) =>
+			filterTaskInfos(infos, query).map((i) => i.name)
+		expect(names(exactNameQuery('Workout'))).toEqual(['Workout'])
+		expect(names('"work"')).toEqual([])
+		// Unquoted, the same text also matches the other names containing it.
+		expect(names('Work')).toEqual(['Deep work', 'Workout'])
 	})
 
 	it('returns everything for a blank query', () => {

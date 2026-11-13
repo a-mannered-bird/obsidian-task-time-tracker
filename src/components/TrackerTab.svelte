@@ -44,6 +44,7 @@
 	} from 'core/tracker'
 	import type { Task } from 'types/tasks'
 	import { icon } from 'ui/icon'
+	import { openTaskManager } from 'ui/TaskManagerModal'
 	import { rowMotion } from 'ui/rowMotion'
 	import { instantTooltip } from 'ui/tooltip'
 	import type TaskTimeTracker from '../main'
@@ -346,6 +347,11 @@
 			icon: 'file-clock',
 			group: 'show',
 		},
+		'show-in-manager': {
+			title: 'Show in task manager',
+			icon: 'list-todo',
+			group: 'show',
+		},
 		'delete-clock': {
 			title: 'Delete clock',
 			icon: 'trash-2',
@@ -428,6 +434,8 @@
 					void deleteClockLine(plugin, file, key, task.tags)
 				}
 				return
+			case 'show-in-manager':
+				return openTaskManager(plugin, name)
 			case 'delete-task':
 				return void deleteTaskFromNote(plugin, file, name, task.clocks.length)
 		}

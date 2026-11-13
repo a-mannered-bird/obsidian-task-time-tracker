@@ -640,4 +640,17 @@ describe('tracker tab', function () {
 			{ start: `${today.date}T00:05:00`, end: null },
 		])
 	})
+
+	it('shows a task alone in the task manager from its menu', async function () {
+		await writeToday(['- [ ] Email', '- [ ] Emails'])
+		await openTracker()
+
+		await chooseFromRowMenu('Email', 'Show in task manager')
+		const modal = await modalTitled('Manage tasks')
+		// Quoted, the filter matches the name exactly: not "Emails" too.
+		await expect(modal.$('input[type="search"]')).toHaveValue('"Email"')
+		const rows = modal.$('tbody')
+		await expect(rows).toHaveChildren(1)
+		await expect(rows.$('tr:nth-child(1) .name')).toHaveText('Email')
+	})
 })

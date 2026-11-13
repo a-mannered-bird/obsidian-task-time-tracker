@@ -96,6 +96,7 @@ export type RowAction =
 	| 'show-task'
 	| 'show-clock'
 	| 'show-last-clock'
+	| 'show-in-manager'
 	| 'delete-clock'
 	| 'delete-last-clock'
 	| 'delete-task'
@@ -120,6 +121,7 @@ export function rowActions(task: Task, tasks: Task[]): RowAction[] {
 			'migrate-clock',
 			'show-task',
 			'show-clock',
+			'show-in-manager',
 			'delete-clock',
 			'delete-task',
 		]
@@ -138,6 +140,7 @@ export function rowActions(task: Task, tasks: Task[]): RowAction[] {
 		...when(notFirst, 'move-to-top'),
 		'show-task',
 		...when(clocked, 'show-last-clock'),
+		'show-in-manager',
 		...when(clocked, 'delete-last-clock'),
 		'delete-task',
 	]

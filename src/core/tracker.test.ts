@@ -229,6 +229,7 @@ describe('rowActions', () => {
 			'migrate-clock',
 			'show-task',
 			'show-clock',
+			'show-in-manager',
 			'delete-clock',
 			'delete-task',
 		])
@@ -243,6 +244,7 @@ describe('rowActions', () => {
 			'move-to-bottom',
 			'move-to-top',
 			'show-task',
+			'show-in-manager',
 			'delete-task',
 		])
 	})

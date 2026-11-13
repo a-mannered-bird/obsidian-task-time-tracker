@@ -5,12 +5,23 @@ export const TASK_TABLE_ROW_CAP = 200
 
 export type TaskSortKey = 'usage' | 'name' | 'lastUsed' | 'total'
 
-/** Tasks whose name or one of whose tags contains the query (case folded). */
+/** The filter showing only the task of that name: the name in quotes. */
+export function exactNameQuery(name: string): string {
+	return `"${name}"`
+}
+
+/**
+ * Tasks whose name or one of whose tags contains the query (case folded);
+ * a query in double quotes matches one name exactly, as task identity does.
+ */
 export function filterTaskInfos(
 	infos: VaultTaskInfo[],
 	query: string
 ): VaultTaskInfo[] {
-	const needle = query.trim().toLowerCase()
+	const trimmed = query.trim()
+	const quoted = /^"(.+)"$/.exec(trimmed)
+	if (quoted) return infos.filter((info) => info.name === quoted[1])
+	const needle = trimmed.toLowerCase()
 	if (!needle) return infos
 	return infos.filter(
 		(info) =>
