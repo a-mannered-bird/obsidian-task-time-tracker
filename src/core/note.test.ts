@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { getLastEnd, isRunning, TaskNote } from './note'
+import {
+	chronologicalClockLines,
+	getLastEnd,
+	isRunning,
+	TaskNote,
+} from './note'
+import { parseTasks } from './parser'
 
 const at = (h: number, m = 0) => new Date(2026, 7, 16, h, m, 0)
 
@@ -64,7 +70,7 @@ describe('TaskNote', () => {
 		expect(note.toString().split('\n')[0]).toBe('- [ ] Write plugin #project')
 	})
 
-	it('moves the last clock line to another task, upwards or downwards', () => {
+	it('moves the last clock line to another task, upwards or downwards, in time order', () => {
 		const down = new TaskNote(content)
 		down.moveLastClock(
 			down.findTask('Write plugin')!,
@@ -74,8 +80,8 @@ describe('TaskNote', () => {
 			'- [ ] Write plugin #project',
 			'- [ ] Walk the dog #routine',
 			'- [ ] Unassigned',
-			'      [clock::2026-08-16T11:00:00]',
 			'      [clock::2026-08-16T09:00:00--2026-08-16T10:00:00]',
+			'      [clock::2026-08-16T11:00:00]',
 		])
 
 		const up = new TaskNote(content)
@@ -129,5 +135,112 @@ describe('TaskNote.insertTask', () => {
 		const note = new TaskNote('')
 		note.insertTask('Solo', [])
 		expect(note.toString()).toBe('- [ ] Solo\n')
+	})
+})
+
+describe('chronologicalClockLines', () => {
+	const sorted = (lines: string[]) =>
+		chronologicalClockLines(lines, parseTasks(lines)[0]!)
+
+	it('is null when the clocks are already in order', () => {
+		expect(
+			sorted([
+				'- [ ] Write plugin',
+				'      [clock::2026-08-16T09:00:00--2026-08-16T10:00:00]',
+				'      [clock::2026-08-16T11:00:00]',
+			])
+		).toBeNull()
+	})
+
+	it('sorts by start, a running clock included, keeping each line as written', () => {
+		expect(
+			sorted([
+				'- [ ] Write plugin',
+				'      [clock::2026-08-16T13:00:00]',
+				'  [clock::2026-08-16T11:00:00--2026-08-16T12:00:00]',
+				'      [clock::2026-08-16T09:00:00--2026-08-16T10:00:00]',
+			])
+		).toEqual([
+			'      [clock::2026-08-16T09:00:00--2026-08-16T10:00:00]',
+			'  [clock::2026-08-16T11:00:00--2026-08-16T12:00:00]',
+			'      [clock::2026-08-16T13:00:00]',
+		])
+	})
+
+	it('keeps clocks starting at the same time in their order', () => {
+		expect(
+			sorted([
+				'- [ ] Write plugin',
+				'      [clock::2026-08-16T11:00:00--2026-08-16T11:30:00]',
+				'      [clock::2026-08-16T09:00:00--2026-08-16T10:00:00]',
+				'      [clock::2026-08-16T09:00:00--2026-08-16T09:15:00]',
+			])
+		).toEqual([
+			'      [clock::2026-08-16T09:00:00--2026-08-16T10:00:00]',
+			'      [clock::2026-08-16T09:00:00--2026-08-16T09:15:00]',
+			'      [clock::2026-08-16T11:00:00--2026-08-16T11:30:00]',
+		])
+	})
+})
+
+describe("TaskNote keeps the edited task's clocks in time order", () => {
+	const day = [
+		'- [ ] Write plugin',
+		'      [clock::2026-08-16T09:00:00--2026-08-16T10:00:00]',
+		'      [clock::2026-08-16T11:00:00--2026-08-16T12:00:00]',
+		'- [ ] Review',
+		'      [clock::2026-08-16T14:00:00--2026-08-16T14:30:00]',
+		'      [clock::2026-08-16T10:00:00--2026-08-16T10:30:00]',
+	].join('\n')
+
+	it('moves a retimed clock to its place', () => {
+		const note = new TaskNote(day)
+		const clock = note.findTask('Write plugin')!.clocks[1]!
+		note.setClockTimes(clock, { start: at(8), end: at(8, 30) })
+		expect(note.toString()).toBe(
+			[
+				'- [ ] Write plugin',
+				'      [clock::2026-08-16T08:00:00--2026-08-16T08:30:00]',
+				'      [clock::2026-08-16T09:00:00--2026-08-16T10:00:00]',
+				'- [ ] Review',
+				'      [clock::2026-08-16T14:00:00--2026-08-16T14:30:00]',
+				'      [clock::2026-08-16T10:00:00--2026-08-16T10:30:00]',
+			].join('\n')
+		)
+	})
+
+	it('places an added clock that started earlier among the others', () => {
+		const note = new TaskNote(day)
+		note.addClock(note.findTask('Write plugin')!, at(10, 15), at(10, 45))
+		expect(note.toString().split('\n').slice(0, 4)).toEqual([
+			'- [ ] Write plugin',
+			'      [clock::2026-08-16T09:00:00--2026-08-16T10:00:00]',
+			'      [clock::2026-08-16T10:15:00--2026-08-16T10:45:00]',
+			'      [clock::2026-08-16T11:00:00--2026-08-16T12:00:00]',
+		])
+	})
+
+	it('sorts the edited task only, other tasks stay as written', () => {
+		const note = new TaskNote(day)
+		const clock = note.findTask('Review')!.clocks[1]!
+		note.setClockTimes(clock, { start: at(15), end: at(16) })
+		expect(note.toString()).toBe(
+			[
+				'- [ ] Write plugin',
+				'      [clock::2026-08-16T09:00:00--2026-08-16T10:00:00]',
+				'      [clock::2026-08-16T11:00:00--2026-08-16T12:00:00]',
+				'- [ ] Review',
+				'      [clock::2026-08-16T14:00:00--2026-08-16T14:30:00]',
+				'      [clock::2026-08-16T15:00:00--2026-08-16T16:00:00]',
+			].join('\n')
+		)
+		const other = new TaskNote(day)
+		const first = other.findTask('Write plugin')!.clocks[0]!
+		other.setClockTimes(first, { start: at(9), end: at(9, 45) })
+		expect(other.toString().split('\n').slice(3)).toEqual([
+			'- [ ] Review',
+			'      [clock::2026-08-16T14:00:00--2026-08-16T14:30:00]',
+			'      [clock::2026-08-16T10:00:00--2026-08-16T10:30:00]',
+		])
 	})
 })

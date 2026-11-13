@@ -24,6 +24,23 @@ export function getLastEnd(task: Task): Date | null {
 }
 
 /**
+ * The task's clock lines sorted by start, or null when they already are. A
+ * running clock is placed by its start like any other: it normally started
+ * last, so it stays at the bottom, and the last line stays the latest clock,
+ * which migrating the last clock relies on. Equal starts keep their order.
+ */
+export function chronologicalClockLines(
+	lines: readonly string[],
+	task: Task
+): string[] | null {
+	const sorted = [...task.clocks].sort(
+		(a, b) => a.start.valueOf() - b.start.valueOf()
+	)
+	if (sorted.every((clock, index) => clock === task.clocks[index])) return null
+	return sorted.map((clock) => lines[clock.lineIndex]!)
+}
+
+/**
  * Editable representation of a note's lines. Every mutation invalidates the
  * parsed tasks, so callers must re-fetch a task (by name) after each change:
  * line indexes shift when lines are inserted or removed.
@@ -72,6 +89,7 @@ export class TaskNote {
 			indent
 		)
 		this.invalidate()
+		this.sortClocksOfLine(clock.lineIndex)
 	}
 
 	getRunningTasks(): Task[] {
@@ -95,6 +113,7 @@ export class TaskNote {
 			: DEFAULT_CLOCK_INDENT
 		this.lines.splice(insertAt, 0, formatClockLine(start, end, indent))
 		this.invalidate()
+		this.sortClocks(task.lineIndex)
 	}
 
 	/** Add a clock line among the task's clocks, before the first later one. */
@@ -107,6 +126,7 @@ export class TaskNote {
 		const indent = getIndent(this.lines[later.lineIndex]!)
 		this.lines.splice(later.lineIndex, 0, formatClockLine(start, end, indent))
 		this.invalidate()
+		this.sortClocks(task.lineIndex)
 	}
 
 	/** Remove one clock line. */
@@ -124,6 +144,7 @@ export class TaskNote {
 		const indent = getIndent(this.lines[running.lineIndex]!)
 		this.lines[running.lineIndex] = formatClockLine(running.start, at, indent)
 		this.invalidate()
+		this.sortClocks(task.lineIndex)
 	}
 
 	setTicked(task: Task, ticked: boolean): void {
@@ -146,6 +167,9 @@ export class TaskNote {
 		if (clock.lineIndex < insertAt) insertAt -= 1
 		this.lines.splice(insertAt, 0, line!)
 		this.invalidate()
+		this.sortClocks(
+			clock.lineIndex < to.lineIndex ? to.lineIndex - 1 : to.lineIndex
+		)
 	}
 
 	/**
@@ -195,6 +219,25 @@ export class TaskNote {
 	private clockBlockEnd(task: Task): number {
 		const lastClock = task.clocks[task.clocks.length - 1]
 		return (lastClock ? lastClock.lineIndex : task.lineIndex) + 1
+	}
+
+	/** Sort the clocks of the task on this line, when out of order. */
+	private sortClocks(taskLineIndex: number): void {
+		const task = this.tasks.find((t) => t.lineIndex === taskLineIndex)
+		const first = task?.clocks[0]
+		if (!task || !first) return
+		const sorted = chronologicalClockLines(this.lines, task)
+		if (!sorted) return
+		this.lines.splice(first.lineIndex, sorted.length, ...sorted)
+		this.invalidate()
+	}
+
+	/** Sort the clocks of the task owning this clock line. */
+	private sortClocksOfLine(clockLineIndex: number): void {
+		const owner = this.tasks.find((task) =>
+			task.clocks.some((clock) => clock.lineIndex === clockLineIndex)
+		)
+		if (owner) this.sortClocks(owner.lineIndex)
 	}
 
 	private invalidate() {

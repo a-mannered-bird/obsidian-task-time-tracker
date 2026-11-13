@@ -154,6 +154,49 @@ describe('timeline tab', function () {
 		assert.strictEqual(await waitForChange(moved), before)
 	})
 
+	it('keeps the clock lines of a task in time order when a block moves above another', async function () {
+		await obsidianPage.openFile(NOTE)
+		const fixture = await obsidianPage.read(NOTE)
+		const before = [
+			fixture.trimEnd(),
+			'- [ ] Lunch',
+			'      [clock::2026-08-03T12:05:00--2026-08-03T12:10:00]',
+			'      [clock::2026-08-03T12:10:00--2026-08-03T12:20:00]',
+			'',
+		].join('\n')
+		await browser.executeObsidian(
+			({ app }, path, content) => app.vault.adapter.write(path, content),
+			NOTE,
+			before
+		)
+		await openTimeline()
+		await expect(block('Lunch, 12:10 to 12:20')).toBeDisplayed()
+
+		// One step up lands on the 12:00 grid line, before the 12:05 clock:
+		// the moved line goes first.
+		await focus('Lunch, 12:10 to 12:20')
+		await browser.keys('ArrowUp')
+		await expect(block('Lunch, 12:00 to 12:10')).toBeDisplayed()
+		const moved = await waitForChange(before)
+		assert.strictEqual(
+			moved,
+			[
+				fixture.trimEnd(),
+				'- [ ] Lunch',
+				'      [clock::2026-08-03T12:00:00--2026-08-03T12:10:00]',
+				'      [clock::2026-08-03T12:05:00--2026-08-03T12:10:00]',
+				'',
+			].join('\n')
+		)
+
+		await clickNoticeButton(
+			browser.$('.notice*=Lunch 12:10–12:20 → 12:00–12:10'),
+			'Undo'
+		)
+		await expect(block('Lunch, 12:10 to 12:20')).toBeDisplayed()
+		assert.strictEqual(await waitForChange(moved), before)
+	})
+
 	it('resizes an end with Shift, a running start with Alt, and finishes a running clock', async function () {
 		await obsidianPage.openFile(NOTE)
 		const fixture = await obsidianPage.read(NOTE)
