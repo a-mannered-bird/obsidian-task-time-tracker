@@ -168,6 +168,34 @@
 			disabled={!nextFile}
 			onclick={() => void openNote(nextFile)}
 		></button>
+		{#if target}
+			<div class="day-status">
+				<button
+					class="day-time"
+					class:is-reminder={!log?.dayStart && !otherDay}
+					use:instantTooltip={() => controlHint(plugin, 'dayStart')}
+					aria-label={log?.dayStart
+						? `Start of day ${formatTimeOfDay(log.dayStart)}, change`
+						: 'Set start of day'}
+					onclick={() => void runTimeCommand(plugin, DAY_START_COMMAND)}
+				>
+					<span use:icon={'sunrise'}></span>
+					{log?.dayStart ? formatTimeOfDay(log.dayStart) : 'Set start'}
+				</button>
+				<span aria-hidden="true">·</span>
+				<button
+					class="day-time"
+					use:instantTooltip={() => controlHint(plugin, 'dayEnd')}
+					aria-label={log?.dayEnd
+						? `End of day ${formatTimeOfDay(log.dayEnd)}, change`
+						: 'Set end of day'}
+					onclick={() => void runTimeCommand(plugin, DAY_END_COMMAND)}
+				>
+					<span use:icon={'sunset'}></span>
+					{log?.dayEnd ? formatTimeOfDay(log.dayEnd) : 'Set end'}
+				</button>
+			</div>
+		{/if}
 		<button
 			class="icon-button more-button"
 			aria-label="More actions"
@@ -176,35 +204,6 @@
 			onclick={openMoreMenu}
 		></button>
 	</div>
-
-	{#if target}
-		<div class="day-status">
-			<button
-				class="day-time"
-				class:is-reminder={!log?.dayStart && !otherDay}
-				use:instantTooltip={() => controlHint(plugin, 'dayStart')}
-				aria-label={log?.dayStart
-					? `Start of day ${formatTimeOfDay(log.dayStart)}, change`
-					: 'Set start of day'}
-				onclick={() => void runTimeCommand(plugin, DAY_START_COMMAND)}
-			>
-				<span use:icon={'sunrise'}></span>
-				{log?.dayStart ? formatTimeOfDay(log.dayStart) : 'Set start of day'}
-			</button>
-			<span aria-hidden="true">·</span>
-			<button
-				class="day-time"
-				use:instantTooltip={() => controlHint(plugin, 'dayEnd')}
-				aria-label={log?.dayEnd
-					? `End of day ${formatTimeOfDay(log.dayEnd)}, change`
-					: 'Set end of day'}
-				onclick={() => void runTimeCommand(plugin, DAY_END_COMMAND)}
-			>
-				<span use:icon={'sunset'}></span>
-				{log?.dayEnd ? formatTimeOfDay(log.dayEnd) : 'Set end of day'}
-			</button>
-		</div>
-	{/if}
 
 	{#if otherDay}
 		<div class="other-day" role="status">
@@ -279,6 +278,7 @@
 	/* Same-width digits, so the arrows stay put while browsing days. */
 	.note-date {
 		font-variant-numeric: tabular-nums;
+		white-space: nowrap;
 	}
 
 	.icon-button {
@@ -302,17 +302,22 @@
 		outline-offset: 2px;
 	}
 
+	/* Pushed to the right, next to the menu button; the menu button stays
+	   right-aligned when there is no note. */
+	.day-status,
 	.more-button {
 		margin-left: auto;
+	}
+
+	.day-status + .more-button {
+		margin-left: 0;
 	}
 
 	.day-status {
 		display: flex;
 		align-items: center;
 		gap: 0.3em;
-		margin-top: 0.2em;
 		color: var(--text-faint);
-		font-size: var(--font-ui-smaller);
 	}
 
 	.day-time {
@@ -324,6 +329,7 @@
 		padding: 0.1em 0.25em;
 		border-radius: var(--radius-s);
 		color: var(--text-muted);
+		white-space: nowrap;
 	}
 
 	.day-time:hover {
