@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Menu, Notice, type IconName } from 'obsidian'
+	import { Menu, Notice, SearchComponent, type IconName } from 'obsidian'
 	import { onMount } from 'svelte'
 	import {
 		changeTags,
@@ -299,6 +299,25 @@
 		menu.showAtMouseEvent(event)
 	}
 
+	/**
+	 * Obsidian's own search field, for its clear button. The query also
+	 * changes from elsewhere (an issue menu), hence the sync back.
+	 */
+	function searchField(container: HTMLElement) {
+		const search = new SearchComponent(container)
+			.setPlaceholder('Filter by name or tag, "Name" for an exact name')
+			.onChange((value) => (query = value))
+		search.inputEl.setAttribute('aria-label', 'Filter tasks')
+		// Obsidian leaves its clear button unnamed.
+		search.clearButtonEl.setAttribute('aria-label', 'Clear filter')
+		$effect(() => {
+			if (search.getValue() === query) return
+			search.setValue(query)
+			// Shows or hides the clear button for the new value.
+			search.onChanged()
+		})
+	}
+
 	onMount(() => {
 		void load()
 		// Keep the table fresh while notes change (e.g. a tracked task stops).
@@ -307,11 +326,7 @@
 </script>
 
 <div class="toolbar">
-	<input
-		type="search"
-		placeholder={'Filter by name or tag, "Name" for an exact name'}
-		bind:value={query}
-	/>
+	<div class="search" use:searchField></div>
 	<button
 		class="facet"
 		aria-pressed={hiddenOnly}
@@ -522,7 +537,7 @@
 		margin-bottom: 0.75em;
 	}
 
-	.toolbar input {
+	.search {
 		flex: 1;
 	}
 

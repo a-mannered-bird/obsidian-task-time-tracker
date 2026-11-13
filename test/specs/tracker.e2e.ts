@@ -648,9 +648,17 @@ describe('tracker tab', function () {
 		await chooseFromRowMenu('Email', 'Show in task manager')
 		const modal = await modalTitled('Manage tasks')
 		// Quoted, the filter matches the name exactly: not "Emails" too.
-		await expect(modal.$('input[type="search"]')).toHaveValue('"Email"')
+		const filter = modal.$('input[aria-label="Filter tasks"]')
+		await expect(filter).toHaveValue('"Email"')
 		const rows = modal.$('tbody')
 		await expect(rows).toHaveChildren(1)
 		await expect(rows.$('tr:nth-child(1) .name')).toHaveText('Email')
+
+		// The cross empties the filter: every task is listed again, both
+		// of today's among them.
+		await modal.$('[aria-label="Clear filter"]').click()
+		await expect(filter).toHaveValue('')
+		await expect(rows.$('.name=Email')).toBeDisplayed()
+		await expect(rows.$('.name=Emails')).toBeDisplayed()
 	})
 })
