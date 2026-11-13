@@ -6,21 +6,28 @@ import {
 	readFrontmatterTime,
 } from 'core/time'
 import { formatTimeOfDay } from 'core/timeline'
-import { parseToggleTime, timeInputHelp } from 'core/typedTime'
+import {
+	dayEndFloor,
+	parseDayEnd,
+	parseToggleTime,
+	timeInputHelp,
+} from 'core/typedTime'
 import { promptTime } from 'ui/timePrompt'
 import type TaskTimeTracker from '../main'
-import { currentTarget, ensureTargetFile, NOTICE_DURATION } from './target'
+import {
+	currentTarget,
+	ensureTargetFile,
+	NOTICE_DURATION,
+	readTaskNote,
+} from './target'
 
 export type TimeCommand = {
 	id: string
 	name: string
 	icon: IconName
 	property: string
-	/**
-	 * The property this time must come after: a time of day typed before
-	 * it means the next day (a day ending past midnight).
-	 */
-	afterProperty?: string
+	/** The end of day, which comes after the start of day and every clock. */
+	endsDay?: boolean
 }
 
 export const DAY_START_COMMAND: TimeCommand = {
@@ -35,7 +42,7 @@ export const DAY_END_COMMAND: TimeCommand = {
 	name: 'Set end of day',
 	icon: 'sunset',
 	property: DAY_END_PROPERTY,
-	afterProperty: DAY_START_PROPERTY,
+	endsDay: true,
 }
 
 export const TIME_COMMANDS: TimeCommand[] = [DAY_START_COMMAND, DAY_END_COMMAND]
@@ -58,18 +65,26 @@ export async function runTimeCommand(
 ): Promise<Date | null> {
 	const { app } = plugin
 	const target = currentTarget(plugin)
-	const saved =
-		target.file && app.metadataCache.getFileCache(target.file)?.frontmatter
-	const after = command.afterProperty
-		? readFrontmatterTime(saved?.[command.afterProperty])
-		: null
+	const floor =
+		command.endsDay && target.file
+			? dayEndFloor(
+					(await readTaskNote(plugin, target.file)).tasks,
+					readFrontmatterTime(
+						app.metadataCache.getFileCache(target.file)?.frontmatter?.[
+							DAY_START_PROPERTY
+						]
+					)
+				)
+			: null
 	const time = await promptTime(app, {
 		title: command.name,
-		description: after
-			? `${timeInputHelp()} A time of day before ${formatTimeOfDay(after)} means the next day.`
+		description: floor
+			? `${timeInputHelp()} A time of day before ${formatTimeOfDay(floor.at)}, ${floor.what}, means the next day.`
 			: timeInputHelp(),
 		parse: (text) =>
-			parseToggleTime(text, new Date(), { day: target.date, after }),
+			command.endsDay
+				? parseDayEnd(text, target.date, floor, new Date())
+				: parseToggleTime(text, new Date(), { day: target.date }),
 	})
 	if (time === null) return null
 

@@ -1,3 +1,4 @@
+import type { Task } from 'types/tasks'
 import { addDays } from './dailyNotes'
 import { describeDay } from './overnight'
 import { addMinutes, formatHoursMinutes, getMinutesBetween } from './time'
@@ -87,22 +88,81 @@ export function parseStartTime(
 export function parseToggleTime(
 	text: string,
 	reference: Date,
-	options: { day?: Date; after?: Date | null } = {}
+	options: {
+		day?: Date
+		after?: Date | null
+		afterWhat?: string
+		/** Accept a time equal to `after`. */
+		touching?: boolean
+	} = {}
 ): TypedTime {
 	const typed = read(text)
 	if (!typed) return { error: NOT_A_TIME }
-	const { day = reference, after = null } = options
+	const {
+		day = reference,
+		after = null,
+		afterWhat = 'the start',
+		touching = false,
+	} = options
+	const tooEarly = (at: Date, limit: Date) =>
+		touching ? at < limit : at <= limit
 	if ('minutesBack' in typed) {
 		const at = addMinutes(reference, -typed.minutesBack)
-		if (after && at <= after) {
+		if (after && tooEarly(at, after)) {
+			const relation = touching ? 'is before' : 'is not after'
 			return {
-				error: `That is not after the start, ${formatTimeOfDay(after)}.`,
+				error: `That ${relation} ${afterWhat}, ${formatTimeOfDay(after)}.`,
 			}
 		}
 		return { at }
 	}
 	const at = onDay(typed, day)
-	return { at: after && at <= after ? addDays(at, 1) : at }
+	return { at: after && tooEarly(at, after) ? addDays(at, 1) : at }
+}
+
+/** What an end of day must come after, and how to name it to the user. */
+export type DayEndFloor = { at: Date; what: string }
+
+/**
+ * The latest of the start of day and the note's clocks: a closed clock's
+ * end, a running one's start (ending the day closes it). Null when the
+ * note has none of them.
+ */
+export function dayEndFloor(
+	tasks: Task[],
+	dayStart: Date | null
+): DayEndFloor | null {
+	let floor: DayEndFloor | null = dayStart
+		? { at: dayStart, what: 'the start of day' }
+		: null
+	for (const task of tasks) {
+		for (const clock of task.clocks) {
+			const mark: DayEndFloor = clock.end
+				? { at: clock.end, what: 'the end of the last clock' }
+				: { at: clock.start, what: 'the start of a running clock' }
+			if (!floor || mark.at > floor.at) floor = mark
+		}
+	}
+	return floor
+}
+
+/**
+ * The end of day typed for the note of `day`: a time of day on that day,
+ * or on the next one when it is before `floor` (a day ending past
+ * midnight), or minutes before now, which must not be before `floor`.
+ */
+export function parseDayEnd(
+	text: string,
+	day: Date,
+	floor: DayEndFloor | null,
+	now: Date
+): TypedTime {
+	return parseToggleTime(text, now, {
+		day,
+		after: floor?.at ?? null,
+		afterWhat: floor?.what,
+		touching: true,
+	})
 }
 
 /**

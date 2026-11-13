@@ -394,12 +394,13 @@ describe('tracker tab', function () {
 		)
 	})
 
-	it('takes a time of day for the end of day, past midnight included', async function () {
+	it('ends the day no earlier than the last clock', async function () {
 		const content = await writeToday([
 			'---',
 			`day_start: ${today.date}T08:00:00`,
 			'---',
 			'- [ ] Chores',
+			`      [clock::${today.date}T21:00:00--${today.date}T22:30:00]`,
 		])
 		await openTracker()
 
@@ -409,12 +410,16 @@ describe('tracker tab', function () {
 			.getElement()
 		await browser.execute((el) => el.click(), setEnd)
 		const modal = await modalTitled('Set end of day')
+		await expect(
+			modal.$('p*=before 22:30, the end of the last clock, means the next day')
+		).toBeDisplayed()
 		const input = modal.$('input[placeholder="14:30 or 15"]')
 		await expect(input).toHaveValue('')
-		// Before the 08:00 start of day, a time of day is the next day.
-		await input.setValue('00:30')
-		await expect(input).toHaveValue('00:30')
-		await expect(modal.$('p*=00:30 tomorrow ·')).toBeDisplayed()
+		// After the 08:00 start of day but before the clock ended at 22:30:
+		// the day can only end then on the next day.
+		await input.setValue('22:00')
+		await expect(input).toHaveValue('22:00')
+		await expect(modal.$('p*=22:00 tomorrow ·')).toBeDisplayed()
 		await modal.$('button=OK').click()
 
 		await waitForChange(content)
@@ -424,10 +429,10 @@ describe('tracker tab', function () {
 		)
 		assert.match(
 			await obsidianPage.read(today.path),
-			new RegExp(`\\nday_end: ${dayNote(1).date}T00:30:00\\n`)
+			new RegExp(`\\nday_end: ${dayNote(1).date}T22:00:00\\n`)
 		)
 		await expect(
-			browser.$('button[aria-label="End of day 00:30, change"]')
+			browser.$('button[aria-label="End of day 22:00, change"]')
 		).toBeDisplayed()
 	})
 

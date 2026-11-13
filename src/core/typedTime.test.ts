@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
+import { parseTasks } from './parser'
 import {
+	dayEndFloor,
 	describeTypedTime,
+	parseDayEnd,
 	parseEndTime,
 	parseStartTime,
 	parseToggleTime,
@@ -122,6 +125,81 @@ describe('parseToggleTime', () => {
 		expect(
 			parseToggleTime('15', now, { after: new Date(2026, 10, 12, 7, 50) })
 		).toEqual({ error: 'That is not after the start, 07:50.' })
+	})
+})
+
+describe('dayEndFloor', () => {
+	const dayStart = new Date(2026, 10, 11, 7, 0)
+
+	it('is the latest clock end, past the start of day', () => {
+		const tasks = parseTasks([
+			'- [ ] Write plugin',
+			'      [clock::2026-11-11T21:00:00--2026-11-11T22:30:00]',
+			'- [ ] Emails',
+			'      [clock::2026-11-11T09:00:00--2026-11-11T09:30:00]',
+		])
+		expect(dayEndFloor(tasks, dayStart)).toEqual({
+			at: new Date(2026, 10, 11, 22, 30),
+			what: 'the end of the last clock',
+		})
+	})
+
+	it('counts a running clock by its start, since ending the day closes it', () => {
+		const tasks = parseTasks([
+			'- [ ] Write plugin',
+			'      [clock::2026-11-11T21:00:00--2026-11-11T22:30:00]',
+			'- [ ] Reading',
+			'      [clock::2026-11-11T23:00:00]',
+		])
+		expect(dayEndFloor(tasks, dayStart)).toEqual({
+			at: new Date(2026, 10, 11, 23, 0),
+			what: 'the start of a running clock',
+		})
+	})
+
+	it('falls back to the start of day, else nothing', () => {
+		const tasks = parseTasks(['- [ ] Write plugin'])
+		expect(dayEndFloor(tasks, dayStart)).toEqual({
+			at: dayStart,
+			what: 'the start of day',
+		})
+		expect(dayEndFloor(tasks, null)).toBeNull()
+	})
+})
+
+describe('parseDayEnd', () => {
+	const day = new Date(2026, 10, 11)
+	const floor = {
+		at: new Date(2026, 10, 11, 22, 30),
+		what: 'the end of the last clock',
+	}
+
+	it('moves a time of day before the floor to the next day', () => {
+		expect(parseDayEnd('23:00', day, floor, now)).toEqual({
+			at: new Date(2026, 10, 11, 23, 0),
+		})
+		expect(parseDayEnd('21:00', day, floor, now)).toEqual({
+			at: new Date(2026, 10, 12, 21, 0),
+		})
+	})
+
+	it('accepts the floor itself: the day may end with the last clock', () => {
+		expect(parseDayEnd('22:30', day, floor, now)).toEqual({
+			at: new Date(2026, 10, 11, 22, 30),
+		})
+	})
+
+	it('rejects minutes ago that fall before the floor, naming it', () => {
+		// now is 2026-11-12 08:00; 10 hours ago is 22:00 the day before.
+		expect(parseDayEnd('600', day, floor, now)).toEqual({
+			error: 'That is before the end of the last clock, 22:30.',
+		})
+	})
+
+	it('takes any time of day on the note without a floor', () => {
+		expect(parseDayEnd('06:00', day, null, now)).toEqual({
+			at: new Date(2026, 10, 11, 6, 0),
+		})
 	})
 })
 
