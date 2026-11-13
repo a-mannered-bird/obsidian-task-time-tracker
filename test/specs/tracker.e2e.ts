@@ -198,6 +198,58 @@ describe('tracker tab', function () {
 		await expect(option(2)).toHaveText(expect.stringContaining('Breakfast'))
 	})
 
+	it('starts the tasks picked from the bar alongside until Switch is pressed', async function () {
+		let content = await writeToday([
+			'- [ ] Chores',
+			`      [clock::${today.date}T00:00:00]`,
+			'- [ ] Email',
+			'- [ ] Run',
+		])
+		await openTracker()
+		const bar = browser.$('input[aria-label="Task to start"]')
+		const list = browser.$('[role="listbox"]')
+		const switchButton = button('Switch')
+		const alongside = button('Start alongside')
+		// Pressed through the DOM: notices of earlier steps can cover the bar.
+		const press = async (target: typeof alongside) =>
+			browser.execute((el) => el.click(), await target.getElement())
+		await expect(switchButton).toHaveAttribute('aria-pressed', 'true')
+
+		// With nothing typed, a button only opens the list to pick from.
+		await press(switchButton)
+		await expect(bar).toBeFocused()
+		await expect(list).toBeDisplayed()
+		assert.strictEqual(await obsidianPage.read(today.path), content)
+
+		await press(alongside)
+		await expect(alongside).toHaveAttribute('aria-pressed', 'true')
+		await expect(switchButton).toHaveAttribute('aria-pressed', 'false')
+		await expect(bar).toHaveAttribute('placeholder', 'Multi-tasking, are you?')
+		await expect(list).toBeDisplayed()
+		assert.strictEqual(await obsidianPage.read(today.path), content)
+
+		await browser.keys([...'Email'])
+		await expect(bar).toHaveValue('Email')
+		await browser.keys('Enter')
+		content = await waitForChange(content)
+		assert.deepStrictEqual(states(content, '- [ ] Chores'), ['running'])
+		assert.deepStrictEqual(states(content, '- [ ] Email'), ['running'])
+		// The mode outlives the pick.
+		await expect(alongside).toHaveAttribute('aria-pressed', 'true')
+
+		await press(switchButton)
+		await expect(switchButton).toHaveAttribute('aria-pressed', 'true')
+		await expect(bar).toHaveAttribute('placeholder', 'What are you working on?')
+		await expect(bar).toBeFocused()
+		await browser.keys([...'Run'])
+		await expect(bar).toHaveValue('Run')
+		await browser.keys('Enter')
+		content = await waitForChange(content)
+		assert.deepStrictEqual(states(content, '- [ ] Chores'), ['closed'])
+		assert.deepStrictEqual(states(content, '- [ ] Email'), ['closed'])
+		assert.deepStrictEqual(states(content, '- [ ] Run'), ['running'])
+	})
+
 	it('unfolds the done tasks when nothing else is left', async function () {
 		await writeToday([
 			'- [x] Breakfast',

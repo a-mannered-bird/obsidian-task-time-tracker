@@ -16,7 +16,12 @@
 		type TaskSuggestion,
 		type VaultPickerEntries,
 	} from 'core/taskPicker'
-	import { primaryStartIcon, startActions } from 'core/tracker'
+	import {
+		barStartMode,
+		primaryStartIcon,
+		startActions,
+		type BarMode,
+	} from 'core/tracker'
 	import type { Task } from 'types/tasks'
 	import { icon } from 'ui/icon'
 	import { instantTooltip } from 'ui/tooltip'
@@ -26,11 +31,19 @@
 		plugin: TaskTimeTracker
 		tasks: Task[]
 		placeholder: string
+		/** Shown instead while picked tasks start alongside. */
+		alongsidePlaceholder: string
 		/** Heading over the note's tasks: `Today`, or the note's day. */
 		noteHeading: string
 	}
 
-	const { plugin, tasks, placeholder, noteHeading }: Props = $props()
+	const {
+		plugin,
+		tasks,
+		placeholder,
+		alongsidePlaceholder,
+		noteHeading,
+	}: Props = $props()
 
 	/** Other notes' tasks listed before anything is typed, or once typed. */
 	const OTHER_LIMIT = 8
@@ -42,8 +55,17 @@
 	let selected = $state(0)
 	let vault = $state<VaultPickerEntries | null>(null)
 	let input = $state<HTMLInputElement | null>(null)
+	let mode = $state<BarMode>('primary')
 
 	const actions = $derived(startActions(tasks.filter(isRunning)))
+	const startMode = $derived(barStartMode(mode, actions))
+	const alongside = $derived(startMode === 'alongside')
+
+	// Alongside of nothing means nothing: once no task runs, the next one
+	// running starts the bar back in its primary mode.
+	$effect(() => {
+		if (!actions.alongside) mode = 'primary'
+	})
 	const options = $derived(
 		taskSuggestions({
 			query,
@@ -73,13 +95,27 @@
 		input?.blur()
 	}
 
-	function run(option: Option | null, mode: StartMode) {
+	function run(option: Option | null, startAs: StartMode) {
 		if (!option) {
 			input?.focus()
 			return
 		}
 		reset()
-		void startTask(plugin, suggestionChoice(option), mode)
+		void startTask(plugin, suggestionChoice(option), startAs)
+	}
+
+	/**
+	 * A start button sets the mode; it also starts the highlighted task when
+	 * something is typed, and otherwise opens the list to pick from.
+	 */
+	function press(next: BarMode) {
+		mode = next
+		if (query.trim() === '') {
+			input?.focus()
+			open = true
+			return
+		}
+		run(options[selected] ?? null, startMode)
 	}
 
 	function addOption(option: Option) {
@@ -109,9 +145,9 @@
 			if (count > 0) selected = (selected + step + count) % count
 		} else if (event.key === 'Enter') {
 			event.preventDefault()
-			const alongside = Platform.isMacOS ? event.metaKey : event.ctrlKey
-			if (alongside && actions.alongside) run(current, 'alongside')
-			else run(current, actions.primary)
+			const modifier = Platform.isMacOS ? event.metaKey : event.ctrlKey
+			if (modifier && actions.alongside) run(current, 'alongside')
+			else run(current, startMode)
 		} else if (event.key === 'Escape') {
 			if (open) {
 				event.preventDefault()
@@ -145,7 +181,7 @@
 				aria-controls={LISTBOX_ID}
 				aria-autocomplete="list"
 				aria-activedescendant={current ? optionId(selected) : undefined}
-				{placeholder}
+				placeholder={alongside ? alongsidePlaceholder : placeholder}
 				onfocus={onFocus}
 				onblur={() => (open = false)}
 				oninput={onInput}
@@ -178,7 +214,7 @@
 						role="option"
 						aria-selected={index === selected}
 						onmousemove={() => onSelect(index)}
-						onclick={() => run(option, actions.primary)}
+						onclick={() => run(option, startMode)}
 						onkeydown={() => {}}
 					>
 						<span class="option-label"
@@ -205,21 +241,25 @@
 	</div>
 
 	<button
-		class="mod-cta start-button"
+		class="start-button"
+		class:mod-cta={!alongside}
 		aria-label={actions.primary === 'switch' ? 'Switch' : 'Start'}
+		aria-pressed={!alongside}
 		use:instantTooltip
 		use:icon={primaryStartIcon(actions.primary)}
 		onmousedown={keepFocus}
-		onclick={() => run(current, actions.primary)}
+		onclick={() => press('primary')}
 	></button>
 	{#if actions.alongside}
 		<button
-			class="mod-cta alongside-button"
+			class="alongside-button"
+			class:mod-cta={alongside}
 			aria-label="Start alongside"
+			aria-pressed={alongside}
 			use:instantTooltip
 			use:icon={'plus'}
 			onmousedown={keepFocus}
-			onclick={() => run(current, 'alongside')}
+			onclick={() => press('alongside')}
 		></button>
 	{/if}
 </div>

@@ -190,6 +190,9 @@
 			placeholder={otherDay
 				? `Add a task to ${otherDay}`
 				: 'What are you working on?'}
+			alongsidePlaceholder={otherDay
+				? `Add a task running alongside to ${otherDay}`
+				: 'Multi-tasking, are you?'}
 			noteHeading={noteDayHeading(log?.date ?? now, now)}
 		/>
 		<div class="buttons">

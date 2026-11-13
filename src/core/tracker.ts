@@ -50,6 +50,22 @@ export function startActions(running: Task[]): StartActions {
 	return { primary: busy ? 'switch' : 'start', alongside: busy }
 }
 
+/**
+ * What the bar's start button set: tasks picked from the bar then start
+ * with the primary action or alongside, until the other button is pressed.
+ */
+export type BarMode = 'primary' | 'alongside'
+
+/** The bar's mode in effect: alongside only while something runs. */
+export function barStartMode(
+	mode: BarMode,
+	actions: StartActions
+): 'start' | 'switch' | 'alongside' {
+	return mode === 'alongside' && actions.alongside
+		? 'alongside'
+		: actions.primary
+}
+
 /** Lucide icon of the primary start button, in the bar and on the rows. */
 export function primaryStartIcon(primary: StartActions['primary']): string {
 	return primary === 'switch' ? 'fast-forward' : 'play'

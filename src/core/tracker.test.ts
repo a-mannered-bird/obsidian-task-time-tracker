@@ -6,6 +6,7 @@ import {
 	addTaskLine,
 	describeCompletion,
 	pausedByInterruption,
+	barStartMode,
 	startActions,
 	trackerLayout,
 } from './tracker'
@@ -94,6 +95,22 @@ describe('startActions', () => {
 			primary: 'switch',
 			alongside: true,
 		})
+	})
+})
+
+describe('barStartMode', () => {
+	const idle = startActions([])
+	const busy = startActions(
+		parseTasks(['- [ ] Chores', '  [clock::2026-11-12T10:42:00]'])
+	)
+
+	it('starts alongside once chosen, while something runs', () => {
+		expect(barStartMode('alongside', busy)).toBe('alongside')
+		expect(barStartMode('primary', busy)).toBe('switch')
+	})
+
+	it('falls back to a plain start when nothing runs', () => {
+		expect(barStartMode('alongside', idle)).toBe('start')
 	})
 })
 
