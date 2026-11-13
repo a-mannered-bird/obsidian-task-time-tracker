@@ -129,6 +129,23 @@ export function resolveTarget(
 	}
 }
 
+/**
+ * Whether tracking on the target must ask when it happened instead of
+ * using now: a past note with a later daily note, so now belongs to that
+ * one. The latest note keeps now, for work going on past midnight.
+ */
+export function asksTrackingTime(
+	app: App,
+	config: DailyNotesConfig,
+	target: DailyTarget,
+	now = new Date()
+): boolean {
+	return (
+		target.date < startOfDay(now) &&
+		getAdjacentDailyNoteFile(app, config, target.date, 1) !== null
+	)
+}
+
 export function startOfDay(date: Date): Date {
 	return new Date(date.getFullYear(), date.getMonth(), date.getDate())
 }

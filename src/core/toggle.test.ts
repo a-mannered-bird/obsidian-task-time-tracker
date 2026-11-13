@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { TaskNote } from './note'
 import {
+	askingTime,
 	getLastEndedTasks,
 	isToggleNotice,
 	taskChoice,
@@ -318,5 +319,53 @@ describe('isToggleNotice', () => {
 		const { notices } = await run({ taskName: 'Emails' })
 		expect(notices.map(isToggleNotice)).toEqual([true])
 		expect(isToggleNotice('"Emails" is already running.')).toBe(false)
+	})
+})
+
+describe('tracking on a past note', () => {
+	const pastNote = [
+		'- [ ] Write plugin',
+		'      [clock::2026-08-14T21:00:00]',
+		'- [ ] Emails',
+		'      [clock::2026-08-14T22:00:00]',
+		'- [ ] Walk the dog',
+	].join('\n')
+	const day = new Date(2026, 7, 14)
+
+	it("starts at a time of day typed on the note's day", async () => {
+		const note = new TaskNote(pastNote)
+		const { prompts } = scripted({ times: ['14:30'] })
+		await toggleTasks(
+			note,
+			askingTime({ taskName: 'Walk the dog', targetState: 'on' }),
+			{ prompts, now, day }
+		)
+		expect(note.toString().split('\n')[5]).toBe(
+			'      [clock::2026-08-14T14:30:00]'
+		)
+	})
+
+	it('stops several tasks at one typed time, past midnight when before their starts', async () => {
+		const note = new TaskNote(pastNote)
+		const { prompts } = scripted({ times: ['0:30'] })
+		await toggleTasks(
+			note,
+			askingTime({ taskNames: ['Write plugin', 'Emails'], targetState: 'off' }),
+			{ prompts, now, day }
+		)
+		expect(note.toString()).toBe(
+			[
+				'- [ ] Write plugin',
+				'      [clock::2026-08-14T21:00:00--2026-08-15T00:30:00]',
+				'- [ ] Emails',
+				'      [clock::2026-08-14T22:00:00--2026-08-15T00:30:00]',
+				'- [ ] Walk the dog',
+			].join('\n')
+		)
+	})
+
+	it('keeps the time of steps that already set one', () => {
+		expect(askingTime({ fromLastTask: true })).toEqual({ fromLastTask: true })
+		expect(askingTime({ setDuration: true })).toEqual({ setDuration: true })
 	})
 })

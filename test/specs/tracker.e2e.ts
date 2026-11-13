@@ -12,6 +12,8 @@ import { resetVault } from './support/vault'
  */
 
 const today = dayNote(0)
+/** A fixture note followed by a later one (2026-08-03). */
+const pastNote = { path: '2026-08-02.md', date: '2026-08-02' }
 
 type Clock = { start: string; end: string | null }
 
@@ -40,8 +42,8 @@ async function writeToday(lines: string[]): Promise<string> {
 	return content
 }
 
-async function openTracker() {
-	await obsidianPage.openFile(today.path)
+async function openTracker(path = today.path) {
+	await obsidianPage.openFile(path)
 	await browser.executeObsidianCommand(
 		'obsidian-task-time-tracker:open-daily-view'
 	)
@@ -53,12 +55,15 @@ async function openTracker() {
 	await expect(tab).toHaveAttribute('aria-selected', 'true')
 }
 
-async function waitForChange(before: string): Promise<string> {
+async function waitForChange(
+	before: string,
+	path = today.path
+): Promise<string> {
 	await browser.waitUntil(
-		async () => (await obsidianPage.read(today.path)) !== before,
-		{ timeoutMsg: `${today.path} was not rewritten` }
+		async () => (await obsidianPage.read(path)) !== before,
+		{ timeoutMsg: `${path} was not rewritten` }
 	)
-	return obsidianPage.read(today.path)
+	return obsidianPage.read(path)
 }
 
 const button = (label: string) => browser.$(`button[aria-label="${label}"]`)
@@ -135,10 +140,16 @@ describe('tracker tab', function () {
 	})
 
 	afterEach(async function () {
-		// The reset deletes today's note: forget the clocks started here.
-		await browser.executeObsidian(({ plugins }, path) => {
-			plugins.obsidianTaskTimeTracker.lostClocks.forget(path)
-		}, today.path)
+		// The reset deletes today's note and restores the fixtures: forget
+		// the clocks started here.
+		await browser.executeObsidian(
+			({ plugins }, paths) => {
+				for (const path of paths) {
+					plugins.obsidianTaskTimeTracker.lostClocks.forget(path)
+				}
+			},
+			[today.path, pastNote.path]
+		)
 	})
 
 	it('starts a task, adds one alongside, then switches to a third', async function () {
@@ -667,6 +678,49 @@ describe('tracker tab', function () {
 		assert.deepStrictEqual(clocksOf(content, '- [ ] Chores'), [
 			{ start: `${today.date}T00:05:00`, end: null },
 		])
+	})
+
+	it('asks when tasks start and stop on a past note followed by a later one', async function () {
+		let content = `${['- [ ] Chores', '- [ ] Email'].join('\n')}\n`
+		await obsidianPage.write(pastNote.path, content)
+		await openTracker(pastNote.path)
+		await expect(browser.$("span*=You're viewing")).toBeDisplayed()
+
+		/** Answer the time prompt the start or stop opened. */
+		async function typeTime(time: string) {
+			const modal = await modalTitled('When did it happen?')
+			const input = modal.$('input[placeholder="14:30 or 15"]')
+			await input.setValue(time)
+			await expect(input).toHaveValue(time)
+			await expect(modal.$(`p*=${time.padStart(5, '0')} `)).toBeDisplayed()
+			await modal.$('button=OK').click()
+		}
+
+		// A time of day lands on the note's day, not today.
+		await button('Start Chores').click()
+		await typeTime('09:00')
+		content = await waitForChange(content, pastNote.path)
+		assert.deepStrictEqual(clocksOf(content, '- [ ] Chores'), [
+			{ start: `${pastNote.date}T09:00:00`, end: null },
+		])
+		await expect(button('Stop Chores')).toBeDisplayed()
+
+		await button('Switch to Email').click()
+		await typeTime('10:30')
+		content = await waitForChange(content, pastNote.path)
+		assert.deepStrictEqual(clocksOf(content, '- [ ] Chores'), [
+			{ start: `${pastNote.date}T09:00:00`, end: `${pastNote.date}T10:30:00` },
+		])
+		await expect(button('Stop Email')).toBeDisplayed()
+
+		// Before Email's start (10:30), a time of day means past midnight.
+		await button('Stop Email').click()
+		await typeTime('0:15')
+		content = await waitForChange(content, pastNote.path)
+		assert.deepStrictEqual(clocksOf(content, '- [ ] Email'), [
+			{ start: `${pastNote.date}T10:30:00`, end: '2026-08-03T00:15:00' },
+		])
+		await expect(button('Start Email')).toBeDisplayed()
 	})
 
 	it('shows a task alone in the task manager from its menu', async function () {

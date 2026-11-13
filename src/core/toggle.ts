@@ -2,6 +2,7 @@ import type { Task } from 'types/tasks'
 import { taskMinutes } from './aggregate'
 import { getLastEnd, isRunning, type TaskNote } from './note'
 import { addMinutes, formatLocalDateTime, getMinutesBetween } from './time'
+import { formatTimeOfDay } from './timeline'
 import { parseToggleTime, timeInputHelp, type TypedTime } from './typedTime'
 
 /**
@@ -11,6 +12,8 @@ import { parseToggleTime, timeInputHelp, type TypedTime } from './typedTime'
 export type ToggleOptions = {
 	/** Toggle this task instead of asking. */
 	taskName?: string
+	/** Toggle these tasks instead of asking, at one time. */
+	taskNames?: string[]
 	/** Toggle the task(s) that ended last, instead of asking. */
 	previous?: boolean
 	/** Placeholder of the task picker. */
@@ -86,6 +89,18 @@ export const INTERRUPTION_TASK = 'Interruption'
 export type ToggleContext = {
 	prompts: Prompts
 	now: Date
+	/** The note's day, where a typed time of day lands; now's by default. */
+	day?: Date
+}
+
+/**
+ * The step asking when it happens, for a note where now is not the time to
+ * track at; steps that already set their time keep it.
+ */
+export function askingTime(step: ToggleOptions): ToggleOptions {
+	return step.fromLastTask || step.setDuration || step.migrate
+		? step
+		: { ...step, timeTravel: true }
 }
 
 /**
@@ -187,13 +202,16 @@ async function selectTasks(
 		return last
 	}
 
-	if (options.taskName !== undefined) {
-		const task = note.findTask(options.taskName)
-		if (!task) {
-			prompts.notify(`Couldn't find "${options.taskName}".`)
-			return null
-		}
-		return [task]
+	const names =
+		options.taskNames ??
+		(options.taskName === undefined ? null : [options.taskName])
+	if (names) {
+		const found = names.flatMap((name) => {
+			const task = note.findTask(name)
+			if (!task) prompts.notify(`Couldn't find "${name}".`)
+			return task ? [task] : []
+		})
+		return found.length > 0 ? found : null
 	}
 
 	const choices = (version: TaskNote) => {
@@ -280,16 +298,40 @@ async function resolveTime(
 	}
 	if (options.timeTravel) {
 		const reference = at
+		const day = options.fromLastTask ? reference : (context.day ?? now)
+		const after = latestClosedStart(note, selected, options)
 		const names = selected.map((task) => `"${task.name}"`).join(', ')
+		const nextDay = after
+			? ` A time of day before ${formatTimeOfDay(after)} means the next day.`
+			: ''
 		const picked = await prompts.promptTime({
 			title: 'When did it happen?',
-			description: `Toggles ${names} at the time you enter. ${timeInputHelp(options.fromLastTask ? reference : 'now')}`,
-			parse: (text) => parseToggleTime(text, reference),
+			description: `Toggles ${names} at the time you enter. ${timeInputHelp(options.fromLastTask ? reference : 'now')}${nextDay}`,
+			parse: (text) => parseToggleTime(text, reference, { day, after }),
 		})
 		if (!picked) return null
 		at = picked
 	}
 	return at
+}
+
+/**
+ * The latest start of the clocks the toggle closes: those of the selected
+ * running tasks, or when switching, of every other running task.
+ */
+function latestClosedStart(
+	note: TaskNote,
+	selected: Task[],
+	options: ToggleOptions
+): Date | null {
+	const closing = options.switch
+		? note.getRunningTasks().filter((task) => !selected.some(sameTask(task)))
+		: selected.filter(isRunning)
+	const starts = closing.flatMap((task) =>
+		task.clocks.flatMap((clock) => (clock.end === null ? [clock.start] : []))
+	)
+	if (starts.length === 0) return null
+	return new Date(Math.max(...starts.map((start) => start.valueOf())))
 }
 
 // ----- mutations -----

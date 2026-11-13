@@ -16,9 +16,10 @@
 		startTask,
 		stopFromLastEnd,
 		stopTasks,
+		toggleInterruption,
 		type StartMode,
 	} from 'commands/trackerActions'
-	import { runTrackingSteps, setTaskTicked } from 'commands/tracking'
+	import { setTaskTicked } from 'commands/tracking'
 	import type { DailyLog } from 'core/dailyLogs'
 	import { taskMinutes } from 'core/aggregate'
 	import {
@@ -116,10 +117,6 @@
 
 	function stop(names: string[], done: boolean) {
 		void stopTasks(plugin, names, done)
-	}
-
-	function toggleInterruption() {
-		void runTrackingSteps(plugin, [{ switch: true, interruption: true }])
 	}
 
 	function reveal(task: Task) {
@@ -583,7 +580,7 @@
 				class="interruption-button"
 				class:is-active={interruptionActive}
 				aria-pressed={interruptionActive}
-				onclick={toggleInterruption}
+				onclick={() => void toggleInterruption(plugin)}
 			>
 				<span use:icon={'pause'}></span>
 				Interruption
@@ -647,7 +644,7 @@
 								class="mod-cta end-button"
 								aria-label="End interruption"
 								use:instantTooltip
-								onclick={toggleInterruption}
+								onclick={() => void toggleInterruption(plugin)}
 							>
 								End
 							</button>

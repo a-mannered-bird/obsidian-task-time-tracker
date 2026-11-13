@@ -1,4 +1,5 @@
 import { addDays } from './dailyNotes'
+import { describeDay } from './overnight'
 import { addMinutes, formatHoursMinutes, getMinutesBetween } from './time'
 import { formatTimeOfDay } from './timeline'
 
@@ -60,21 +61,7 @@ export function parseEndTime(
 	latestStart: Date,
 	now: Date
 ): TypedTime {
-	const typed = read(text)
-	if (!typed) return { error: NOT_A_TIME }
-	let at: Date
-	if ('minutesBack' in typed) {
-		at = addMinutes(now, -typed.minutesBack)
-		if (at <= latestStart) {
-			return {
-				error: `That is not after the start, ${formatTimeOfDay(latestStart)}.`,
-			}
-		}
-	} else {
-		at = onDay(typed, latestStart)
-		if (at <= latestStart) at = addDays(at, 1)
-	}
-	return { at }
+	return parseToggleTime(text, now, { day: latestStart, after: latestStart })
 }
 
 /**
@@ -87,35 +74,40 @@ export function parseStartTime(
 	start: Date,
 	now: Date
 ): TypedTime {
-	const typed = read(text)
-	if (!typed) return { error: NOT_A_TIME }
-	return {
-		at:
-			'minutesBack' in typed
-				? addMinutes(now, -typed.minutesBack)
-				: onDay(typed, start),
-	}
+	return parseToggleTime(text, now, { day: start })
 }
 
 /**
- * When a tracking command toggles, typed: a time of day on the reference's
- * day, or minutes before the reference (negative minutes after it). Unlike
- * a clock already written, a toggle may be set in the future.
+ * When a tracking command toggles, typed: a time of day on `day` (the
+ * reference's by default), or minutes before the reference (negative
+ * minutes after it). When the toggle closes clocks, it must come after
+ * `after`, the latest of their starts: a time of day that does not moves
+ * to the next day (work past midnight). A toggle may be in the future.
  */
-export function parseToggleTime(text: string, reference: Date): TypedTime {
+export function parseToggleTime(
+	text: string,
+	reference: Date,
+	options: { day?: Date; after?: Date | null } = {}
+): TypedTime {
 	const typed = read(text)
 	if (!typed) return { error: NOT_A_TIME }
-	return {
-		at:
-			'minutesBack' in typed
-				? addMinutes(reference, -typed.minutesBack)
-				: onDay(typed, reference),
+	const { day = reference, after = null } = options
+	if ('minutesBack' in typed) {
+		const at = addMinutes(reference, -typed.minutesBack)
+		if (after && at <= after) {
+			return {
+				error: `That is not after the start, ${formatTimeOfDay(after)}.`,
+			}
+		}
+		return { at }
 	}
+	const at = onDay(typed, day)
+	return { at: after && at <= after ? addDays(at, 1) : at }
 }
 
 /**
  * The time a prompt would set, shown under the field as the user types:
- * `14:15 · 15m ago`, `23:15 yesterday · 8h 45m ago`, `now`.
+ * `14:15 · 15m ago`, `23:15 yesterday · 8h 45m ago`, `09:00 Monday`, `now`.
  */
 export function describeTypedTime(at: Date, now: Date): string {
 	const minutes = Math.round(getMinutesBetween(at, now))
@@ -125,6 +117,9 @@ export function describeTypedTime(at: Date, now: Date): string {
 			onDay({ hours: 0, minutes: 0 }, now).valueOf()) /
 			(24 * 60 * 60 * 1000)
 	)
+	// Hours ago stop helping past a day: the day itself says it.
+	if (Math.abs(days) > 1)
+		return `${formatTimeOfDay(at)} ${describeDay(at, now)}`
 	const day = days === -1 ? ' yesterday' : days === 1 ? ' tomorrow' : ''
 	const distance = formatHoursMinutes(Math.abs(minutes))
 	const relative = minutes > 0 ? `${distance} ago` : `in ${distance}`

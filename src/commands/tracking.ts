@@ -197,6 +197,7 @@ export async function runTrackingSteps(
 	await applyTrackingSteps(targetIo(plugin, target), steps, {
 		prompts,
 		now: new Date(),
+		day: target.date,
 	})
 }
 

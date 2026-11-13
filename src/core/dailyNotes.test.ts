@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { App, TFile } from 'obsidian'
 import {
 	addDays,
+	asksTrackingTime,
 	getAdjacentDailyNoteFile,
 	getDailyNoteDate,
 	getDailyNoteName,
@@ -138,5 +139,38 @@ describe('getAdjacentDailyNoteFile', () => {
 		expect(
 			getAdjacentDailyNoteFile(app, config, new Date(2026, 7, 16), 1)
 		).toBeNull()
+	})
+})
+
+describe('asksTrackingTime', () => {
+	const app = appStub(null, ['Journal/2026-08-13.md', 'Journal/2026-08-15.md'])
+	const target = (day: number, path: string) => ({
+		date: new Date(2026, 7, day),
+		path,
+		file: file(path),
+	})
+
+	it('asks on a past note followed by a later one', () => {
+		expect(
+			asksTrackingTime(app, config, target(13, 'Journal/2026-08-13.md'), date)
+		).toBe(true)
+	})
+
+	it('tracks at now on the latest note, even a past one, and on today', () => {
+		expect(
+			asksTrackingTime(app, config, target(15, 'Journal/2026-08-15.md'), date)
+		).toBe(false)
+		const withTomorrow = appStub(null, [
+			'Journal/2026-08-16.md',
+			'Journal/2026-08-17.md',
+		])
+		expect(
+			asksTrackingTime(
+				withTomorrow,
+				config,
+				target(16, 'Journal/2026-08-16.md'),
+				date
+			)
+		).toBe(false)
 	})
 })

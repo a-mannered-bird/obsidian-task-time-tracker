@@ -1,7 +1,7 @@
 import { Notice, type TFile } from 'obsidian'
 import { describeNoteTaskRemoval, IRREVERSIBLE_NOTE } from 'core/confirmations'
 import { extractTaskBlocks } from 'core/consolidate'
-import type { DailyTarget } from 'core/dailyNotes'
+import { asksTrackingTime, type DailyTarget } from 'core/dailyNotes'
 import {
 	clockChanges,
 	describeHandOff,
@@ -13,6 +13,7 @@ import { parseTasks } from 'core/parser'
 import { formatTimeOfDay } from 'core/timeline'
 import { moveTaskLine, removeTaskLine, type TaskMove } from 'core/tracker'
 import {
+	askingTime,
 	isToggleNotice,
 	type TaskChoice,
 	type ToggleOptions,
@@ -59,16 +60,39 @@ export function startTask(
 	return runWithHandOff(plugin, [step], choice)
 }
 
-/** Stop running tasks; `done` also ticks them. */
+/** Stop running tasks at one time; `done` also ticks them. */
 export function stopTasks(
 	plugin: TaskTimeTracker,
 	names: string[],
 	done: boolean
 ): Promise<void> {
-	return runWithHandOff(
+	return runWithHandOff(plugin, [
+		{ taskNames: names, targetState: 'off', tick: done },
+	])
+}
+
+/** Start the interruption, or end it and say what it was. */
+export function toggleInterruption(plugin: TaskTimeTracker): Promise<void> {
+	return runTrackingSteps(
 		plugin,
-		names.map((taskName) => ({ taskName, targetState: 'off', tick: done }))
+		trackingSteps(plugin, currentTarget(plugin), [
+			{ switch: true, interruption: true },
+		])
 	)
+}
+
+/**
+ * On a past note followed by a later one, now is the wrong time to track
+ * at, so each step asks when it happened.
+ */
+function trackingSteps(
+	plugin: TaskTimeTracker,
+	target: DailyTarget,
+	steps: ToggleOptions[]
+): ToggleOptions[] {
+	return asksTrackingTime(plugin.app, plugin.getDailyNotesConfig(), target)
+		? steps.map(askingTime)
+		: steps
 }
 
 /** Stop a running task at the moment the last stopped task ended. */
@@ -152,7 +176,7 @@ async function runWithHandOff(
 	const io = targetIo(plugin, target)
 	const before = parseTasks((await io.read()).split('\n'))
 	const notices: string[] = []
-	await runTrackingSteps(plugin, steps, {
+	await runTrackingSteps(plugin, trackingSteps(plugin, target, steps), {
 		choice,
 		notify: (message) => notices.push(message),
 	})

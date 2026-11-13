@@ -99,6 +99,30 @@ describe('parseToggleTime', () => {
 		})
 		expect(parseToggleTime('soon', now)).toEqual(notATime)
 	})
+
+	it("places a time of day on the note's day, minutes still from the reference", () => {
+		const day = new Date(2026, 10, 9)
+		expect(parseToggleTime('14:30', now, { day })).toEqual({
+			at: new Date(2026, 10, 9, 14, 30),
+		})
+		expect(parseToggleTime('15', now, { day })).toEqual({
+			at: new Date(2026, 10, 12, 7, 45),
+		})
+	})
+
+	it('keeps a closing time after the clocks it closes', () => {
+		const day = new Date(2026, 10, 9)
+		const after = new Date(2026, 10, 9, 22, 0)
+		expect(parseToggleTime('23:00', now, { day, after })).toEqual({
+			at: new Date(2026, 10, 9, 23, 0),
+		})
+		expect(parseToggleTime('1:00', now, { day, after })).toEqual({
+			at: new Date(2026, 10, 10, 1, 0),
+		})
+		expect(
+			parseToggleTime('15', now, { after: new Date(2026, 10, 12, 7, 50) })
+		).toEqual({ error: 'That is not after the start, 07:50.' })
+	})
 })
 
 describe('describeTypedTime', () => {
@@ -115,6 +139,9 @@ describe('describeTypedTime', () => {
 	it('names the day when it is not today', () => {
 		expect(describeTypedTime(new Date(2026, 10, 11, 23, 15), now)).toBe(
 			'23:15 yesterday · 8h 45m ago'
+		)
+		expect(describeTypedTime(new Date(2026, 10, 9, 14, 30), now)).toBe(
+			'14:30 Monday'
 		)
 	})
 })
