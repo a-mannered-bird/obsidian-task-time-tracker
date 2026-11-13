@@ -134,6 +134,18 @@ async function dragName(name: string, onto: string, offset: number) {
 	assert.strictEqual(await ghost.isExisting(), false)
 }
 
+/**
+ * Obsidian's private hotkey manager, as verified on 1.15.1 (see
+ * src/ui/hotkeys.ts). Asserted: the callbacks run inside Obsidian, out of
+ * reach of a guard written here, and a test sets the shortcut a user would.
+ */
+type WithHotkeys = {
+	hotkeyManager: {
+		setHotkeys(id: string, keys: { modifiers: string[]; key: string }[]): void
+		removeHotkeys(id: string): void
+	}
+}
+
 describe('tracker tab', function () {
 	beforeEach(async function () {
 		await resetVault()
@@ -721,6 +733,38 @@ describe('tracker tab', function () {
 			{ start: `${pastNote.date}T10:30:00`, end: '2026-08-03T00:15:00' },
 		])
 		await expect(button('Start Email')).toBeDisplayed()
+	})
+
+	it('teaches the shortcut of a button in its tooltip', async function () {
+		await writeToday(['- [ ] Chores'])
+		await openTracker()
+		const start = button('Start Chores')
+		const tooltip = browser.$('.tooltip')
+
+		// No shortcut yet: the tooltip names the command to set one for.
+		await start.moveTo()
+		await expect(tooltip).toHaveText(
+			'Start Chores\nNo shortcut yet: set one for "Toggle task" in Settings → Hotkeys'
+		)
+		// Leaving puts the plain label back: it still names the button.
+		await browser.$("h2=Today's plan").moveTo()
+		await expect(start).toHaveAttribute('aria-label', 'Start Chores')
+
+		// A shortcut set meanwhile shows on the next hover.
+		await browser.executeObsidian(({ app }) => {
+			const { hotkeyManager } = app as unknown as WithHotkeys
+			hotkeyManager.setHotkeys('obsidian-task-time-tracker:toggle-task', [
+				{ modifiers: ['Mod', 'Shift'], key: 'T' },
+			])
+		})
+		await start.moveTo()
+		await expect(tooltip).toHaveText(
+			expect.stringMatching(/^Start Chores\nShortcut: \S/)
+		)
+		await browser.executeObsidian(({ app }) => {
+			const { hotkeyManager } = app as unknown as WithHotkeys
+			hotkeyManager.removeHotkeys('obsidian-task-time-tracker:toggle-task')
+		})
 	})
 
 	it('shows a task alone in the task manager from its menu', async function () {

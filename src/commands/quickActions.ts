@@ -83,7 +83,7 @@ export function registerQuickActionCommands(plugin: TaskTimeTracker) {
 	const seen = new Set<string>()
 	for (const action of plugin.settings.quickActions) {
 		if (!action.name || !action.taskName) continue
-		const id = `quick-action-${slugify(action.name)}`
+		const id = quickActionCommandId(action)
 		if (seen.has(id)) continue
 		seen.add(id)
 		plugin.addCommand({
@@ -93,6 +93,11 @@ export function registerQuickActionCommands(plugin: TaskTimeTracker) {
 			callback: () => void runQuickAction(plugin, action),
 		})
 	}
+}
+
+/** Renaming an action changes it: see registerQuickActionCommands. */
+export function quickActionCommandId(action: QuickAction): string {
+	return `quick-action-${slugify(action.name)}`
 }
 
 function slugify(name: string): string {

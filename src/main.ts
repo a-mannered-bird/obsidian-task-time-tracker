@@ -1,4 +1,4 @@
-import { Plugin, type WorkspaceLeaf } from 'obsidian'
+import { Plugin, type Command, type WorkspaceLeaf } from 'obsidian'
 import './styles.css'
 import { registerCompleteJournalCommand } from './commands/completeJournal'
 import { registerFrontmatterTimeCommands } from './commands/frontmatterTime'
@@ -42,6 +42,14 @@ export default class TaskTimeTracker extends Plugin {
 	lostClocks = new LostClockTracker()
 	/** The user's last change of each note in an editor, by path. */
 	userEdits = new Map<string, UserEdit>()
+	/** Command names by id within the plugin, for the shortcut tooltips. */
+	readonly commandNames = new Map<string, string>()
+
+	addCommand(command: Command): Command {
+		// Before registering: Obsidian prefixes the id with the plugin's.
+		this.commandNames.set(command.id, command.name)
+		return super.addCommand(command)
+	}
 
 	async onload() {
 		await this.loadSettings()

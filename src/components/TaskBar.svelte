@@ -2,6 +2,7 @@
 	import { Platform, prepareFuzzySearch, type SearchResult } from 'obsidian'
 	import { loadVaultEntries } from 'commands/tracking'
 	import { addToPlan } from 'commands/plan'
+	import { controlHint } from 'commands/shortcuts'
 	import { startTask } from 'commands/trackerActions'
 	import { isRunning } from 'core/note'
 	import {
@@ -240,7 +241,7 @@
 		class:mod-cta={starting}
 		aria-label={actions.primary === 'switch' ? 'Switch' : 'Start'}
 		aria-pressed={starting}
-		use:instantTooltip
+		use:instantTooltip={() => controlHint(plugin, actions.primary)}
 		use:icon={primaryStartIcon(actions.primary)}
 		onmousedown={keepFocus}
 		onclick={() => press('primary')}
@@ -251,7 +252,7 @@
 			class:mod-cta={action === 'alongside'}
 			aria-label="Start alongside"
 			aria-pressed={action === 'alongside'}
-			use:instantTooltip
+			use:instantTooltip={() => controlHint(plugin, 'alongside')}
 			use:icon={'plus'}
 			onmousedown={keepFocus}
 			onclick={() => press('alongside')}
@@ -262,7 +263,7 @@
 		class:mod-cta={action === 'plan'}
 		aria-label="Plan task without starting timer"
 		aria-pressed={action === 'plan'}
-		use:instantTooltip
+		use:instantTooltip={() => controlHint(plugin, 'plan')}
 		use:icon={'list-plus'}
 		onmousedown={keepFocus}
 		onclick={() => press('plan')}

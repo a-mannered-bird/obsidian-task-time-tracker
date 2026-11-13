@@ -3,7 +3,12 @@
 	import { onMount } from 'svelte'
 	import { endDay } from 'commands/completeJournal'
 	import { promptOvernightStop, stopOvernightClock } from 'commands/overnight'
-	import { runQuickAction } from 'commands/quickActions'
+	import { quickActionCommandId, runQuickAction } from 'commands/quickActions'
+	import {
+		commandHint,
+		controlHint,
+		titleWithShortcut,
+	} from 'commands/shortcuts'
 	import { openNoteAtLine } from 'commands/taskActions'
 	import { deleteClockLine } from 'commands/timelineEdits'
 	import {
@@ -28,6 +33,7 @@
 		type OvernightNote,
 	} from 'core/overnight'
 	import { tagEmoji } from 'core/taskPicker'
+	import type { ViewControl } from 'core/shortcuts'
 	import { formatTimeOfDay } from 'core/timeline'
 	import { formatHoursMinutes, getMinutesBetween } from 'core/time'
 	import { INTERRUPTION_TASK, taskChoice } from 'core/toggle'
@@ -280,12 +286,13 @@
 
 	const ROW_ITEMS: Record<
 		RowAction,
-		{ title: string; icon: string; group: MenuGroup }
+		{ title: string; icon: string; group: MenuGroup; control?: ViewControl }
 	> = {
 		'stop-from-last-end': {
 			title: 'Stop from last task end',
 			icon: 'step-forward',
 			group: 'track',
+			control: 'fromLastEnd',
 		},
 		'change-start': {
 			title: 'Change clock start time',
@@ -301,16 +308,19 @@
 			title: 'Set clock duration',
 			icon: 'hourglass',
 			group: 'track',
+			control: 'setDuration',
 		},
 		'migrate-clock': {
 			title: 'Migrate clock to another task',
 			icon: 'move',
 			group: 'track',
+			control: 'migrateClock',
 		},
 		'start-from-last-end': {
 			title: 'Start from last task end',
 			icon: 'step-forward',
 			group: 'track',
+			control: 'fromLastEnd',
 		},
 		'migrate-last-clock': {
 			title: 'Migrate last clock to another task',
@@ -375,7 +385,7 @@
 			group = item.group
 			menu.addItem((menuItem) =>
 				menuItem
-					.setTitle(item.title)
+					.setTitle(titleWithShortcut(plugin, item.title, item.control))
 					.setIcon(item.icon)
 					.setWarning(item.group === 'delete')
 					.onClick(() => runRowAction(action, task))
@@ -580,6 +590,7 @@
 				class="interruption-button"
 				class:is-active={interruptionActive}
 				aria-pressed={interruptionActive}
+				use:instantTooltip={() => controlHint(plugin, 'interruption')}
 				onclick={() => void toggleInterruption(plugin)}
 			>
 				<span use:icon={'pause'}></span>
@@ -588,6 +599,8 @@
 			{#each quickActions as action (action.name)}
 				<button
 					class="chip"
+					use:instantTooltip={() =>
+						commandHint(plugin, quickActionCommandId(action))}
 					onclick={() => void runQuickAction(plugin, action)}
 				>
 					<span use:icon={'zap'}></span>
@@ -643,7 +656,7 @@
 							<button
 								class="mod-cta end-button"
 								aria-label="End interruption"
-								use:instantTooltip
+								use:instantTooltip={() => controlHint(plugin, 'interruption')}
 								onclick={() => void toggleInterruption(plugin)}
 							>
 								End
@@ -657,15 +670,15 @@
 							<span class="row-actions">
 								<button
 									class="row-button"
-									use:instantTooltip
 									aria-label={`Done: stop and tick ${task.name}`}
+									use:instantTooltip={() => controlHint(plugin, 'done')}
 									use:icon={'check'}
 									onclick={() => stop([task.name], true)}
 								></button>
 								<button
 									class="row-button"
-									use:instantTooltip
 									aria-label={`Stop ${task.name}`}
+									use:instantTooltip={() => controlHint(plugin, 'stop')}
 									use:icon={'square'}
 									onclick={() => stop([task.name], false)}
 								></button>
@@ -710,7 +723,7 @@
 						<span class="row-actions">
 							<button
 								class="row-button"
-								use:instantTooltip
+								use:instantTooltip={() => controlHint(plugin, actions.primary)}
 								aria-label={actions.primary === 'switch'
 									? `Switch to ${task.name}`
 									: `Start ${task.name}`}
@@ -720,8 +733,8 @@
 							{#if actions.alongside}
 								<button
 									class="row-button"
-									use:instantTooltip
 									aria-label={`Start ${task.name} alongside`}
+									use:instantTooltip={() => controlHint(plugin, 'alongside')}
 									use:icon={'plus'}
 									onclick={() => start(task, 'alongside')}
 								></button>
@@ -773,7 +786,11 @@
 
 	{#if tasks.length > 0}
 		<div class="footer">
-			<button class="end-day" onclick={() => void endDay(plugin)}>
+			<button
+				class="end-day"
+				use:instantTooltip={() => controlHint(plugin, 'endDay')}
+				onclick={() => void endDay(plugin)}
+			>
 				<span use:icon={'sunset'}></span>
 				End day
 			</button>

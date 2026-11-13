@@ -6,6 +6,7 @@
 		DAY_START_COMMAND,
 	} from 'commands/frontmatterTime'
 	import { onMount } from 'svelte'
+	import { controlHint, titleWithShortcut } from 'commands/shortcuts'
 	import {
 		createDailyNote,
 		getAdjacentDailyNoteFile,
@@ -118,7 +119,7 @@
 		const menu = new Menu()
 		menu.addItem((item) =>
 			item
-				.setTitle('Manage tasks')
+				.setTitle(titleWithShortcut(plugin, 'Manage tasks', 'manageTasks'))
 				.setIcon('list-todo')
 				.onClick(() => openTaskManager(plugin))
 		)
@@ -181,7 +182,7 @@
 			<button
 				class="day-time"
 				class:is-reminder={!log?.dayStart && !otherDay}
-				use:instantTooltip
+				use:instantTooltip={() => controlHint(plugin, 'dayStart')}
 				aria-label={log?.dayStart
 					? `Start of day ${formatTimeOfDay(log.dayStart)}, change`
 					: 'Set start of day'}
@@ -193,7 +194,7 @@
 			<span aria-hidden="true">·</span>
 			<button
 				class="day-time"
-				use:instantTooltip
+				use:instantTooltip={() => controlHint(plugin, 'dayEnd')}
 				aria-label={log?.dayEnd
 					? `End of day ${formatTimeOfDay(log.dayEnd)}, change`
 					: 'Set end of day'}
