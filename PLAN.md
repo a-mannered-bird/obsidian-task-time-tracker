@@ -178,7 +178,7 @@ The tracker tab becomes the beginner's starting point: one obvious place to type
 - **Which day the tab acts on:**
   - No note for today: the tab shows today, and its first write creates today's note (`createDailyNote`), never writing into the latest earlier note as `resolveTargetFile` does now.
   - A clock still running in the latest earlier note: a "Still running from yesterday" card with "Since <day> HH:MM", Stop at <that day's bed time> (when set) and Stop at…. Such a clock does not count as running for the bar: it keeps Start, since a switch would close it at now.
-  - A past note (via ‹ ›): everything works, under a "You're viewing <day> · Back to today" strip; the bar's placeholder reads "Add a task to <day>".
+  - A past note (via ‹ ›): everything works, under a "You're viewing <day> · Back to today" strip; the bar's placeholder reads "Add a task to <day>". Changed 2026-11-13: the strip shows on every tab, not only the tracker, and replaces the Today button of the date navigation, which is gone.
   - ~~Daily notes not set up: one sentence and a Create today's note button instead of "No daily note to act on."~~ Dropped while building (2026-11-12): with the core plugin's defaults there is always a today's note to target, so this case cannot happen.
 - **Empty state:** below the bar, "Type what you're working on and press Start. Tasks are saved as `- [ ]` lines in today's note." Gone once the note has a task.
 - Decision logic (target day, which buttons a row shows, ordering, End day's confirmation text) lives in core with unit tests; components only render.

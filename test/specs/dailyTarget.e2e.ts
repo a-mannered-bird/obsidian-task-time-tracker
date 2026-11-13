@@ -172,15 +172,19 @@ describe('daily target', function () {
 		await expect(strip).toHaveText(
 			expect.stringContaining("You're viewing August 3, 2026")
 		)
+		// Every tab says so, not only the tracker.
+		const timeline = browser.$('button[role="tab"]=Timeline')
+		await browser.execute((el) => el.click(), await timeline.getElement())
+		await expect(timeline).toHaveAttribute('aria-selected', 'true')
+		await expect(strip).toHaveText(
+			expect.stringContaining("You're viewing August 3, 2026")
+		)
 		await strip.$('button=Back to today').click()
 
 		const today = dayNote(0)
 		await browser.waitUntil(() => noteExists(today.path), {
 			timeoutMsg: "today's note was not opened",
 		})
-		const expectedDate = await browser.executeObsidian(({ obsidian }) =>
-			obsidian.moment().format('dddd, LL')
-		)
-		await expect(browser.$(`span=${expectedDate}`)).toBeDisplayed()
+		await expect(browser.$(`span=${today.date}`)).toBeDisplayed()
 	})
 })

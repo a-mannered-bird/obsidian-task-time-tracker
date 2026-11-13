@@ -12,9 +12,14 @@ function trimSurroundingSlashes(folder: string): string {
 	return folder.replace(/^\/+|\/+$/g, '')
 }
 
+/** `2026-08-16`: the note path inside the folder, without extension. */
+export function getDailyNoteName(config: DailyNotesConfig, date: Date): string {
+	return moment(date).format(config.format)
+}
+
 /** `Journal/2026-08-16.md`; format may add sub folders (`YYYY/MM/YYYY-MM-DD`). */
 export function getDailyNotePath(config: DailyNotesConfig, date: Date): string {
-	const name = moment(date).format(config.format)
+	const name = getDailyNoteName(config, date)
 	const folder = trimSurroundingSlashes(config.folder)
 	return normalizePath(folder ? `${folder}/${name}.md` : `${name}.md`)
 }

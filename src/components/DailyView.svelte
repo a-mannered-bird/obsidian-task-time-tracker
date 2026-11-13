@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Menu, moment, type App, type TFile } from 'obsidian'
+	import { Menu, type App, type TFile } from 'obsidian'
 	import {
 		BED_TIME_COMMAND,
 		runTimeCommand,
@@ -10,6 +10,7 @@
 		createDailyNote,
 		getAdjacentDailyNoteFile,
 		getDailyNoteFile,
+		getDailyNoteName,
 		isSameDay,
 		resolveTarget,
 		type DailyTarget,
@@ -144,7 +145,7 @@
 			onclick={() => void openNote(previousFile)}
 		></button>
 		<span class="note-date">
-			{target ? moment(target.date).format('dddd, LL') : ''}
+			{target ? getDailyNoteName(dailyNotes, target.date) : ''}
 		</span>
 		<button
 			class="icon-button"
@@ -154,11 +155,8 @@
 			disabled={!nextFile}
 			onclick={() => void openNote(nextFile)}
 		></button>
-		<button class="today-button" onclick={() => void openToday()}>
-			Today
-		</button>
 		<button
-			class="icon-button"
+			class="icon-button more-button"
 			aria-label="More actions"
 			use:instantTooltip
 			use:icon={'more-horizontal'}
@@ -195,7 +193,7 @@
 		</div>
 	{/if}
 
-	{#if otherDay && active === 'tracker'}
+	{#if otherDay}
 		<div class="other-day" role="status">
 			<span>You're viewing {otherDay}</span>
 			<button class="back-to-today" onclick={() => void openToday()}>
@@ -258,6 +256,11 @@
 		font-size: var(--font-ui-smaller);
 	}
 
+	/* Same-width digits, so the arrows stay put while browsing days. */
+	.note-date {
+		font-variant-numeric: tabular-nums;
+	}
+
 	.icon-button {
 		all: unset;
 		cursor: pointer;
@@ -274,21 +277,13 @@
 		cursor: default;
 	}
 
-	.icon-button:focus-visible,
-	.today-button:focus-visible {
+	.icon-button:focus-visible {
 		outline: 2px solid var(--interactive-accent);
 		outline-offset: 2px;
 	}
 
-	.today-button {
-		all: unset;
-		cursor: pointer;
+	.more-button {
 		margin-left: auto;
-		color: var(--text-muted);
-	}
-
-	.today-button:hover {
-		color: var(--text-normal);
 	}
 
 	.day-status {

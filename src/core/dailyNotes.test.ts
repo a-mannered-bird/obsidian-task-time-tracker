@@ -4,6 +4,7 @@ import {
 	addDays,
 	getAdjacentDailyNoteFile,
 	getDailyNoteDate,
+	getDailyNoteName,
 	getDailyNotePath,
 	resolveTarget,
 } from './dailyNotes'
@@ -25,6 +26,14 @@ describe('getDailyNotePath', () => {
 		expect(
 			getDailyNotePath({ folder: '/Journal/', format: 'YYYY/MM/DD' }, date)
 		).toBe('Journal/2026/08/16.md')
+	})
+})
+
+describe('getDailyNoteName', () => {
+	it('formats the date with the note format, sub folders included', () => {
+		expect(
+			getDailyNoteName({ folder: 'Journal', format: 'YYYY/MM/DD' }, date)
+		).toBe('2026/08/16')
 	})
 })
 

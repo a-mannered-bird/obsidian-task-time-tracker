@@ -268,10 +268,10 @@ describe('timeline tab', function () {
 		await zoomOut.click()
 		await expect(zoomOut).toBeEnabled()
 		await zoomOut.click()
-		assert.strictEqual(
-			Math.round((await middleOfView()) * 1000),
-			Math.round(before * 1000)
-		)
+		// scrollTop holds whole pixels, so each zoom step may round the
+		// middle by a pixel: allow a thousandth of the day either way.
+		const drift = Math.abs((await middleOfView()) - before)
+		assert.ok(drift <= 0.001, `the middle moved by ${drift} of the day`)
 
 		await browser.executeObsidian(async ({ plugins }) => {
 			plugins.obsidianTaskTimeTracker.settings.timelineZoom = 60
