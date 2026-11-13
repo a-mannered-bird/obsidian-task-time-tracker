@@ -102,6 +102,10 @@
 		pointerId: number
 		x0: number
 		y0: number
+		/** The time under the pointer when pressed: drags are measured from it. */
+		t0: Date
+		/** The latest pointer state, replayed when the canvas scrolls under it. */
+		last: PointerEvent
 		touch: boolean
 		/** Movement now drags: a mouse, or a finger after the long press. */
 		armed: boolean
@@ -324,6 +328,8 @@
 			pointerId: event.pointerId,
 			x0: event.clientX,
 			y0: event.clientY,
+			t0: timeAt(event.clientY),
+			last: event,
 			touch: event.pointerType === 'touch',
 			armed,
 			longPressed: false,
@@ -365,14 +371,30 @@
 	function onPointerMove(event: PointerEvent) {
 		const current = press
 		if (!current || event.pointerId !== current.pointerId) return
-		const dx = event.clientX - current.x0
-		const dy = event.clientY - current.y0
+		current.last = event
+		if (!current.armed) {
+			const moved = Math.hypot(
+				event.clientX - current.x0,
+				event.clientY - current.y0
+			)
+			if (moved > SCROLL_SLOP_PX) endPress()
+			return
+		}
+		updateDrag(current)
+	}
+
+	/** Scrolling moves the canvas under a still pointer; the drag follows it. */
+	function onScroll() {
+		if (press?.armed) updateDrag(press)
+	}
+
+	function updateDrag(current: Press) {
+		const event = current.last
+		// In time, not screen pixels, so scrolling or zooming mid-drag keeps
+		// the dragged object under the pointer.
+		const deltaMs = timeAt(event.clientY).valueOf() - current.t0.valueOf()
 		if (!current.active) {
-			if (!current.armed) {
-				if (Math.hypot(dx, dy) > SCROLL_SLOP_PX) endPress()
-				return
-			}
-			if (Math.abs(dy) < DRAG_THRESHOLD_PX) return
+			if (Math.abs((deltaMs / HOUR) * zoom) < DRAG_THRESHOLD_PX) return
 			current.active = true
 		}
 		if (current.kind === 'create') {
@@ -390,7 +412,7 @@
 				mark: current.mark,
 				at: dragDayMark(
 					current.at,
-					(dy / zoom) * HOUR,
+					deltaMs,
 					markBounds(current.mark),
 					snapOptions(event, '', [other ?? null])
 				),
@@ -401,7 +423,7 @@
 		const times = dragTimes(
 			timesOf(block),
 			current.edge,
-			(dy / zoom) * HOUR,
+			deltaMs,
 			snapOptions(event, block.id)
 		)
 		if (fitsInAxis(times)) ghost = { id: block.id, times }
@@ -715,12 +737,15 @@
 	$effect(() => {
 		const element = canvas
 		if (!element) return
-		scroller = findScroller(element)
+		const scrolling = findScroller(element)
+		scroller = scrolling
 		// Not through Svelte attributes: those make touchmove passive, and
 		// both handlers must be able to cancel the browser's own gesture.
 		element.addEventListener('wheel', onWheel, { passive: false })
 		element.addEventListener('touchmove', onTouchMove, { passive: false })
+		scrolling?.addEventListener('scroll', onScroll, { passive: true })
 		return () => {
+			scrolling?.removeEventListener('scroll', onScroll)
 			element.removeEventListener('wheel', onWheel)
 			element.removeEventListener('touchmove', onTouchMove)
 		}
