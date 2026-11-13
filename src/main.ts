@@ -8,6 +8,7 @@ import {
 	registerQuickActionCommands,
 } from './commands/quickActions'
 import { registerTrackingCommands } from './commands/tracking'
+import { registerPlanCommand } from './commands/plan'
 import { registerUserEditLog, type UserEdit } from './commands/userEdits'
 import { getCoreDailyNotesConfig } from './core/coreDailyNotes'
 import { DailyLogStore } from './core/dailyLogs'
@@ -71,6 +72,7 @@ export default class TaskTimeTracker extends Plugin {
 		})
 
 		registerTrackingCommands(this)
+		registerPlanCommand(this)
 		registerFrontmatterTimeCommands(this)
 		registerCompleteJournalCommand(this)
 		registerQuickActionCommands(this)

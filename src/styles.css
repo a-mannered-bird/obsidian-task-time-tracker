@@ -62,13 +62,9 @@
 	background: var(--background-modifier-border);
 }
 
-.task-time-tracker-suggestion-meta,
-.task-time-tracker-suggestion-action {
+.task-time-tracker-suggestion-meta {
 	float: right;
 	margin-left: var(--size-4-2);
-}
-
-.task-time-tracker-suggestion-meta {
 	font-size: var(--font-ui-smaller);
 	font-weight: var(--font-normal);
 	color: var(--text-muted);
@@ -76,10 +72,6 @@
 
 .task-time-tracker-running-suggestion .task-time-tracker-suggestion-meta {
 	color: var(--text-accent);
-}
-
-.task-time-tracker-suggestion-action {
-	font-size: var(--font-ui-smaller);
 }
 
 .task-time-tracker-manager-modal {

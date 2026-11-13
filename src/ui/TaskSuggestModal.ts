@@ -55,11 +55,6 @@ type Options = {
 	vaultEntries?: Promise<VaultPickerEntries>
 	/** Heading over the note's tasks: `Today`, or the note's day. */
 	noteHeading: string
-	/**
-	 * Offer, on the create row, to add the typed task to the plan without
-	 * starting it; the picker then closes as dismissed.
-	 */
-	onAddToPlan?: (name: string, tags: string[]) => void
 }
 
 /** Row shown while the vault index is still scanning; choosing it is a no-op. */
@@ -200,7 +195,6 @@ class TaskSuggestModal extends FuzzySuggestModal<ModalItem> {
 			el.addClass('task-time-tracker-loading-suggestion')
 		} else if (item.kind === 'create') {
 			el.addClass('task-time-tracker-create-suggestion')
-			this.renderAddToPlan(item, el)
 		}
 		const meta = item.kind === 'loading' ? null : suggestionMeta(item)
 		if (meta) {
@@ -208,25 +202,6 @@ class TaskSuggestModal extends FuzzySuggestModal<ModalItem> {
 		}
 		const entry = this.breaks.get(item)
 		if (entry) insertBreak(el, entry)
-	}
-
-	private renderAddToPlan(
-		item: { name: string; tags: string[] },
-		el: HTMLElement
-	) {
-		const { onAddToPlan } = this.options
-		if (!onAddToPlan) return
-		const button = el.createEl('button', {
-			text: 'Add to list',
-			cls: 'task-time-tracker-suggestion-action',
-		})
-		// The row chooses itself on a click: keep the button's click to it.
-		button.addEventListener('mousedown', (event) => event.stopPropagation())
-		button.addEventListener('click', (event) => {
-			event.stopPropagation()
-			onAddToPlan(item.name, item.tags)
-			this.close()
-		})
 	}
 
 	onChooseItem(item: ModalItem): void {

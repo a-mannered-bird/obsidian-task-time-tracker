@@ -2,7 +2,7 @@
 	import { Platform, prepareFuzzySearch, type SearchResult } from 'obsidian'
 	import { loadVaultEntries } from 'commands/tracking'
 	import { addToPlan } from 'commands/plan'
-	import { startTask, type StartMode } from 'commands/trackerActions'
+	import { startTask } from 'commands/trackerActions'
 	import { isRunning } from 'core/note'
 	import {
 		groupBreaks,
@@ -17,9 +17,10 @@
 		type VaultPickerEntries,
 	} from 'core/taskPicker'
 	import {
-		barStartMode,
+		barAction,
 		primaryStartIcon,
 		startActions,
+		type BarAction,
 		type BarMode,
 	} from 'core/tracker'
 	import type { Task } from 'types/tasks'
@@ -33,6 +34,8 @@
 		placeholder: string
 		/** Shown instead while picked tasks start alongside. */
 		alongsidePlaceholder: string
+		/** Shown instead while picked tasks are only added to the plan. */
+		planPlaceholder: string
 		/** Heading over the note's tasks: `Today`, or the note's day. */
 		noteHeading: string
 	}
@@ -42,6 +45,7 @@
 		tasks,
 		placeholder,
 		alongsidePlaceholder,
+		planPlaceholder,
 		noteHeading,
 	}: Props = $props()
 
@@ -58,18 +62,20 @@
 	let mode = $state<BarMode>('primary')
 
 	const actions = $derived(startActions(tasks.filter(isRunning)))
-	const startMode = $derived(barStartMode(mode, actions))
-	const alongside = $derived(startMode === 'alongside')
+	const action = $derived(barAction(mode, actions))
+	const starting = $derived(action === 'start' || action === 'switch')
 
 	// Alongside of nothing means nothing: once no task runs, the next one
 	// running starts the bar back in its primary mode.
 	$effect(() => {
-		if (!actions.alongside) mode = 'primary'
+		if (!actions.alongside && mode === 'alongside') mode = 'primary'
 	})
 	const options = $derived(
 		taskSuggestions({
 			query,
-			tasks,
+			// The note's tasks are already planned: planning offers the other
+			// notes' tasks and new ones.
+			tasks: action === 'plan' ? [] : tasks,
 			noteNames: tasks.map((task) => task.name),
 			vault,
 			match: prepareWordSearch(query, prepareFuzzySearch),
@@ -95,17 +101,19 @@
 		input?.blur()
 	}
 
-	function run(option: Option | null, startAs: StartMode) {
+	function run(option: Option | null, as: BarAction) {
 		if (!option) {
 			input?.focus()
 			return
 		}
 		reset()
-		void startTask(plugin, suggestionChoice(option), startAs)
+		const choice = suggestionChoice(option)
+		if (as === 'plan') void addToPlan(plugin, choice.name, choice.tags)
+		else void startTask(plugin, choice, as)
 	}
 
 	/**
-	 * A start button sets the mode; it also starts the highlighted task when
+	 * A button sets the mode; it also acts on the highlighted task when
 	 * something is typed, and otherwise opens the list to pick from.
 	 */
 	function press(next: BarMode) {
@@ -115,13 +123,7 @@
 			open = true
 			return
 		}
-		run(options[selected] ?? null, startMode)
-	}
-
-	function addOption(option: Option) {
-		if (option.kind !== 'create') return
-		reset()
-		void addToPlan(plugin, option.name, option.tags)
+		run(options[selected] ?? null, action)
 	}
 
 	function onFocus() {
@@ -147,7 +149,7 @@
 			event.preventDefault()
 			const modifier = Platform.isMacOS ? event.metaKey : event.ctrlKey
 			if (modifier && actions.alongside) run(current, 'alongside')
-			else run(current, startMode)
+			else run(current, action)
 		} else if (event.key === 'Escape') {
 			if (open) {
 				event.preventDefault()
@@ -181,7 +183,11 @@
 				aria-controls={LISTBOX_ID}
 				aria-autocomplete="list"
 				aria-activedescendant={current ? optionId(selected) : undefined}
-				placeholder={alongside ? alongsidePlaceholder : placeholder}
+				placeholder={action === 'alongside'
+					? alongsidePlaceholder
+					: action === 'plan'
+						? planPlaceholder
+						: placeholder}
 				onfocus={onFocus}
 				onblur={() => (open = false)}
 				oninput={onInput}
@@ -214,24 +220,13 @@
 						role="option"
 						aria-selected={index === selected}
 						onmousemove={() => onSelect(index)}
-						onclick={() => run(option, startMode)}
+						onclick={() => run(option, action)}
 						onkeydown={() => {}}
 					>
 						<span class="option-label"
 							>{suggestionLabel(option, plugin.settings.tagMappings)}</span
 						>
-						{#if option.kind === 'create'}
-							<button
-								class="add-button"
-								tabindex="-1"
-								onclick={(event) => {
-									event.stopPropagation()
-									addOption(option)
-								}}
-							>
-								Add to list
-							</button>
-						{:else if suggestionMeta(option)}
+						{#if suggestionMeta(option)}
 							<span class="option-meta">{suggestionMeta(option)}</span>
 						{/if}
 					</li>
@@ -242,9 +237,9 @@
 
 	<button
 		class="start-button"
-		class:mod-cta={!alongside}
+		class:mod-cta={starting}
 		aria-label={actions.primary === 'switch' ? 'Switch' : 'Start'}
-		aria-pressed={!alongside}
+		aria-pressed={starting}
 		use:instantTooltip
 		use:icon={primaryStartIcon(actions.primary)}
 		onmousedown={keepFocus}
@@ -253,15 +248,25 @@
 	{#if actions.alongside}
 		<button
 			class="alongside-button"
-			class:mod-cta={alongside}
+			class:mod-cta={action === 'alongside'}
 			aria-label="Start alongside"
-			aria-pressed={alongside}
+			aria-pressed={action === 'alongside'}
 			use:instantTooltip
 			use:icon={'plus'}
 			onmousedown={keepFocus}
 			onclick={() => press('alongside')}
 		></button>
 	{/if}
+	<button
+		class="plan-button"
+		class:mod-cta={action === 'plan'}
+		aria-label="Plan task without starting timer"
+		aria-pressed={action === 'plan'}
+		use:instantTooltip
+		use:icon={'list-plus'}
+		onmousedown={keepFocus}
+		onclick={() => press('plan')}
+	></button>
 </div>
 
 <style>
@@ -320,7 +325,8 @@
 	/* Auto height lets the bar stretch them to the field's height, which
 	   Obsidian's fixed button height would otherwise override. */
 	.start-button,
-	.alongside-button {
+	.alongside-button,
+	.plan-button {
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
@@ -398,9 +404,5 @@
 	.option-meta {
 		font-size: var(--font-ui-smaller);
 		color: var(--text-muted);
-	}
-
-	.add-button {
-		font-size: var(--font-ui-smaller);
 	}
 </style>

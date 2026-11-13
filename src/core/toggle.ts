@@ -44,11 +44,6 @@ export type PickTaskRequest = {
 	 * the note first. Off for pickers over running tasks (set duration).
 	 */
 	includeVault: boolean
-	/**
-	 * The picker starts a task: it may also offer to add the typed one to the
-	 * plan without starting it (the run then ends as if dismissed).
-	 */
-	offersPlan?: boolean
 }
 
 /**
@@ -201,7 +196,6 @@ async function selectTasks(
 		choices,
 		placeholder: options.placeholder ?? 'Which task?',
 		includeVault: !options.setDuration,
-		offersPlan: !options.setDuration,
 	})
 	return picked ? [resolveChoice(note, picked)] : null
 }

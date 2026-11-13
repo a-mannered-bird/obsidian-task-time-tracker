@@ -46,16 +46,18 @@ export function startActions(running: Task[]): StartActions {
 }
 
 /**
- * What the bar's start button set: tasks picked from the bar then start
- * with the primary action or alongside, until the other button is pressed.
+ * What the bar's last pressed button set: tasks picked from the bar then
+ * start with the primary action, start alongside, or are only added to the
+ * plan, until another of its buttons is pressed.
  */
-export type BarMode = 'primary' | 'alongside'
+export type BarMode = 'primary' | 'alongside' | 'plan'
+
+/** What picking a task from the bar does. */
+export type BarAction = 'start' | 'switch' | 'alongside' | 'plan'
 
 /** The bar's mode in effect: alongside only while something runs. */
-export function barStartMode(
-	mode: BarMode,
-	actions: StartActions
-): 'start' | 'switch' | 'alongside' {
+export function barAction(mode: BarMode, actions: StartActions): BarAction {
+	if (mode === 'plan') return 'plan'
 	return mode === 'alongside' && actions.alongside
 		? 'alongside'
 		: actions.primary

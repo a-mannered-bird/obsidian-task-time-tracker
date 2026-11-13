@@ -198,6 +198,7 @@ Day handling ships first: writing into yesterday's note and invisible overnight 
 - [x] Fixing afterwards: clickable "Started HH:MM" moving the running clock's start; Change in the stop/switch notice moving the hand-off (compare-and-swap, acknowledged to `LostClockTracker`); Custom time checkbox removed.
 - [x] E2E for every slice, rewriting the tracker-tab specs: switch, alongside, interruption with a parallel task, Done, Add to list, End day, overnight stop, Change after a switch, moving a start (`dailyTarget.e2e.ts`, `tracker.e2e.ts`).
 - [x] Give the picker modal (`TaskSuggestModal`) the same grouped look as the bar's suggestions (headers, running label, note counts, Add to list), so both stay consistent. Headings are inserted between the rows, outside them, so they are never highlighted or chosen (`groupBreaks` in core); the note's heading is its day (`Today`, `Monday`…), in the bar too. Add to list is only on the pickers that start a task (`offersPlan`), and closes the picker as dismissed.
+- [x] Revised 2026-11-13: no Add to list button inside a row (a button in an already clickable row was confusing). Planning is a mode of its own: a "Plan a task" command (`plan-task`, picker over other notes' tasks and the create row) and a third bar button, "Plan task without starting timer" (list-plus), sticky like Start alongside (`BarMode`/`barAction` in core) with its own placeholder; in that mode the bar lists only other notes' tasks and new ones, as the note's own are already planned.
 
 ## Later
 

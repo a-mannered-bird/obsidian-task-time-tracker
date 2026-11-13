@@ -48,6 +48,7 @@ All commands act on the daily note you are currently in, or on today's daily not
 | Toggle quick interruption  | Start the `Interruption` task; run again to stop it and pick which task the time actually belongs to. The tracker tab lists that task only while it runs.              |
 | Migrate current task       | Move the running clock line to another task (you clocked the wrong task).                                                                                              |
 | Set task duration          | For a running task, close its clock so that the session lasted the given number of minutes.                                                                            |
+| Plan a task                | Add a task from another daily note, or a new one, to the note without starting it.                                                                                     |
 | Set wake time              | Set the `wake_time` property to now (with an optional minute offset, default -3).                                                                                      |
 | Set bed time               | Set the `bed_time` property to now (with an optional minute offset).                                                                                                   |
 | End day                    | End-of-day cleanup: ask for the bed time when it is missing, close still-running clocks at it, tick every task that has a clock, remove tasks that were never clocked. |

@@ -224,7 +224,7 @@ describe('tracker tab', function () {
 		await press(alongside)
 		await expect(alongside).toHaveAttribute('aria-pressed', 'true')
 		await expect(switchButton).toHaveAttribute('aria-pressed', 'false')
-		await expect(bar).toHaveAttribute('placeholder', 'Multi-tasking, are you?')
+		await expect(bar).toHaveAttribute('placeholder', 'Are you multi-tasking?')
 		await expect(list).toBeDisplayed()
 		assert.strictEqual(await obsidianPage.read(today.path), content)
 
@@ -239,7 +239,10 @@ describe('tracker tab', function () {
 
 		await press(switchButton)
 		await expect(switchButton).toHaveAttribute('aria-pressed', 'true')
-		await expect(bar).toHaveAttribute('placeholder', 'What are you working on?')
+		await expect(bar).toHaveAttribute(
+			'placeholder',
+			'What task will you focus on?'
+		)
 		await expect(bar).toBeFocused()
 		await browser.keys([...'Run'])
 		await expect(bar).toHaveValue('Run')
@@ -276,10 +279,15 @@ describe('tracker tab', function () {
 		await expect(browser.$('summary=Done (1)')).toBeDisplayed()
 
 		const bar = browser.$('input[aria-label="Task to start"]')
-		// Focused rather than clicked: the notice of the previous step can
-		// still cover it.
-		const barElement = await bar.getElement()
-		await browser.execute((el) => el.focus(), barElement)
+		// Pressed through the DOM: the notice of the previous step can still
+		// cover the bar.
+		const plan = button('Plan task without starting timer')
+		await browser.execute((el) => el.click(), await plan.getElement())
+		await expect(plan).toHaveAttribute('aria-pressed', 'true')
+		await expect(bar).toHaveAttribute(
+			'placeholder',
+			"Add a task to today's plan"
+		)
 		await expect(bar).toBeFocused()
 		await browser.keys([...'Call the bank'])
 		await expect(bar).toHaveValue('Call the bank')
@@ -287,10 +295,7 @@ describe('tracker tab', function () {
 		await expect(create).toHaveText(
 			expect.stringContaining('➕ Create "Call the bank"')
 		)
-		// The notice of the Done step sits over the sidebar's top, where the
-		// bar's list opens: press the button through the DOM.
-		const add = await create.$('button=Add to list').getElement()
-		await browser.execute((el) => el.click(), add)
+		await browser.keys('Enter')
 		content = await waitForChange(content)
 		assert.deepStrictEqual(content.trimEnd().split('\n').slice(-2), [
 			'- [ ] Run',

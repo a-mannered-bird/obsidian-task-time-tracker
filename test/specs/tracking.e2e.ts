@@ -236,7 +236,7 @@ describe('tracking commands', function () {
 		}, NOTE)
 	})
 
-	it('groups the picker rows and adds a typed task to the plan', async function () {
+	it('groups the picker rows, and plans a typed task from its own command', async function () {
 		await obsidianPage.openFile(NOTE)
 		const before = await obsidianPage.read(NOTE)
 		await browser.executeObsidianCommand(
@@ -247,13 +247,21 @@ describe('tracking commands', function () {
 		// The note's tasks sit under its day, the vault's under Other notes.
 		await expect(picker.$('div=August 3, 2026')).toBeDisplayed()
 		await expect(picker.$('div=Other notes')).toBeDisplayed()
+		await browser.keys('Escape')
 
+		await browser.executeObsidianCommand('obsidian-task-time-tracker:plan-task')
+		const planner = browser.$('.prompt')
+		await expect(planner).toBeDisplayed()
+		await expect(planner.$('input')).toHaveAttribute(
+			'placeholder',
+			'Which task to plan?'
+		)
 		await browser.keys([...'Lunch break'])
-		const create = picker.$('.suggestion-item*=Create')
-		await expect(create).toHaveText(
+		await expect(planner.$('input')).toHaveValue('Lunch break')
+		await expect(planner.$('.suggestion-item.is-selected')).toHaveText(
 			expect.stringContaining('➕ Create "Lunch break"')
 		)
-		await create.$('button=Add to list').click()
+		await browser.keys('Enter')
 
 		// Added to the plan, not started: no clock line under it.
 		await browser.waitUntil(
