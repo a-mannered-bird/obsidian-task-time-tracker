@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { rewriteNote } from './noteRewrite'
+import { recordWrites, rewriteNote, undoWrite } from './noteRewrite'
 import type { NoteIo } from './trackingRun'
 
 /** A note whose content `changes` replaces right after each of the first reads. */
@@ -50,5 +50,38 @@ describe('rewriteNote', () => {
 		const note = noteWithChanges('a', ['b', 'c', 'd', 'e', 'f'])
 		expect(await rewriteNote(note.io, upper)).toBe('busy')
 		expect(note.content()).toBe('e')
+	})
+})
+
+describe('recordWrites', () => {
+	it('spans the writes from the first content replaced to the last written', async () => {
+		const note = noteWithChanges('a')
+		const recorder = recordWrites(note.io)
+		expect(recorder.written()).toBeNull()
+		await rewriteNote(recorder.io, (text) => `${text}b`)
+		await rewriteNote(recorder.io, (text) => `${text}c`)
+		expect(recorder.written()).toEqual({ before: 'a', after: 'abc' })
+	})
+
+	it('ignores writes that did not happen or came back to the start', async () => {
+		const note = noteWithChanges('a')
+		const recorder = recordWrites(note.io)
+		await recorder.io.replace('x', 'y')
+		expect(recorder.written()).toBeNull()
+		await rewriteNote(recorder.io, upper)
+		await rewriteNote(recorder.io, (text) => text.toLowerCase())
+		expect(recorder.written()).toBeNull()
+	})
+})
+
+describe('undoWrite', () => {
+	const write = { before: 'a', after: 'ab' }
+
+	it('puts the note back as it was', () => {
+		expect(undoWrite(write)('ab')).toBe('a')
+	})
+
+	it('refuses once the note changed since', () => {
+		expect(undoWrite(write)('abc')).toBeNull()
 	})
 })

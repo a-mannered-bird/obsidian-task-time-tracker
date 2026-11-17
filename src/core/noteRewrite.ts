@@ -22,3 +22,45 @@ export async function rewriteNote(
 	}
 	return 'busy'
 }
+
+/** What a run turned the note from and into. */
+export type NoteWrite = { before: string; after: string }
+
+/**
+ * The io, keeping track of what its writes did: from the content the first
+ * one replaced to the last one written. `written` is null until a write
+ * changed the note.
+ */
+export function recordWrites(io: NoteIo): {
+	io: NoteIo
+	written: () => NoteWrite | null
+} {
+	let before: string | null = null
+	let after: string | null = null
+	return {
+		io: {
+			read: () => io.read(),
+			replace: async (expected, next) => {
+				const replaced = await io.replace(expected, next)
+				if (replaced) {
+					before ??= expected
+					after = next
+				}
+				return replaced
+			},
+		},
+		written: () =>
+			before === null || after === null || before === after
+				? null
+				: { before, after },
+	}
+}
+
+/**
+ * The transform putting a note back as it was before `write`, as long as it
+ * still holds what the write left: any later change could be lost otherwise.
+ */
+export function undoWrite(write: NoteWrite) {
+	return (content: string): string | null =>
+		content === write.after ? write.before : null
+}

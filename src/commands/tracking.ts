@@ -9,11 +9,13 @@ import type {
 	ToggleOptions,
 } from 'core/toggle'
 import type { VaultPickerEntries } from 'core/taskPicker'
+import { recordWrites } from 'core/noteRewrite'
 import { applyTrackingSteps } from 'core/trackingRun'
 import { pickTask, type PickerNote } from 'ui/TaskSuggestModal'
 import { promptMinutes } from 'ui/MinutesPromptModal'
 import { promptTime } from 'ui/timePrompt'
 import type TaskTimeTracker from '../main'
+import { reportRun } from './handOffNotice'
 import {
 	currentTarget,
 	NOTICE_DURATION,
@@ -174,31 +176,35 @@ export function registerTrackingCommands(plugin: TaskTimeTracker) {
 }
 
 /**
- * Run engine steps on the target daily note; also used by the tracker tab.
- * A `choice` answers the steps' task picker without showing it: the task
- * the user already chose in the tab, added to the note when it is new.
- * `notify` receives the run's notices instead of showing them.
+ * Run engine steps on the target daily note; also used by the tracker tab
+ * and the quick actions. A `choice` answers the steps' task picker without
+ * showing it: the task the user already chose in the tab, added to the
+ * note when it is new. The run's notices wait for its end, to be told
+ * with what it wrote (`reportRun`).
  */
 export async function runTrackingSteps(
 	plugin: TaskTimeTracker,
 	steps: ToggleOptions[],
-	options: { choice?: TaskChoice; notify?: (message: string) => void } = {}
+	options: { choice?: TaskChoice } = {}
 ) {
-	const { choice, notify } = options
+	const { choice } = options
 	const target = currentTarget(plugin)
 	const interactive = interactivePrompts(plugin, target.path)
+	const notices: string[] = []
 	const prompts: Prompts = {
 		...interactive,
 		pickTask: choice
 			? async () => choice
 			: (note, request) => interactive.pickTask(note, request),
-		notify: notify ?? ((message) => interactive.notify(message)),
+		notify: (message) => notices.push(message),
 	}
-	await applyTrackingSteps(targetIo(plugin, target), steps, {
+	const recorder = recordWrites(targetIo(plugin, target))
+	await applyTrackingSteps(recorder.io, steps, {
 		prompts,
 		now: new Date(),
 		day: target.date,
 	})
+	reportRun(plugin, target, notices, recorder.written(), steps.length === 1)
 }
 
 function interactivePrompts(plugin: TaskTimeTracker, path: string): Prompts {

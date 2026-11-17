@@ -15,7 +15,11 @@ export type HandOff = {
 const clockId = (taskName: string, start: Date) =>
 	`${taskName}|${start.valueOf()}`
 
-/** The clocks running in `before` and closed in `after`, and the new running ones. */
+/**
+ * The clocks running in `before` and closed in `after`, and the new running
+ * ones. A running clock moved to another task (migrated) keeps its start:
+ * it is no new start.
+ */
 export function clockChanges(before: Task[], after: Task[]): HandOff {
 	const runningBefore = new Set(
 		before.flatMap((task) =>
@@ -29,6 +33,18 @@ export function clockChanges(before: Task[], after: Task[]): HandOff {
 			task.clocks.map((clock) => clockId(task.name, clock.start))
 		)
 	)
+	const kept = new Set(
+		after.flatMap((task) =>
+			task.clocks.map((clock) => clockId(task.name, clock.start))
+		)
+	)
+	const vanishedStarts = new Set(
+		before.flatMap((task) =>
+			task.clocks
+				.filter((clock) => !kept.has(clockId(task.name, clock.start)))
+				.map((clock) => clock.start.valueOf())
+		)
+	)
 	const stopped: HandOff['stopped'] = []
 	const started: ClockKey[] = []
 	for (const task of after) {
@@ -36,7 +52,11 @@ export function clockChanges(before: Task[], after: Task[]): HandOff {
 			const id = clockId(task.name, start)
 			if (end && runningBefore.has(id)) {
 				stopped.push({ taskName: task.name, start, end })
-			} else if (!end && !known.has(id)) {
+			} else if (
+				!end &&
+				!known.has(id) &&
+				!vanishedStarts.has(start.valueOf())
+			) {
 				started.push({ taskName: task.name, start, end: null })
 			}
 		}
@@ -44,15 +64,23 @@ export function clockChanges(before: Task[], after: Task[]): HandOff {
 	return { stopped, started }
 }
 
-/** `Switched from Chores to Email at 10:42`, `Stopped Chores at 10:42`. */
+/**
+ * `Switched from Chores to Email at 10:42`, `Stopped Chores at 10:42`,
+ * `Started Email at 10:42`; null when no clock started or stopped.
+ */
 export function describeHandOff(handOff: HandOff): string | null {
+	const names = (clocks: ClockKey[]) =>
+		clocks.map((clock) => clock.taskName).join(', ')
 	const first = handOff.stopped[0]
-	if (!first) return null
-	const from = handOff.stopped.map((clock) => clock.taskName).join(', ')
+	if (!first) {
+		const started = handOff.started[0]
+		if (!started) return null
+		return `Started ${names(handOff.started)} at ${formatTimeOfDay(started.start)}`
+	}
 	const at = formatTimeOfDay(first.end)
-	if (handOff.started.length === 0) return `Stopped ${from} at ${at}`
-	const to = handOff.started.map((clock) => clock.taskName).join(', ')
-	return `Switched from ${from} to ${to} at ${at}`
+	if (handOff.started.length === 0)
+		return `Stopped ${names(handOff.stopped)} at ${at}`
+	return `Switched from ${names(handOff.stopped)} to ${names(handOff.started)} at ${at}`
 }
 
 /**

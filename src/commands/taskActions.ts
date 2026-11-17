@@ -1,9 +1,5 @@
 import { Notice } from 'obsidian'
-import {
-	runBulkEdit,
-	type BulkEditReport,
-	type BulkTransformResult,
-} from 'core/bulkEdit'
+import type { BulkEditReport, BulkTransformResult } from 'core/bulkEdit'
 import { consolidateTasks, extractTaskBlocks } from 'core/consolidate'
 import {
 	describeConsolidation,
@@ -23,13 +19,17 @@ import {
 	previewRetag,
 	retagInVault,
 } from 'core/taskOperations'
+import { recordWrites, rewriteNote } from 'core/noteRewrite'
+import { BUSY_NOTICE } from 'core/trackingRun'
 import { confirmAction } from 'ui/ConfirmActionModal'
 import { withProgressNotice } from 'ui/progressNotice'
 import { promptRetag } from 'ui/RetagModal'
 import { promptText } from 'ui/TextPromptModal'
+import { showUndoNotice } from 'ui/undoNotice'
 import type TaskTimeTracker from '../main'
 import { ownWritesVault } from './lostClocks'
-import { NOTICE_DURATION } from './target'
+import { NOTICE_DURATION, noteIo } from './target'
+import { undoNoteWrite } from './undo'
 
 /**
  * Rename a task across every daily note: ask for the new name, show what
@@ -251,24 +251,32 @@ export async function joinOverlappingClocks(
 			await plugin.saveSettings()
 		}
 	}
-	const report = await runBulkEdit(ownWritesVault(plugin), [path], (content) =>
-		consolidateTasks(content, [], name)
-	)
-	const removed = report.results.reduce(
-		(sum, result) => sum + result.removedClockLines,
-		0
-	)
-	if (report.failures.length) {
-		new Notice(`Could not update ${path}: ${report.failures[0]!.message}`, 0)
+	const file = plugin.app.vault.getFileByPath(path)
+	if (!file) {
+		new Notice(`${path} no longer exists.`, NOTICE_DURATION)
 		return false
 	}
-	new Notice(
-		removed
-			? `"${name}": ${plural(removed, 'clock line')} joined in ${path}.`
-			: `"${name}": nothing to join in ${path}.`,
-		NOTICE_DURATION
+	const io = noteIo(plugin, file)
+	const recorder = recordWrites(io)
+	let removed = 0
+	const outcome = await rewriteNote(recorder.io, (content) => {
+		const joined = consolidateTasks(content, [], name)
+		removed = joined.removedClockLines
+		return joined.content
+	})
+	if (outcome === 'busy') new Notice(BUSY_NOTICE, NOTICE_DURATION)
+	const write = recorder.written()
+	if (!write) {
+		if (outcome !== 'busy') {
+			new Notice(`"${name}": nothing to join in ${path}.`, NOTICE_DURATION)
+		}
+		return false
+	}
+	showUndoNotice(
+		`"${name}": ${plural(removed, 'clock line')} joined in ${path}.`,
+		undoNoteWrite(io, write)
 	)
-	return removed > 0
+	return true
 }
 
 /** Open the note in the current leaf, scrolled to and highlighting the line. */

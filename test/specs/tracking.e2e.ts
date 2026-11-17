@@ -125,7 +125,7 @@ describe('tracking commands', function () {
 			expect.stringContaining('"Task A" 09:00–09:30')
 		)
 		await clickNoticeButton(notice, 'Restore')
-		await expect(browser.$('.notice=Clock restored.')).toBeDisplayed()
+		await expect(browser.$('.notice*=Clock restored.')).toBeDisplayed()
 		expect(await obsidianPage.read(NOTE)).toBe(before)
 	})
 
@@ -220,7 +220,7 @@ describe('tracking commands', function () {
 
 		// Picked as running, so the toggle stops the clock the other device
 		// started instead of giving up on a stale pick.
-		await expect(browser.$('.notice*=toggled off')).toBeDisplayed()
+		await expect(browser.$('.notice*=Stopped Email at')).toBeDisplayed()
 		const lines = (await obsidianPage.read(NOTE)).split('\n')
 		assert.match(
 			lines[5] ?? '',

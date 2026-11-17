@@ -27,6 +27,19 @@ describe('clockChanges', () => {
 		})
 	})
 
+	it('takes a running clock moved to another task for no new start', () => {
+		const migrated = [
+			'- [ ] Chores',
+			'      [clock::2026-11-12T09:00:00--2026-11-12T09:30:00]',
+			'- [ ] Email',
+			'      [clock::2026-11-12T10:00:00]',
+		]
+		expect(clockChanges(parseTasks(running), parseTasks(migrated))).toEqual({
+			stopped: [],
+			started: [],
+		})
+	})
+
 	it('finds nothing when no clock changed state', () => {
 		expect(clockChanges(parseTasks(running), parseTasks(running))).toEqual({
 			stopped: [],
@@ -46,7 +59,14 @@ describe('describeHandOff', () => {
 		)
 	})
 
-	it('has nothing to say when nothing stopped', () => {
+	it('names a start', () => {
+		const handOff = clockChanges(parseTasks(running), parseTasks(switched))
+		expect(describeHandOff({ ...handOff, stopped: [] })).toBe(
+			'Started Email at 10:42'
+		)
+	})
+
+	it('has nothing to say when nothing started or stopped', () => {
 		expect(describeHandOff({ stopped: [], started: [] })).toBeNull()
 	})
 })

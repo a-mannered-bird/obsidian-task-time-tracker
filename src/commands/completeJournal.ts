@@ -1,13 +1,25 @@
 import { Notice, type TFile } from 'obsidian'
 import { applyCompletion, isEmptyPlan, planCompletion } from 'core/complete'
+import { TaskNote } from 'core/note'
+import { recordWrites, rewriteNote } from 'core/noteRewrite'
+import { BUSY_NOTICE } from 'core/trackingRun'
 import { DAY_END_PROPERTY, readFrontmatterTime } from 'core/time'
 import { describeCompletion } from 'core/tracker'
 import { confirm } from 'ui/ConfirmModal'
+import { showUndoNotice } from 'ui/undoNotice'
 import type TaskTimeTracker from '../main'
 import { DAY_END_COMMAND, runTimeCommand } from './frontmatterTime'
-import { currentTarget, NOTICE_DURATION, readTaskNote } from './target'
+import {
+	currentTarget,
+	NOTICE_DURATION,
+	noteIo,
+	readNoteContent,
+	readTaskNote,
+} from './target'
+import { undoNoteWrite } from './undo'
 
 const NOTHING_TO_COMPLETE = 'Nothing to complete.'
+const CHANGED_MEANWHILE = 'The note changed meanwhile, the day was not ended.'
 
 export function registerCompleteJournalCommand(plugin: TaskTimeTracker) {
 	plugin.addCommand({
@@ -40,7 +52,8 @@ export async function endDay(plugin: TaskTimeTracker, dayEnd?: Date) {
 	if (!at) return
 
 	// Read after the end of day was written, or writing the note would undo it.
-	const note = await readTaskNote(plugin, file)
+	const content = await readNoteContent(plugin, file)
+	const note = new TaskNote(content)
 	const plan = planCompletion(note)
 	if (plan.toRemove.length > 0) {
 		const confirmed = await confirm(app, {
@@ -53,12 +66,20 @@ export async function endDay(plugin: TaskTimeTracker, dayEnd?: Date) {
 	}
 
 	applyCompletion(note, plan, at)
-	const content = note.toString()
-	await app.vault.modify(file, content)
-	plugin.lostClocks.acknowledge(file.path, content)
-	new Notice(
+	const completed = note.toString()
+	const io = noteIo(plugin, file)
+	const recorder = recordWrites(io)
+	// Applies what was confirmed, so only to the note it was planned from.
+	const outcome = await rewriteNote(recorder.io, (current) =>
+		current === content ? completed : null
+	)
+	if (outcome === 'gone') new Notice(CHANGED_MEANWHILE, NOTICE_DURATION)
+	if (outcome === 'busy') new Notice(BUSY_NOTICE, NOTICE_DURATION)
+	const write = recorder.written()
+	if (!write) return
+	showUndoNotice(
 		`Day ended: ${plan.toClose.length} closed, ${plan.toTick.length} ticked, ${plan.toRemove.length} removed.`,
-		NOTICE_DURATION
+		undoNoteWrite(io, write)
 	)
 }
 

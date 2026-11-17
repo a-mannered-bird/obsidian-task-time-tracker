@@ -5,9 +5,12 @@ import {
 	restoreLostClocks,
 	type LostClock,
 } from 'core/lostClocks'
+import { recordWrites, rewriteNote } from 'core/noteRewrite'
 import { showLostClocksNotice } from 'ui/lostClocksNotice'
+import { showUndoNotice } from 'ui/undoNotice'
 import type TaskTimeTracker from '../main'
-import { NOTICE_DURATION, saveOpenEditors } from './target'
+import { NOTICE_DURATION, noteIo } from './target'
+import { undoNoteWrite } from './undo'
 
 /**
  * Watch the daily notes for clocks that vanish in a change made outside the
@@ -61,11 +64,14 @@ async function restore(
 		new Notice(`${path} no longer exists.`, NOTICE_DURATION)
 		return
 	}
-	await saveOpenEditors(plugin, file)
-	await app.vault.process(file, (content) => restoreLostClocks(content, lost))
-	new Notice(
+	const io = noteIo(plugin, file)
+	const recorder = recordWrites(io)
+	await rewriteNote(recorder.io, (content) => restoreLostClocks(content, lost))
+	const write = recorder.written()
+	if (!write) return
+	showUndoNotice(
 		lost.length === 1 ? 'Clock restored.' : `${lost.length} clocks restored.`,
-		NOTICE_DURATION
+		undoNoteWrite(io, write)
 	)
 }
 

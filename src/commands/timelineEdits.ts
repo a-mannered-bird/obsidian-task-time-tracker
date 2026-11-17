@@ -20,9 +20,6 @@ import { pickNoteTask } from './tracking'
 
 const GONE_NOTICE = 'The clock changed elsewhere, nothing was written.'
 
-/** Only the latest edit can be undone; its notice goes when another lands. */
-let undoNotice: Notice | null = null
-
 /**
  * Write new times to one clock line, found by what it held when the
  * timeline read it. True when the note now holds the new times.
@@ -39,15 +36,15 @@ export async function retimeClockLine(
 	)
 	if (!wrote(outcome)) return outcome === 'unchanged'
 	if (undoable) {
-		offerUndo(describeClockEdit(key.taskName, key, times), () => {
-			void retimeClockLine(
+		showUndoNotice(describeClockEdit(key.taskName, key, times), () =>
+			retimeClockLine(
 				plugin,
 				file,
 				{ taskName: key.taskName, ...times },
 				{ start: key.start, end: key.end },
 				false
 			)
-		})
+		)
 	}
 	return true
 }
@@ -78,11 +75,13 @@ export async function addClockLine(
 		return addClock(content, target, times)
 	})
 	if (!wrote(outcome)) return false
-	offerUndo(describeClockAdded(target.name, times), () => {
-		void rewriteNote(noteIo(plugin, file), (content) =>
-			removeClock(content, { taskName: target.name, ...times }, addsTask)
-		).then(wrote)
-	})
+	showUndoNotice(describeClockAdded(target.name, times), async () =>
+		wrote(
+			await rewriteNote(noteIo(plugin, file), (content) =>
+				removeClock(content, { taskName: target.name, ...times }, addsTask)
+			)
+		)
+	)
 	return true
 }
 
@@ -101,11 +100,13 @@ export async function deleteClockLine(
 		removeClock(content, key, false)
 	)
 	if (!wrote(outcome)) return false
-	offerUndo(describeClockDeleted(key.taskName, key), () => {
-		void rewriteNote(noteIo(plugin, file), (content) =>
-			addClock(content, { name: key.taskName, tags }, key)
-		).then(wrote)
-	})
+	showUndoNotice(describeClockDeleted(key.taskName, key), async () =>
+		wrote(
+			await rewriteNote(noteIo(plugin, file), (content) =>
+				addClock(content, { name: key.taskName, tags }, key)
+			)
+		)
+	)
 	return true
 }
 
@@ -114,13 +115,4 @@ function wrote(outcome: RewriteOutcome): boolean {
 	if (outcome === 'gone') new Notice(GONE_NOTICE, NOTICE_DURATION)
 	if (outcome === 'busy') new Notice(BUSY_NOTICE, NOTICE_DURATION)
 	return outcome === 'written'
-}
-
-function offerUndo(message: string, undo: () => void) {
-	undoNotice?.hide()
-	undoNotice = showUndoNotice(message, () => {
-		undoNotice?.hide()
-		undoNotice = null
-		undo()
-	})
 }
