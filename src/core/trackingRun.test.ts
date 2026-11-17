@@ -78,7 +78,6 @@ describe('applyTrackingSteps', () => {
 			'      [clock::2026-08-16T12:00:00]',
 			'- [ ] Walk the dog',
 		])
-		expect(note.notices).toContain('Start of day set to 12:00.')
 	})
 
 	it('redoes the toggle on the new content when the note changed during the prompt, without asking again', async () => {

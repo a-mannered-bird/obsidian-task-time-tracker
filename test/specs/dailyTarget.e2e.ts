@@ -1,7 +1,8 @@
 import assert from 'node:assert'
 import { browser, expect } from '@wdio/globals'
 import { obsidianPage } from 'wdio-obsidian-service'
-import { dayNote } from './support/days'
+import { dayNote, promptDay } from './support/days'
+import { clickNoticeButton } from './support/notices'
 import { minutesField, typeMinutes, typeTime } from './support/timePrompt'
 import { resetVault } from './support/vault'
 
@@ -151,7 +152,7 @@ describe('daily target', function () {
 
 		// A time of day carries the minutes along; the line names its day.
 		await typeTime(modal, '23:30')
-		await expect(modal.$('p=Yesterday at 23:30')).toBeDisplayed()
+		await expect(modal.$(`p=${promptDay(-1)} at 23:30`)).toBeDisplayed()
 		const minutesAgo = Number(await minutes.getValue())
 		assert.ok(minutesAgo > 0, `minutes field shows ${minutesAgo}`)
 		await modal.$('button=Stop').click()
@@ -172,10 +173,34 @@ describe('daily target', function () {
 				'',
 			].join('\n')
 		)
-		await expect(
-			browser.$('.notice*=End of day set to yesterday at 23:30.')
-		).toBeDisplayed()
 		await expect(browser.$('p=Nothing tracked yet')).toBeDisplayed()
+
+		// The notice tells the end of day changed; Change moves the stop, and
+		// the end of day follows it.
+		const notice = browser.$('.notice*=End of day set to yesterday at 23:30.')
+		await clickNoticeButton(notice, 'Change')
+		const changes = await browser.$$('.modal-container').getElements()
+		const change = changes[changes.length - 1]!.$('.modal')
+		await expect(change.$('.modal-title')).toHaveText(
+			'Change when Write blog post stopped'
+		)
+		await typeTime(change, '23:50')
+		await expect(change.$(`p=${promptDay(-1)} at 23:50`)).toBeDisplayed()
+		await change.$('button=Change').click()
+		await expect(
+			browser.$('.notice*=End of day set to yesterday at 23:50.')
+		).toBeDisplayed()
+		assert.strictEqual(
+			await obsidianPage.read(yesterday.path),
+			[
+				'---',
+				`day_end: ${yesterday.date}T23:50:00`,
+				'---',
+				'- [ ] Write blog post',
+				`      [clock::${yesterday.date}T22:40:00--${yesterday.date}T23:50:00]`,
+				'',
+			].join('\n')
+		)
 
 		// The reset deletes the note: start the next test without its clocks.
 		await browser.executeObsidian(({ plugins }, path) => {

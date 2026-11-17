@@ -8,7 +8,7 @@ import {
 	formatLocalDateTime,
 	readFrontmatterTime,
 } from './time'
-import { atTime, dayEndFloor } from './typedTime'
+import { atTime } from './typedTime'
 
 export type DayMark = 'start' | 'end'
 
@@ -69,17 +69,59 @@ export function startDayWithFirstClock(
 
 /**
  * The day ends with its last clock: once no clock of the note runs, the
- * end of day becomes the end of its last clock, unless one recorded is
- * already as late. Null when nothing is to record.
+ * end of day becomes the end of its last clock, earlier or later than a
+ * recorded one. Null when nothing is to record.
  */
 export function endDayWithLastClock(content: string): RecordedMark | null {
 	const tasks = tasksOf(content)
 	if (tasks.some(isRunning)) return null
-	if (!tasks.some((task) => task.clocks.length > 0)) return null
-	const floor = dayEndFloor(tasks, markOf(content, 'start'))
-	const dayEnd = markOf(content, 'end')
-	if (!floor || (dayEnd && dayEnd >= floor.at)) return null
-	return withMark(content, 'end', floor.at)
+	const ends = tasks.flatMap((task) =>
+		task.clocks.flatMap((clock) => (clock.end ? [clock.end] : []))
+	)
+	if (ends.length === 0) return null
+	const last = new Date(Math.max(...ends.map((end) => end.valueOf())))
+	if (markOf(content, 'end')?.valueOf() === last.valueOf()) return null
+	return withMark(content, 'end', last)
+}
+
+function firstClockStart(content: string): Date | null {
+	const starts = tasksOf(content).flatMap((task) =>
+		task.clocks.map((clock) => clock.start.valueOf())
+	)
+	return starts.length > 0 ? new Date(Math.min(...starts)) : null
+}
+
+/**
+ * A start of day set by the first clock follows it when that clock moves:
+ * `after` with its start of day moved along, when `before` had it on its
+ * first clock's start.
+ */
+export function keepDayStartOnFirstClock(
+	before: string,
+	after: string
+): string {
+	const dayStart = markOf(before, 'start')
+	const first = firstClockStart(before)
+	if (!dayStart || !first || dayStart.valueOf() !== first.valueOf()) {
+		return after
+	}
+	const moved = firstClockStart(after)
+	if (!moved || moved.valueOf() === dayStart.valueOf()) return after
+	return withMark(after, 'start', moved).content
+}
+
+/** What a write did to the start and end of day, one sentence each. */
+export function describeMarkChanges(
+	before: string,
+	after: string,
+	now: Date
+): string[] {
+	const marks: DayMark[] = ['start', 'end']
+	return marks.flatMap((mark) => {
+		const at = markOf(after, mark)
+		if (!at || markOf(before, mark)?.valueOf() === at.valueOf()) return []
+		return [describeMarkSet(mark, at, now)]
+	})
 }
 
 /** `Start of day set to 07:05.`, `End of day set to yesterday at 23:40.` */

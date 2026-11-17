@@ -234,13 +234,10 @@
 		const recorded = mark === 'start' ? log.dayStart : log.dayEnd
 		if (recorded?.valueOf() === at.valueOf()) return
 		markPending = { mark, at }
-		try {
-			await writeDayTime(plugin, log.file, mark, at)
-		} catch (error) {
-			// The line goes back to the recorded time; nothing was written.
-			console.error(error)
-			if (markPending?.mark === mark) markPending = null
-		}
+		const target = { date: log.date, path: log.file.path, file: log.file }
+		const written = await writeDayTime(plugin, target, mark, at)
+		// Not written: the line goes back to the recorded time.
+		if (!written && markPending?.mark === mark) markPending = null
 	}
 
 	/**

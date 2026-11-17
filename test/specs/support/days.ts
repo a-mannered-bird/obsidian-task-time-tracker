@@ -11,3 +11,19 @@ export function dayNote(offset: number): { path: string; date: string } {
 	date.setDate(date.getDate() + offset)
 	return { path: `${isoDate(date)}.md`, date: isoDate(date) }
 }
+
+/**
+ * The day `offset` days from today as the time prompt names it under its
+ * fields: `Monday, November 16`, with the year when it is not this year.
+ */
+export function promptDay(offset: number): string {
+	const date = new Date()
+	date.setDate(date.getDate() + offset)
+	const sameYear = date.getFullYear() === new Date().getFullYear()
+	return date.toLocaleDateString('en-US', {
+		weekday: 'long',
+		month: 'long',
+		day: 'numeric',
+		...(sameYear ? {} : { year: 'numeric' }),
+	})
+}

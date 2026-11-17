@@ -7,7 +7,8 @@ import { Notice } from 'obsidian'
  */
 export const NOTICE_DURATION = 8000
 
-export type NoticeAction = { label: string; run: () => void }
+/** A notice button; `cta` gives it the accent color (Change, never Undo). */
+export type NoticeAction = { label: string; run: () => void; cta?: boolean }
 
 /** Notice telling what happened, with buttons acting on it. */
 export function showActionNotice(
@@ -19,14 +20,11 @@ export function showActionNotice(
 	const buttons = fragment.createDiv({
 		cls: 'task-time-tracker-notice-buttons',
 	})
-	actions.forEach(({ label, run }, index) => {
+	for (const { label, run, cta } of actions) {
 		buttons
-			.createEl('button', {
-				text: label,
-				cls: index === actions.length - 1 ? 'mod-cta' : undefined,
-			})
+			.createEl('button', { text: label, cls: cta ? 'mod-cta' : undefined })
 			.addEventListener('click', run)
-	})
+	}
 	return new Notice(fragment, NOTICE_DURATION)
 }
 

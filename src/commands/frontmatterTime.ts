@@ -1,4 +1,8 @@
-import { Notice, type IconName, type TFile } from 'obsidian'
+import { Notice, type IconName } from 'obsidian'
+import type { DailyTarget } from 'core/dailyNotes'
+import { setFrontmatterValue } from 'core/frontmatter'
+import { recordWrites, rewriteNote } from 'core/noteRewrite'
+import { BUSY_NOTICE } from 'core/trackingRun'
 import {
 	DAY_END_PROPERTY,
 	DAY_START_PROPERTY,
@@ -13,13 +17,15 @@ import {
 import { formatTimeOfDay } from 'core/timeline'
 import { dayEndFloor, parseDayEnd, parseDayStart } from 'core/typedTime'
 import { promptTime } from 'ui/timePrompt'
+import { showUndoNotice } from 'ui/undoNotice'
 import type TaskTimeTracker from '../main'
 import {
 	currentTarget,
-	ensureTargetFile,
 	NOTICE_DURATION,
 	readTaskNote,
+	targetIo,
 } from './target'
+import { undoNoteWrite } from './undo'
 
 export type TimeCommand = {
 	id: string
@@ -45,6 +51,11 @@ export const DAY_END_COMMAND: TimeCommand = {
 
 export const TIME_COMMANDS: TimeCommand[] = [DAY_START_COMMAND, DAY_END_COMMAND]
 
+const COMMANDS: Record<DayMark, TimeCommand> = {
+	start: DAY_START_COMMAND,
+	end: DAY_END_COMMAND,
+}
+
 export function registerFrontmatterTimeCommands(plugin: TaskTimeTracker) {
 	for (const command of TIME_COMMANDS) {
 		plugin.addCommand({
@@ -57,56 +68,75 @@ export function registerFrontmatterTimeCommands(plugin: TaskTimeTracker) {
 }
 
 /** Ask for the time and write it; the time written, or null when dismissed. */
-export async function runTimeCommand(
+export function runTimeCommand(
 	plugin: TaskTimeTracker,
 	command: TimeCommand
 ): Promise<Date | null> {
+	return promptDayMark(plugin, currentTarget(plugin), command.mark)
+}
+
+/**
+ * Ask for a note's start or end of day and write it; the time written, or
+ * null when dismissed.
+ */
+export async function promptDayMark(
+	plugin: TaskTimeTracker,
+	target: DailyTarget,
+	mark: DayMark
+): Promise<Date | null> {
 	const { app } = plugin
-	const target = currentTarget(plugin)
 	const frontmatter =
 		target.file && app.metadataCache.getFileCache(target.file)?.frontmatter
 	const dayStart = readFrontmatterTime(frontmatter?.[DAY_START_PROPERTY])
 	const dayEnd = readFrontmatterTime(frontmatter?.[DAY_END_PROPERTY])
 	const floor =
-		command.mark === 'end' && target.file
+		mark === 'end' && target.file
 			? dayEndFloor((await readTaskNote(plugin, target.file)).tasks, dayStart)
 			: null
 	const now = new Date()
 	const time = await promptTime(app, {
-		title: command.name,
+		title: COMMANDS[mark].name,
 		description:
-			command.mark === 'start' && dayEnd
+			mark === 'start' && dayEnd
 				? `No later than the end of day, ${formatTimeOfDay(dayEnd)}.`
 				: undefined,
 		reference: now,
 		parse: (text) =>
-			command.mark === 'end'
+			mark === 'end'
 				? parseDayEnd(text, target.date, floor, now)
 				: parseDayStart(text, target.date, dayEnd, now),
 	})
 	if (time === null) return null
-	await writeDayTime(
-		plugin,
-		await ensureTargetFile(plugin, target),
-		command.mark,
-		time
-	)
+	await writeDayTime(plugin, target, mark, time)
 	return time
 }
 
-/** Write a start or end of day to the note's frontmatter. */
+/**
+ * Write a start or end of day to the note's frontmatter, with a notice
+ * offering Change and Undo. True when the note holds it.
+ */
 export async function writeDayTime(
 	plugin: TaskTimeTracker,
-	file: TFile,
+	target: DailyTarget,
 	mark: DayMark,
 	time: Date
-): Promise<void> {
-	const value = formatLocalDateTime(time)
-	await plugin.app.fileManager.processFrontMatter(
-		file,
-		(frontmatter: Record<string, unknown>) => {
-			frontmatter[DAY_MARK_PROPERTY[mark]] = value
-		}
+): Promise<boolean> {
+	const io = targetIo(plugin, target)
+	const recorder = recordWrites(io)
+	const outcome = await rewriteNote(recorder.io, (content) =>
+		setFrontmatterValue(
+			content,
+			DAY_MARK_PROPERTY[mark],
+			formatLocalDateTime(time)
+		)
 	)
-	new Notice(describeMarkSet(mark, time, new Date()), NOTICE_DURATION)
+	if (outcome === 'busy') new Notice(BUSY_NOTICE, NOTICE_DURATION)
+	const write = recorder.written()
+	if (!write) return outcome === 'unchanged'
+	showUndoNotice(
+		describeMarkSet(mark, time, new Date()),
+		undoNoteWrite(io, write),
+		[{ label: 'Change', run: () => void promptDayMark(plugin, target, mark) }]
+	)
+	return true
 }

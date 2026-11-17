@@ -273,15 +273,15 @@ describe('describeOtherDay', () => {
 		expect(describeOtherDay(new Date(2026, 10, 12, 23, 59), now)).toBeNull()
 	})
 
-	it('names the other day', () => {
-		expect(describeOtherDay(new Date(2026, 10, 11, 23, 15), now)).toBe(
-			'Yesterday at 23:15'
-		)
+	it('gives the date of another day, the year only when it differs', () => {
 		expect(describeOtherDay(new Date(2026, 10, 13, 0, 30), now)).toBe(
-			'Tomorrow at 00:30'
+			'Friday, November 13 at 00:30'
 		)
-		expect(describeOtherDay(new Date(2026, 10, 9, 14, 30), now)).toBe(
-			'Monday at 14:30'
+		expect(describeOtherDay(new Date(2026, 10, 11, 23, 15), now)).toBe(
+			'Wednesday, November 11 at 23:15'
+		)
+		expect(describeOtherDay(new Date(2027, 0, 2, 9, 0), now)).toBe(
+			'Saturday, January 2, 2027 at 09:00'
 		)
 	})
 })

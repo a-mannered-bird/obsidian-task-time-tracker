@@ -1,7 +1,7 @@
 import assert from 'node:assert'
 import { browser, expect } from '@wdio/globals'
 import { obsidianPage } from 'wdio-obsidian-service'
-import { dayNote } from './support/days'
+import { dayNote, promptDay } from './support/days'
 import { clickNoticeButton } from './support/notices'
 import {
 	expectTimeMinutesAgo,
@@ -424,20 +424,27 @@ describe('tracker tab', function () {
 		// After the 08:00 start of day but before the clock ended at 22:30:
 		// the day can only end then on the next day.
 		await typeTime(modal, '22:00')
-		await expect(modal.$('p=Tomorrow at 22:00')).toBeDisplayed()
+		// The line under the fields gives the date, not "tomorrow".
+		await expect(modal.$(`p=${promptDay(1)} at 22:00`)).toBeDisplayed()
 		await modal.$('button=OK').click()
 
-		await waitForChange(content)
-		await browser.waitUntil(
-			async () => (await obsidianPage.read(today.path)).includes('day_end'),
-			{ timeoutMsg: 'the end of day was not written' }
-		)
+		const ended = await waitForChange(content)
 		assert.match(
-			await obsidianPage.read(today.path),
+			ended,
 			new RegExp(`\\nday_end: ${dayNote(1).date}T22:00:00\\n`)
 		)
 		await expect(
 			browser.$('button[aria-label="End of day 22:00, change"]')
+		).toBeDisplayed()
+
+		// The notice says so in words, with Change and Undo; Undo puts the
+		// note back as it was.
+		const notice = browser.$('.notice*=End of day set to tomorrow at 22:00.')
+		await expect(notice.$('button=Change')).toBeDisplayed()
+		await clickNoticeButton(notice, 'Undo')
+		assert.strictEqual(await waitForChange(ended), content)
+		await expect(
+			browser.$('button[aria-label="Set end of day"]')
 		).toBeDisplayed()
 	})
 
@@ -496,7 +503,9 @@ describe('tracker tab', function () {
 			browser.$('.notice*=Started Chores at 00:05'),
 			'Undo'
 		)
-		await expect(browser.$('.notice=The last action has been reverted.')).toBeDisplayed()
+		await expect(
+			browser.$('.notice=The last action has been reverted.')
+		).toBeDisplayed()
 		content = await waitForChange(content)
 		assert.deepStrictEqual(clocksOf(content, '- [ ] Chores'), started)
 	})
@@ -714,7 +723,9 @@ describe('tracker tab', function () {
 
 		// Undo finds the clock by the time written, to the second.
 		await clickNoticeButton(browser.$('.notice*=Chores 00:00'), 'Undo')
-		await expect(browser.$('.notice=The last action has been reverted.')).toBeDisplayed()
+		await expect(
+			browser.$('.notice=The last action has been reverted.')
+		).toBeDisplayed()
 		await waitForChange(content)
 		assert.strictEqual(await obsidianPage.read(today.path), original)
 	})

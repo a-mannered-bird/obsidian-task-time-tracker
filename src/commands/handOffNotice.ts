@@ -1,6 +1,10 @@
 import { Notice } from 'obsidian'
 import type { DailyTarget } from 'core/dailyNotes'
 import {
+	describeMarkChanges,
+	keepDayStartOnFirstClock,
+} from 'core/dayBoundaries'
+import {
 	clockChanges,
 	describeHandOff,
 	moveHandOff,
@@ -49,8 +53,12 @@ export function reportRun(
 		offerHandOff(plugin, target, handOff, message, write)
 		return
 	}
+	const lines = [
+		...notices,
+		...describeMarkChanges(write.before, write.after, new Date()),
+	]
 	showUndoNotice(
-		notices.join('\n') || 'Note updated.',
+		lines.join('\n') || 'Note updated.',
 		undoNoteWrite(targetIo(plugin, target), write)
 	)
 }
@@ -62,9 +70,16 @@ function offerHandOff(
 	message: string,
 	write: NoteWrite
 ): void {
-	showUndoNotice(message, undoNoteWrite(targetIo(plugin, target), write), [
+	// The start of day the run set with its first clock, said in the same
+	// notice: its Change moves both, its Undo removes both.
+	const text = [
+		message,
+		...describeMarkChanges(write.before, write.after, new Date()),
+	].join('\n')
+	showUndoNotice(text, undoNoteWrite(targetIo(plugin, target), write), [
 		{
 			label: 'Change',
+			cta: true,
 			run: () => void changeHandOff(plugin, target, handOff, message),
 		},
 	])
@@ -81,9 +96,10 @@ async function changeHandOff(
 	const at = await promptHandOffTime(plugin, handOff, message, now)
 	if (!at) return
 	const recorder = recordWrites(targetIo(plugin, target))
-	const outcome = await rewriteNote(recorder.io, (content) =>
-		moveHandOff(content, handOff, at)
-	)
+	const outcome = await rewriteNote(recorder.io, (content) => {
+		const moved = moveHandOff(content, handOff, at)
+		return moved === null ? null : keepDayStartOnFirstClock(content, moved)
+	})
 	if (outcome === 'gone') new Notice(GONE_NOTICE, NOTICE_DURATION)
 	if (outcome === 'busy') new Notice(BUSY_NOTICE, NOTICE_DURATION)
 	const write = recorder.written()

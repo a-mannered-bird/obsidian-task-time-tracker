@@ -1,3 +1,4 @@
+import { moment } from 'obsidian'
 import type { Task } from 'types/tasks'
 import { addDays, isSameDay } from './dailyNotes'
 import { describeDay } from './overnight'
@@ -193,14 +194,17 @@ export function minutesBefore(at: Date, reference: Date): number {
 }
 
 /**
- * The day of a typed time when it is not the reference's, which the time
- * field cannot show: `Yesterday at 23:15`, `Tomorrow at 00:30`, `Monday at
- * 09:00`. Null on the reference's day.
+ * The date of a typed time when it is not the reference's day, which the
+ * time field cannot show: `Thursday, November 13 at 00:30`, with the year
+ * when it differs. Null on the reference's day.
  */
 export function describeOtherDay(at: Date, reference: Date): string | null {
-	const day = otherDay(at, reference)
-	if (!day) return null
-	return `${day.charAt(0).toUpperCase()}${day.slice(1)} at ${formatTimeOfDay(at)}`
+	if (isSameDay(at, reference)) return null
+	const format =
+		at.getFullYear() === reference.getFullYear()
+			? 'dddd, MMMM D'
+			: 'dddd, MMMM D, YYYY'
+	return `${moment(at).format(format)} at ${formatTimeOfDay(at)}`
 }
 
 /**
