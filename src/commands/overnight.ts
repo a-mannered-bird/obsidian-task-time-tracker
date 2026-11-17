@@ -1,7 +1,6 @@
 import type { TFile } from 'obsidian'
 import type { OvernightClock } from 'core/overnight'
-import { formatTimeOfDay } from 'core/timeline'
-import { parseEndTime } from 'core/typedTime'
+import { describeStart, parseEndTime } from 'core/typedTime'
 import { promptTime } from 'ui/timePrompt'
 import type TaskTimeTracker from '../main'
 import { retimeClockLine } from './timelineEdits'
@@ -31,7 +30,7 @@ export async function promptOvernightStop(
 	const now = new Date()
 	const at = await promptTime(plugin.app, {
 		title: `Stop ${clock.taskName}`,
-		description: `Running since ${formatTimeOfDay(clock.start)}; an earlier time is the next day.`,
+		description: describeStart(clock.taskName, clock.start, now),
 		reference: now,
 		parse: (text) => parseEndTime(text, clock.start, now),
 		confirmText: 'Stop',

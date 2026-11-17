@@ -11,7 +11,6 @@ import {
 import { rewriteNote, type RewriteOutcome } from 'core/noteRewrite'
 import { parseTasks } from 'core/parser'
 import { setNoteTaskTags } from 'core/rowTags'
-import { formatTimeOfDay } from 'core/timeline'
 import { moveTaskLine, removeTaskLine, type TaskMove } from 'core/tracker'
 import {
 	askingTime,
@@ -20,7 +19,7 @@ import {
 	type ToggleOptions,
 } from 'core/toggle'
 import { BUSY_NOTICE } from 'core/trackingRun'
-import { parseEndTime, parseStartTime } from 'core/typedTime'
+import { describeStart, parseEndTime, parseStartTime } from 'core/typedTime'
 import { confirmAction } from 'ui/ConfirmActionModal'
 import { promptTime } from 'ui/timePrompt'
 import { showActionNotice } from 'ui/undoNotice'
@@ -217,15 +216,13 @@ async function changeHandOff(
 	handOff: HandOff,
 	message: string
 ): Promise<void> {
-	const latestStart = new Date(
-		Math.max(...handOff.stopped.map((clock) => clock.start.valueOf()))
-	)
+	const latest = handOff.stopped.reduce((a, b) => (b.start > a.start ? b : a))
 	const now = new Date()
 	const at = await promptTime(plugin.app, {
 		title: 'Change the time',
-		description: `${message}. A time before ${formatTimeOfDay(latestStart)} is the next day.`,
+		description: `${message}. ${describeStart(latest.taskName, latest.start, now)}`,
 		reference: now,
-		parse: (text) => parseEndTime(text, latestStart, now),
+		parse: (text) => parseEndTime(text, latest.start, now),
 		confirmText: 'Change',
 	})
 	if (!at) return
@@ -255,7 +252,7 @@ export async function changeStart(
 	const now = new Date()
 	const at = await promptTime(plugin.app, {
 		title: `Change when ${taskName} started`,
-		description: `Started at ${formatTimeOfDay(start)}.`,
+		description: describeStart(taskName, start, now),
 		reference: now,
 		parse: (text) => parseStartTime(text, start, now),
 		confirmText: 'Change',
@@ -279,7 +276,7 @@ export async function setStop(
 	const now = new Date()
 	const at = await promptTime(plugin.app, {
 		title: `Set when ${taskName} stopped`,
-		description: `Started at ${formatTimeOfDay(start)}; an earlier time is the next day.`,
+		description: describeStart(taskName, start, now),
 		reference: now,
 		parse: (text) => parseEndTime(text, start, now),
 		confirmText: 'Stop',

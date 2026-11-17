@@ -92,7 +92,12 @@ export function parseToggleTime(
 	const tooEarly = (at: Date, limit: Date) =>
 		touching ? at < limit : at <= limit
 	if ('minutesBack' in typed) {
-		const at = addMinutes(reference, -typed.minutesBack)
+		// Notes hold whole seconds, and a clock is found again (to undo an
+		// edit) by its exact time: milliseconds of now would never match.
+		const at = new Date(
+			Math.floor(addMinutes(reference, -typed.minutesBack).valueOf() / 1000) *
+				1000
+		)
 		if (after && tooEarly(at, after)) {
 			const relation = touching ? 'is before' : 'is not after'
 			return {
@@ -193,9 +198,27 @@ export function minutesBefore(at: Date, reference: Date): number {
  * 09:00`. Null on the reference's day.
  */
 export function describeOtherDay(at: Date, reference: Date): string | null {
+	const day = otherDay(at, reference)
+	if (!day) return null
+	return `${day.charAt(0).toUpperCase()}${day.slice(1)} at ${formatTimeOfDay(at)}`
+}
+
+/**
+ * When the open clock a prompt closes or moves started, as a sentence:
+ * `"Chores" started at 09:00.`, `"Chores" started yesterday at 22:40.`
+ */
+export function describeStart(
+	taskName: string,
+	start: Date,
+	now: Date
+): string {
+	const day = otherDay(start, now)
+	return `"${taskName}" started ${day ? `${day} ` : ''}at ${formatTimeOfDay(start)}.`
+}
+
+function otherDay(at: Date, reference: Date): string | null {
 	if (isSameDay(at, reference)) return null
-	const day = isSameDay(at, addDays(reference, 1))
+	return isSameDay(at, addDays(reference, 1))
 		? 'tomorrow'
 		: describeDay(at, reference)
-	return `${day.charAt(0).toUpperCase()}${day.slice(1)} at ${formatTimeOfDay(at)}`
 }

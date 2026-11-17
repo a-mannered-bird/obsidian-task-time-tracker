@@ -3,6 +3,7 @@ import { parseTasks } from './parser'
 import {
 	dayEndFloor,
 	describeOtherDay,
+	describeStart,
 	minutesBefore,
 	parseDayEnd,
 	parseDayStart,
@@ -63,6 +64,13 @@ describe('parseEndTime', () => {
 
 describe('parseStartTime', () => {
 	const start = new Date(2026, 10, 12, 7, 40)
+
+	it('drops the milliseconds of now, which a note cannot hold', () => {
+		const late = new Date(2026, 10, 12, 8, 0, 12, 345)
+		expect(parseStartTime('0', start, late)).toEqual({
+			at: new Date(2026, 10, 12, 8, 0, 12),
+		})
+	})
 
 	it('places the time on the start day, earlier or later than the start', () => {
 		expect(parseStartTime('7:10', start, now)).toEqual({
@@ -274,6 +282,17 @@ describe('describeOtherDay', () => {
 		)
 		expect(describeOtherDay(new Date(2026, 10, 9, 14, 30), now)).toBe(
 			'Monday at 14:30'
+		)
+	})
+})
+
+describe('describeStart', () => {
+	it('names the day only when it is not today', () => {
+		expect(describeStart('Chores', new Date(2026, 10, 12, 7, 10), now)).toBe(
+			'"Chores" started at 07:10.'
+		)
+		expect(describeStart('Chores', new Date(2026, 10, 11, 22, 40), now)).toBe(
+			'"Chores" started yesterday at 22:40.'
 		)
 	})
 })

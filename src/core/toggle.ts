@@ -3,7 +3,7 @@ import { taskMinutes } from './aggregate'
 import { getLastEnd, isRunning, type TaskNote } from './note'
 import { addMinutes, formatLocalDateTime, getMinutesBetween } from './time'
 import { formatTimeOfDay } from './timeline'
-import { parseToggleTime, type TypedTime } from './typedTime'
+import { describeStart, parseToggleTime, type TypedTime } from './typedTime'
 
 /**
  * What a tracking command does. Every command of the plugin is one fixed
@@ -306,14 +306,15 @@ async function resolveTime(
 	if (options.timeTravel) {
 		const reference = at
 		const day = options.fromLastTask ? reference : (context.day ?? now)
-		const after = latestClosedStart(note, selected, options)
+		const closed = latestClosedClock(note, selected, options)
+		const after = closed?.start ?? null
 		const names = selected.map((task) => `"${task.name}"`).join(', ')
-		const nextDay = after
-			? ` A time before ${formatTimeOfDay(after)} is the next day.`
+		const started = closed
+			? ` ${describeStart(closed.taskName, closed.start, now)}`
 			: ''
 		const picked = await prompts.promptTime({
 			title: 'When did it happen?',
-			description: `Toggles ${names}.${nextDay}`,
+			description: `Toggles ${names}.${started}`,
 			reference,
 			minutesLabel: options.fromLastTask
 				? `Minutes before ${formatTimeOfDay(reference)}`
@@ -327,22 +328,26 @@ async function resolveTime(
 }
 
 /**
- * The latest start of the clocks the toggle closes: those of the selected
+ * The latest started of the clocks the toggle closes: those of the selected
  * running tasks, or when switching, of every other running task.
  */
-function latestClosedStart(
+function latestClosedClock(
 	note: TaskNote,
 	selected: Task[],
 	options: ToggleOptions
-): Date | null {
+): { taskName: string; start: Date } | null {
 	const closing = options.switch
 		? note.getRunningTasks().filter((task) => !selected.some(sameTask(task)))
 		: selected.filter(isRunning)
-	const starts = closing.flatMap((task) =>
-		task.clocks.flatMap((clock) => (clock.end === null ? [clock.start] : []))
-	)
-	if (starts.length === 0) return null
-	return new Date(Math.max(...starts.map((start) => start.valueOf())))
+	let latest: { taskName: string; start: Date } | null = null
+	for (const task of closing) {
+		for (const clock of task.clocks) {
+			if (clock.end === null && (!latest || clock.start > latest.start)) {
+				latest = { taskName: task.name, start: clock.start }
+			}
+		}
+	}
+	return latest
 }
 
 // ----- mutations -----

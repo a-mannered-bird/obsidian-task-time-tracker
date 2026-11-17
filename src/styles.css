@@ -33,6 +33,90 @@
 	color: var(--text-error);
 }
 
+/* Time prompt: minutes ago or a time of day, one choice side by side. */
+.task-time-tracker-time-choice {
+	display: flex;
+	align-items: flex-start;
+	gap: var(--size-4-4);
+	margin-bottom: var(--size-4-2);
+}
+
+.task-time-tracker-time-option {
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-4-1);
+}
+
+.task-time-tracker-time-label {
+	font-size: var(--font-ui-small);
+	color: var(--text-normal);
+}
+
+.task-time-tracker-time-hint {
+	font-size: var(--font-ui-smaller);
+	color: var(--text-muted);
+}
+
+/* Lined up with the fields, below their labels. */
+.task-time-tracker-time-or {
+	align-self: flex-start;
+	margin-top: calc(var(--font-ui-small) * 1.5 + var(--size-4-1));
+	line-height: var(--input-height);
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+}
+
+.task-time-tracker-stepper {
+	display: flex;
+	align-items: center;
+	gap: var(--size-4-1);
+}
+
+.task-time-tracker-minutes-input {
+	width: 4.5em;
+	text-align: center;
+	font-variant-numeric: tabular-nums;
+}
+
+/*
+ * Obsidian styles text, number and date inputs but not time inputs: the
+ * same rules as its date input, so the field matches its neighbour.
+ */
+.task-time-tracker-time-input {
+	background: var(--background-modifier-form-field);
+	border: var(--input-border-width) solid var(--background-modifier-border);
+	color: var(--text-normal);
+	font-family: inherit;
+	font-variant-numeric: tabular-nums;
+	padding: var(--input-padding);
+	font-size: var(--font-ui-small);
+	border-radius: var(--input-radius);
+	transition: var(--input-transition);
+	outline: none;
+	height: var(--input-height);
+}
+
+.task-time-tracker-time-input:hover {
+	background-color: var(--background-modifier-form-field-hover);
+	border-color: var(--background-modifier-border-hover);
+}
+
+.task-time-tracker-time-input:focus,
+.task-time-tracker-time-input:focus-visible {
+	border-color: var(--background-modifier-border-focus);
+	box-shadow: 0 0 0 var(--input-border-width-focus)
+		var(--background-modifier-border-focus);
+}
+
+.task-time-tracker-time-input::-webkit-datetime-edit-text {
+	color: var(--input-date-separator);
+	padding-inline-end: 0;
+}
+
+.task-time-tracker-time-input::-webkit-calendar-picker-indicator {
+	opacity: 0.5;
+}
+
 .task-time-tracker-block-error {
 	color: var(--text-error);
 	border: 1px solid var(--background-modifier-error);

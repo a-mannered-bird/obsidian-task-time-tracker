@@ -420,9 +420,6 @@ describe('tracker tab', function () {
 			.getElement()
 		await browser.execute((el) => el.click(), setEnd)
 		const modal = await modalTitled('Set end of day')
-		await expect(
-			modal.$('p*=before 22:30, the end of the last clock, is the next day')
-		).toBeDisplayed()
 		await expect(minutesField(modal)).toHaveValue('0')
 		// After the 08:00 start of day but before the clock ended at 22:30:
 		// the day can only end then on the next day.
@@ -655,17 +652,21 @@ describe('tracker tab', function () {
 		await expectPlan(['Run'])
 	})
 
-	it('moves the start of a running task by minutes ago', async function () {
-		let content = await writeToday([
+	it('moves the start of a running task by minutes ago, then undoes it', async function () {
+		const original = await writeToday([
 			'- [ ] Chores',
 			`      [clock::${today.date}T00:00:00]`,
 		])
+		let content = original
 		await openTracker()
 
 		await chooseFromRowMenu('Chores', 'Change clock start time')
 		const modal = await modalTitled('Change when Chores started')
-		await typeMinutes(modal, '5')
-		// The time field follows the minutes typed.
+		await expect(modal.$('p*=started at 00:00.')).toBeDisplayed()
+		await typeMinutes(modal, '4')
+		await modal.$('button[aria-label="One minute more"]').click()
+		await expect(minutesField(modal)).toHaveValue('5')
+		// The time field follows the minutes.
 		await expectTimeMinutesAgo(modal, 5)
 		const typedAt = Date.now()
 		await modal.$('button=Change').click()
@@ -680,6 +681,11 @@ describe('tracker tab', function () {
 			Math.abs(start - expected) < 60 * 1000,
 			`started at ${clock.start}`
 		)
+
+		// Undo finds the clock by the time written, to the second.
+		await clickNoticeButton(browser.$('.notice*=Chores 00:00'), 'Undo')
+		await waitForChange(content)
+		assert.strictEqual(await obsidianPage.read(today.path), original)
 	})
 
 	it('moves the start of a running task into the future', async function () {

@@ -71,11 +71,8 @@ export async function runTimeCommand(
 	const now = new Date()
 	const time = await promptTime(app, {
 		title: command.name,
-		description: command.endsDay
-			? floor
-				? `A time before ${formatTimeOfDay(floor.at)}, ${floor.what}, is the next day.`
-				: undefined
-			: dayEnd
+		description:
+			!command.endsDay && dayEnd
 				? `No later than the end of day, ${formatTimeOfDay(dayEnd)}.`
 				: undefined,
 		reference: now,
