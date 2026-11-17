@@ -8,7 +8,7 @@ import { TaskNote } from 'core/note'
 import type { NoteIo } from 'core/trackingRun'
 import type TaskTimeTracker from '../main'
 
-export const NOTICE_DURATION = 5000
+export { NOTICE_DURATION } from 'ui/undoNotice'
 
 /** The daily note commands act on: see resolveTarget. */
 export function currentTarget(plugin: TaskTimeTracker): DailyTarget {

@@ -496,7 +496,7 @@ describe('tracker tab', function () {
 			browser.$('.notice*=Started Chores at 00:05'),
 			'Undo'
 		)
-		await expect(browser.$('.notice=Undone.')).toBeDisplayed()
+		await expect(browser.$('.notice=The last action has been reverted.')).toBeDisplayed()
 		content = await waitForChange(content)
 		assert.deepStrictEqual(clocksOf(content, '- [ ] Chores'), started)
 	})
@@ -714,7 +714,7 @@ describe('tracker tab', function () {
 
 		// Undo finds the clock by the time written, to the second.
 		await clickNoticeButton(browser.$('.notice*=Chores 00:00'), 'Undo')
-		await expect(browser.$('.notice=Undone.')).toBeDisplayed()
+		await expect(browser.$('.notice=The last action has been reverted.')).toBeDisplayed()
 		await waitForChange(content)
 		assert.strictEqual(await obsidianPage.read(today.path), original)
 	})

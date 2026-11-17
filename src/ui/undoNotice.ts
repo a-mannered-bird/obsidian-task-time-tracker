@@ -1,7 +1,11 @@
 import { Notice } from 'obsidian'
 
-const ACTION_DURATION = 8000
-const UNDONE_DURATION = 3000
+/**
+ * How long every notice about the clocks stays, buttons or not: long
+ * enough to reach Change or Undo, and the same for all so none of them
+ * reads as more or less important.
+ */
+export const NOTICE_DURATION = 8000
 
 export type NoticeAction = { label: string; run: () => void }
 
@@ -23,7 +27,7 @@ export function showActionNotice(
 			})
 			.addEventListener('click', run)
 	})
-	return new Notice(fragment, ACTION_DURATION)
+	return new Notice(fragment, NOTICE_DURATION)
 }
 
 /** Only the latest change can be undone; its notice goes when another lands. */
@@ -48,7 +52,8 @@ export function showUndoNotice(
 				notice.hide()
 				if (latestUndo === notice) latestUndo = null
 				void undo().then((done) => {
-					if (done) new Notice('Undone.', UNDONE_DURATION)
+					if (done)
+						new Notice('The last action has been reverted.', NOTICE_DURATION)
 				})
 			},
 		},
