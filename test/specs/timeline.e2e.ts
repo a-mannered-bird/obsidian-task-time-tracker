@@ -91,6 +91,17 @@ describe('timeline tab', function () {
 		await resetVault()
 	})
 
+	// Here rather than at the end of the zoom tests: a zoom left behind by a
+	// failing one would throw off the pixel arithmetic of every later test.
+	// The remount also drops the view's pending, debounced zoom save.
+	afterEach(async function () {
+		await browser.executeObsidian(async ({ plugins }) => {
+			plugins.obsidianTaskTimeTracker.settings.timelineZoom = 60
+			await plugins.obsidianTaskTimeTracker.saveSettings()
+			await plugins.obsidianTaskTimeTracker.refreshViews()
+		})
+	})
+
 	it('opens a note fitted to its day', async function () {
 		await setFitOnOpen(true)
 		await openTimeline()
@@ -275,13 +286,6 @@ describe('timeline tab', function () {
 				)
 				.then((zoom) => zoom === 135)
 		)
-
-		// Leave the zoom as found for the other tests.
-		await browser.executeObsidian(async ({ plugins }) => {
-			plugins.obsidianTaskTimeTracker.settings.timelineZoom = 60
-			await plugins.obsidianTaskTimeTracker.saveSettings()
-			await plugins.obsidianTaskTimeTracker.refreshViews()
-		})
 	})
 
 	it('zooms out around the middle of the view, not the pointer', async function () {
@@ -315,12 +319,6 @@ describe('timeline tab', function () {
 		// middle by a pixel: allow a thousandth of the day either way.
 		const drift = Math.abs((await middleOfView()) - before)
 		assert.ok(drift <= 0.001, `the middle moved by ${drift} of the day`)
-
-		await browser.executeObsidian(async ({ plugins }) => {
-			plugins.obsidianTaskTimeTracker.settings.timelineZoom = 60
-			await plugins.obsidianTaskTimeTracker.saveSettings()
-			await plugins.obsidianTaskTimeTracker.refreshViews()
-		})
 	})
 
 	/**

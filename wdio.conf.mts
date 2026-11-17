@@ -12,6 +12,33 @@ const inBackground =
 type ElectronRemote = {
 	app: { hide(): void }
 	getCurrentWebContents(): { setBackgroundThrottling(allowed: boolean): void }
+	getCurrentWindow(): { setSize(width: number, height: number): void }
+}
+
+/**
+ * The timeline specs aim the pointer in pixels and zoom against the height
+ * of the view, so every machine must give Obsidian the same window: the
+ * default one is 1024×800 on macOS but fills the screen under CI's window
+ * manager. (WebDriver's own window commands do not exist in Electron.)
+ */
+export const WINDOW_SIZE = { width: 1024, height: 800 }
+
+export async function setWindowSize() {
+	await browser.execute(({ width, height }) => {
+		const electron = (
+			window as unknown as {
+				require(id: 'electron'): { remote: ElectronRemote }
+			}
+		).require('electron')
+		electron.remote.getCurrentWindow().setSize(width, height)
+	}, WINDOW_SIZE)
+	await browser.waitUntil(() =>
+		browser.execute(
+			({ width, height }) =>
+				window.outerWidth === width && window.outerHeight === height,
+			WINDOW_SIZE
+		)
+	)
 }
 
 async function sendToBackground() {
@@ -65,11 +92,14 @@ export const config: WebdriverIO.Config = {
 	},
 
 	before: async () => {
+		await setWindowSize()
 		if (inBackground) await sendToBackground()
 	},
 	// A reload starts a new Obsidian, which takes the focus again.
 	afterCommand: async (command) => {
-		if (inBackground && command === 'reloadObsidian') await sendToBackground()
+		if (command !== 'reloadObsidian') return
+		await setWindowSize()
+		if (inBackground) await sendToBackground()
 	},
 
 	services: ['obsidian'],

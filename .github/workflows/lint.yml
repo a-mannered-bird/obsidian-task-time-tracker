@@ -55,7 +55,13 @@ jobs:
                   echo "DISPLAY=$DISPLAY" >> "$GITHUB_ENV"
                   Xvfb $DISPLAY -screen 0 1280x1024x24 +extension GLX -noreset &
                   sleep 1
-                  herbstluftwm &
+                  # Floating windows keep the size the tests give them
+                  # (wdio.conf.mts); tiled ones would be resized to share
+                  # the screen. This also replaces the default autostart,
+                  # whose panel fails on Xvfb.
+                  printf '#!/bin/sh\nherbstclient rule floating=on\n' > "$RUNNER_TEMP/hlwm-autostart"
+                  chmod +x "$RUNNER_TEMP/hlwm-autostart"
+                  herbstluftwm --autostart "$RUNNER_TEMP/hlwm-autostart" &
                   sleep 1
             - run: npm run test:e2e
               env:

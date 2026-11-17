@@ -1,4 +1,4 @@
-import { config as base } from './wdio.conf.mts'
+import { config as base, setWindowSize } from './wdio.conf.mts'
 
 /**
  * E2E run with the WebdriverIO DevTools attached: `live` opens the DevTools
@@ -13,10 +13,13 @@ export const config: WebdriverIO.Config = {
 	// The trace player rebuilds the DOM outside Electron, where Obsidian's
 	// `app://` stylesheets cannot load; inlining them makes the replay styled.
 	before: async () => {
+		await setWindowSize()
 		await inlineStylesheets()
 	},
 	// Watched live: keep Obsidian on screen after a reload too.
-	afterCommand: undefined,
+	afterCommand: async (command) => {
+		if (command === 'reloadObsidian') await setWindowSize()
+	},
 	services: [
 		...(base.services ?? []),
 		[
