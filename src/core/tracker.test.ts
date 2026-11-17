@@ -225,7 +225,6 @@ describe('rowActions', () => {
 		expect(actionsOf('Email')).toEqual([
 			'change-start',
 			'set-stop',
-			'set-duration',
 			'migrate-clock',
 			'show-task',
 			'show-clock',

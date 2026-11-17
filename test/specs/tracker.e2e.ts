@@ -874,36 +874,61 @@ describe('tracker tab', function () {
 		)
 	})
 
+	it('sets the duration of a running clock from its row', async function () {
+		let content = await writeToday([
+			'- [ ] Chores',
+			`      [clock::${today.date}T00:00:00]`,
+		])
+		await openTracker()
+
+		await button('Set clock duration of Chores').click()
+		const modal = await modalTitled('How long did the task last?')
+		const minutes = modal.$('input[type="number"]')
+		await minutes.setValue('10')
+		await expect(minutes).toHaveValue('10')
+		await modal.$('button=OK').click()
+
+		// The clock ends 10 minutes after its start, and the task stops.
+		content = await waitForChange(content)
+		assert.deepStrictEqual(clocksOf(content, '- [ ] Chores'), [
+			{ start: `${today.date}T00:00:00`, end: `${today.date}T00:10:00` },
+		])
+		await expect(button('Start Chores')).toBeDisplayed()
+	})
+
 	it('shows a set shortcut after a row menu item', async function () {
 		await writeToday(['- [ ] Chores', `      [clock::${today.date}T00:00:00]`])
 		await openTracker()
 		await browser.executeObsidian(({ app }) => {
 			const { hotkeyManager } = app as unknown as WithHotkeys
-			hotkeyManager.setHotkeys('obsidian-task-time-tracker:set-task-duration', [
-				{ modifiers: ['Mod', 'Alt'], key: 'D' },
-			])
+			hotkeyManager.setHotkeys(
+				'obsidian-task-time-tracker:migrate-current-task',
+				[{ modifiers: ['Mod', 'Alt'], key: 'D' }]
+			)
 		})
 
 		const more = await button('More actions for Chores').getElement()
 		await browser.execute((el) => el.click(), more)
-		const title = browser.$('.menu').$('.menu-item-title*=Set clock duration')
+		const title = browser
+			.$('.menu')
+			.$('.menu-item-title*=Migrate clock to another task')
 		await expect(title).toBeDisplayed()
 		// Obsidian's menu shows the shortcut apart, without brackets.
 		await expect(title).toHaveText(
-			expect.stringMatching(/^Set clock duration\s+[^\s(]/)
+			expect.stringMatching(/^Migrate clock to another task\s+[^\s(]/)
 		)
 		// A native menu (macOS) takes the title's text: brackets keep it apart.
 		const nativeLabel = await browser.execute(
 			(el) => el.textContent,
 			await title.getElement()
 		)
-		assert.match(nativeLabel ?? '', /^Set clock duration \(\S.*\)$/)
+		assert.match(nativeLabel ?? '', /^Migrate clock to another task \(\S.*\)$/)
 		await browser.keys('Escape')
 
 		await browser.executeObsidian(({ app }) => {
 			const { hotkeyManager } = app as unknown as WithHotkeys
 			hotkeyManager.removeHotkeys(
-				'obsidian-task-time-tracker:set-task-duration'
+				'obsidian-task-time-tracker:migrate-current-task'
 			)
 		})
 	})

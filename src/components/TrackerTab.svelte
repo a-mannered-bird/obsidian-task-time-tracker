@@ -343,12 +343,6 @@
 			icon: 'timer-off',
 			group: 'track',
 		},
-		'set-duration': {
-			title: 'Set clock duration',
-			icon: 'hourglass',
-			group: 'track',
-			control: 'setDuration',
-		},
 		'migrate-clock': {
 			title: 'Migrate clock to another task',
 			icon: 'move',
@@ -452,8 +446,6 @@
 			case 'set-stop':
 				if (clock) void setStop(plugin, file, name, clock.start)
 				return
-			case 'set-duration':
-				return void setDuration(plugin, name)
 			case 'migrate-clock':
 			case 'migrate-last-clock':
 				return void migrateLastClock(plugin, name)
@@ -768,6 +760,13 @@
 									use:icon={'square'}
 									onclick={() => stop([task.name], false)}
 								></button>
+								<button
+									class="row-button"
+									aria-label={`Set clock duration of ${task.name}`}
+									use:instantTooltip={() => controlHint(plugin, 'setDuration')}
+									use:icon={'hourglass'}
+									onclick={() => void setDuration(plugin, task.name)}
+								></button>
 								{@render moreButton(task)}
 							</span>
 							{@render tagEditor(task)}
@@ -986,9 +985,17 @@
 		outline-offset: 2px;
 	}
 
-	/* Running rows keep the plan rows' height, set apart by a background. */
+	/*
+	 * Running rows keep the plan rows' height, set apart by a background
+	 * that reaches past the column: the negative margin cancels the padding,
+	 * so the checkbox and the ⋯ button line up with the plan rows'.
+	 */
 	.row.running {
-		padding: 0 0.25em 0 0.6em;
+		--running-inset-start: 0.6em;
+		--running-inset-end: 0.25em;
+		padding: 0 var(--running-inset-end) 0 var(--running-inset-start);
+		margin-inline: calc(-1 * var(--running-inset-start))
+			calc(-1 * var(--running-inset-end));
 		border-radius: var(--radius-s);
 		background: var(--background-secondary);
 	}

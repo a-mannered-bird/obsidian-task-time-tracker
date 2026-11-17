@@ -85,7 +85,6 @@ export type RowAction =
 	| 'stop-from-last-end'
 	| 'change-start'
 	| 'set-stop'
-	| 'set-duration'
 	| 'migrate-clock'
 	| 'start-from-last-end'
 	| 'migrate-last-clock'
@@ -117,7 +116,6 @@ export function rowActions(task: Task, tasks: Task[]): RowAction[] {
 			),
 			'change-start',
 			'set-stop',
-			'set-duration',
 			'migrate-clock',
 			'show-task',
 			'show-clock',
