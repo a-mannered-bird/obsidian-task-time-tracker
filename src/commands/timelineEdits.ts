@@ -111,7 +111,7 @@ export async function deleteClockLine(
 }
 
 /** Tell about a write that did not happen; true when it did. */
-function wrote(outcome: RewriteOutcome): boolean {
+export function wrote(outcome: RewriteOutcome): boolean {
 	if (outcome === 'gone') new Notice(GONE_NOTICE, NOTICE_DURATION)
 	if (outcome === 'busy') new Notice(BUSY_NOTICE, NOTICE_DURATION)
 	return outcome === 'written'

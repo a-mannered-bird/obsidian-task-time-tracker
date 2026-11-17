@@ -14,7 +14,7 @@
 		retimeClockLine,
 	} from 'commands/timelineEdits'
 	import type { DailyLog } from 'core/dailyLogs'
-	import { DAY_END_PROPERTY, DAY_START_PROPERTY } from 'core/time'
+	import type { DayMark } from 'core/dayBoundaries'
 	import { dayEndFloor } from 'core/typedTime'
 	import { tagEmoji } from 'core/taskPicker'
 	import {
@@ -76,7 +76,6 @@
 	let ghost = $state<{ id: string; times: ClockTimes } | null>(null)
 	/** A new clock drawn over empty space, shown until its task is picked. */
 	let drawn = $state<FinishedClockTimes | null>(null)
-	type DayMark = 'start' | 'end'
 	/** Where the start or end of day line being dragged would land. */
 	let markGhost = $state<{ mark: DayMark; at: Date } | null>(null)
 	/** A start or end of day being written, shown until the note reloads. */
@@ -236,12 +235,7 @@
 		if (recorded?.valueOf() === at.valueOf()) return
 		markPending = { mark, at }
 		try {
-			await writeDayTime(
-				plugin,
-				log.file,
-				mark === 'start' ? DAY_START_PROPERTY : DAY_END_PROPERTY,
-				at
-			)
+			await writeDayTime(plugin, log.file, mark, at)
 		} catch (error) {
 			// The line goes back to the recorded time; nothing was written.
 			console.error(error)

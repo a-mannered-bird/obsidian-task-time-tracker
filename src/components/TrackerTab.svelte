@@ -618,30 +618,39 @@
 			<h2 id="overnight-title" class="overnight-title">
 				Still running from {describeDay(earlier.date, now)}
 			</h2>
-			{#each overnight.clocks as clock (`${clock.taskName} ${clock.start.valueOf()}`)}
-				<div class="overnight-clock">
-					<span class="overnight-name">{clock.taskName}</span>
-					<span class="muted">since {formatTimeOfDay(clock.start)}</span>
-				</div>
-				<div class="buttons">
-					{#if clock.dayEnd}
-						{@const dayEnd = clock.dayEnd}
-						<button
-							class="mod-cta"
-							onclick={() =>
-								void stopOvernightClock(plugin, earlier.file, clock, dayEnd)}
-						>
-							Stop at {formatTimeOfDay(dayEnd)}
-						</button>
-					{/if}
-					<button
-						onclick={() =>
-							void promptOvernightStop(plugin, earlier.file, clock)}
-					>
-						Stop at…
-					</button>
-				</div>
-			{/each}
+			<ul class="overnight-clocks">
+				{#each overnight.clocks as clock (`${clock.taskName} ${clock.start.valueOf()}`)}
+					<li class="overnight-clock">
+						<span class="overnight-what">
+							<span class="overnight-name">{clock.taskName}</span>
+							<span class="muted">since {formatTimeOfDay(clock.start)}</span>
+						</span>
+						<span class="overnight-actions">
+							{#if clock.dayEnd}
+								{@const dayEnd = clock.dayEnd}
+								<button
+									class="mod-cta"
+									onclick={() =>
+										void stopOvernightClock(
+											plugin,
+											earlier.file,
+											clock,
+											dayEnd
+										)}
+								>
+									Stop at {formatTimeOfDay(dayEnd)}
+								</button>
+							{/if}
+							<button
+								onclick={() =>
+									void promptOvernightStop(plugin, earlier.file, clock)}
+							>
+								Stop at…
+							</button>
+						</span>
+					</li>
+				{/each}
+			</ul>
 		</section>
 	{/if}
 
@@ -1034,11 +1043,35 @@
 		color: var(--color-orange);
 	}
 
+	.overnight-clocks {
+		display: flex;
+		flex-direction: column;
+		gap: 0.9em;
+		list-style: none;
+		margin: 0;
+		padding: 0;
+	}
+
+	/* Name on the left, its buttons on the right; in a narrow pane they wrap
+	   under the name, closer to it than to the next clock. */
 	.overnight-clock {
 		display: flex;
+		flex-wrap: wrap;
 		align-items: center;
+		justify-content: space-between;
+		gap: 0.3em 0.75em;
+	}
+
+	.overnight-what {
+		display: flex;
+		align-items: baseline;
 		gap: 0.5em;
-		margin-bottom: 0.5em;
+		min-width: 0;
+	}
+
+	.overnight-actions {
+		display: flex;
+		gap: 0.5em;
 	}
 
 	.rows {

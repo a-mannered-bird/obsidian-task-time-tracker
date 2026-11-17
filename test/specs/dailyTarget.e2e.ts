@@ -58,11 +58,15 @@ describe('daily target', function () {
 			timeoutMsg: "today's note was not created",
 		})
 		const lines = (await obsidianPage.read(today.path)).trim().split('\n')
-		assert.strictEqual(lines[0], '- [ ] Plan the week')
-		assert.match(
-			lines[1] ?? '',
-			new RegExp(`^ +\\[clock::${today.date}T[\\d:]{8}\\]$`)
-		)
+		// The first clock of the note also starts its day, at its start.
+		const start = /^ +\[clock::(\S{19})\]$/.exec(lines[4] ?? '')?.[1]
+		assert.ok(start?.startsWith(`${today.date}T`), `clock line: ${lines[4]}`)
+		assert.deepStrictEqual(lines.slice(0, 4), [
+			'---',
+			`day_start: ${start}`,
+			'---',
+			'- [ ] Plan the week',
+		])
 		assert.strictEqual(await obsidianPage.read(LATEST_FIXTURE), latestBefore)
 	})
 
@@ -156,19 +160,41 @@ describe('daily target', function () {
 			async () => (await obsidianPage.read(yesterday.path)) !== note,
 			{ timeoutMsg: "yesterday's clock was not stopped" }
 		)
+		// Its last running clock stopped, yesterday ends when it did.
 		assert.strictEqual(
 			await obsidianPage.read(yesterday.path),
-			note.replace(
-				`[clock::${yesterday.date}T22:40:00]`,
-				`[clock::${yesterday.date}T22:40:00--${yesterday.date}T23:30:00]`
-			)
+			[
+				'---',
+				`day_end: ${yesterday.date}T23:30:00`,
+				'---',
+				'- [ ] Write blog post',
+				`      [clock::${yesterday.date}T22:40:00--${yesterday.date}T23:30:00]`,
+				'',
+			].join('\n')
 		)
+		await expect(
+			browser.$('.notice*=End of day set to yesterday at 23:30.')
+		).toBeDisplayed()
 		await expect(browser.$('p=Nothing tracked yet')).toBeDisplayed()
 
 		// The reset deletes the note: start the next test without its clocks.
 		await browser.executeObsidian(({ plugins }, path) => {
 			plugins.obsidianTaskTimeTracker.lostClocks.forget(path)
 		}, yesterday.path)
+	})
+
+	it('gives the start and end of day the date and time property type', async function () {
+		// Obsidian's property type registry is private API (see
+		// src/ui/propertyTypes.ts); read it the way the plugin does.
+		const types = await browser.executeObsidian(({ app }) => {
+			const manager = Reflect.get(app, 'metadataTypeManager') as {
+				getAssignedWidget(name: string): string | null
+			}
+			return ['day_start', 'day_end'].map((name) =>
+				manager.getAssignedWidget(name)
+			)
+		})
+		assert.deepStrictEqual(types, ['datetime', 'datetime'])
 	})
 
 	it('says when the note shown is not today and goes back to today', async function () {

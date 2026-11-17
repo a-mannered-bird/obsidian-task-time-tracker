@@ -21,6 +21,8 @@ import {
 	type TaskTimeTrackerSettings,
 } from './settings'
 import { openTaskManager } from './ui/TaskManagerModal'
+import { assignDateTimeType } from './ui/propertyTypes'
+import { DAY_END_PROPERTY, DAY_START_PROPERTY } from './core/time'
 import { DailyItemView, DAILY_VIEW } from './views/DailyItemView'
 import { registerStatsCodeBlock } from './views/statsCodeBlock'
 
@@ -87,6 +89,10 @@ export default class TaskTimeTracker extends Plugin {
 		registerStatsCodeBlock(this)
 
 		this.addSettingTab(new TaskTimeTrackerSettingTab(this.app, this))
+
+		this.app.workspace.onLayoutReady(() => {
+			void assignDateTimeType(this.app, [DAY_START_PROPERTY, DAY_END_PROPERTY])
+		})
 	}
 
 	async loadSettings() {

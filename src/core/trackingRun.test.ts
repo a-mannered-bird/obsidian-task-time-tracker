@@ -69,11 +69,16 @@ describe('applyTrackingSteps', () => {
 	it('writes the toggle when the note did not change meanwhile', async () => {
 		const note = fakeNote(['- [ ] Emails', '- [ ] Walk the dog'])
 		await note.run(note.picking('Emails'))
+		// The first clock of the note also starts its day, in the same write.
 		expect(note.lines()).toEqual([
+			'---',
+			'day_start: 2026-08-16T12:00:00',
+			'---',
 			'- [ ] Emails',
 			'      [clock::2026-08-16T12:00:00]',
 			'- [ ] Walk the dog',
 		])
+		expect(note.notices).toContain('Start of day set to 12:00.')
 	})
 
 	it('redoes the toggle on the new content when the note changed during the prompt, without asking again', async () => {
@@ -114,6 +119,9 @@ describe('applyTrackingSteps', () => {
 			note.picking('Emails', () => note.external(['- [ ] Walk the dog']))
 		)
 		expect(note.lines()).toEqual([
+			'---',
+			'day_start: 2026-08-16T12:00:00',
+			'---',
 			'- [ ] Walk the dog',
 			'- [ ] Emails #work',
 			'      [clock::2026-08-16T12:00:00]',

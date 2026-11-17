@@ -5,6 +5,11 @@ import {
 	formatLocalDateTime,
 	readFrontmatterTime,
 } from 'core/time'
+import {
+	DAY_MARK_PROPERTY,
+	describeMarkSet,
+	type DayMark,
+} from 'core/dayBoundaries'
 import { formatTimeOfDay } from 'core/timeline'
 import { dayEndFloor, parseDayEnd, parseDayStart } from 'core/typedTime'
 import { promptTime } from 'ui/timePrompt'
@@ -20,24 +25,22 @@ export type TimeCommand = {
 	id: string
 	name: string
 	icon: IconName
-	property: string
-	/** The end of day, which comes after the start of day and every clock. */
-	endsDay?: boolean
+	/** The end of day comes after the start of day and every clock. */
+	mark: DayMark
 }
 
 export const DAY_START_COMMAND: TimeCommand = {
 	id: 'set-day-start',
 	name: 'Set start of day',
 	icon: 'sunrise',
-	property: DAY_START_PROPERTY,
+	mark: 'start',
 }
 
 export const DAY_END_COMMAND: TimeCommand = {
 	id: 'set-day-end',
 	name: 'Set end of day',
 	icon: 'sunset',
-	property: DAY_END_PROPERTY,
-	endsDay: true,
+	mark: 'end',
 }
 
 export const TIME_COMMANDS: TimeCommand[] = [DAY_START_COMMAND, DAY_END_COMMAND]
@@ -65,19 +68,19 @@ export async function runTimeCommand(
 	const dayStart = readFrontmatterTime(frontmatter?.[DAY_START_PROPERTY])
 	const dayEnd = readFrontmatterTime(frontmatter?.[DAY_END_PROPERTY])
 	const floor =
-		command.endsDay && target.file
+		command.mark === 'end' && target.file
 			? dayEndFloor((await readTaskNote(plugin, target.file)).tasks, dayStart)
 			: null
 	const now = new Date()
 	const time = await promptTime(app, {
 		title: command.name,
 		description:
-			!command.endsDay && dayEnd
+			command.mark === 'start' && dayEnd
 				? `No later than the end of day, ${formatTimeOfDay(dayEnd)}.`
 				: undefined,
 		reference: now,
 		parse: (text) =>
-			command.endsDay
+			command.mark === 'end'
 				? parseDayEnd(text, target.date, floor, now)
 				: parseDayStart(text, target.date, dayEnd, now),
 	})
@@ -85,7 +88,7 @@ export async function runTimeCommand(
 	await writeDayTime(
 		plugin,
 		await ensureTargetFile(plugin, target),
-		command.property,
+		command.mark,
 		time
 	)
 	return time
@@ -95,15 +98,15 @@ export async function runTimeCommand(
 export async function writeDayTime(
 	plugin: TaskTimeTracker,
 	file: TFile,
-	property: string,
+	mark: DayMark,
 	time: Date
 ): Promise<void> {
 	const value = formatLocalDateTime(time)
 	await plugin.app.fileManager.processFrontMatter(
 		file,
 		(frontmatter: Record<string, unknown>) => {
-			frontmatter[property] = value
+			frontmatter[DAY_MARK_PROPERTY[mark]] = value
 		}
 	)
-	new Notice(`${property}: ${value}`, NOTICE_DURATION)
+	new Notice(describeMarkSet(mark, time, new Date()), NOTICE_DURATION)
 }

@@ -25,7 +25,7 @@ day_end: 2026-08-16T23:40:00
 - A **task** is a top-level checkbox line: `- [ ]` / `- [x]`, followed by the task name and any number of `#tags`.
 - A **clock line** is an indented `[clock::START]` (running) or `[clock::START--END]` (finished) line right below its task. Timestamps are local `YYYY-MM-DDTHH:mm:ss`.
 - A task can have several clock lines (several sessions in a day). Several tasks can be running at the same time; overlapping time is detected in the statistics.
-- `day_start` and `day_end` frontmatter properties bound the "loggable" part of the day (waking hours, a work day…) and are used for off-time / unlogged-time statistics.
+- `day_start` and `day_end` frontmatter properties ("Date & time" type) bound the "loggable" part of the day (waking hours, a work day…) and are used for off-time / unlogged-time statistics. Starting the first clock of a note sets its `day_start` when it has none; stopping the last clock still running from an earlier day sets that note's `day_end` to its last clock's end, unless it already ends as late.
 - The plugin only looks at files inside the configured daily notes folder whose name matches the configured date format (defaults: vault root, `YYYY-MM-DD`, same as the core Daily Notes plugin).
 
 ## Tracking commands

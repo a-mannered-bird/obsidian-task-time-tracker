@@ -208,8 +208,13 @@ export function describeOtherDay(at: Date, reference: Date): string | null {
  * `Current clock started at 09:00.`, `Current clock started yesterday at 22:40.`
  */
 export function describeStart(start: Date, now: Date): string {
-	const day = otherDay(start, now)
-	return `Current clock started ${day ? `${day} ` : ''}at ${formatTimeOfDay(start)}.`
+	return `Current clock started ${atTime(start, now)}.`
+}
+
+/** `at 09:00`, or with its day when not the reference's: `yesterday at 22:40`. */
+export function atTime(at: Date, reference: Date): string {
+	const day = otherDay(at, reference)
+	return `${day ? `${day} ` : ''}at ${formatTimeOfDay(at)}`
 }
 
 function otherDay(at: Date, reference: Date): string | null {

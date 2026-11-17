@@ -1,3 +1,4 @@
+import { describeMarkSet, startDayWithFirstClock } from './dayBoundaries'
 import { isRunning, TaskNote } from './note'
 import {
 	toggleTasks,
@@ -85,8 +86,11 @@ export async function applyTrackingSteps(
 			if (replaying) notify(STALE_NOTICE)
 			return
 		}
-		if (await io.replace(base, note.toString())) {
+		const after = note.toString()
+		const dayStart = startDayWithFirstClock(base, after)
+		if (await io.replace(base, dayStart?.content ?? after)) {
 			pass.notices.forEach(notify)
+			if (dayStart) notify(describeMarkSet('start', dayStart.at, context.now))
 			return
 		}
 		if (++failedWrites > MAX_REDOS) {
