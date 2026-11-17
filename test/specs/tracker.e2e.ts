@@ -866,14 +866,18 @@ describe('tracker tab', function () {
 	it('edits the tags of a task in this note only', async function () {
 		let content = await writeToday([
 			'- [ ] Email #work #admin',
-			'- [ ] Gym #project',
+			'- [ ] Gym #project #sport',
 		])
 		await openTracker()
-		// #project maps to ⭐️ by default; #work and #admin have no emoji.
-		await expect(button('Tags of Gym: #project')).toHaveText('⭐️')
-		await expect(button('Tags of Email: #work #admin')).toHaveText('+2')
+		/** A row's tag slot, named by the tags it lists. */
+		const slot = (task: string, tags: string) =>
+			browser.$(`li*=${task}`).$(`button[aria-label="${tags}"]`)
+		// #project maps to ⭐️ by default, badged with the unmapped #sport.
+		await expect(slot('Gym', '#project #sport')).toHaveText(/^⭐️\s*\+1$/)
+		// No tag of Email has an emoji: a hash icon stands for them.
+		await expect(slot('Email', '#work #admin')).toHaveText('')
 
-		await button('Tags of Email: #work #admin').click()
+		await slot('Email', '#work #admin').click()
 		const editor = browser.$('div[role="dialog"][aria-label="Tags of Email"]')
 		await expect(editor).toBeDisplayed()
 		const chips = editor.$('div[role="group"][aria-label="Tags"]')
@@ -891,29 +895,28 @@ describe('tracker tab', function () {
 		// Enter on the empty field saves.
 		await browser.keys('Enter')
 		content = await waitForChange(content)
-		assert.strictEqual(content, '- [ ] Email #work #deep\n- [ ] Gym #project\n')
-		await expect(button('Tags of Email: #work #deep')).toHaveAttribute(
+		assert.strictEqual(
+			content,
+			'- [ ] Email #work #deep\n- [ ] Gym #project #sport\n'
+		)
+		await expect(slot('Email', '#work #deep')).toHaveAttribute(
 			'aria-expanded',
 			'false'
 		)
 		// The task's line in an earlier note keeps its tags.
 		assert.match(await obsidianPage.read('2026-08-03.md'), /^- \[ \] Email$/m)
 
-		// Escape drops the edits.
-		await button('Tags of Gym: #project').click()
+		// Escape drops the edits and hands the focus back to the slot.
+		await slot('Gym', '#project #sport').click()
 		const gymEditor = browser.$('div[role="dialog"][aria-label="Tags of Gym"]')
 		await expect(gymEditor).toBeDisplayed()
 		await gymEditor.$('button[aria-label="Remove #project"]').click()
 		await expect(
 			gymEditor.$('div[role="group"][aria-label="Tags"]')
-		).toHaveChildren(1)
-		// The suggestions open with the field: the first Escape closes them,
-		// the second the editor, handing the focus back to the slot.
+		).toHaveChildren(2)
 		await browser.keys('Escape')
-		await expect(gymEditor).toBeDisplayed()
-		await browser.keys('Escape')
-		await expect(button('Tags of Gym: #project')).toBeFocused()
-		await expect(button('Tags of Gym: #project')).toHaveAttribute(
+		await expect(slot('Gym', '#project #sport')).toBeFocused()
+		await expect(slot('Gym', '#project #sport')).toHaveAttribute(
 			'aria-expanded',
 			'false'
 		)

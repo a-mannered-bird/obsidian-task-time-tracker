@@ -10,10 +10,11 @@ const mappings = [
 ]
 
 describe('tagSlot', () => {
-	it('shows the mapped emojis in mapping order and counts the other tags', () => {
+	it('shows the mapped emojis in mapping order, badged with the other tags', () => {
 		expect(tagSlot(['#admin', '#health', '#project'], mappings)).toEqual({
 			emojis: ['⭐️', '🏃'],
-			others: 1,
+			badge: 1,
+			tagged: true,
 			label: '#admin #health #project',
 		})
 	})
@@ -22,18 +23,24 @@ describe('tagSlot', () => {
 		expect(tagSlot(['#health', '#sport'], mappings).emojis).toEqual(['🏃'])
 	})
 
-	it('counts a tag mapped without an emoji among the others', () => {
-		expect(tagSlot(['#later'], mappings)).toMatchObject({
+	it('counts a tag mapped without an emoji in the badge', () => {
+		expect(tagSlot(['#project', '#later'], mappings).badge).toBe(1)
+	})
+
+	it('has no badge when no tag has an emoji: the hash icon stands for them', () => {
+		expect(tagSlot(['#later', '#admin'], mappings)).toMatchObject({
 			emojis: [],
-			others: 1,
+			badge: 0,
+			tagged: true,
 		})
 	})
 
-	it('says when the task has no tags', () => {
+	it('offers to add tags when the task has none', () => {
 		expect(tagSlot([], mappings)).toEqual({
 			emojis: [],
-			others: 0,
-			label: 'No tags',
+			badge: 0,
+			tagged: false,
+			label: 'Add tags',
 		})
 	})
 })

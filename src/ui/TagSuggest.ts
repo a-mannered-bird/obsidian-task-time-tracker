@@ -26,6 +26,9 @@ export class TagSuggest extends AbstractInputSuggest<string> {
 
 	protected getSuggestions(query: string): string[] {
 		const needle = query.trim().replace(/^#/, '').toLowerCase()
+		// Only once something is typed: a list opening with the field would
+		// cover the chips and take the first Enter and Escape.
+		if (!needle) return []
 		return this.tags().filter((tag) => tag.toLowerCase().includes(needle))
 	}
 

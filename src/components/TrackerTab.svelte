@@ -538,18 +538,23 @@
 	{@const open = editingTags === task.name}
 	<button
 		class="tag-slot"
-		class:is-empty={slot.emojis.length === 0 && slot.others === 0}
+		class:is-untagged={!slot.tagged}
 		class:is-open={open}
 		use:instantTooltip
-		aria-label={`Tags of ${task.name}: ${slot.label}`}
+		aria-label={slot.label}
 		aria-expanded={open}
 		use:registerTagSlot={task.name}
 		onclick={() => toggleTagEditor(task.name)}
-		>{#if slot.emojis.length === 0 && slot.others === 0}#{:else}{slot.emojis.join(
-				''
-			)}{#if slot.others > 0}<span class="tag-more">+{slot.others}</span
-				>{/if}{/if}</button
 	>
+		{#if slot.emojis.length === 0}
+			<span class="tag-hash" aria-hidden="true" use:icon={'hash'}></span>
+		{:else}
+			{slot.emojis.join('')}
+			{#if slot.badge > 0}
+				<span class="tag-badge" aria-hidden="true">+{slot.badge}</span>
+			{/if}
+		{/if}
+	</button>
 {/snippet}
 
 {#snippet tagEditor(task: Task)}
@@ -1123,6 +1128,7 @@
 	/* Wide enough for one emoji, so names line up whatever the tags. */
 	.tag-slot {
 		all: unset;
+		position: relative;
 		cursor: pointer;
 		flex: none;
 		display: inline-flex;
@@ -1146,17 +1152,35 @@
 		outline-offset: 2px;
 	}
 
-	.tag-slot.is-empty {
+	.tag-hash {
+		display: inline-flex;
+	}
+
+	.tag-hash :global(svg) {
+		width: 14px;
+		height: 14px;
+	}
+
+	/* Tagged without emojis reads normal; untagged is only an offer. */
+	.tag-slot.is-untagged {
 		color: var(--text-muted);
 	}
 
-	.tag-more {
-		padding: 0 0.35em;
-		border-radius: 1em;
-		background: var(--background-modifier-hover);
-		color: var(--text-muted);
-		font-size: var(--font-ui-smaller);
-		line-height: 1.5;
+	/* Over the emojis' corner, so the slot keeps one emoji's width. */
+	.tag-badge {
+		position: absolute;
+		top: -3px;
+		right: -5px;
+		min-width: 12px;
+		padding: 0 2px;
+		border-radius: 6px;
+		background: var(--background-modifier-border);
+		color: var(--text-normal);
+		font-size: 9px;
+		font-weight: var(--font-semibold);
+		line-height: 12px;
+		text-align: center;
+		pointer-events: none;
 	}
 
 	:global(body.is-mobile) .tag-slot {

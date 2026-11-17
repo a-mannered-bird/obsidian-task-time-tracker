@@ -3,13 +3,20 @@ import type { Task } from 'types/tasks'
 import { parseTasks } from './parser'
 import { diffTags, retagTaskLines } from './taskEdits'
 
-/** What the tag slot before a tracker row's name shows. */
+/**
+ * What the tag slot before a tracker row's name shows: the emojis of the
+ * mapped tags, or a hash icon when none has one.
+ */
 export type TagSlot = {
 	/** Emojis of the mapped tags, in mapping order, each once. */
 	emojis: string[]
-	/** How many tags have no emoji. */
-	others: number
-	/** `#work #admin`, or "No tags". */
+	/**
+	 * The tags without an emoji, counted in a badge over the emojis; 0 when
+	 * there is no emoji, as the hash icon then stands for every tag.
+	 */
+	badge: number
+	tagged: boolean
+	/** The tooltip: `#work #admin`, or "Add tags". */
 	label: string
 }
 
@@ -24,8 +31,12 @@ export function tagSlot(tags: string[], mappings: TagMapping[]): TagSlot {
 	}
 	return {
 		emojis,
-		others: unique.filter((tag) => !withEmoji.has(tag)).length,
-		label: unique.length > 0 ? unique.join(' ') : 'No tags',
+		badge:
+			emojis.length > 0
+				? unique.filter((tag) => !withEmoji.has(tag)).length
+				: 0,
+		tagged: unique.length > 0,
+		label: unique.length > 0 ? unique.join(' ') : 'Add tags',
 	}
 }
 
