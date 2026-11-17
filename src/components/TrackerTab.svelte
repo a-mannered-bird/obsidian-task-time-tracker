@@ -593,19 +593,25 @@
 	></button>
 {/snippet}
 
-{#snippet checkbox(task: Task)}
+<!-- A running task's checkbox stops it as it ticks it (Done). -->
+{#snippet checkbox(task: Task, running = false)}
 	{@const color = plugin.settings.taskColors[task.name]}
 	<input
 		type="checkbox"
 		class="task-list-item-checkbox"
 		class:has-task-color={color !== undefined}
 		style:--task-color={color}
-		use:instantTooltip
-		aria-label={task.ticked
-			? `Mark ${task.name} not done`
-			: `Mark ${task.name} done`}
+		use:instantTooltip={running ? () => controlHint(plugin, 'done') : undefined}
+		aria-label={running
+			? `Done: stop and tick ${task.name}`
+			: task.ticked
+				? `Mark ${task.name} not done`
+				: `Mark ${task.name} done`}
 		checked={task.ticked}
-		onchange={() => void setTaskTicked(plugin, task.name, !task.ticked)}
+		onchange={() =>
+			running
+				? stop([task.name], true)
+				: void setTaskTicked(plugin, task.name, !task.ticked)}
 	/>
 {/snippet}
 
@@ -750,17 +756,11 @@
 								{@render moreButton(task)}
 							</span>
 						{:else}
+							{@render checkbox(task, true)}
 							{@render tags(task)}
 							{@render taskName(task)}
 							{@render elapsedTime(task)}
 							<span class="row-actions">
-								<button
-									class="row-button"
-									aria-label={`Done: stop and tick ${task.name}`}
-									use:instantTooltip={() => controlHint(plugin, 'done')}
-									use:icon={'check'}
-									onclick={() => stop([task.name], true)}
-								></button>
 								<button
 									class="row-button"
 									aria-label={`Stop ${task.name}`}

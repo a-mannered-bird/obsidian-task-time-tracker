@@ -349,7 +349,11 @@ describe('tracker tab', function () {
 		])
 		await openTracker()
 
-		await button('Done: stop and tick Write').click()
+		// A running task has a checkbox like the planned ones: ticking it
+		// stops the clock too.
+		const done = browser.$('input[aria-label="Done: stop and tick Write"]')
+		assert.strictEqual(await done.isSelected(), false)
+		await done.click()
 		content = await waitForChange(content)
 		assert.deepStrictEqual(states(content, '- [x] Write'), ['closed'])
 		await expect(browser.$('summary=Done (1)')).toBeDisplayed()
