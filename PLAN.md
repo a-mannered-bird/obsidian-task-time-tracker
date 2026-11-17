@@ -63,7 +63,7 @@ Roadmap and todo lists for the Task Time Tracker plugin. Decisions recorded here
 
 ## Phase 4: User-friendly command access
 
-- [x] Daily view split into tabs (Tracker | Stats), last opened tab remembered (`lastDailyViewTab` in data.json), Tracker first by default; Stats = previous content (`DailyStats.svelte`).
+- [x] Daily view split into tabs (Tracker | Stats), last opened tab remembered (`lastDailyViewTab` in data.json), Tracker first by default; Stats = previous content (`DailyStats.svelte`). Removed 2026-11-17: the stats tab is gone for now; the `task-stats` block gets improved first, then the tab is redone on top of it (see Later). A `lastDailyViewTab` still set to `stats` opens the tracker.
 - [x] `TrackerTab.svelte`: running tasks with live elapsed time and stop buttons, Switch… and Interruption/End interruption buttons, task list in picker order with click-to-toggle and tick/untick icons (`setTaskTicked`), footer with Set wake/bed time and Complete journal; all through the exported `runTrackingSteps`.
 - [x] Quick actions: settings list `{ name, taskName, verb: toggle|switch|ensure-on|ensure-off, setWakeTime }` (`commands/quickActions.ts`), each registered as a command (`quick-action-<slug>`, restart to update) and shown as ⚡ buttons in the tracker tab; `setWakeTime` replaces the "Getting up" macro.
 
@@ -234,4 +234,5 @@ Day handling ships first: writing into yesterday's note and invisible overnight 
 - [ ] Release pipeline: build `main.js` in CI, GitHub release, community plugin submission.
 - [ ] ~~Improve the daily view's tag legend (currently a plain list of styled tag names; needs a clearer layout/design).~~ Dropped (2026-11-13): tag mappings no longer style text (bold / italic / underline removed), so there is no legend left.
 - [ ] Add a custom color per tag mapping in the settings, used in the legend (and by extension in table rows / charts).
+- [ ] Redo the daily view's stats tab (removed 2026-11-17), once the `task-stats` block improvements have landed, reusing its components.
 - [ ] Group the tracker tab's plan by tag (mocked up 2026-11-13): a header per first tag with the day's total for it, a "No tag" group, other tags after the name, dragging across a header retags. Open questions: tasks with several tags, and how it combines with drag to reorder.

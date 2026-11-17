@@ -4,7 +4,6 @@ import {
 	minutesByTag,
 	sortByMinutes,
 	taskMinutes,
-	totalMinutes,
 } from './aggregate'
 import { parseTasks } from './parser'
 
@@ -25,12 +24,6 @@ describe('taskMinutes', () => {
 
 	it('is zero for a task without clocks', () => {
 		expect(taskMinutes(tasks[2]!, now)).toBe(0)
-	})
-})
-
-describe('totalMinutes', () => {
-	it('sums every task', () => {
-		expect(totalMinutes(tasks, now)).toBe(120)
 	})
 })
 

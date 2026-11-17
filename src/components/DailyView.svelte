@@ -27,7 +27,6 @@
 	import { icon } from 'ui/icon'
 	import { instantTooltip } from 'ui/tooltip'
 	import { openTaskManager } from 'ui/TaskManagerModal'
-	import DailyStats from './DailyStats.svelte'
 	import TimelineTab from './TimelineTab.svelte'
 	import TrackerTab from './TrackerTab.svelte'
 	import type TaskTimeTracker from '../main'
@@ -42,7 +41,6 @@
 	const TABS: { id: DailyViewTab; label: string }[] = [
 		{ id: 'tracker', label: 'Tracker' },
 		{ id: 'timeline', label: 'Timeline' },
-		{ id: 'stats', label: 'Stats' },
 	]
 
 	// svelte-ignore state_referenced_locally -- deliberately only the initial value
@@ -238,10 +236,8 @@
 				{otherDay}
 				{loading}
 			/>
-		{:else if active === 'timeline'}
-			<TimelineTab {plugin} {log} {loading} />
 		{:else}
-			<DailyStats {plugin} {log} {loading} />
+			<TimelineTab {plugin} {log} {loading} />
 		{/if}
 	</div>
 </div>

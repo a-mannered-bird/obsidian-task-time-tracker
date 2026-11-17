@@ -41,7 +41,12 @@ export interface TaskTimeTrackerSettings {
 	timelineZoom: number
 }
 
-export type DailyViewTab = 'tracker' | 'timeline' | 'stats'
+const DAILY_VIEW_TABS = ['tracker', 'timeline'] as const
+export type DailyViewTab = (typeof DAILY_VIEW_TABS)[number]
+
+export function isDailyViewTab(value: unknown): value is DailyViewTab {
+	return DAILY_VIEW_TABS.some((tab) => tab === value)
+}
 
 export const DEFAULT_SETTINGS: TaskTimeTrackerSettings = {
 	taskColors: {},

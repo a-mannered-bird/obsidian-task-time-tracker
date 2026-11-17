@@ -9,10 +9,6 @@ export function taskMinutes(task: Task, now: Date): number {
 	)
 }
 
-export function totalMinutes(tasks: Task[], now: Date): number {
-	return tasks.reduce((sum, task) => sum + taskMinutes(task, now), 0)
-}
-
 export function minutesByTask(tasks: Task[], now: Date): MinutesByKey {
 	const result: MinutesByKey = {}
 	for (const task of tasks) {

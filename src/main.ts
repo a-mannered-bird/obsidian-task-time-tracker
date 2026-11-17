@@ -17,6 +17,7 @@ import { LostClockTracker } from './core/lostClocks'
 import { VaultTaskIndex } from './core/vaultTaskIndex'
 import {
 	DEFAULT_SETTINGS,
+	isDailyViewTab,
 	TaskTimeTrackerSettingTab,
 	type TaskTimeTrackerSettings,
 } from './settings'
@@ -114,6 +115,9 @@ export default class TaskTimeTracker extends Plugin {
 			DEFAULT_SETTINGS,
 			data as Partial<TaskTimeTrackerSettings>
 		)
+		// The stats tab was dropped; a view last left on it opens the tracker.
+		if (!isDailyViewTab(this.settings.lastDailyViewTab))
+			this.settings.lastDailyViewTab = DEFAULT_SETTINGS.lastDailyViewTab
 		this.settings.quickActions =
 			this.settings.quickActions.map(normalizeQuickAction)
 		// Drops the bold / italic / underline flags of older mappings.
