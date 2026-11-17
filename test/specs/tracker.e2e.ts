@@ -1,6 +1,7 @@
 import assert from 'node:assert'
 import { browser, expect } from '@wdio/globals'
 import { obsidianPage } from 'wdio-obsidian-service'
+import { openDailyView } from './support/dailyView'
 import { dayNote, promptDay } from './support/days'
 import { clickNoticeButton } from './support/notices'
 import {
@@ -50,15 +51,7 @@ async function writeToday(lines: string[]): Promise<string> {
 
 async function openTracker(path = today.path) {
 	await obsidianPage.openFile(path)
-	await browser.executeObsidianCommand(
-		'obsidian-task-time-tracker:open-daily-view'
-	)
-	const tab = browser.$('button[role="tab"]=Tracker')
-	// Pressed through the DOM: a late notice of the previous test can still
-	// cover the tab and swallow a real click.
-	const element = await tab.getElement()
-	await browser.execute((el) => el.click(), element)
-	await expect(tab).toHaveAttribute('aria-selected', 'true')
+	await openDailyView('Tracker')
 }
 
 async function waitForChange(

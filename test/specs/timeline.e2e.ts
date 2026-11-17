@@ -1,6 +1,7 @@
 import assert from 'node:assert'
 import { browser, expect } from '@wdio/globals'
 import { obsidianPage } from 'wdio-obsidian-service'
+import { openDailyView } from './support/dailyView'
 import { clickNoticeButton } from './support/notices'
 import { resetVault } from './support/vault'
 
@@ -17,12 +18,7 @@ const block = (label: string) => browser.$(`[aria-label="${label}"]`)
 
 async function openTimeline() {
 	await obsidianPage.openFile(NOTE)
-	await browser.executeObsidianCommand(
-		'obsidian-task-time-tracker:open-daily-view'
-	)
-	const tab = browser.$('button[role="tab"]=Timeline')
-	await tab.click()
-	await expect(tab).toHaveAttribute('aria-selected', 'true')
+	await openDailyView('Timeline')
 	await expect(block('Task A, 09:00 to 09:30')).toBeDisplayed()
 	await waitForSteadyTimeline()
 }

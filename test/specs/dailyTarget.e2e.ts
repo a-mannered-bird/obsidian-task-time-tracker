@@ -1,6 +1,7 @@
 import assert from 'node:assert'
 import { browser, expect } from '@wdio/globals'
 import { obsidianPage } from 'wdio-obsidian-service'
+import { openDailyView, selectDailyViewTab } from './support/dailyView'
 import { dayNote, promptDay } from './support/days'
 import { clickNoticeButton } from './support/notices'
 import { minutesField, typeMinutes, typeTime } from './support/timePrompt'
@@ -23,14 +24,7 @@ async function noteExists(path: string): Promise<boolean> {
 	)
 }
 
-async function openTrackerTab() {
-	await browser.executeObsidianCommand(
-		'obsidian-task-time-tracker:open-daily-view'
-	)
-	const tab = browser.$('button[role="tab"]=Tracker')
-	await tab.click()
-	await expect(tab).toHaveAttribute('aria-selected', 'true')
-}
+const openTrackerTab = () => openDailyView('Tracker')
 
 describe('daily target', function () {
 	beforeEach(async function () {
@@ -231,9 +225,7 @@ describe('daily target', function () {
 			expect.stringContaining("You're viewing August 3, 2026")
 		)
 		// Every tab says so, not only the tracker.
-		const timeline = browser.$('button[role="tab"]=Timeline')
-		await browser.execute((el) => el.click(), await timeline.getElement())
-		await expect(timeline).toHaveAttribute('aria-selected', 'true')
+		await selectDailyViewTab('Timeline')
 		await expect(strip).toHaveText(
 			expect.stringContaining("You're viewing August 3, 2026")
 		)
