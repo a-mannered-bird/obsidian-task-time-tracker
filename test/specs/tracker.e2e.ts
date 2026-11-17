@@ -777,6 +777,8 @@ describe('tracker tab', function () {
 
 		const modal = await modalTitled('When did it happen?')
 		await typeTime(modal, '00:05')
+		// Today too, the line under the fields gives the full date.
+		await expect(modal.$(`p=${promptDay(0)} at 00:05`)).toBeDisplayed()
 		await modal.$('button=OK').click()
 
 		content = await waitForChange(content)

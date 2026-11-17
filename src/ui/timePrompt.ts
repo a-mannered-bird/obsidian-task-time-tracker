@@ -1,7 +1,7 @@
 import { Modal, Setting, setIcon, type App } from 'obsidian'
 import type { TimeRequest } from 'core/toggle'
 import {
-	describeOtherDay,
+	describeTypedTime,
 	minutesBefore,
 	timeOfDayBefore,
 } from 'core/typedTime'
@@ -62,6 +62,7 @@ class TimePromptModal extends Modal {
 		this.statusEl = contentEl.createEl('p', {
 			cls: 'task-time-tracker-prompt-status',
 		})
+		this.showStatus()
 
 		new Setting(contentEl)
 			.addButton((button) =>
@@ -168,7 +169,7 @@ class TimePromptModal extends Modal {
 		if ('error' in parsed) this.setStatus(parsed.error, true)
 		else
 			this.setStatus(
-				describeOtherDay(parsed.at, this.request.reference) ?? '',
+				describeTypedTime(parsed.at, this.request.reference),
 				false
 			)
 	}

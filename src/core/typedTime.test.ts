@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { parseTasks } from './parser'
 import {
 	dayEndFloor,
-	describeOtherDay,
+	describeTypedTime,
 	describeStart,
 	minutesBefore,
 	parseDayEnd,
@@ -268,19 +268,15 @@ describe('minutesBefore', () => {
 	})
 })
 
-describe('describeOtherDay', () => {
-	it('says nothing on the reference day', () => {
-		expect(describeOtherDay(new Date(2026, 10, 12, 23, 59), now)).toBeNull()
-	})
-
-	it('gives the date of another day, the year only when it differs', () => {
-		expect(describeOtherDay(new Date(2026, 10, 13, 0, 30), now)).toBe(
+describe('describeTypedTime', () => {
+	it('gives the full date, the year only when it differs', () => {
+		expect(describeTypedTime(new Date(2026, 10, 12, 23, 59), now)).toBe(
+			'Thursday, November 12 at 23:59'
+		)
+		expect(describeTypedTime(new Date(2026, 10, 13, 0, 30), now)).toBe(
 			'Friday, November 13 at 00:30'
 		)
-		expect(describeOtherDay(new Date(2026, 10, 11, 23, 15), now)).toBe(
-			'Wednesday, November 11 at 23:15'
-		)
-		expect(describeOtherDay(new Date(2027, 0, 2, 9, 0), now)).toBe(
+		expect(describeTypedTime(new Date(2027, 0, 2, 9, 0), now)).toBe(
 			'Saturday, January 2, 2027 at 09:00'
 		)
 	})

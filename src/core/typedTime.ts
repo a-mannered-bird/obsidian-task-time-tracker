@@ -194,12 +194,11 @@ export function minutesBefore(at: Date, reference: Date): number {
 }
 
 /**
- * The date of a typed time when it is not the reference's day, which the
- * time field cannot show: `Thursday, November 13 at 00:30`, with the year
- * when it differs. Null on the reference's day.
+ * The full date and time a prompt's fields stand for, which the time field
+ * alone cannot show: `Thursday, November 13 at 00:30`, with the year when
+ * it is not the reference's.
  */
-export function describeOtherDay(at: Date, reference: Date): string | null {
-	if (isSameDay(at, reference)) return null
+export function describeTypedTime(at: Date, reference: Date): string {
 	const format =
 		at.getFullYear() === reference.getFullYear()
 			? 'dddd, MMMM D'
