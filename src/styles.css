@@ -33,18 +33,27 @@
 	color: var(--text-error);
 }
 
-/* Time prompt: minutes ago or a time of day, one choice side by side. */
+/*
+ * Time prompt: minutes ago or a time of day, one choice. Side by side with
+ * a vertical "or" divider, stacked with a horizontal one once the modal is
+ * too narrow; the wrapper is the container the query measures.
+ */
 .task-time-tracker-time-choice {
-	display: flex;
-	align-items: flex-start;
-	gap: var(--size-4-4);
+	container-type: inline-size;
 	margin-bottom: var(--size-4-2);
+}
+
+.task-time-tracker-time-options {
+	display: grid;
+	grid-template-columns: 1fr auto 1fr;
+	gap: var(--size-4-4);
 }
 
 .task-time-tracker-time-option {
 	display: flex;
 	flex-direction: column;
 	gap: var(--size-4-1);
+	min-width: 0;
 }
 
 .task-time-tracker-time-label {
@@ -57,23 +66,88 @@
 	color: var(--text-muted);
 }
 
-/* Lined up with the fields, below their labels. */
 .task-time-tracker-time-or {
-	align-self: flex-start;
-	margin-top: calc(var(--font-ui-small) * 1.5 + var(--size-4-1));
-	line-height: var(--input-height);
-	color: var(--text-muted);
-	font-size: var(--font-ui-small);
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: var(--size-4-2);
 }
 
+.task-time-tracker-time-or::before,
+.task-time-tracker-time-or::after {
+	content: '';
+	flex: 1;
+	width: 1px;
+	background: var(--background-modifier-border);
+}
+
+.task-time-tracker-time-or > span {
+	padding: var(--size-2-1) var(--size-4-2);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-l);
+	background: var(--background-secondary);
+	color: var(--text-normal);
+	font-size: var(--font-ui-smaller);
+	font-weight: var(--font-semibold);
+}
+
+@container (max-width: 380px) {
+	.task-time-tracker-time-options {
+		grid-template-columns: 1fr;
+		gap: var(--size-4-2);
+	}
+
+	.task-time-tracker-time-or {
+		flex-direction: row;
+	}
+
+	.task-time-tracker-time-or::before,
+	.task-time-tracker-time-or::after {
+		width: auto;
+		height: 1px;
+	}
+}
+
+/*
+ * The − and + buttons sit inside the minutes field: the wrapper wears the
+ * input's frame (Obsidian's input rules), the input itself goes bare.
+ */
 .task-time-tracker-stepper {
 	display: flex;
 	align-items: center;
-	gap: var(--size-4-1);
+	height: var(--input-height);
+	padding: 0 var(--size-2-1);
+	background: var(--background-modifier-form-field);
+	border: var(--input-border-width) solid var(--background-modifier-border);
+	border-radius: var(--input-radius);
+	transition: var(--input-transition);
 }
 
-.task-time-tracker-minutes-input {
-	width: 4.5em;
+.task-time-tracker-stepper:hover {
+	background-color: var(--background-modifier-form-field-hover);
+	border-color: var(--background-modifier-border-hover);
+}
+
+.task-time-tracker-stepper:focus-within {
+	border-color: var(--background-modifier-border-focus);
+	box-shadow: 0 0 0 var(--input-border-width-focus)
+		var(--background-modifier-border-focus);
+}
+
+.task-time-tracker-stepper .clickable-icon {
+	padding: var(--size-2-1);
+}
+
+.task-time-tracker-stepper input.task-time-tracker-minutes-input,
+.task-time-tracker-stepper input.task-time-tracker-minutes-input:hover,
+.task-time-tracker-stepper input.task-time-tracker-minutes-input:focus {
+	flex: 1;
+	min-width: 0;
+	height: 100%;
+	padding: 0;
+	border: none;
+	background: transparent;
+	box-shadow: none;
 	text-align: center;
 	font-variant-numeric: tabular-nums;
 }
@@ -94,6 +168,7 @@
 	transition: var(--input-transition);
 	outline: none;
 	height: var(--input-height);
+	width: 100%;
 }
 
 .task-time-tracker-time-input:hover {

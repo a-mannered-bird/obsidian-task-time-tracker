@@ -306,12 +306,9 @@ async function resolveTime(
 	if (options.timeTravel) {
 		const reference = at
 		const day = options.fromLastTask ? reference : (context.day ?? now)
-		const closed = latestClosedClock(note, selected, options)
-		const after = closed?.start ?? null
+		const after = latestClosedStart(note, selected, options)
 		const names = selected.map((task) => `"${task.name}"`).join(', ')
-		const started = closed
-			? ` ${describeStart(closed.taskName, closed.start, now)}`
-			: ''
+		const started = after ? ` ${describeStart(after, now)}` : ''
 		const picked = await prompts.promptTime({
 			title: 'When did it happen?',
 			description: `Toggles ${names}.${started}`,
@@ -328,26 +325,22 @@ async function resolveTime(
 }
 
 /**
- * The latest started of the clocks the toggle closes: those of the selected
+ * The latest start of the clocks the toggle closes: those of the selected
  * running tasks, or when switching, of every other running task.
  */
-function latestClosedClock(
+function latestClosedStart(
 	note: TaskNote,
 	selected: Task[],
 	options: ToggleOptions
-): { taskName: string; start: Date } | null {
+): Date | null {
 	const closing = options.switch
 		? note.getRunningTasks().filter((task) => !selected.some(sameTask(task)))
 		: selected.filter(isRunning)
-	let latest: { taskName: string; start: Date } | null = null
-	for (const task of closing) {
-		for (const clock of task.clocks) {
-			if (clock.end === null && (!latest || clock.start > latest.start)) {
-				latest = { taskName: task.name, start: clock.start }
-			}
-		}
-	}
-	return latest
+	const starts = closing.flatMap((task) =>
+		task.clocks.flatMap((clock) => (clock.end === null ? [clock.start] : []))
+	)
+	if (starts.length === 0) return null
+	return new Date(Math.max(...starts.map((start) => start.valueOf())))
 }
 
 // ----- mutations -----

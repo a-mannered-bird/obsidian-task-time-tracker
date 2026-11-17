@@ -30,7 +30,7 @@ export async function promptOvernightStop(
 	const now = new Date()
 	const at = await promptTime(plugin.app, {
 		title: `Stop ${clock.taskName}`,
-		description: describeStart(clock.taskName, clock.start, now),
+		description: describeStart(clock.start, now),
 		reference: now,
 		parse: (text) => parseEndTime(text, clock.start, now),
 		confirmText: 'Stop',

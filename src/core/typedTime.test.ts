@@ -288,11 +288,11 @@ describe('describeOtherDay', () => {
 
 describe('describeStart', () => {
 	it('names the day only when it is not today', () => {
-		expect(describeStart('Chores', new Date(2026, 10, 12, 7, 10), now)).toBe(
-			'"Chores" started at 07:10.'
+		expect(describeStart(new Date(2026, 10, 12, 7, 10), now)).toBe(
+			'Current clock started at 07:10.'
 		)
-		expect(describeStart('Chores', new Date(2026, 10, 11, 22, 40), now)).toBe(
-			'"Chores" started yesterday at 22:40.'
+		expect(describeStart(new Date(2026, 10, 11, 22, 40), now)).toBe(
+			'Current clock started yesterday at 22:40.'
 		)
 	})
 })

@@ -205,15 +205,11 @@ export function describeOtherDay(at: Date, reference: Date): string | null {
 
 /**
  * When the open clock a prompt closes or moves started, as a sentence:
- * `"Chores" started at 09:00.`, `"Chores" started yesterday at 22:40.`
+ * `Current clock started at 09:00.`, `Current clock started yesterday at 22:40.`
  */
-export function describeStart(
-	taskName: string,
-	start: Date,
-	now: Date
-): string {
+export function describeStart(start: Date, now: Date): string {
 	const day = otherDay(start, now)
-	return `"${taskName}" started ${day ? `${day} ` : ''}at ${formatTimeOfDay(start)}.`
+	return `Current clock started ${day ? `${day} ` : ''}at ${formatTimeOfDay(start)}.`
 }
 
 function otherDay(at: Date, reference: Date): string | null {

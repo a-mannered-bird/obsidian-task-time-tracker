@@ -46,11 +46,15 @@ class TimePromptModal extends Modal {
 			contentEl.createEl('p', { text: request.description })
 		}
 
-		const choice = contentEl.createDiv({ cls: 'task-time-tracker-time-choice' })
+		const choice = contentEl
+			.createDiv({ cls: 'task-time-tracker-time-choice' })
+			.createDiv({ cls: 'task-time-tracker-time-options' })
 		this.minutesEl = this.buildMinutes(
 			choice.createDiv({ cls: 'task-time-tracker-time-option' })
 		)
-		choice.createSpan({ cls: 'task-time-tracker-time-or', text: 'or' })
+		choice
+			.createDiv({ cls: 'task-time-tracker-time-or' })
+			.createSpan({ text: 'or' })
 		this.timeEl = this.buildTime(
 			choice.createDiv({ cls: 'task-time-tracker-time-option' })
 		)
