@@ -10,26 +10,18 @@ const mappings = [
 ]
 
 describe('tagSlot', () => {
-	it('shows the mapped emojis in mapping order, badged with the other tags', () => {
+	it("shows one emoji, the first tag's having one, badged with the other tags", () => {
 		expect(tagSlot(['#admin', '#health', '#project'], mappings)).toEqual({
-			emojis: ['⭐️', '🏃'],
-			badge: 1,
+			emoji: '🏃',
+			badge: 2,
 			tagged: true,
 			label: '#admin #health #project',
 		})
 	})
 
-	it('shows an emoji shared by two tags once', () => {
-		expect(tagSlot(['#health', '#sport'], mappings).emojis).toEqual(['🏃'])
-	})
-
-	it('counts a tag mapped without an emoji in the badge', () => {
-		expect(tagSlot(['#project', '#later'], mappings).badge).toBe(1)
-	})
-
 	it('has no badge when no tag has an emoji: the hash icon stands for them', () => {
 		expect(tagSlot(['#later', '#admin'], mappings)).toMatchObject({
-			emojis: [],
+			emoji: null,
 			badge: 0,
 			tagged: true,
 		})
@@ -37,7 +29,7 @@ describe('tagSlot', () => {
 
 	it('offers to add tags when the task has none', () => {
 		expect(tagSlot([], mappings)).toEqual({
-			emojis: [],
+			emoji: null,
 			badge: 0,
 			tagged: false,
 			label: 'Add tags',

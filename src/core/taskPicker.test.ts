@@ -7,6 +7,7 @@ import {
 	prepareWordSearch,
 	resurfacedEntry,
 	sortForPicker,
+	tagEmoji,
 	taskSuggestions,
 	type TaskSuggestion,
 	withoutNoteTasks,
@@ -73,6 +74,22 @@ describe('pickerLabel', () => {
 		expect(pickerLabel(byName('Worked on first'), mappings)).toBe(
 			'Worked on first'
 		)
+	})
+})
+
+describe('tagEmoji', () => {
+	const mappings = [
+		{ tag: '#project', emoji: '⭐️' },
+		{ tag: '#routine', emoji: '🔂' },
+		{ tag: '#chores', emoji: '' },
+	]
+
+	it("follows the line's tag order, skipping tags without an emoji", () => {
+		expect(tagEmoji(['#chores', '#routine', '#project'], mappings)).toBe('🔂')
+	})
+
+	it('gives null when no tag has an emoji', () => {
+		expect(tagEmoji(['#chores', '#admin'], mappings)).toBeNull()
 	})
 })
 

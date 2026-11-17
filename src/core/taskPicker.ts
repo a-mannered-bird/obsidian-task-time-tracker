@@ -257,13 +257,14 @@ export function entryLabel(entry: PickerEntry, mappings: TagMapping[]): string {
 	return emoji ? `${emoji} ${entry.info.name}` : entry.info.name
 }
 
-/** Emoji of the first of the tags that has one in the mappings. */
+/** Emoji of the first of the tags, in the line's order, that has one in the mappings. */
 export function tagEmoji(
 	tags: string[],
 	mappings: TagMapping[]
 ): string | null {
-	for (const mapping of mappings) {
-		if (mapping.emoji && tags.includes(mapping.tag)) return mapping.emoji
+	for (const tag of tags) {
+		const emoji = mappings.find((mapping) => mapping.tag === tag)?.emoji
+		if (emoji) return emoji
 	}
 	return null
 }

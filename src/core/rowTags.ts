@@ -1,18 +1,18 @@
 import type { TagMapping } from 'types/tags'
 import type { Task } from 'types/tasks'
 import { parseTasks } from './parser'
+import { tagEmoji } from './taskPicker'
 import { diffTags, retagTaskLines } from './taskEdits'
 
 /**
- * What the tag slot before a tracker row's name shows: the emojis of the
- * mapped tags, or a hash icon when none has one.
+ * What the tag slot before a tracker row's name shows: one emoji, that of
+ * the first tag having one, or a hash icon when none has.
  */
 export type TagSlot = {
-	/** Emojis of the mapped tags, in mapping order, each once. */
-	emojis: string[]
+	emoji: string | null
 	/**
-	 * The tags without an emoji, counted in a badge over the emojis; 0 when
-	 * there is no emoji, as the hash icon then stands for every tag.
+	 * The other tags, counted in a badge over the emoji; 0 without an
+	 * emoji, as the hash icon then stands for every tag.
 	 */
 	badge: number
 	tagged: boolean
@@ -22,19 +22,10 @@ export type TagSlot = {
 
 export function tagSlot(tags: string[], mappings: TagMapping[]): TagSlot {
 	const unique = [...new Set(tags)]
-	const emojis: string[] = []
-	const withEmoji = new Set<string>()
-	for (const { tag, emoji } of mappings) {
-		if (!emoji || !unique.includes(tag)) continue
-		withEmoji.add(tag)
-		if (!emojis.includes(emoji)) emojis.push(emoji)
-	}
+	const emoji = tagEmoji(unique, mappings)
 	return {
-		emojis,
-		badge:
-			emojis.length > 0
-				? unique.filter((tag) => !withEmoji.has(tag)).length
-				: 0,
+		emoji,
+		badge: emoji ? unique.length - 1 : 0,
 		tagged: unique.length > 0,
 		label: unique.length > 0 ? unique.join(' ') : 'Add tags',
 	}

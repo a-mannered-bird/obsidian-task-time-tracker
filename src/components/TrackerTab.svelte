@@ -546,10 +546,10 @@
 		use:registerTagSlot={task.name}
 		onclick={() => toggleTagEditor(task.name)}
 	>
-		{#if slot.emojis.length === 0}
+		{#if slot.emoji === null}
 			<span class="tag-hash" aria-hidden="true" use:icon={'hash'}></span>
 		{:else}
-			{slot.emojis.join('')}
+			{slot.emoji}
 			{#if slot.badge > 0}
 				<span class="tag-badge" aria-hidden="true">+{slot.badge}</span>
 			{/if}
@@ -1134,10 +1134,8 @@
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
-		gap: 0.15em;
-		min-width: 24px;
+		width: 20px;
 		height: 24px;
-		padding: 0 2px;
 		border-radius: var(--radius-s);
 		font-size: var(--font-ui-small);
 	}
@@ -1157,8 +1155,9 @@
 	}
 
 	.tag-hash :global(svg) {
-		width: 14px;
-		height: 14px;
+		width: 13px;
+		height: 13px;
+		stroke-width: 1.5;
 	}
 
 	/* Tagged without emojis reads normal; untagged is only an offer. */
@@ -1183,8 +1182,9 @@
 		pointer-events: none;
 	}
 
+	/* Thin with a mouse, finger-sized on mobile. */
 	:global(body.is-mobile) .tag-slot {
-		min-width: 36px;
+		width: 36px;
 		height: 36px;
 	}
 
