@@ -2,17 +2,19 @@ import { describe, expect, it } from 'vitest'
 import { parseTasks } from './parser'
 import {
 	dayEndFloor,
-	describeTypedTime,
+	describeOtherDay,
+	minutesBefore,
 	parseDayEnd,
 	parseDayStart,
 	parseEndTime,
 	parseStartTime,
 	parseToggleTime,
+	timeOfDayBefore,
 } from './typedTime'
 
 const now = new Date(2026, 10, 12, 8, 0)
 const notATime = {
-	error: 'Enter a time of day like 14:30, or minutes ago like 15.',
+	error: 'Enter a number of minutes or a time of day.',
 }
 
 describe('parseEndTime', () => {
@@ -232,23 +234,46 @@ describe('parseDayStart', () => {
 	})
 })
 
-describe('describeTypedTime', () => {
-	it('gives the time with how far it is from now', () => {
-		expect(describeTypedTime(new Date(2026, 10, 12, 7, 45), now)).toBe(
-			'07:45 · 15m ago'
-		)
-		expect(describeTypedTime(new Date(2026, 10, 12, 9, 10), now)).toBe(
-			'09:10 · in 1h 10m'
-		)
-		expect(describeTypedTime(now, now)).toBe('08:00 · now')
+describe('timeOfDayBefore', () => {
+	it('counts the minutes back from the reference, negative ones ahead', () => {
+		expect(timeOfDayBefore('15', now)).toBe('07:45')
+		expect(timeOfDayBefore('-90', now)).toBe('09:30')
+		expect(timeOfDayBefore('0', now)).toBe('08:00')
 	})
 
-	it('names the day when it is not today', () => {
-		expect(describeTypedTime(new Date(2026, 10, 11, 23, 15), now)).toBe(
-			'23:15 yesterday · 8h 45m ago'
+	it('wraps past midnight', () => {
+		expect(timeOfDayBefore('500', now)).toBe('23:40')
+	})
+
+	it('waits for whole minutes', () => {
+		expect(timeOfDayBefore('', now)).toBeNull()
+		expect(timeOfDayBefore('1.5', now)).toBeNull()
+		expect(timeOfDayBefore('07:45', now)).toBeNull()
+	})
+})
+
+describe('minutesBefore', () => {
+	it('rounds to the nearest minute, negative after the reference', () => {
+		expect(minutesBefore(new Date(2026, 10, 12, 7, 45), now)).toBe(15)
+		expect(minutesBefore(new Date(2026, 10, 12, 9, 10), now)).toBe(-70)
+		expect(minutesBefore(new Date(2026, 10, 12, 7, 59, 31), now)).toBe(0)
+	})
+})
+
+describe('describeOtherDay', () => {
+	it('says nothing on the reference day', () => {
+		expect(describeOtherDay(new Date(2026, 10, 12, 23, 59), now)).toBeNull()
+	})
+
+	it('names the other day', () => {
+		expect(describeOtherDay(new Date(2026, 10, 11, 23, 15), now)).toBe(
+			'Yesterday at 23:15'
 		)
-		expect(describeTypedTime(new Date(2026, 10, 9, 14, 30), now)).toBe(
-			'14:30 Monday'
+		expect(describeOtherDay(new Date(2026, 10, 13, 0, 30), now)).toBe(
+			'Tomorrow at 00:30'
+		)
+		expect(describeOtherDay(new Date(2026, 10, 9, 14, 30), now)).toBe(
+			'Monday at 14:30'
 		)
 	})
 })

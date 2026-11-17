@@ -20,7 +20,7 @@ import {
 	type ToggleOptions,
 } from 'core/toggle'
 import { BUSY_NOTICE } from 'core/trackingRun'
-import { parseEndTime, parseStartTime, timeInputHelp } from 'core/typedTime'
+import { parseEndTime, parseStartTime } from 'core/typedTime'
 import { confirmAction } from 'ui/ConfirmActionModal'
 import { promptTime } from 'ui/timePrompt'
 import { showActionNotice } from 'ui/undoNotice'
@@ -220,10 +220,12 @@ async function changeHandOff(
 	const latestStart = new Date(
 		Math.max(...handOff.stopped.map((clock) => clock.start.valueOf()))
 	)
+	const now = new Date()
 	const at = await promptTime(plugin.app, {
 		title: 'Change the time',
-		description: `${message}. ${timeInputHelp()} A time of day before ${formatTimeOfDay(latestStart)} means the next day.`,
-		parse: (text) => parseEndTime(text, latestStart, new Date()),
+		description: `${message}. A time before ${formatTimeOfDay(latestStart)} is the next day.`,
+		reference: now,
+		parse: (text) => parseEndTime(text, latestStart, now),
 		confirmText: 'Change',
 	})
 	if (!at) return
@@ -250,10 +252,12 @@ export async function changeStart(
 	taskName: string,
 	start: Date
 ): Promise<void> {
+	const now = new Date()
 	const at = await promptTime(plugin.app, {
 		title: `Change when ${taskName} started`,
-		description: `It started at ${formatTimeOfDay(start)} as far as the note knows. ${timeInputHelp()}`,
-		parse: (text) => parseStartTime(text, start, new Date()),
+		description: `Started at ${formatTimeOfDay(start)}.`,
+		reference: now,
+		parse: (text) => parseStartTime(text, start, now),
 		confirmText: 'Change',
 	})
 	if (!at) return
@@ -272,10 +276,12 @@ export async function setStop(
 	taskName: string,
 	start: Date
 ): Promise<void> {
+	const now = new Date()
 	const at = await promptTime(plugin.app, {
 		title: `Set when ${taskName} stopped`,
-		description: `It started at ${formatTimeOfDay(start)}. ${timeInputHelp()} A time of day before the start means the next day.`,
-		parse: (text) => parseEndTime(text, start, new Date()),
+		description: `Started at ${formatTimeOfDay(start)}; an earlier time is the next day.`,
+		reference: now,
+		parse: (text) => parseEndTime(text, start, now),
 		confirmText: 'Stop',
 	})
 	if (!at) return

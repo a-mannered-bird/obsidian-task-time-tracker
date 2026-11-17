@@ -2,6 +2,7 @@ import assert from 'node:assert'
 import { browser, expect } from '@wdio/globals'
 import { obsidianPage } from 'wdio-obsidian-service'
 import { dayNote } from './support/days'
+import { minutesField, typeMinutes, typeTime } from './support/timePrompt'
 import { resetVault } from './support/vault'
 
 /**
@@ -131,21 +132,24 @@ describe('daily target', function () {
 		const modals = await browser.$$('.modal-container').getElements()
 		const modal = modals[modals.length - 1]!.$('.modal')
 		await expect(modal.$('.modal-title')).toHaveText('Stop Write blog post')
-		const input = modal.$('input[placeholder="14:30 or 15"]')
-		await expect(input).toBeFocused()
+		// It opens on now, its 0 minutes ago selected to type over.
+		const minutes = minutesField(modal)
+		await expect(minutes).toBeFocused()
+		await expect(minutes).toHaveValue('0')
 
-		// An impossible time keeps the prompt open and says why.
-		await input.setValue('25:00')
-		await expect(input).toHaveValue('25:00')
+		// Minutes reaching back before the 22:40 start are refused as typed,
+		// and the prompt stays open.
+		await typeMinutes(modal, '100000')
+		const refused = modal.$('p=That is not after the start, 22:40.')
+		await expect(refused).toBeDisplayed()
 		await modal.$('button=Stop').click()
-		await expect(
-			modal.$('p=Enter a time of day like 14:30, or minutes ago like 15.')
-		).toBeDisplayed()
+		await expect(refused).toBeDisplayed()
 
-		// The line under the field turns into the time it would set.
-		await input.setValue('23:30')
-		await expect(input).toHaveValue('23:30')
-		await expect(modal.$('p*=23:30 yesterday ·')).toBeDisplayed()
+		// A time of day carries the minutes along; the line names its day.
+		await typeTime(modal, '23:30')
+		await expect(modal.$('p=Yesterday at 23:30')).toBeDisplayed()
+		const minutesAgo = Number(await minutes.getValue())
+		assert.ok(minutesAgo > 0, `minutes field shows ${minutesAgo}`)
 		await modal.$('button=Stop').click()
 
 		await browser.waitUntil(

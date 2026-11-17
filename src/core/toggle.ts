@@ -3,7 +3,7 @@ import { taskMinutes } from './aggregate'
 import { getLastEnd, isRunning, type TaskNote } from './note'
 import { addMinutes, formatLocalDateTime, getMinutesBetween } from './time'
 import { formatTimeOfDay } from './timeline'
-import { parseToggleTime, timeInputHelp, type TypedTime } from './typedTime'
+import { parseToggleTime, type TypedTime } from './typedTime'
 
 /**
  * What a tracking command does. Every command of the plugin is one fixed
@@ -65,10 +65,16 @@ export function taskChoice(task: Task): TaskChoice {
 	return { name: task.name, tags: task.tags, running: isRunning(task) }
 }
 
-/** A time to ask for; `parse` reads what the user types. */
+/**
+ * A time to ask for, as minutes before `reference` or as a time of day;
+ * `parse` reads either form.
+ */
 export type TimeRequest = {
 	title: string
-	description: string
+	description?: string
+	reference: Date
+	/** Names the minutes field when `reference` is not now. */
+	minutesLabel?: string
 	parse: (text: string) => TypedTime
 }
 
@@ -303,11 +309,15 @@ async function resolveTime(
 		const after = latestClosedStart(note, selected, options)
 		const names = selected.map((task) => `"${task.name}"`).join(', ')
 		const nextDay = after
-			? ` A time of day before ${formatTimeOfDay(after)} means the next day.`
+			? ` A time before ${formatTimeOfDay(after)} is the next day.`
 			: ''
 		const picked = await prompts.promptTime({
 			title: 'When did it happen?',
-			description: `Toggles ${names} at the time you enter. ${timeInputHelp(options.fromLastTask ? reference : 'now')}${nextDay}`,
+			description: `Toggles ${names}.${nextDay}`,
+			reference,
+			minutesLabel: options.fromLastTask
+				? `Minutes before ${formatTimeOfDay(reference)}`
+				: undefined,
 			parse: (text) => parseToggleTime(text, reference, { day, after }),
 		})
 		if (!picked) return null

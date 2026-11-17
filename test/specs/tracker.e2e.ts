@@ -3,6 +3,12 @@ import { browser, expect } from '@wdio/globals'
 import { obsidianPage } from 'wdio-obsidian-service'
 import { dayNote } from './support/days'
 import { clickNoticeButton } from './support/notices'
+import {
+	expectTimeMinutesAgo,
+	minutesField,
+	typeMinutes,
+	typeTime,
+} from './support/timePrompt'
 import { resetVault } from './support/vault'
 
 /**
@@ -377,9 +383,10 @@ describe('tracker tab', function () {
 		// of the two tasks never clocked.
 		await browser.$('button=End day').click()
 		const setEnd = await modalTitled('Set end of day')
-		const endInput = setEnd.$('input[placeholder="14:30 or 15"]')
-		await endInput.setValue('0')
-		await expect(endInput).toHaveValue('0')
+		// It opens on now, which OK takes as it is.
+		const endMinutes = minutesField(setEnd)
+		await expect(endMinutes).toBeFocused()
+		await expect(endMinutes).toHaveValue('0')
 		await setEnd.$('button=OK').click()
 		const modal = await modalTitled('End day')
 		await expect(modal.$('li=Call the bank')).toBeDisplayed()
@@ -414,15 +421,13 @@ describe('tracker tab', function () {
 		await browser.execute((el) => el.click(), setEnd)
 		const modal = await modalTitled('Set end of day')
 		await expect(
-			modal.$('p*=before 22:30, the end of the last clock, means the next day')
+			modal.$('p*=before 22:30, the end of the last clock, is the next day')
 		).toBeDisplayed()
-		const input = modal.$('input[placeholder="14:30 or 15"]')
-		await expect(input).toHaveValue('')
+		await expect(minutesField(modal)).toHaveValue('0')
 		// After the 08:00 start of day but before the clock ended at 22:30:
 		// the day can only end then on the next day.
-		await input.setValue('22:00')
-		await expect(input).toHaveValue('22:00')
-		await expect(modal.$('p*=22:00 tomorrow ·')).toBeDisplayed()
+		await typeTime(modal, '22:00')
+		await expect(modal.$('p=Tomorrow at 22:00')).toBeDisplayed()
 		await modal.$('button=OK').click()
 
 		await waitForChange(content)
@@ -456,9 +461,7 @@ describe('tracker tab', function () {
 		const notice = browser.$('.notice*=Switched from Chores to Email at')
 		await clickNoticeButton(notice, 'Change')
 		const modal = await modalTitled('Change the time')
-		const input = modal.$('input[placeholder="14:30 or 15"]')
-		await input.setValue('00:01')
-		await expect(input).toHaveValue('00:01')
+		await typeTime(modal, '00:01')
 		await modal.$('button=Change').click()
 
 		// Chores ends and Email starts at the time typed.
@@ -488,9 +491,7 @@ describe('tracker tab', function () {
 		)
 		await elapsed.click()
 		const modal = await modalTitled('Change when Chores started')
-		const input = modal.$('input[placeholder="14:30 or 15"]')
-		await input.setValue('00:05')
-		await expect(input).toHaveValue('00:05')
+		await typeTime(modal, '00:05')
 		await modal.$('button=Change').click()
 
 		content = await waitForChange(content)
@@ -512,9 +513,7 @@ describe('tracker tab', function () {
 
 		await chooseFromRowMenu('Chores', 'Set clock stop time')
 		const modal = await modalTitled('Set when Chores stopped')
-		const input = modal.$('input[placeholder="14:30 or 15"]')
-		await input.setValue('00:10')
-		await expect(input).toHaveValue('00:10')
+		await typeTime(modal, '00:10')
 		await modal.$('button=Stop').click()
 
 		content = await waitForChange(content)
@@ -665,11 +664,9 @@ describe('tracker tab', function () {
 
 		await chooseFromRowMenu('Chores', 'Change clock start time')
 		const modal = await modalTitled('Change when Chores started')
-		const input = modal.$('input[placeholder="14:30 or 15"]')
-		await input.setValue('5')
-		await expect(input).toHaveValue('5')
-		// The typed minutes are previewed as the time they stand for.
-		await expect(modal.$('p*=· 5m ago')).toBeDisplayed()
+		await typeMinutes(modal, '5')
+		// The time field follows the minutes typed.
+		await expectTimeMinutesAgo(modal, 5)
 		const typedAt = Date.now()
 		await modal.$('button=Change').click()
 
@@ -694,11 +691,9 @@ describe('tracker tab', function () {
 
 		await chooseFromRowMenu('Chores', 'Change clock start time')
 		const modal = await modalTitled('Change when Chores started')
-		const input = modal.$('input[placeholder="14:30 or 15"]')
 		// Negative minutes are ahead of now, as in the tracking commands.
-		await input.setValue('-10')
-		await expect(input).toHaveValue('-10')
-		await expect(modal.$('p*=· in 10m')).toBeDisplayed()
+		await typeMinutes(modal, '-10')
+		await expectTimeMinutesAgo(modal, -10)
 		const typedAt = Date.now()
 		await modal.$('button=Change').click()
 
@@ -729,10 +724,7 @@ describe('tracker tab', function () {
 		await browser.keys('Enter')
 
 		const modal = await modalTitled('When did it happen?')
-		const input = modal.$('input[placeholder="14:30 or 15"]')
-		await input.setValue('00:05')
-		await expect(input).toHaveValue('00:05')
-		await expect(modal.$('p*=00:05 ·')).toBeDisplayed()
+		await typeTime(modal, '00:05')
 		await modal.$('button=OK').click()
 
 		content = await waitForChange(content)
@@ -748,18 +740,17 @@ describe('tracker tab', function () {
 		await expect(browser.$("span*=You're viewing")).toBeDisplayed()
 
 		/** Answer the time prompt the start or stop opened. */
-		async function typeTime(time: string) {
+		async function answerTime(time: string) {
 			const modal = await modalTitled('When did it happen?')
-			const input = modal.$('input[placeholder="14:30 or 15"]')
-			await input.setValue(time)
-			await expect(input).toHaveValue(time)
-			await expect(modal.$(`p*=${time.padStart(5, '0')} `)).toBeDisplayed()
+			await typeTime(modal, time)
+			// Not today: the line under the fields names the note's day.
+			await expect(modal.$(`p*= at ${time}`)).toBeDisplayed()
 			await modal.$('button=OK').click()
 		}
 
 		// A time of day lands on the note's day, not today.
 		await button('Start Chores').click()
-		await typeTime('09:00')
+		await answerTime('09:00')
 		content = await waitForChange(content, pastNote.path)
 		assert.deepStrictEqual(clocksOf(content, '- [ ] Chores'), [
 			{ start: `${pastNote.date}T09:00:00`, end: null },
@@ -767,7 +758,7 @@ describe('tracker tab', function () {
 		await expect(button('Stop Chores')).toBeDisplayed()
 
 		await button('Switch to Email').click()
-		await typeTime('10:30')
+		await answerTime('10:30')
 		content = await waitForChange(content, pastNote.path)
 		assert.deepStrictEqual(clocksOf(content, '- [ ] Chores'), [
 			{ start: `${pastNote.date}T09:00:00`, end: `${pastNote.date}T10:30:00` },
@@ -776,7 +767,7 @@ describe('tracker tab', function () {
 
 		// Before Email's start (10:30), a time of day means past midnight.
 		await button('Stop Email').click()
-		await typeTime('0:15')
+		await answerTime('00:15')
 		content = await waitForChange(content, pastNote.path)
 		assert.deepStrictEqual(clocksOf(content, '- [ ] Email'), [
 			{ start: `${pastNote.date}T10:30:00`, end: '2026-08-03T00:15:00' },

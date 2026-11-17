@@ -6,12 +6,7 @@ import {
 	readFrontmatterTime,
 } from 'core/time'
 import { formatTimeOfDay } from 'core/timeline'
-import {
-	dayEndFloor,
-	parseDayEnd,
-	parseDayStart,
-	timeInputHelp,
-} from 'core/typedTime'
+import { dayEndFloor, parseDayEnd, parseDayStart } from 'core/typedTime'
 import { promptTime } from 'ui/timePrompt'
 import type TaskTimeTracker from '../main'
 import {
@@ -73,19 +68,21 @@ export async function runTimeCommand(
 		command.endsDay && target.file
 			? dayEndFloor((await readTaskNote(plugin, target.file)).tasks, dayStart)
 			: null
+	const now = new Date()
 	const time = await promptTime(app, {
 		title: command.name,
 		description: command.endsDay
 			? floor
-				? `${timeInputHelp()} A time of day before ${formatTimeOfDay(floor.at)}, ${floor.what}, means the next day.`
-				: timeInputHelp()
+				? `A time before ${formatTimeOfDay(floor.at)}, ${floor.what}, is the next day.`
+				: undefined
 			: dayEnd
-				? `${timeInputHelp()} It cannot be after the end of day, ${formatTimeOfDay(dayEnd)}.`
-				: timeInputHelp(),
+				? `No later than the end of day, ${formatTimeOfDay(dayEnd)}.`
+				: undefined,
+		reference: now,
 		parse: (text) =>
 			command.endsDay
-				? parseDayEnd(text, target.date, floor, new Date())
-				: parseDayStart(text, target.date, dayEnd, new Date()),
+				? parseDayEnd(text, target.date, floor, now)
+				: parseDayStart(text, target.date, dayEnd, now),
 	})
 	if (time === null) return null
 	await writeDayTime(

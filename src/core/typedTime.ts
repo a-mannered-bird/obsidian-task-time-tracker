@@ -1,30 +1,15 @@
 import type { Task } from 'types/tasks'
-import { addDays } from './dailyNotes'
+import { addDays, isSameDay } from './dailyNotes'
 import { describeDay } from './overnight'
-import { addMinutes, formatHoursMinutes, getMinutesBetween } from './time'
+import { addMinutes } from './time'
 import { formatTimeOfDay } from './timeline'
 
 /** A time the user typed, placed on a date, or why it cannot be. */
 export type TypedTime = { at: Date } | { error: string }
 
-/**
- * Every time prompt takes either form in the same field, so the
- * placeholder shows one of each and the description says what they mean.
- */
-export const TIME_PLACEHOLDER = '14:30 or 15'
-
-/** The sentence every time prompt's description ends with. */
-export function timeInputHelp(reference: 'now' | Date = 'now'): string {
-	const relative =
-		reference === 'now'
-			? 'minutes ago (15)'
-			: `minutes before ${formatTimeOfDay(reference)} (15)`
-	return `Type a time of day (14:30) or a number of ${relative}; negative minutes are in the future.`
-}
-
 const TIME_OF_DAY = /^(\d{1,2}):(\d{2})$/
 const MINUTES = /^(-?\d+)\s*(?:m|min|mins|minutes?)?$/i
-const NOT_A_TIME = 'Enter a time of day like 14:30, or minutes ago like 15.'
+const NOT_A_TIME = 'Enter a number of minutes or a time of day.'
 
 /** A time of day, or a count of minutes back from a reference time. */
 type Typed = { hours: number; minutes: number } | { minutesBack: number }
@@ -185,22 +170,32 @@ export function parseDayEnd(
 }
 
 /**
- * The time a prompt would set, shown under the field as the user types:
- * `14:15 · 15m ago`, `23:15 yesterday · 8h 45m ago`, `09:00 Monday`, `now`.
+ * The time of day `minutes` before the reference, for the time field of a
+ * prompt whose minutes field was edited; null until it holds whole minutes.
  */
-export function describeTypedTime(at: Date, now: Date): string {
-	const minutes = Math.round(getMinutesBetween(at, now))
-	if (minutes === 0) return `${formatTimeOfDay(at)} · now`
-	const days = Math.round(
-		(onDay({ hours: 0, minutes: 0 }, at).valueOf() -
-			onDay({ hours: 0, minutes: 0 }, now).valueOf()) /
-			(24 * 60 * 60 * 1000)
-	)
-	// Hours ago stop helping past a day: the day itself says it.
-	if (Math.abs(days) > 1)
-		return `${formatTimeOfDay(at)} ${describeDay(at, now)}`
-	const day = days === -1 ? ' yesterday' : days === 1 ? ' tomorrow' : ''
-	const distance = formatHoursMinutes(Math.abs(minutes))
-	const relative = minutes > 0 ? `${distance} ago` : `in ${distance}`
-	return `${formatTimeOfDay(at)}${day} · ${relative}`
+export function timeOfDayBefore(
+	minutes: string,
+	reference: Date
+): string | null {
+	const typed = read(minutes)
+	if (!typed || !('minutesBack' in typed)) return null
+	return formatTimeOfDay(addMinutes(reference, -typed.minutesBack))
+}
+
+/** Whole minutes from `at` back to the reference; negative when after it. */
+export function minutesBefore(at: Date, reference: Date): number {
+	return Math.round((reference.valueOf() - at.valueOf()) / 60000)
+}
+
+/**
+ * The day of a typed time when it is not the reference's, which the time
+ * field cannot show: `Yesterday at 23:15`, `Tomorrow at 00:30`, `Monday at
+ * 09:00`. Null on the reference's day.
+ */
+export function describeOtherDay(at: Date, reference: Date): string | null {
+	if (isSameDay(at, reference)) return null
+	const day = isSameDay(at, addDays(reference, 1))
+		? 'tomorrow'
+		: describeDay(at, reference)
+	return `${day.charAt(0).toUpperCase()}${day.slice(1)} at ${formatTimeOfDay(at)}`
 }
