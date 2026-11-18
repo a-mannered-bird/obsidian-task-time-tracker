@@ -241,11 +241,75 @@ Day handling ships first: writing into yesterday's note and invisible overnight 
 - [x] Tag slot on every task row (emojis, `+n`, muted `#`; content decided in core, tested).
 - [x] Tag popover editing this note's line only (suggestions ordered in core, tested); E2E adding and removing a tag, asserting the exact markdown of the note.
 
+## Decisions (2026-11-18): overlap in the stats
+
+Grilled on 2026-11-18; mockups and the reasoning behind each choice are on the design page ([Overlap, Goals, Progression](https://claude.ai/artifact/HzFaQChLbyyWJjEXHVsWJ2)).
+
+- **One model for every number:** the range is cut into minutes, each recording the set of tasks active in it. A row's time, its overlap, its partners and the covered total all come from it. Two overlapping clocks of the same task count once (they count twice today). Computed by a sweep over clock start and end points, never minute arrays.
+- **Covered is the headline:** the summary shows `Covered 8h · +1h concurrent`; the table footer reconciles rows, minus concurrent time, equals covered. Concurrency is always counted between tasks, after the block's filter, whatever the grouping (it describes the day, like Unlogged).
+- **Share is a share of covered time** in every grouping. Shares may add up to more than 100% (concurrent tasks; multi-tag tasks in tag mode); the column header's tooltip says so. Split credit (`share: split`) is Later.
+- **Overlap is for tasks only:** in task mode each row gets an Overlap % (minutes shared with another task ÷ the row's time), with a tooltip listing the partners (`with **Email** · 30m`; three-way overlaps appear under each partner; partners outside `top: N` show as Other). Tag and filter modes have no Overlap column. Overlapping tags were dropped.
+- **Chart:** segments keep their full height, the shared part of each is hatched at its top (task mode only), and a tick across each bar marks covered time (every mode). No targets on this chart.
+- No block option: the Overlap column and the hatching appear only when some task overlapped.
+- **Restyled tables:** the block's tables (`KeyValueTable`) get a swatch per row matching its chart color, right-aligned tabular numbers, small muted headers, horizontal rules only, a muted footer, and a dotted underline on cells with a tooltip, all from Obsidian's CSS variables. Tooltip style: task names bold, `·` between a label and its amount.
+- The plugin is unpublished, so the changed totals need no migration or announcement.
+
+## Decisions (2026-11-18): progression
+
+- **Two baselines:** previous (the period of the same length right before) and usual (the average of the N previous periods that have data). Block options `compare: both | previous | usual | none` and `compareWith: 4`; the default is `both` for every range, year ranges included. Custom spans and rolling windows compare with the same number of days before. `all` shows "Nothing to compare all with", a first period "No earlier data".
+- **Comparisons load after the main stats are drawn**, with a "Comparing…" placeholder.
+- **One Trend column** with the delta against usual (`▲ 3h 20m · +18%`); its tooltip gives this period, last period and usual, each with its delta. The summary shows `Covered 31h · ▲ 4h 10m vs usual`, `Start of day 07:10 · 18 min earlier`.
+- **Deltas are neutral** (muted, no color) unless a goal states a direction: an "at least" time goal makes ▲ green, an "at most" one makes ▼ green; if the direction changed within the range, the latest goal wins. No separate "less is better" flag.
+- **What gets a delta:** covered time, each row's time, each goal's achieved value and days met, start and end of day (as a time shift), off time, unlogged. Not Share % or Overlap %. No chart change.
+
+## Decisions (2026-11-18): goals
+
+- **Syntax:** goal lines under the task, like clock lines, so names, rename and tags are untouched; the clock syntax stays as it is. `[goal::<metric> <achieved>/<target> <unit>]`: one reserved key, `goal`; the metric is the text before the first number or `/`, or before a colon when present (required when the name contains a digit, `[goal::5k pace: 5.2/5 min/km]`); achieved and target are optional numbers (`.` or `,` decimal, no thousands separator); a target starting with `<` means at most, the default is at least; the unit is free text, kept as written, never converted. A time goal has no metric name and a duration with `h` or `m` (`[goal::1h30m]`, `[goal::<30m]`); its achieved value comes from the clocks and is never written. A bare number is an issue ("Add h or m, or a metric name"); the plugin writes `1h30m`; prompts still take a bare `90` as minutes. Other `[field::…]` lines under a task are left alone. Dataview compatibility is not a goal.
+- **Goal lines come first**, right under the task line and before its clocks, in the order added. Clock re-sorting only reorders clock lines; a hand-written goal line after the clocks is read normally and moved up on the next plugin write to that task. Every `TaskNote` edit keeps them, with goal lines in the fixtures of every edit's tests.
+- **Carry-over like tags:** a task line the plugin inserts gets its most recent occurrence's goals, targets only. Lines already in a note are never rewritten; goals from a note template win.
+- **Suggested goals:** in the Goals tab, for every task in the note without a goal line, the index offers its most recent goals (targets only) as suggested cards, and the same for `tag_goals`. Nothing is written until "Add to today"; "Add all suggestions" when there are several; ✕ dismisses a card for that day (plugin data, pruned after a week). This covers notes made by a template or by hand.
+- **Tag goals:** a configurable `tag_goals` frontmatter list (`"#work 6h"`, `"#leisure <2h"`), written through the same frontmatter text edit as `day_start` (Undo, Change). Time only in v1, measured as the covered time of the tasks carrying the tag. Copied from the most recent note that has it on the plugin's first write to a new note.
+- **Per-metric settings**, keyed by metric name: color, emoji, aggregation rule `sum | average | last | min | max` (default sum; units containing `/` default to average). Time goals use ⏱. A task rename touches none of it; renaming a metric is Later.
+- **Goals tab** between Tracker and Timeline (`Tracker | Goals | Timeline`, a new `DailyViewTab`), following the daily view's note. A grid of cards with rings (layout B; a form, a status list, a week grid and four bar variants were rejected): one card per goal with the ring in the goal's color, round − / + on either side of the ring stepping achieved by 1 (or by the metric's precision), achieved and target inputs that size to their content (CSS `field-sizing: content` if Obsidian's Electron supports it, else a `size` attribute), time goals' achieved in a dashed read-only field without steppers, a ⋯ menu (Delete goal with Undo, Edit unit; Color and emoji and Hide from tracker later), suggested cards, and a dashed "Add goal" card (task or tag picker, metric picker with New metric, target and unit). Cards are grouped by task when there are many; done cards keep their place.
+- **Done state:** the ring closes in the goal's own color, the card gets a green tint and halo, no text label. A badge on the top-left corner, chosen in settings ("Done badge": None, Tick, Gold star, Rosette, Rubber stamp, Trophy, Streak flame), stamps in once when the target is reached while the tab is open (skipped with reduced motion). Rubber stamp texts come from a "Stamp texts" setting, one per line, one picked at random per card and kept for the day. Streak flame shows the days in a row the goal was met. An "at most" goal is done at the end of the day if it stayed under the limit, and red as soon as it goes over.
+- **Tracker rows:** one thin bar per goal under the row, in the goal's color with its emoji at the end; hovering shows `🏃 distance · 8 / 10 km · 80%`, clicking edits that goal with achieved focused. At most 3 bars, the rest fold into "+1". No new row button; rows without goals are unchanged.
+- **Commands:** Record goal result… (task → metric → number) and Set goal… (task → metric or new → target, unit if new).
+- **End day:** lists targets still missing a result ("No result for: Run · distance"), never blocks. Unclocked tasks with goal lines are never removed silently: End day and Complete journal list them apart under "Has goals", with their goals and a checkbox off by default, kept unless ticked.
+- **Rename and merge:** a metric on one side moves over; the same metric on both sides combines with its aggregation rule; mismatched units keep both lines (issue flag); two "at least" time goals add up, otherwise the surviving line's wins. The merge preview says "3 goals will be combined on 2 days".
+- **Issues** (task manager warning column): malformed goal lines, a bare number as a time goal, unit drift for a metric.
+- **Stats:** a `goals` metric renders a Goals table (Goal left-aligned, other columns centered): achieved / target combined with the metric's rule over the days that had a target, %, days met, and a streak (one dot per day: met, missed, no goal; a weekly summary on year ranges). Time-goal rows of the main table show `22h 00m · ⏱ 96%` with a tooltip. Goal deltas join from Phase 13, colored by direction.
+
+## Phase 12: Overlap in the stats
+
+- [ ] Core, tested: the sweep computing covered, concurrent, per-task exclusive and shared minutes, partners per task; same-task overlaps counted once; Share of covered time in every grouping.
+- [ ] `task-stats` block: Covered summary with concurrent time, reconciling footer, Overlap % column with the partners tooltip (task mode), header tooltips.
+- [ ] Chart: hatched shared part per segment (task mode), covered tick on every bar, tooltip with covered and concurrent.
+- [ ] Restyle `KeyValueTable` (swatches, tabular numbers, muted headers and footer, tooltip cells).
+- [ ] E2E asserting covered, concurrent and one Overlap % on a fixture day with two concurrent tasks.
+
+## Phase 13: Progression
+
+- [ ] Core, tested: previous and usual periods for every range kind (presets, rolling windows, custom spans, `all`), usual over periods with data only, deltas, time-of-day shifts, direction from goals.
+- [ ] `compare` / `compareWith` options with validation messages.
+- [ ] Deferred loading of the comparison ranges with the "Comparing…" placeholder.
+- [ ] Trend column and its tooltip; deltas on the summary and the time-of-day line.
+- [ ] E2E on a fixture spanning several weeks.
+
+## Phase 14: Goals
+
+Five slices, each usable and reviewed on its own; every slice is checked at mobile width and in the sidebar before it is ticked.
+
+- [ ] Syntax and note edits: parser for goal lines and `tag_goals`, `TaskNote` edits keeping and placing goal lines, carry-over on insertion, consolidation rules, End day's "Has goals" group, issue detectors; unit tests with goal lines in every edit's fixtures, E2E for merge and End day.
+- [ ] Goals tab: cards with rings, steppers and inputs, ⋯ menu, Add goal card, suggested cards, Record goal result… and Set goal… commands, End day's missing-result list.
+- [ ] Tracker bars with hover and quick edit; per-metric settings (color, emoji, aggregation rule) and the done badge settings.
+- [ ] Tag goals: `tag_goals` editing from the Goals tab, covered time per tag, carry-over on the first write.
+- [ ] Goal stats: `goals` metric and table with streak, `⏱ %` in the main table, goal deltas and direction coloring.
+
 ## Later
 
 - [ ] ~~Native task-name completion from past daily notes (replaces `syncTaskDictionary.js` + Various Complements).~~ Superseded by Phase 5.
 - [ ] Inherit folder/date format from the core Daily Notes plugin.
-- [ ] Project objective view (from the commented `initProjectTracking`: target time vs. worked, balance).
+- [ ] ~~Project objective view (from the commented `initProjectTracking`: target time vs. worked, balance).~~ Superseded by Phase 14 (goals).
 - [ ] Clocks spanning midnight / previous-day time travel.
 - [ ] Charts: tooltips, donut for tag share, if needed.
 - [ ] Release pipeline: build `main.js` in CI, GitHub release, community plugin submission.
@@ -253,3 +317,11 @@ Day handling ships first: writing into yesterday's note and invisible overnight 
 - [ ] Add a custom color per tag mapping in the settings, used in the legend (and by extension in table rows / charts).
 - [ ] Redo the daily view's stats tab (removed 2026-11-17), once the `task-stats` block improvements have landed, reusing its components.
 - [ ] Group the tracker tab's plan by tag (mocked up 2026-11-13): a header per first tag with the day's total for it, a "No tag" group, other tags after the name, dragging across a header retags. Open questions: tasks with several tags, and how it combines with drag to reorder.
+- [ ] Performance test on a vault with 5 years of daily notes (year blocks with `compare: both`, overlap on long ranges, open blocks with running clocks); optimize only what it shows.
+- [ ] Metric tag goals (`#sport distance /20 km`, the sum of the tasks' values), now that aggregation rules exist.
+- [ ] Stats: split-credit share (`share: split`), same period last year, best period ever, trend within the range; a "usual" line on the per-day chart; goal charts beyond the streak.
+- [ ] Hide some goals from the tracker tab; color and emoji from a goal card's ⋯ menu.
+- [ ] Rename a metric across the vault (bulk operation, migrating its settings).
+- [ ] Reading view and Live Preview rendering of clock and goal lines as chips.
+- [ ] Rethink the note syntax for clocks and goals, free of any Dataview compatibility constraint (vault-wide migration).
+- [ ] A documentation link in the merge preview explaining how goals combine.
