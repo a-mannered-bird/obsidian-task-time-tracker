@@ -66,8 +66,8 @@
 	const MAGNET_PX = 8
 	const ZOOM_BUTTON_FACTOR = 1.5
 	const NUDGE_SETTLE_MS = 600
-	/** Shortest block that shows its ⋯ button; a tap opens the same menu. */
-	const MORE_BUTTON_MIN_PX = 20
+	/** Shortest block that shows its ⋯ button (18 px and its 3 px inset); a tap opens the same menu. */
+	const MORE_BUTTON_MIN_PX = 24
 	const ZOOM_SAVE_MS = 500
 
 	let now = $state(new Date())
@@ -941,7 +941,7 @@
 						{@render content(block, height)}
 						{#if height >= MORE_BUTTON_MIN_PX}
 							<button
-								class="block-more clickable-icon"
+								class="block-more"
 								tabindex="-1"
 								aria-label="More actions for {ariaLabel(block)}"
 								use:icon={'more-horizontal'}
@@ -1241,14 +1241,56 @@
 	 */
 	.block-more {
 		position: absolute;
-		top: 1px;
-		right: 1px;
+		top: 3px;
+		right: 3px;
 		z-index: 2;
+		box-sizing: border-box;
+		display: flex;
+		align-items: center;
+		justify-content: center;
 		width: 18px;
 		height: 18px;
 		padding: 0;
-		background: var(--timeline-background);
+		border: none;
+		border-radius: 50%;
+		box-shadow: none;
+		background: color-mix(
+			in srgb,
+			var(--block-color) 15%,
+			var(--timeline-background)
+		);
+		color: var(--text-muted);
+		cursor: pointer;
 		touch-action: manipulation;
+	}
+
+	.block-more :global(svg) {
+		width: 14px;
+		height: 14px;
+	}
+
+	.block-more:hover {
+		background: color-mix(
+			in srgb,
+			var(--block-color) 40%,
+			var(--timeline-background)
+		);
+		color: var(--text-normal);
+	}
+
+	.block-more:active {
+		background: color-mix(
+			in srgb,
+			var(--block-color) 60%,
+			var(--timeline-background)
+		);
+	}
+
+	/* A finger-sized target around the small round button. */
+	:global(body.is-mobile) .block-more::before {
+		content: '';
+		position: absolute;
+		inset: -6px;
 	}
 
 	@media (hover: hover) {
@@ -1261,16 +1303,8 @@
 		}
 	}
 
-	:global(body.is-mobile) .block-more {
-		width: 28px;
-	}
-
 	.block:has(.block-more) .block-name {
-		padding-right: 20px;
-	}
-
-	:global(body.is-mobile) .block:has(.block-more) .block-name {
-		padding-right: 30px;
+		padding-right: 22px;
 	}
 
 	.block.selected .handle {
