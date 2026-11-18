@@ -7,25 +7,32 @@ import {
 	getDailyNoteDate,
 	getDailyNoteName,
 	getDailyNotePath,
+	renderDailyNoteTemplate,
 	resolveTarget,
 } from './dailyNotes'
 
 const date = new Date(2026, 7, 16, 13, 0, 0)
-const config = { folder: 'Journal', format: 'YYYY-MM-DD' }
+const config = { folder: 'Journal', format: 'YYYY-MM-DD', template: '' }
 
 describe('getDailyNotePath', () => {
 	it('joins folder, formatted date and extension', () => {
 		expect(
-			getDailyNotePath({ folder: 'Journal', format: 'YYYY-MM-DD' }, date)
+			getDailyNotePath(
+				{ folder: 'Journal', format: 'YYYY-MM-DD', template: '' },
+				date
+			)
 		).toBe('Journal/2026-08-16.md')
 	})
 
 	it('supports the vault root and formats containing sub folders', () => {
-		expect(getDailyNotePath({ folder: '', format: 'YYYY-MM-DD' }, date)).toBe(
-			'2026-08-16.md'
-		)
 		expect(
-			getDailyNotePath({ folder: '/Journal/', format: 'YYYY/MM/DD' }, date)
+			getDailyNotePath({ folder: '', format: 'YYYY-MM-DD', template: '' }, date)
+		).toBe('2026-08-16.md')
+		expect(
+			getDailyNotePath(
+				{ folder: '/Journal/', format: 'YYYY/MM/DD', template: '' },
+				date
+			)
 		).toBe('Journal/2026/08/16.md')
 	})
 })
@@ -33,8 +40,43 @@ describe('getDailyNotePath', () => {
 describe('getDailyNoteName', () => {
 	it('formats the date with the note format, sub folders included', () => {
 		expect(
-			getDailyNoteName({ folder: 'Journal', format: 'YYYY/MM/DD' }, date)
+			getDailyNoteName(
+				{ folder: 'Journal', format: 'YYYY/MM/DD', template: '' },
+				date
+			)
 		).toBe('2026/08/16')
+	})
+})
+
+describe('renderDailyNoteTemplate', () => {
+	const now = new Date(2026, 10, 18, 9, 5)
+
+	it("fills the title, the note's date and the current time", () => {
+		const template = [
+			'# {{title}}',
+			'Created {{date}} at {{time}}',
+			'{{ date:dddd D MMMM }} · {{time:HH[h]mm}}',
+		].join('\n')
+		expect(
+			renderDailyNoteTemplate(
+				template,
+				{ folder: 'Journal', format: 'YYYY/MM/YYYY-MM-DD', template: '' },
+				date,
+				now
+			)
+		).toBe(
+			[
+				'# 2026-08-16',
+				'Created 2026-08-16 at 09:05',
+				'Sunday 16 August · 09h05',
+			].join('\n')
+		)
+	})
+
+	it('leaves other double-brace text alone', () => {
+		expect(renderDailyNoteTemplate('{{weather}}', config, date, now)).toBe(
+			'{{weather}}'
+		)
 	})
 })
 

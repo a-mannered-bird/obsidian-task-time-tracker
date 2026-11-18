@@ -5,6 +5,8 @@ export type DailyNotesConfig = {
 	folder: string
 	/** Moment format of the note path inside the folder (may contain `/`). */
 	format: string
+	/** Template note path as set in the core plugin, or empty for none. */
+	template: string
 }
 
 /** `'/Journal/'` → `'Journal'`; the setting is free text, vault paths have no surrounding slashes. */
@@ -84,19 +86,63 @@ export function getAdjacentDailyNoteFile(
 	return closest?.file ?? null
 }
 
-/** Create an empty daily note for the date, plus missing parent folders. */
+/**
+ * Create the daily note for the date from the configured template (empty
+ * without one, or when the template note is missing), plus missing parent
+ * folders.
+ */
 export async function createDailyNote(
 	app: App,
 	config: DailyNotesConfig,
-	date: Date
+	date: Date,
+	now = new Date()
 ): Promise<TFile> {
 	const path = getDailyNotePath(config, date)
+	const template = await readTemplate(app, config.template)
 	let folder = ''
 	for (const segment of path.split('/').slice(0, -1)) {
 		folder = folder ? `${folder}/${segment}` : segment
 		if (!app.vault.getFolderByPath(folder)) await app.vault.createFolder(folder)
 	}
-	return app.vault.create(path, '')
+	return app.vault.create(
+		path,
+		renderDailyNoteTemplate(template, config, date, now)
+	)
+}
+
+async function readTemplate(app: App, template: string): Promise<string> {
+	if (!template) return ''
+	// The setting is a link path: usually without `.md`, maybe only a name.
+	const file = app.metadataCache.getFirstLinkpathDest(
+		normalizePath(template),
+		''
+	)
+	return file ? app.vault.cachedRead(file) : ''
+}
+
+/**
+ * The template's variables filled the way the core Templates plugin does:
+ * `{{title}}`, `{{date}}` and `{{time}}`, the last two with an optional
+ * Moment format (`{{date:dddd D MMMM}}`). Dates are the note's day, times
+ * the current time.
+ */
+export function renderDailyNoteTemplate(
+	template: string,
+	config: DailyNotesConfig,
+	date: Date,
+	now: Date
+): string {
+	const title = getDailyNoteName(config, date).split('/').pop() ?? ''
+	return template
+		.replace(/\{\{\s*title\s*\}\}/gi, title)
+		.replace(
+			/\{\{\s*(date|time)\s*(?::([^}]*))?\}\}/gi,
+			(_, variable: string, format: string | undefined) => {
+				const isDate = variable.toLowerCase() === 'date'
+				const fallback = isDate ? 'YYYY-MM-DD' : 'HH:mm'
+				return moment(isDate ? date : now).format(format?.trim() || fallback)
+			}
+		)
 }
 
 /** A daily note to act on; `file` is null until its first write creates it. */

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Menu, type App, type TFile } from 'obsidian'
+	import { Menu, TFile, type App, type TAbstractFile } from 'obsidian'
 	import {
 		DAY_END_COMMAND,
 		runTimeCommand,
@@ -12,6 +12,7 @@
 		getAdjacentDailyNoteFile,
 		getDailyNoteFile,
 		getDailyNoteName,
+		isDailyNote,
 		isSameDay,
 		resolveTarget,
 		type DailyTarget,
@@ -49,6 +50,7 @@
 	let log = $state<DailyLog | null>(null)
 	let overnight = $state<OvernightNote | null>(null)
 	let loading = $state(true)
+	let todayExists = $state(true)
 
 	let trackerTab = $state<TrackerTab | null>(null)
 
@@ -59,12 +61,16 @@
 		void plugin.saveSettings()
 	}
 
-	const dailyNotes = $derived(plugin.getDailyNotesConfig())
+	/**
+	 * Read on every use, not once: the Daily notes settings can change while
+	 * the view stays open, and nothing reactive tracks them.
+	 */
+	const dailyNotes = () => plugin.getDailyNotesConfig()
 	const previousFile = $derived(
-		target ? getAdjacentDailyNoteFile(app, dailyNotes, target.date, -1) : null
+		target ? getAdjacentDailyNoteFile(app, dailyNotes(), target.date, -1) : null
 	)
 	const nextFile = $derived(
-		target ? getAdjacentDailyNoteFile(app, dailyNotes, target.date, 1) : null
+		target ? getAdjacentDailyNoteFile(app, dailyNotes(), target.date, 1) : null
 	)
 	/** Set while the note shown is not today's, which actions then write to. */
 	const otherDay = $derived(
@@ -80,7 +86,7 @@
 		// last would show the note that was active when it started.
 		const reloadId = ++latestReload
 		const now = new Date()
-		const next = resolveTarget(app, dailyNotes, now)
+		const next = resolveTarget(app, dailyNotes(), now)
 		const nextLog = next.file
 			? await plugin.dailyLogs.loadFile(next.file)
 			: null
@@ -88,6 +94,7 @@
 			? await findOvernight(next.date, now)
 			: null
 		if (reloadId !== latestReload) return
+		todayExists = getDailyNoteFile(app, dailyNotes(), now) !== null
 		overnight = nextOvernight
 		target = next
 		log = nextLog
@@ -99,7 +106,7 @@
 		today: Date,
 		now: Date
 	): Promise<OvernightNote | null> {
-		const file = getAdjacentDailyNoteFile(app, dailyNotes, today, -1)
+		const file = getAdjacentDailyNoteFile(app, dailyNotes(), today, -1)
 		const earlier = file ? await plugin.dailyLogs.loadFile(file) : null
 		if (!earlier) return null
 		const clocks = findOvernightClocks(earlier.tasks, earlier.dayEnd, now)
@@ -127,20 +134,30 @@
 	async function openToday() {
 		const today = new Date()
 		const file =
-			getDailyNoteFile(app, dailyNotes, today) ??
-			(await createDailyNote(app, dailyNotes, today))
+			getDailyNoteFile(app, dailyNotes(), today) ??
+			(await createDailyNote(app, dailyNotes(), today))
 		await openNote(file)
 	}
 
 	onMount(() => {
 		const unsubscribe = plugin.dailyLogs.onChange(() => void reload())
 		const leafRef = app.workspace.on('active-leaf-change', () => void reload())
+		// The log store only reports notes it parsed, so a note created or
+		// deleted elsewhere would leave the banner and the arrows stale.
+		const onDailyNoteFile = (file: TAbstractFile) => {
+			if (file instanceof TFile && isDailyNote(dailyNotes(), file))
+				void reload()
+		}
+		const createRef = app.vault.on('create', onDailyNoteFile)
+		const deleteRef = app.vault.on('delete', onDailyNoteFile)
 		// Restored at startup, the view mounts before the note leaves: the
 		// active file is not known yet and would resolve to today's note.
 		app.workspace.onLayoutReady(() => void reload())
 		return () => {
 			unsubscribe()
 			app.workspace.offref(leafRef)
+			app.vault.offref(createRef)
+			app.vault.offref(deleteRef)
 		}
 	})
 </script>
@@ -156,7 +173,7 @@
 			onclick={() => void openNote(previousFile)}
 		></button>
 		<span class="note-date">
-			{target ? getDailyNoteName(dailyNotes, target.date) : ''}
+			{target ? getDailyNoteName(dailyNotes(), target.date) : ''}
 		</span>
 		<button
 			class="icon-button"
@@ -204,10 +221,17 @@
 	</div>
 
 	{#if otherDay}
-		<div class="other-day" role="status">
+		<div class="other-day" class:is-today-missing={!todayExists} role="status">
+			{#if !todayExists}
+				<span class="other-day-icon" use:icon={'calendar-x'}></span>
+			{/if}
 			<span>You're viewing {otherDay}</span>
-			<button class="back-to-today" onclick={() => void openToday()}>
-				Back to today
+			<button
+				class="back-to-today"
+				class:mod-cta={!todayExists}
+				onclick={() => void openToday()}
+			>
+				{todayExists ? 'Back to today' : "Create today's note"}
 			</button>
 		</div>
 	{/if}
@@ -360,7 +384,22 @@
 		font-size: var(--font-ui-smaller);
 	}
 
-	.back-to-today {
+	/* Tracking from here would land on a past day: make it hard to miss. */
+	.other-day.is-today-missing {
+		padding: 0.6em 0.75em;
+		border: 1px solid rgba(var(--color-orange-rgb), 0.5);
+		background: rgba(var(--color-orange-rgb), 0.15);
+		color: var(--text-normal);
+		font-size: var(--font-ui-small);
+		font-weight: var(--font-semibold);
+	}
+
+	.other-day-icon {
+		display: inline-flex;
+		color: var(--color-orange);
+	}
+
+	.back-to-today:not(.mod-cta) {
 		all: unset;
 		cursor: pointer;
 		margin-left: auto;
@@ -368,7 +407,12 @@
 		font-weight: var(--font-semibold);
 	}
 
-	.back-to-today:hover {
+	.back-to-today.mod-cta {
+		margin-left: auto;
+		flex-shrink: 0;
+	}
+
+	.back-to-today:not(.mod-cta):hover {
 		text-decoration: underline;
 	}
 

@@ -26,6 +26,20 @@ async function noteExists(path: string): Promise<boolean> {
 
 const openTrackerTab = () => openDailyView('Tracker')
 
+/** The core Daily notes plugin's options are private API, as in the plugin. */
+async function setDailyNotesTemplate(template: string) {
+	await browser.executeObsidian(({ app }, template) => {
+		const plugins = Reflect.get(app, 'internalPlugins') as {
+			getPluginById(id: string): { instance: { options: object } }
+		}
+		Reflect.set(
+			plugins.getPluginById('daily-notes').instance.options,
+			'template',
+			template
+		)
+	}, template)
+}
+
 describe('daily target', function () {
 	beforeEach(async function () {
 		await resetVault()
@@ -222,6 +236,8 @@ describe('daily target', function () {
 	})
 
 	it('says when the note shown is not today and goes back to today', async function () {
+		const today = dayNote(0)
+		await obsidianPage.write(today.path, '- [ ] Plan the week\n')
 		await obsidianPage.openFile(LATEST_FIXTURE)
 		await openTrackerTab()
 
@@ -236,11 +252,35 @@ describe('daily target', function () {
 		)
 		await strip.$('button=Back to today').click()
 
-		const today = dayNote(0)
-		await browser.waitUntil(() => noteExists(today.path), {
-			timeoutMsg: "today's note was not opened",
-		})
 		await expect(browser.$(`span=${today.date}`)).toBeDisplayed()
+		assert.strictEqual(
+			await obsidianPage.read(today.path),
+			'- [ ] Plan the week\n'
+		)
+	})
+
+	it("creates today's note from the daily notes template", async function () {
+		const today = dayNote(0)
+		await obsidianPage.write('Templates/Daily.md', '# {{title}}\n\n## Tasks\n')
+		await setDailyNotesTemplate('Templates/Daily')
+		try {
+			await obsidianPage.openFile(LATEST_FIXTURE)
+			await openTrackerTab()
+
+			const strip = browser.$('[role="status"]*=You\'re viewing')
+			await expect(strip).toHaveText(
+				expect.stringContaining("You're viewing August 3, 2026")
+			)
+			await strip.$("button=Create today's note").click()
+
+			await expect(browser.$(`span=${today.date}`)).toBeDisplayed()
+			assert.strictEqual(
+				await obsidianPage.read(today.path),
+				`# ${today.date}\n\n## Tasks\n`
+			)
+		} finally {
+			await setDailyNotesTemplate('')
+		}
 	})
 
 	it('shows the past note Obsidian reopens at startup', async function () {

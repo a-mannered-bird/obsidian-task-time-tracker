@@ -5,6 +5,7 @@ import type { DailyNotesConfig } from './dailyNotes'
 export const DEFAULT_DAILY_NOTES: DailyNotesConfig = {
 	folder: '',
 	format: 'YYYY-MM-DD',
+	template: '',
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -30,8 +31,11 @@ export function getCoreDailyNotesConfig(app: App): DailyNotesConfig {
 
 	const folder = typeof options.folder === 'string' ? options.folder.trim() : ''
 	const format = typeof options.format === 'string' ? options.format.trim() : ''
+	const template =
+		typeof options.template === 'string' ? options.template.trim() : ''
 	return {
 		folder,
 		format: format || DEFAULT_DAILY_NOTES.format,
+		template,
 	}
 }
