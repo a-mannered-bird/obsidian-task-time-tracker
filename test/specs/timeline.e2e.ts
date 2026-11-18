@@ -317,6 +317,49 @@ describe('timeline tab', function () {
 		assert.ok(drift <= 0.001, `the middle moved by ${drift} of the day`)
 	})
 
+	it('zooms with a two-finger pinch, around the fingers', async function () {
+		await openTimeline()
+		const taskA = block('Task A, 09:00 to 09:30')
+		await expect(taskA).toHaveStyle({ height: '30px' })
+		const element = await taskA.getElement()
+		const centerOf = () =>
+			browser.execute((el) => {
+				const rect = el.getBoundingClientRect()
+				return {
+					x: Math.round(rect.left + rect.width / 2),
+					y: Math.round(rect.top + rect.height / 2),
+				}
+			}, element)
+		const center = await centerOf()
+
+		// Fingers 50 px apart around Task A's middle (09:15) spread to 100 px:
+		// twice the zoom, 120 px per hour, so the half-hour block is 60 px.
+		const finger = (from: number, to: number) =>
+			browser
+				.action('pointer', { parameters: { pointerType: 'touch' } })
+				.move({ x: center.x, y: center.y + from })
+				.down()
+				.pause(50)
+				.move({ x: center.x, y: center.y + to, duration: 300 })
+				.up()
+		await browser.actions([finger(-25, -50), finger(25, 50)])
+
+		await expect(taskA).toHaveStyle({ height: '60px' })
+		// 09:15 stayed between the fingers.
+		const after = await centerOf()
+		assert.ok(
+			Math.abs(after.y - center.y) <= 1,
+			`09:15 moved from ${center.y} to ${after.y}`
+		)
+		await browser.waitUntil(() =>
+			browser
+				.executeObsidian(
+					({ plugins }) => plugins.obsidianTaskTimeTracker.settings.timelineZoom
+				)
+				.then((zoom) => zoom === 120)
+		)
+	})
+
 	/**
 	 * Drag over empty space from `fromCenter` px off Task A's center (09:15)
 	 * down by `length` px, then wait for the task picker.
@@ -385,13 +428,8 @@ describe('timeline tab', function () {
 		assert.strictEqual(await waitForChange(added), before)
 	})
 
-	/** Click a block, check its menu lists `items`, and pick `choice`. */
-	async function chooseFromMenu(
-		label: string,
-		items: string[],
-		choice: string
-	) {
-		await block(label).click()
+	/** Check the open block menu lists `items`, and pick `choice`. */
+	async function chooseFromOpenMenu(items: string[], choice: string) {
 		const menu = browser.$('.menu')
 		await expect(menu).toBeDisplayed()
 		const list = menu.$('.menu-group')
@@ -404,13 +442,41 @@ describe('timeline tab', function () {
 		await menu.$(`.menu-item*=${choice}`).click()
 	}
 
+	/** Click a block, check its menu lists `items`, and pick `choice`. */
+	async function chooseFromMenu(
+		label: string,
+		items: string[],
+		choice: string
+	) {
+		await block(label).click()
+		await chooseFromOpenMenu(items, choice)
+	}
+
+	const FINISHED_LATEST_CLOCK_MENU = [
+		'Go to clock line',
+		'Remove end time',
+		'Duplicate as…',
+		'Delete clock line',
+	]
+
+	/** Pick `choice` in the task picker opened with `placeholder`. */
+	async function pickTask(placeholder: string, typed: string, choice: string) {
+		const picker = browser.$('.prompt')
+		await expect(picker).toBeDisplayed()
+		await expect(picker.$('input')).toHaveAttribute('placeholder', placeholder)
+		await browser.keys([...typed])
+		const row = picker.$(`.suggestion-item*=${choice}`)
+		await expect(row).toBeDisplayed()
+		await row.click()
+	}
+
 	it('deletes a clock line from the block menu, then undoes it', async function () {
 		await openTimeline()
 		const before = await obsidianPage.read(NOTE)
 
 		await chooseFromMenu(
 			'Task A, 09:00 to 09:30',
-			['Go to clock line', 'Remove end time', 'Delete clock line'],
+			FINISHED_LATEST_CLOCK_MENU,
 			'Delete clock line'
 		)
 		// The task line stays, without its only clock.
@@ -435,7 +501,7 @@ describe('timeline tab', function () {
 
 		await chooseFromMenu(
 			'Task B, 09:15 to 09:45',
-			['Go to clock line', 'Remove end time', 'Delete clock line'],
+			FINISHED_LATEST_CLOCK_MENU,
 			'Remove end time'
 		)
 		await expect(block('Task B, 09:15 to now')).toBeDisplayed()
@@ -445,6 +511,59 @@ describe('timeline tab', function () {
 				'[clock::2026-08-03T09:15:00--2026-08-03T09:45:00]',
 				'[clock::2026-08-03T09:15:00]'
 			)
+		)
+	})
+
+	it('duplicates a clock as another task of the note, then undoes it', async function () {
+		await openTimeline()
+		const before = await obsidianPage.read(NOTE)
+
+		await chooseFromMenu(
+			'Task A, 09:00 to 09:30',
+			FINISHED_LATEST_CLOCK_MENU,
+			'Duplicate as…'
+		)
+		// The picker offers the other tasks only: Task A's copy would count
+		// its time twice.
+		await pickTask('Duplicate 09:00–09:30 as…', 'Email', 'Email')
+
+		await expect(block('Email, 09:00 to 09:30')).toBeDisplayed()
+		await expect(block('Task A, 09:00 to 09:30')).toBeDisplayed()
+		const duplicated = await waitForChange(before)
+		assert.strictEqual(
+			duplicated,
+			before.replace(
+				'- [ ] Email',
+				'- [ ] Email\n      [clock::2026-08-03T09:00:00--2026-08-03T09:30:00]'
+			)
+		)
+
+		await clickNoticeButton(
+			noticeWith('Duplicated "Task A" 09:00–09:30 as "Email"'),
+			'Undo'
+		)
+		await expect(block('Task A, 09:00 to 09:30')).toBeDisplayed()
+		assert.strictEqual(await waitForChange(duplicated), before)
+	})
+
+	it('opens the block menu from its ⋯ button and duplicates a clock as a new task', async function () {
+		await openTimeline()
+		const before = await obsidianPage.read(NOTE)
+
+		// With a mouse the button shows while pointing at its block.
+		const more = block('Task B, 09:15 to 09:45').$(
+			'button[aria-label="More actions for Task B, 09:15 to 09:45"]'
+		)
+		await block('Task B, 09:15 to 09:45').moveTo()
+		await expect(more).toBeDisplayed()
+		await more.click()
+		await chooseFromOpenMenu(FINISHED_LATEST_CLOCK_MENU, 'Duplicate as…')
+		await pickTask('Duplicate 09:15–09:45 as…', 'Retro #team', 'Create')
+
+		await expect(block('Retro, 09:15 to 09:45')).toBeDisplayed()
+		assert.strictEqual(
+			await waitForChange(before),
+			`${before.trimEnd()}\n- [ ] Retro #team\n      [clock::2026-08-03T09:15:00--2026-08-03T09:45:00]\n`
 		)
 	})
 

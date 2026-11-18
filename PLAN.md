@@ -168,7 +168,17 @@ A day-calendar view of the note's clocks, where blocks are resized and moved lik
 - [x] Open each note fitted to its day ("Open fitted to the day" setting, on by default); E2E checks the fitted view.
 - [x] Keyboard: focusable blocks, arrow-key move/resize, debounced writes.
 - [x] E2E: keyboard move, end resize, start resize on a running clock, finishing a running clock, Undo, zoom to a finer step, asserting the exact markdown after each; one real pointer drag (move + resize).
+- [x] Pinch to zoom on touch screens, anchored between the fingers; E2E pinch with two WebDriver touch pointers.
+- [x] ⋯ button on blocks opening the block menu, for touch screens; E2E.
+- [x] Duplicate as… (`duplicateTargets` and the finished-clock rule in core, tested); E2E duplicating to a note task with Undo and to a new task, asserting the exact markdown.
+- [ ] Try pinch zoom and the ⋯ button on a real touch device (E2E runs desktop Chromium with synthetic touch input).
 - [x] Draw a block on empty space, pick its task, insert the clock in time order (new task line when needed), Undo; unit-tested in core, E2E for an existing and a new task.
+
+## Decisions (2026-11-18): timeline on touch, Duplicate as…
+
+- **Pinch to zoom:** two fingers on the timeline zoom it through the same state as the toolbar (`setZoom`, clamped to `ZOOM_MIN`–`ZOOM_MAX`, saved to `timelineZoom`), anchored on the point between the fingers, as the trackpad pinch is on the pointer. The zoom follows the change in finger spread since they landed, applied once per animation frame: each step sets the scroll from the layout the previous one left, so two in one frame would anchor off target. The second finger cancels whatever the first began (a pending long press, a drag, a drawn clock) and clears the touch selection; no new press starts until the fingers lift. The canvas is `touch-action: pan-y` so the browser neither zooms the page nor takes the pinch, while one finger still scrolls. A pinch that starts after a one-finger scroll is under way cannot be taken from the browser (its touch moves are no longer cancelable): both fingers should land together.
+- **⋯ button on blocks:** opens the block menu (the same `clockActions` menu as a click, a right-click or Enter), under the button. Top right corner, above the start handle. Shown on blocks at least 20 px tall (the name line plus room); a shorter block has no room for it, and a tap or click on it opens the same menu. With a mouse it shows while pointing at (or focusing) the block; on touch screens (`hover: none`) it always shows, wider on mobile. Out of the tab order: the block itself opens the menu with Enter.
+- **Duplicate as…:** a block menu action on finished clocks only (a running clock has no end to copy, and a running copy would make a second task run). It opens the draw picker (note tasks, vault tasks, create) without the clock's own task, whose copy would count the same time twice; since the picker never offers a vault or create twin of a note task, the source cannot be picked. The copy gets the same start and end, goes among the target's clocks in time order, and the task line is added when missing (`addClock`). Notice `➕ Duplicated "A" 09:00–09:30 as "B"` with Undo, which removes the copy and the task line it added, like undoing a drawn clock.
 
 ## Decisions (2026-11-12): tracker tab redesign
 

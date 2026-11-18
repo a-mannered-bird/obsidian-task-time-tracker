@@ -11,6 +11,7 @@
 	import {
 		addClockLine,
 		deleteClockLine,
+		duplicateClockLine,
 		retimeClockLine,
 	} from 'commands/timelineEdits'
 	import type { DailyLog } from 'core/dailyLogs'
@@ -65,6 +66,8 @@
 	const MAGNET_PX = 8
 	const ZOOM_BUTTON_FACTOR = 1.5
 	const NUDGE_SETTLE_MS = 600
+	/** Shortest block that shows its ⋯ button; a tap opens the same menu. */
+	const MORE_BUTTON_MIN_PX = 20
 	const ZOOM_SAVE_MS = 500
 
 	let now = $state(new Date())
@@ -118,6 +121,10 @@
 
 	type Nudge = { id: string; key: ClockKey; times: ClockTimes; timer: number }
 	let nudge: Nudge | null = null
+
+	/** Two fingers zooming: the zoom and finger spread when they landed. */
+	type Pinch = { zoom: number; spread: number; frame: number }
+	let pinch: Pinch | null = null
 
 	const blocks = $derived(log ? timelineBlocks(log.tasks, now) : [])
 	const shown = $derived(
@@ -314,6 +321,8 @@
 		armed: boolean,
 		onLongPress?: () => void
 	) {
+		if (pinch) return
+		endPress()
 		const current: Press = {
 			...target,
 			pointerId: event.pointerId,
@@ -516,6 +525,7 @@
 	const ACTION_ITEMS: Record<ClockAction, { title: string; icon: string }> = {
 		open: { title: 'Go to clock line', icon: 'file-text' },
 		reopen: { title: 'Remove end time', icon: 'play' },
+		duplicate: { title: 'Duplicate as…', icon: 'copy' },
 		delete: { title: 'Delete clock line', icon: 'trash-2' },
 	}
 
@@ -544,6 +554,12 @@
 			case 'reopen':
 				void write(block.id, key, { start: key.start, end: null })
 				break
+			case 'duplicate':
+				if (key.end) {
+					const { taskName, start, end } = key
+					void duplicateClockLine(plugin, log.file, { taskName, start, end })
+				}
+				break
 			case 'delete':
 				void deleteClockLine(plugin, log.file, key, block.tags)
 				break
@@ -557,6 +573,12 @@
 				? target.getBoundingClientRect()
 				: { left: 0, bottom: 0 }
 		return { x: rect.left, y: rect.bottom }
+	}
+
+	function onMoreClick(event: MouseEvent, block: TimelineBlock) {
+		event.stopPropagation()
+		flushNudge()
+		openMenu(block, belowBlock(event.currentTarget))
 	}
 
 	function onContextMenu(event: MouseEvent, block: TimelineBlock) {
@@ -656,9 +678,46 @@
 		void setZoom(zoom * Math.exp(-event.deltaY * 0.01), event.clientY)
 	}
 
+	function spreadOf(touches: TouchList): number {
+		const [a, b] = [touches[0], touches[1]]
+		return a && b ? Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY) : 0
+	}
+
+	function middleOf(touches: TouchList): number {
+		const [a, b] = [touches[0], touches[1]]
+		return a && b ? (a.clientY + b.clientY) / 2 : 0
+	}
+
+	function onTouchStart(event: TouchEvent) {
+		if (event.touches.length !== 2) return
+		// The second finger turns whatever the first one began into a pinch.
+		cancelDrag()
+		selectedId = null
+		const spread = spreadOf(event.touches)
+		if (spread > 0) pinch = { zoom, spread, frame: 0 }
+	}
+
 	function onTouchMove(event: TouchEvent) {
+		if (pinch && event.touches.length >= 2) {
+			if (event.cancelable) event.preventDefault()
+			const current = pinch
+			const next = (current.zoom * spreadOf(event.touches)) / current.spread
+			const middle = middleOf(event.touches)
+			// One zoom per frame: each one sets the scroll from the layout the
+			// previous one left, so two in a frame would anchor off target.
+			window.cancelAnimationFrame(current.frame)
+			current.frame = window.requestAnimationFrame(
+				() => void setZoom(next, middle)
+			)
+			return
+		}
 		// Once a finger holds a block, its moves drag instead of scrolling.
 		if (press?.touch && press.armed && event.cancelable) event.preventDefault()
+	}
+
+	function onTouchEnd(event: TouchEvent) {
+		// The frame still pending carries the pinch's last step: it lands.
+		if (event.touches.length < 2) pinch = null
 	}
 
 	function onKeyUpWindow(event: KeyboardEvent) {
@@ -733,12 +792,18 @@
 		// Not through Svelte attributes: those make touchmove passive, and
 		// both handlers must be able to cancel the browser's own gesture.
 		element.addEventListener('wheel', onWheel, { passive: false })
+		element.addEventListener('touchstart', onTouchStart, { passive: true })
 		element.addEventListener('touchmove', onTouchMove, { passive: false })
+		element.addEventListener('touchend', onTouchEnd, { passive: true })
+		element.addEventListener('touchcancel', onTouchEnd, { passive: true })
 		scrolling?.addEventListener('scroll', onScroll, { passive: true })
 		return () => {
 			scrolling?.removeEventListener('scroll', onScroll)
 			element.removeEventListener('wheel', onWheel)
+			element.removeEventListener('touchstart', onTouchStart)
 			element.removeEventListener('touchmove', onTouchMove)
+			element.removeEventListener('touchend', onTouchEnd)
+			element.removeEventListener('touchcancel', onTouchEnd)
 		}
 	})
 </script>
@@ -874,6 +939,16 @@
 							onpointerdown={(event) => onPointerDown(event, block, 'start')}
 						></div>
 						{@render content(block, height)}
+						{#if height >= MORE_BUTTON_MIN_PX}
+							<button
+								class="block-more clickable-icon"
+								tabindex="-1"
+								aria-label="More actions for {ariaLabel(block)}"
+								use:icon={'more-horizontal'}
+								onpointerdown={(event) => event.stopPropagation()}
+								onclick={(event) => onMoreClick(event, block)}
+							></button>
+						{/if}
 						<div
 							class="handle handle-end"
 							aria-hidden="true"
@@ -960,6 +1035,8 @@
 		position: relative;
 		margin: 0.6em 0 1em;
 		font-size: var(--font-ui-smaller);
+		/* Pinches reach the zoom instead of the browser's page zoom. */
+		touch-action: pan-y;
 	}
 
 	.in-day {
@@ -1155,6 +1232,45 @@
 	.block.running .handle-end {
 		box-sizing: border-box;
 		border-bottom: 2px dashed var(--block-color);
+	}
+
+	/*
+	 * Above the edge handles, so the top right corner opens the menu instead
+	 * of resizing. Shown while pointing at the block with a mouse; always on
+	 * touch, where it is the visible way to the menu.
+	 */
+	.block-more {
+		position: absolute;
+		top: 1px;
+		right: 1px;
+		z-index: 2;
+		width: 18px;
+		height: 18px;
+		padding: 0;
+		background: var(--timeline-background);
+		touch-action: manipulation;
+	}
+
+	@media (hover: hover) {
+		.block-more {
+			opacity: 0;
+		}
+
+		.block:is(:hover, :focus-visible, .selected) .block-more {
+			opacity: 1;
+		}
+	}
+
+	:global(body.is-mobile) .block-more {
+		width: 28px;
+	}
+
+	.block:has(.block-more) .block-name {
+		padding-right: 20px;
+	}
+
+	:global(body.is-mobile) .block:has(.block-more) .block-name {
+		padding-right: 30px;
 	}
 
 	.block.selected .handle {

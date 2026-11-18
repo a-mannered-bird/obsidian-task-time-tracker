@@ -9,6 +9,8 @@ import {
 	addClock,
 	describeClockAdded,
 	describeClockDeleted,
+	describeClockDuplicated,
+	duplicateTargets,
 	formatTimeOfDay,
 	removeClock,
 	retimeClock,
@@ -79,7 +81,51 @@ export async function addClockLine(
 	})
 	if (!picked) return false
 	const target: ClockTarget = { name: picked.name, tags: picked.tags }
+	return writeNewClock(
+		plugin,
+		file,
+		target,
+		times,
+		describeClockAdded(target.name, times)
+	)
+}
 
+/**
+ * Ask for another task, then give it a clock with the times of `key`'s
+ * (adding the task to the note when it is new); the original stays. True
+ * when the copy was written.
+ */
+export async function duplicateClockLine(
+	plugin: TaskTimeTracker,
+	file: TFile,
+	key: ClockKey & FinishedClockTimes
+): Promise<boolean> {
+	const note = await readTaskNote(plugin, file)
+	const picked = await pickNoteTask(plugin, file.path, note, {
+		choices: (version) => duplicateTargets(version.tasks, key.taskName),
+		placeholder: `Duplicate ${formatTimeOfDay(key.start)}–${formatTimeOfDay(key.end)} as…`,
+		includeVault: true,
+	})
+	if (!picked) return false
+	const target: ClockTarget = { name: picked.name, tags: picked.tags }
+	const times = { start: key.start, end: key.end }
+	return writeNewClock(
+		plugin,
+		file,
+		target,
+		times,
+		describeClockDuplicated(key.taskName, target.name, times)
+	)
+}
+
+/** Add a clock, then offer to take it (and the task line it added) back. */
+async function writeNewClock(
+	plugin: TaskTimeTracker,
+	file: TFile,
+	target: ClockTarget,
+	times: FinishedClockTimes,
+	message: string
+): Promise<boolean> {
 	// Decided on the content written, not the one picked from: the task may
 	// have been added in the background while the picker was open.
 	let addsTask = false
@@ -88,7 +134,7 @@ export async function addClockLine(
 		return addClock(content, target, times)
 	})
 	if (!wrote(outcome)) return false
-	showUndoNotice(describeClockAdded(target.name, times), async () =>
+	showUndoNotice(message, async () =>
 		wrote(
 			await rewriteNote(noteIo(plugin, file), (content) =>
 				removeClock(content, { taskName: target.name, ...times }, addsTask)

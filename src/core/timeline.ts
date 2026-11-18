@@ -536,13 +536,15 @@ export function removeClock(
 }
 
 /** What the menu of a block offers for its clock line. */
-export type ClockAction = 'open' | 'reopen' | 'delete'
+export type ClockAction = 'open' | 'reopen' | 'duplicate' | 'delete'
 
 /**
  * The actions on a block's clock line. Removing the end (the clock runs
  * again) is offered on the task's latest clock only, while none of its
  * clocks runs: an earlier clock running up to now would cover the later
- * ones, and a task runs once at a time.
+ * ones, and a task runs once at a time. Duplicating copies a finished
+ * clock only: a running one has no end to copy, and a second running copy
+ * would make the other task run too.
  */
 export function clockActions(
 	block: TimelineBlock,
@@ -555,7 +557,19 @@ export function clockActions(
 	const reopenable =
 		!block.running &&
 		others.every((other) => !other.running && other.start < block.start)
-	return reopenable ? ['open', 'reopen', 'delete'] : ['open', 'delete']
+	const actions: ClockAction[] = ['open']
+	if (reopenable) actions.push('reopen')
+	if (!block.running) actions.push('duplicate')
+	actions.push('delete')
+	return actions
+}
+
+/**
+ * The note's tasks a clock of `source` may be duplicated to: all but
+ * `source`, whose copy would only count the same time twice.
+ */
+export function duplicateTargets(tasks: Task[], source: string): Task[] {
+	return tasks.filter((task) => task.name !== source)
 }
 
 /** `🗑️ Deleted "Deep work" 09:00–10:30`, shown with the undo button. */
@@ -570,6 +584,15 @@ export function describeClockAdded(name: string, times: ClockTimes): string {
 
 export function formatTimeOfDay(date: Date): string {
 	return formatClockMinutes(date.getHours() * 60 + date.getMinutes())
+}
+
+/** `➕ Duplicated "Deep work" 09:00–10:30 as "Email"`, shown with the undo button. */
+export function describeClockDuplicated(
+	source: string,
+	target: string,
+	times: ClockTimes
+): string {
+	return `${NOTICE_ICON.add} Duplicated ${noticeTask(source)} ${formatRange(times)} as ${noticeTask(target)}`
 }
 
 function formatRange(times: ClockTimes): string {

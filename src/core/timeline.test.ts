@@ -5,6 +5,8 @@ import {
 	clockActions,
 	describeClockDeleted,
 	describeClockAdded,
+	describeClockDuplicated,
+	duplicateTargets,
 	describeClockEdit,
 	dragDayMark,
 	dragTimes,
@@ -570,16 +572,58 @@ describe('clockActions', () => {
 		expect(actionsAt('Deep work', at(10, 15))).toEqual([
 			'open',
 			'reopen',
+			'duplicate',
 			'delete',
 		])
 	})
 
 	it('keeps the end of an earlier clock, and of any clock while one runs', () => {
 		// Deep work clocks again at 10:15.
-		expect(actionsAt('Deep work', at(9))).toEqual(['open', 'delete'])
+		expect(actionsAt('Deep work', at(9))).toEqual([
+			'open',
+			'duplicate',
+			'delete',
+		])
 		// Email runs since 13:00.
-		expect(actionsAt('Email', at(10))).toEqual(['open', 'delete'])
+		expect(actionsAt('Email', at(10))).toEqual(['open', 'duplicate', 'delete'])
+	})
+
+	it('duplicates finished clocks only: a running one has no end to copy', () => {
 		expect(actionsAt('Email', at(13))).toEqual(['open', 'delete'])
+	})
+})
+
+describe('duplicateTargets', () => {
+	it('offers every task of the note but the source, all its lines included', () => {
+		const tasks = parseTasks([
+			'- [ ] Deep work #project',
+			'- [ ] Email',
+			'- [x] Review',
+			'- [ ] Deep work #focus',
+		])
+		expect(
+			duplicateTargets(tasks, 'Deep work').map((task) => task.name)
+		).toEqual(['Email', 'Review'])
+	})
+
+	it('tells apart names differing in case, as task identity does', () => {
+		const tasks = parseTasks(['- [ ] Email', '- [ ] email'])
+		expect(duplicateTargets(tasks, 'Email').map((task) => task.name)).toEqual([
+			'email',
+		])
+	})
+})
+
+describe('describeClockDuplicated', () => {
+	it('names the copied clock, then the task it went to', () => {
+		expect(
+			plainNoticeText(
+				describeClockDuplicated('Deep work', 'Email', {
+					start: at(9),
+					end: at(10, 30),
+				})
+			)
+		).toBe('➕ Duplicated "Deep work" 09:00–10:30 as "Email"')
 	})
 })
 
