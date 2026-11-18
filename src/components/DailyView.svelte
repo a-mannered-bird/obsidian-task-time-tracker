@@ -222,10 +222,12 @@
 
 	{#if otherDay}
 		<div class="other-day" class:is-today-missing={!todayExists} role="status">
-			{#if !todayExists}
-				<span class="other-day-icon" use:icon={'calendar-x'}></span>
-			{/if}
-			<span>You're viewing {otherDay}</span>
+			<span>
+				{#if !todayExists}
+					<span class="other-day-icon" use:icon={'calendar-x'}></span>
+				{/if}
+				<span>You're viewing {otherDay}</span>
+			</span>
 			<button
 				class="back-to-today"
 				class:mod-cta={!todayExists}
@@ -394,9 +396,25 @@
 		font-weight: var(--font-semibold);
 	}
 
+	/*
+	 * Centered on the capitals rather than on the line box, which sits the
+	 * icon low with some fonts: its bottom is lifted to half the cap height
+	 * minus half its own. The first value approximates it (cap ≈ 0.7em) where
+	 * the cap unit is unsupported.
+	 */
 	.other-day-icon {
-		display: inline-flex;
+		--icon-height: 1.25em;
+		display: inline-block;
+		margin-right: 0.4em;
 		color: var(--color-orange);
+		vertical-align: calc(0.35em - var(--icon-height) / 2);
+		vertical-align: calc(0.5cap - var(--icon-height) / 2);
+	}
+
+	.other-day-icon :global(svg) {
+		display: block;
+		width: var(--icon-height);
+		height: var(--icon-height);
 	}
 
 	.back-to-today:not(.mod-cta) {
