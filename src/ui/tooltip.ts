@@ -1,72 +1,76 @@
-import { setTooltip } from 'obsidian'
+import { displayTooltip } from 'obsidian'
+import type { HintLine } from 'core/shortcuts'
 
 const LABEL = 'aria-label'
 
-/**
- * In ms. Not 0: Obsidian takes a 0 delay for none given and waits its
- * default second (measured on 1.15).
- */
-const DELAY = 1
-
-/** A line shown in the tooltip, or null for none. */
-export type TooltipHint = () => string | null
+/** Lines shown in the tooltip; null ones are skipped. */
+export type TooltipHint = () => (string | HintLine | null)[]
 
 /**
- * Svelte action: show the element's aria-label as Obsidian's tooltip as
- * soon as the pointer is over it, rather than after the default delay.
- * The label stays in the markup (it names the element); the tooltip
- * follows it when it changes.
+ * Svelte action: show a tooltip as soon as the pointer is over the element,
+ * rather than after Obsidian's default delay, with the hint's lines.
  *
- * With a `hint`, the tooltip shows its line. A button showing text shows
- * the hint alone, its text already saying what it is; an icon-only button
- * keeps its label above the hint, being otherwise unnamed on screen.
- * Obsidian shows the aria-label as the tooltip, so the hint is only written
- * there while the pointer is over the element, and read then, so it is
- * current; leaving puts the label back, keeping the element's name the
- * label alone.
+ * A button showing text shows the hint alone, its text already saying what
+ * it is; an icon-only button shows its aria-label above the hint, being
+ * otherwise unnamed on screen. The lines are read when the pointer enters,
+ * so they are current.
+ *
+ * Obsidian's own tooltip shows the aria-label as plain text; this one is
+ * built as a fragment, so an aside line can be styled. The element opts
+ * out of Obsidian's (`--no-tooltip`, which it checks before showing one)
+ * and keeps its aria-label untouched as its accessible name.
  */
 export function instantTooltip(el: HTMLElement, hint?: TooltipHint) {
 	let currentHint = hint
-	let label = el.getAttribute(LABEL)
-	/** What this action last wrote to the attribute. */
-	let written: string | null = label
 	let hovered = false
-
-	const write = (text: string | null) => {
-		if (text === written) return
-		written = text
-		if (text === null) el.removeAttribute(LABEL)
-		// setTooltip writes the text to aria-label, which Obsidian shows.
-		else setTooltip(el, text, { delay: DELAY })
+	el.addClass('task-time-tracker-own-tooltip')
+	// Obsidian hides tooltips when the pointer leaves an element carrying
+	// an aria-label, and only then: a text button gets its text as one.
+	if (!el.hasAttribute(LABEL)) {
+		const text = el.textContent?.trim()
+		if (text) el.setAttribute(LABEL, text)
 	}
-	const render = () => {
-		const line = hovered ? currentHint?.() : null
+
+	const lines = (): (string | HintLine)[] => {
+		const extra = (currentHint?.() ?? []).filter((line) => line !== null)
 		const showsText = Boolean(el.textContent?.trim())
-		if (!line) write(label)
-		else write(showsText || label === null ? line : `${label}\n${line}`)
+		const label = el.getAttribute(LABEL)
+		return showsText || !label ? extra : [label, ...extra]
+	}
+	const show = () => {
+		const shown = lines()
+		if (shown.length === 0) return
+		const fragment = new DocumentFragment()
+		for (const line of shown) {
+			if (typeof line === 'string') fragment.createDiv({ text: line })
+			else
+				fragment.createDiv({
+					text: line.text,
+					cls: line.aside ? 'task-time-tracker-tooltip-aside' : undefined,
+				})
+		}
+		// Delay 0 shows it at once, before Obsidian's listener on the body
+		// runs; any delay would be a timer that listener cancels.
+		displayTooltip(el, fragment, { delay: 0 })
 	}
 
-	if (label !== null) setTooltip(el, label, { delay: DELAY })
+	// The label can change while the pointer is over the element (a time
+	// set from the button under it).
 	const observer = new MutationObserver(() => {
-		const current = el.getAttribute(LABEL)
-		// Our own write, not a new label from the markup.
-		if (current === written) return
-		label = current
-		written = current
-		render()
+		if (hovered) show()
 	})
 	observer.observe(el, { attributes: true, attributeFilter: [LABEL] })
-	const enter = () => {
+	// Not pointerenter: Obsidian handles tooltips from a pointerover
+	// listener on the body, which this one must precede.
+	const enter = (event: PointerEvent) => {
+		// Like Obsidian's own: no tooltip on touch.
+		if (event.pointerType !== 'mouse' || hovered) return
 		hovered = true
-		render()
+		show()
 	}
 	const leave = () => {
 		hovered = false
-		render()
 	}
-	// Not pointerenter: Obsidian opens tooltips from a pointerover listener
-	// on the body, which runs first, so a button without a label of its own
-	// would get none. pointerover reaches the element before the body.
 	el.addEventListener('pointerover', enter)
 	el.addEventListener('pointerleave', leave)
 	return {

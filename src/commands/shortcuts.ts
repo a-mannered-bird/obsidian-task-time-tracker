@@ -2,6 +2,7 @@ import { Platform } from 'obsidian'
 import {
 	CONTROL_COMMANDS,
 	shortcutHint,
+	type HintLine,
 	type ViewControl,
 } from 'core/shortcuts'
 import { printHotkey } from 'ui/hotkeys'
@@ -21,7 +22,7 @@ function shortcutOf(plugin: TaskTimeTracker, commandId: string): string | null {
 function commandHint(
 	plugin: TaskTimeTracker,
 	commandId: string
-): string | null {
+): HintLine | null {
 	const name = plugin.commandNames.get(commandId)
 	const shortcut = shortcutOf(plugin, commandId)
 	return name === undefined || shortcut === null
@@ -32,7 +33,7 @@ function commandHint(
 export function controlHint(
 	plugin: TaskTimeTracker,
 	control: ViewControl
-): string | null {
+): HintLine | null {
 	return commandHint(plugin, CONTROL_COMMANDS[control])
 }
 

@@ -171,7 +171,7 @@
 				<button
 					class="day-time"
 					class:is-reminder={!log?.dayStart && !otherDay}
-					use:instantTooltip={() => controlHint(plugin, 'dayStart')}
+					use:instantTooltip={() => [controlHint(plugin, 'dayStart')]}
 					aria-label={log?.dayStart
 						? `Start of day ${formatTimeOfDay(log.dayStart)}, change`
 						: 'Set start of day'}
@@ -183,7 +183,7 @@
 				<span aria-hidden="true">·</span>
 				<button
 					class="day-time"
-					use:instantTooltip={() => controlHint(plugin, 'dayEnd')}
+					use:instantTooltip={() => [controlHint(plugin, 'dayEnd')]}
 					aria-label={log?.dayEnd
 						? `End of day ${formatTimeOfDay(log.dayEnd)}, change`
 						: 'Set end of day'}

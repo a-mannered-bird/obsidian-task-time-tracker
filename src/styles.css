@@ -398,3 +398,14 @@
 .task-time-tracker-native-only {
 	display: none;
 }
+
+/* Obsidian skips its own tooltip for these: see instantTooltip. */
+.task-time-tracker-own-tooltip {
+	--no-tooltip: true;
+}
+
+.task-time-tracker-tooltip-aside {
+	font-style: italic;
+	font-size: 0.9em;
+	opacity: 0.85;
+}

@@ -868,9 +868,16 @@ describe('tracker tab', function () {
 		await expect(tooltip).toHaveText(
 			'Start Chores\nNo shortcut yet: set one for "Toggle task" in Settings → Hotkeys'
 		)
-		// Leaving puts the plain label back: it still names the button.
-		await browser.$("h2=Today's plan").moveTo()
+		// The invitation is an aside, in italics; the label is not.
+		await expect(tooltip.$('div*=No shortcut yet')).toHaveStyle({
+			fontStyle: 'italic',
+		})
+		await expect(tooltip.$('div=Start Chores')).toHaveStyle({
+			fontStyle: 'normal',
+		})
+		// The label is the button's name, never rewritten by the tooltip.
 		await expect(start).toHaveAttribute('aria-label', 'Start Chores')
+		await browser.$("h2=Today's plan").moveTo()
 
 		// A shortcut set meanwhile shows on the next hover.
 		await browser.executeObsidian(({ app }) => {
@@ -883,6 +890,10 @@ describe('tracker tab', function () {
 		await expect(tooltip).toHaveText(
 			expect.stringMatching(/^Start Chores\nShortcut: \S/)
 		)
+		// A set shortcut keeps the tooltip's own font.
+		await expect(tooltip.$('div*=Shortcut:')).toHaveStyle({
+			fontStyle: 'normal',
+		})
 		await browser.executeObsidian(({ app }) => {
 			const { hotkeyManager } = app as unknown as WithHotkeys
 			hotkeyManager.removeHotkeys('obsidian-task-time-tracker:toggle-task')

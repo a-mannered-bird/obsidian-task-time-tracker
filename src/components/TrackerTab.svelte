@@ -89,23 +89,19 @@
 	const interruptionActive = $derived(
 		layout.running.some((task) => task.name === INTERRUPTION_TASK)
 	)
-	function explainedHint(what: string, control: ViewControl): string {
-		const shortcut = controlHint(plugin, control)
-		return shortcut ? `${what}\n${shortcut}` : what
-	}
-	function interruptionHint(): string {
-		return explainedHint(
+	function interruptionHint() {
+		return [
 			interruptionActive
 				? 'End it: say what interrupted you, its time goes there, and the paused tasks resume'
 				: 'Pause the running tasks and count the time until you say what interrupted you',
-			'interruption'
-		)
+			controlHint(plugin, 'interruption'),
+		]
 	}
-	function endDayHint(): string {
-		return explainedHint(
+	function endDayHint() {
+		return [
 			'Set the end of day, stop the running clocks at it, tick the tasks with time and remove the ones without',
-			'endDay'
-		)
+			controlHint(plugin, 'endDay'),
+		]
 	}
 
 	function runningClockStart(task: Task): Date | null {
@@ -596,7 +592,9 @@
 		class="task-list-item-checkbox"
 		class:has-task-color={color !== undefined}
 		style:--task-color={color}
-		use:instantTooltip={running ? () => controlHint(plugin, 'done') : undefined}
+		use:instantTooltip={running
+			? () => [controlHint(plugin, 'done')]
+			: undefined}
 		aria-label={running
 			? `Done: stop and tick ${task.name}`
 			: task.ticked
@@ -741,7 +739,9 @@
 								<button
 									class="row-button"
 									aria-label="End interruption"
-									use:instantTooltip={() => controlHint(plugin, 'interruption')}
+									use:instantTooltip={() => [
+										controlHint(plugin, 'interruption'),
+									]}
 									use:icon={'square'}
 									onclick={() => void toggleInterruption(plugin)}
 								></button>
@@ -763,14 +763,16 @@
 								<button
 									class="row-button"
 									aria-label={`Stop ${task.name}`}
-									use:instantTooltip={() => controlHint(plugin, 'stop')}
+									use:instantTooltip={() => [controlHint(plugin, 'stop')]}
 									use:icon={'square'}
 									onclick={() => stop([task.name], false)}
 								></button>
 								<button
 									class="row-button"
 									aria-label={`Set clock duration of ${task.name}`}
-									use:instantTooltip={() => controlHint(plugin, 'setDuration')}
+									use:instantTooltip={() => [
+										controlHint(plugin, 'setDuration'),
+									]}
 									use:icon={'hourglass'}
 									onclick={() => void setDuration(plugin, task.name)}
 								></button>
@@ -818,7 +820,9 @@
 						<span class="row-actions">
 							<button
 								class="row-button"
-								use:instantTooltip={() => controlHint(plugin, actions.primary)}
+								use:instantTooltip={() => [
+									controlHint(plugin, actions.primary),
+								]}
 								aria-label={actions.primary === 'switch'
 									? `Switch to ${task.name}`
 									: `Start ${task.name}`}
@@ -829,7 +833,7 @@
 								<button
 									class="row-button"
 									aria-label={`Start ${task.name} alongside`}
-									use:instantTooltip={() => controlHint(plugin, 'alongside')}
+									use:instantTooltip={() => [controlHint(plugin, 'alongside')]}
 									use:icon={'plus'}
 									onclick={() => start(task, 'alongside')}
 								></button>
