@@ -5,6 +5,7 @@ import { openDailyView } from './support/dailyView'
 import { dayNote, promptDay } from './support/days'
 import { clickNoticeButton, noticeWith } from './support/notices'
 import {
+	answerStartOfDay,
 	expectTimeMinutesAgo,
 	minutesField,
 	typeMinutes,
@@ -177,6 +178,7 @@ describe('tracker tab', function () {
 
 		// Nothing runs: each row offers a single Start.
 		await button('Start Chores').click()
+		await answerStartOfDay()
 		content = await waitForChange(content)
 		assert.deepStrictEqual(states(content, '- [ ] Chores'), ['running'])
 		await expect(button('Stop Chores')).toBeDisplayed()
@@ -523,6 +525,7 @@ describe('tracker tab', function () {
 		await openTracker()
 
 		await button('Start Chores').click()
+		await answerStartOfDay()
 		content = await waitForChange(content)
 		const started = clocksOf(content, '- [ ] Chores')
 		assert.deepStrictEqual(states(content, '- [ ] Chores'), ['running'])
@@ -812,6 +815,7 @@ describe('tracker tab', function () {
 		// Today too, the line under the fields gives the full date.
 		await expect(modal.$(`p=${promptDay(0)} at 00:05`)).toBeDisplayed()
 		await modal.$('button=OK').click()
+		await answerStartOfDay()
 
 		content = await waitForChange(content)
 		assert.deepStrictEqual(clocksOf(content, '- [ ] Chores'), [
@@ -837,7 +841,13 @@ describe('tracker tab', function () {
 		// A time of day lands on the note's day, not today.
 		await button('Start Chores').click()
 		await answerTime('09:00')
+		// The first task of the note asks when its day started, on its day too.
+		await answerStartOfDay('08:30')
 		content = await waitForChange(content, pastNote.path)
+		assert.match(
+			content,
+			new RegExp(`\\nday_start: ${pastNote.date}T08:30:00\\n`)
+		)
 		assert.deepStrictEqual(clocksOf(content, '- [ ] Chores'), [
 			{ start: `${pastNote.date}T09:00:00`, end: null },
 		])
@@ -951,8 +961,9 @@ describe('tracker tab', function () {
 		)
 
 		// Starting Chores gives the interruption something to pause, and
-		// the day's first clock sets its start, so it can end too.
+		// the day's first clock asks for its start, so it can end too.
 		await button('Start Chores').click()
+		await answerStartOfDay()
 		await expect(button('Stop Chores')).toBeDisplayed()
 		await expect(interruption).toBeEnabled()
 		await expect(endDay).toBeEnabled()

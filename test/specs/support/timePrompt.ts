@@ -39,6 +39,29 @@ export async function typeTime(modal: ChainablePromiseElement, time: string) {
 	await expect(field).toHaveValue(time)
 }
 
+/**
+ * Answer the prompt the first clock of a note opens: the time of day typed
+ * when given, else the task's own start it opens on.
+ */
+export async function answerStartOfDay(time?: string) {
+	await browser.waitUntil(
+		async () => {
+			const titles = await browser.$$('.modal-title').getElements()
+			const top = titles[titles.length - 1]
+			return top !== undefined && (await top.getText()) === 'Start of day'
+		},
+		{ timeoutMsg: 'no "Start of day" modal opened' }
+	)
+	const modals = await browser.$$('.modal-container').getElements()
+	const modal = modals[modals.length - 1]!.$('.modal')
+	await expect(modal.$('.modal-title')).toHaveText('Start of day')
+	await expect(modal.$('p')).toHaveText(
+		"It's the first task of the day! But when did your day actually start?"
+	)
+	if (time) await typeTime(modal, time)
+	await modal.$('button=OK').click()
+}
+
 function formatTimeOfDay(date: Date): string {
 	const pad = (n: number) => String(n).padStart(2, '0')
 	return `${pad(date.getHours())}:${pad(date.getMinutes())}`

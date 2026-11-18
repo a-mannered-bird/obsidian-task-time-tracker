@@ -1,13 +1,16 @@
-import { startDayWithFirstClock } from './dayBoundaries'
+import { firstClockOfDay, withDayStart } from './dayBoundaries'
 import { isRunning, TaskNote } from './note'
 import {
 	toggleTasks,
 	type Prompts,
 	type TaskChoice,
+	type TimeRequest,
 	type ToggleContext,
 	type ToggleOptions,
 } from './toggle'
 import { NOTICE_ICON } from './noticeText'
+import { formatTimeOfDay } from './timeline'
+import { parseFirstDayStart } from './typedTime'
 
 /** How the runner reaches the note; the commands wire it to the vault. */
 export type NoteIo = {
@@ -45,6 +48,7 @@ export const BUSY_NOTICE = `${NOTICE_ICON.warning} The note kept changing while 
  * the prompts not answered yet. The write is compare-and-swap, redone the
  * same way when the note changes in between. Notices are held back until
  * the run ends, so the user only reads those of the run that counted.
+ * The first clock of a note asks when the day actually started.
  */
 export async function applyTrackingSteps(
 	io: NoteIo,
@@ -53,6 +57,7 @@ export async function applyTrackingSteps(
 ): Promise<void> {
 	const notify = (message: string) => context.prompts.notify(message)
 	const recorded: Answer[] = []
+	let dayStart: Date | null = null
 	let failedWrites = 0
 	for (;;) {
 		const base = await io.read()
@@ -86,9 +91,20 @@ export async function applyTrackingSteps(
 			if (replaying) notify(STALE_NOTICE)
 			return
 		}
-		const after = note.toString()
-		const dayStart = startDayWithFirstClock(base, after)
-		if (await io.replace(base, dayStart?.content ?? after)) {
+		let after = note.toString()
+		const firstClock = firstClockOfDay(base, after)
+		if (firstClock) {
+			if (!dayStart) {
+				dayStart = await context.prompts.promptTime(
+					dayStartRequest(firstClock, context.day ?? context.now)
+				)
+				if (!dayStart) return
+				if ((await io.read()) !== base) continue
+			}
+			// A redo may have moved the first clock before the answer.
+			after = withDayStart(after, dayStart < firstClock ? dayStart : firstClock)
+		}
+		if (await io.replace(base, after)) {
 			pass.notices.forEach(notify)
 			return
 		}
@@ -96,6 +112,19 @@ export async function applyTrackingSteps(
 			notify(BUSY_NOTICE)
 			return
 		}
+	}
+}
+
+const FIRST_TASK_TEXT =
+	"It's the first task of the day! But when did your day actually start?"
+
+function dayStartRequest(firstClock: Date, day: Date): TimeRequest {
+	return {
+		title: 'Start of day',
+		description: FIRST_TASK_TEXT,
+		reference: firstClock,
+		minutesLabel: `Minutes before ${formatTimeOfDay(firstClock)}`,
+		parse: (text) => parseFirstDayStart(text, day, firstClock),
 	}
 }
 

@@ -5,6 +5,11 @@ export function isoDate(date: Date): string {
 	return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
 }
 
+/** `YYYY-MM-DDTHH:MM:SS` in local time, as notes hold clocks and day marks. */
+export function isoDateTime(date: Date): string {
+	return `${isoDate(date)}T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`
+}
+
 /** The daily note `offset` days from today: its path and date. */
 export function dayNote(offset: number): { path: string; date: string } {
 	const date = new Date()

@@ -52,20 +52,18 @@ function withMark(content: string, mark: DayMark, at: Date): RecordedMark {
 /**
  * The day starts with its first clock: when a write turns a note without
  * clocks into one with some, and no start of day is recorded, the earliest
- * clock's start becomes it. Null when nothing is to record.
+ * clock's start, which the start of day may not come after. Null when the
+ * write does not start the day.
  */
-export function startDayWithFirstClock(
-	before: string,
-	after: string
-): RecordedMark | null {
+export function firstClockOfDay(before: string, after: string): Date | null {
 	if (markOf(after, 'start')) return null
 	if (tasksOf(before).some((task) => task.clocks.length > 0)) return null
-	const starts = tasksOf(after).flatMap((task) =>
-		task.clocks.map((clock) => clock.start)
-	)
-	if (starts.length === 0) return null
-	const first = new Date(Math.min(...starts.map((start) => start.valueOf())))
-	return withMark(after, 'start', first)
+	return firstClockStart(after)
+}
+
+/** `content` with its start of day set to `at`. */
+export function withDayStart(content: string, at: Date): string {
+	return withMark(content, 'start', at).content
 }
 
 /**

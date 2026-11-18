@@ -8,6 +8,7 @@ import {
 	parseDayEnd,
 	parseDayStart,
 	parseEndTime,
+	parseFirstDayStart,
 	parseStartTime,
 	parseToggleTime,
 	timeOfDayBefore,
@@ -238,6 +239,29 @@ describe('parseDayStart', () => {
 	it('takes any time without an end of day', () => {
 		expect(parseDayStart('23:30', day, null, now)).toEqual({
 			at: new Date(2026, 10, 11, 23, 30),
+		})
+	})
+})
+
+describe('parseFirstDayStart', () => {
+	const day = new Date(2026, 10, 11)
+	const firstClock = new Date(2026, 10, 11, 9, 0)
+
+	it('counts minutes back from the first clock, not from now', () => {
+		expect(parseFirstDayStart('30', day, firstClock)).toEqual({
+			at: new Date(2026, 10, 11, 8, 30),
+		})
+	})
+
+	it('accepts the first clock itself, nothing after it', () => {
+		expect(parseFirstDayStart('09:00', day, firstClock)).toEqual({
+			at: firstClock,
+		})
+		expect(parseFirstDayStart('09:15', day, firstClock)).toEqual({
+			error: 'That is after the task starts, 09:00.',
+		})
+		expect(parseFirstDayStart('-5', day, firstClock)).toEqual({
+			error: 'That is after the task starts, 09:00.',
 		})
 	})
 })

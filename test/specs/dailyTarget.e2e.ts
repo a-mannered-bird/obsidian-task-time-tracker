@@ -2,7 +2,7 @@ import assert from 'node:assert'
 import { browser, expect } from '@wdio/globals'
 import { obsidianPage } from 'wdio-obsidian-service'
 import { openDailyView, selectDailyViewTab } from './support/dailyView'
-import { dayNote, promptDay } from './support/days'
+import { dayNote, isoDateTime, promptDay } from './support/days'
 import { clickNoticeButton } from './support/notices'
 import { minutesField, typeMinutes, typeTime } from './support/timePrompt'
 import { resetVault } from './support/vault'
@@ -49,16 +49,31 @@ describe('daily target', function () {
 		)
 		await browser.keys('Enter')
 
+		// The first task of the day asks when the day actually started,
+		// counting minutes back from the task's start.
+		const modals = await browser.$$('.modal-container').getElements()
+		const dayStart = modals[modals.length - 1]!.$('.modal')
+		await expect(dayStart.$('.modal-title')).toHaveText('Start of day')
+		await expect(dayStart.$('p')).toHaveText(
+			"It's the first task of the day! But when did your day actually start?"
+		)
+		const minutes = dayStart.$('input[type="number"]')
+		await expect(minutes).toBeFocused()
+		await minutes.setValue('20')
+		await expect(minutes).toHaveValue('20')
+		await browser.keys('Enter')
+
 		await browser.waitUntil(() => noteExists(today.path), {
 			timeoutMsg: "today's note was not created",
 		})
 		const lines = (await obsidianPage.read(today.path)).trim().split('\n')
-		// The first clock of the note also starts its day, at its start.
 		const start = /^ +\[clock::(\S{19})\]$/.exec(lines[4] ?? '')?.[1]
 		assert.ok(start?.startsWith(`${today.date}T`), `clock line: ${lines[4]}`)
+		assert.ok(start)
+		const twentyBefore = new Date(new Date(start).valueOf() - 20 * 60 * 1000)
 		assert.deepStrictEqual(lines.slice(0, 4), [
 			'---',
-			`day_start: ${start}`,
+			`day_start: ${isoDateTime(twentyBefore)}`,
 			'---',
 			'- [ ] Plan the week',
 		])

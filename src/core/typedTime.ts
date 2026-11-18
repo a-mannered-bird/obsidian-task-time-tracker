@@ -130,6 +130,25 @@ export function parseDayStart(
 	return parsed
 }
 
+/**
+ * The start of day typed when the first task of the day starts at
+ * `firstClock`: a time of day on `day`, or minutes before that start; never
+ * after it.
+ */
+export function parseFirstDayStart(
+	text: string,
+	day: Date,
+	firstClock: Date
+): TypedTime {
+	const parsed = parseToggleTime(text, firstClock, { day })
+	if ('at' in parsed && parsed.at > firstClock) {
+		return {
+			error: `That is after the task starts, ${formatTimeOfDay(firstClock)}.`,
+		}
+	}
+	return parsed
+}
+
 /** What an end of day must come after, and how to name it to the user. */
 export type DayEndFloor = { at: Date; what: string }
 

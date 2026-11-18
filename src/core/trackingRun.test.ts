@@ -14,6 +14,7 @@ function fakeNote(lines: string[]) {
 	let content = lines.join('\n')
 	let prompted = 0
 	const notices: string[] = []
+	const timeTitles: string[] = []
 	const io: NoteIo = {
 		read: () => Promise.resolve(content),
 		replace: (expected, next) => {
@@ -25,12 +26,18 @@ function fakeNote(lines: string[]) {
 	/**
 	 * Prompts picking `name`, after letting `during` run. With `live`, the
 	 * pick is made from the note as it is after `during`, the way the picker
-	 * follows the note; otherwise from the version it was opened on.
+	 * follows the note; otherwise from the version it was opened on. Time
+	 * prompts take `times` in order, dismissed once they run out; `duringTime`
+	 * runs inside each of them.
 	 */
 	const picking = (
 		name: string,
 		during?: () => void,
-		{ live = false, time = null as string | null } = {}
+		{
+			live = false,
+			times = [] as string[],
+			duringTime = undefined as (() => void) | undefined,
+		} = {}
 	): Prompts => ({
 		pickTask: (note, request) => {
 			prompted++
@@ -45,7 +52,10 @@ function fakeNote(lines: string[]) {
 		},
 		promptTime: (request) => {
 			prompted++
-			const parsed = time === null ? null : request.parse(time)
+			timeTitles.push(request.title)
+			duringTime?.()
+			const time = times.shift()
+			const parsed = time === undefined ? null : request.parse(time)
 			return Promise.resolve(parsed && 'at' in parsed ? parsed.at : null)
 		},
 		notify: (message) => notices.push(plainNoticeText(message)),
@@ -63,22 +73,70 @@ function fakeNote(lines: string[]) {
 		external: (next: string[]) => (content = next.join('\n')),
 		lines: () => content.split('\n'),
 		prompted: () => prompted,
+		timeTitles,
 	}
 }
 
 describe('applyTrackingSteps', () => {
 	it('writes the toggle when the note did not change meanwhile', async () => {
+		const note = fakeNote([
+			'- [ ] Emails',
+			'      [clock::2026-08-16T08:00:00--2026-08-16T08:30:00]',
+			'- [ ] Walk the dog',
+		])
+		await note.run(note.picking('Walk the dog'))
+		expect(note.lines()).toEqual([
+			'- [ ] Emails',
+			'      [clock::2026-08-16T08:00:00--2026-08-16T08:30:00]',
+			'- [ ] Walk the dog',
+			'      [clock::2026-08-16T12:00:00]',
+		])
+		expect(note.timeTitles).toEqual([])
+	})
+
+	it('asks when the day started with the first clock of the note, in the same write', async () => {
 		const note = fakeNote(['- [ ] Emails', '- [ ] Walk the dog'])
-		await note.run(note.picking('Emails'))
-		// The first clock of the note also starts its day, in the same write.
+		await note.run(note.picking('Emails', undefined, { times: ['07:30'] }))
 		expect(note.lines()).toEqual([
 			'---',
-			'day_start: 2026-08-16T12:00:00',
+			'day_start: 2026-08-16T07:30:00',
 			'---',
 			'- [ ] Emails',
 			'      [clock::2026-08-16T12:00:00]',
 			'- [ ] Walk the dog',
 		])
+		expect(note.timeTitles).toEqual(['Start of day'])
+	})
+
+	it('writes nothing when the start of day is dismissed', async () => {
+		const note = fakeNote(['- [ ] Emails'])
+		await note.run(note.picking('Emails'))
+		expect(note.lines()).toEqual(['- [ ] Emails'])
+		expect(note.notices).toEqual([])
+	})
+
+	it('drops the start of day when the note got its first clock elsewhere while it was asked', async () => {
+		const note = fakeNote(['- [ ] Emails', '- [ ] Walk the dog'])
+		const synced = () =>
+			note.external([
+				'- [ ] Emails',
+				'- [ ] Walk the dog',
+				'      [clock::2026-08-16T08:00:00--2026-08-16T08:30:00]',
+			])
+		await note.run(
+			note.picking('Emails', undefined, {
+				times: ['07:30'],
+				duringTime: synced,
+			})
+		)
+		// The other device's write already started the day, without a start.
+		expect(note.lines()).toEqual([
+			'- [ ] Emails',
+			'      [clock::2026-08-16T12:00:00]',
+			'- [ ] Walk the dog',
+			'      [clock::2026-08-16T08:00:00--2026-08-16T08:30:00]',
+		])
+		expect(note.prompted()).toBe(2)
 	})
 
 	it('redoes the toggle on the new content when the note changed during the prompt, without asking again', async () => {
@@ -116,7 +174,9 @@ describe('applyTrackingSteps', () => {
 	it('adds the picked task again when the new content lacks it', async () => {
 		const note = fakeNote(['- [ ] Emails #work', '- [ ] Walk the dog'])
 		await note.run(
-			note.picking('Emails', () => note.external(['- [ ] Walk the dog']))
+			note.picking('Emails', () => note.external(['- [ ] Walk the dog']), {
+				times: ['12:00'],
+			})
 		)
 		expect(note.lines()).toEqual([
 			'---',
@@ -163,9 +223,10 @@ describe('applyTrackingSteps', () => {
 				'- [ ] Walk the dog',
 				'      [clock::2026-08-16T08:00:00--2026-08-16T08:30:00]',
 			])
-		await note.run(note.picking('Emails', synced, { live: true, time: '15' }), [
-			{ timeTravel: true },
-		])
+		await note.run(
+			note.picking('Emails', synced, { live: true, times: ['15'] }),
+			[{ timeTravel: true }]
+		)
 		expect(note.lines()).toEqual([
 			'- [ ] Emails',
 			'      [clock::2026-08-16T11:45:00]',

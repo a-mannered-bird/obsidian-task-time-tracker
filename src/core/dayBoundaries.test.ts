@@ -4,30 +4,25 @@ import {
 	describeMarkSet,
 	endDayWithLastClock,
 	keepDayStartOnFirstClock,
-	startDayWithFirstClock,
+	firstClockOfDay,
+	withDayStart,
 } from './dayBoundaries'
 
 const lines = (...l: string[]) => l.join('\n')
 
-describe('startDayWithFirstClock', () => {
+describe('firstClockOfDay', () => {
 	const before = lines('- [ ] Chores', '- [ ] Email')
 
-	it('starts the day with the first clock of the note', () => {
+	it('finds the first clock of the note when the write starts the day', () => {
 		const after = lines(
 			'- [ ] Chores',
 			'      [clock::2026-11-17T08:12:00]',
-			'- [ ] Email'
-		)
-		const recorded = startDayWithFirstClock(before, after)
-		expect(recorded?.at).toEqual(new Date(2026, 10, 17, 8, 12))
-		expect(recorded?.content.split('\n')).toEqual([
-			'---',
-			'day_start: 2026-11-17T08:12:00',
-			'---',
-			'- [ ] Chores',
-			'      [clock::2026-11-17T08:12:00]',
 			'- [ ] Email',
-		])
+			'      [clock::2026-11-17T07:50:00--2026-11-17T08:05:00]'
+		)
+		expect(firstClockOfDay(before, after)).toEqual(
+			new Date(2026, 10, 17, 7, 50)
+		)
 	})
 
 	it('leaves a recorded start of day alone', () => {
@@ -38,7 +33,7 @@ describe('startDayWithFirstClock', () => {
 			'- [ ] Chores',
 			'      [clock::2026-11-17T08:12:00]'
 		)
-		expect(startDayWithFirstClock(before, after)).toBeNull()
+		expect(firstClockOfDay(before, after)).toBeNull()
 	})
 
 	it('only counts the first clock of the day, not later ones', () => {
@@ -53,7 +48,22 @@ describe('startDayWithFirstClock', () => {
 			'- [ ] Email',
 			'      [clock::2026-11-17T09:00:00]'
 		)
-		expect(startDayWithFirstClock(earlier, later)).toBeNull()
+		expect(firstClockOfDay(earlier, later)).toBeNull()
+	})
+})
+
+describe('withDayStart', () => {
+	it('records the start of day in the frontmatter', () => {
+		const content = lines('- [ ] Chores', '      [clock::2026-11-17T08:12:00]')
+		expect(
+			withDayStart(content, new Date(2026, 10, 17, 7, 30)).split('\n')
+		).toEqual([
+			'---',
+			'day_start: 2026-11-17T07:30:00',
+			'---',
+			'- [ ] Chores',
+			'      [clock::2026-11-17T08:12:00]',
+		])
 	})
 })
 
