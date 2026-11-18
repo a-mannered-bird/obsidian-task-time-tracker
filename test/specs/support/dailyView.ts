@@ -12,6 +12,28 @@ export async function selectDailyViewTab(name: DailyViewTab) {
 	const tab = browser.$(`button[role="tab"]=${name}`)
 	await browser.execute((el) => el.click(), await tab.getElement())
 	await expect(tab).toHaveAttribute('aria-selected', 'true')
+	await waitForViewToSettle()
+}
+
+/**
+ * The sidebar slides open with the view: pointing at a button before it
+ * stops lands on whatever slid under the pointer meanwhile.
+ */
+async function waitForViewToSettle() {
+	let last = ''
+	await browser.waitUntil(
+		async () => {
+			const rect = await browser.execute(() =>
+				JSON.stringify(
+					document.querySelector('[role="tabpanel"]')?.getBoundingClientRect()
+				)
+			)
+			const settled = rect === last
+			last = rect
+			return settled
+		},
+		{ interval: 100, timeoutMsg: 'the daily view kept moving' }
+	)
 }
 
 export async function openDailyView(tab: DailyViewTab) {

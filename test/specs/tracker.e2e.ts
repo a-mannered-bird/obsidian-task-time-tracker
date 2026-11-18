@@ -868,26 +868,7 @@ describe('tracker tab', function () {
 		const tooltip = browser.$('.tooltip')
 
 		// No shortcut yet: the tooltip names the command to set one for.
-		const rects: string[] = []
-		for (let k = 0; k < 12; k++) {
-			rects.push(await browser.execute(() => {
-				const b = document.querySelector('button[aria-label="Start Chores"]')
-				const p = document.querySelector('.tab-panel') as HTMLElement | null
-				return `${Math.round(b?.getBoundingClientRect().x ?? -1)} panelW=${p?.clientWidth}/${p?.offsetWidth} scrollW=${p?.scrollWidth}`
-			}))
-			await browser.pause(100)
-		}
-		assert.fail('RECTS ' + rects.join(' | '))
 		await start.moveTo()
-		await browser.pause(300)
-		assert.fail('EVLOG ' + (await browser.execute(() => (window as unknown as { evlog: string[] }).evlog.join(' | ') + ' FINAL tip=' + document.querySelector('.tooltip')?.textContent)))
-		assert.fail('DEBUG ' + await browser.execute(() => {
-			const b = document.querySelector('button[aria-label="Start Chores"]')!
-			const r = b.getBoundingClientRect()
-			const at = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)
-			const m = document.querySelector('button[aria-label="More actions for Chores"]')!.getBoundingClientRect()
-			return JSON.stringify({ r, m, at: at?.outerHTML.slice(0, 120), tip: document.querySelector('.tooltip')?.textContent, hover: Array.from(document.querySelectorAll(':hover')).map(e=>e.tagName+'.'+e.className).slice(-3) })
-		}))
 		await expect(tooltip).toHaveText(
 			'Start Chores\nNo shortcut yet: set one for "Toggle task" in Settings → Hotkeys'
 		)
