@@ -48,6 +48,7 @@
 		type TaskMove,
 	} from 'core/tracker'
 	import type { Task } from 'types/tasks'
+	import { STOP_AT_ICON } from 'ui/customIcons'
 	import { icon } from 'ui/icon'
 	import { openTaskManager } from 'ui/TaskManagerModal'
 	import { rowMotion } from 'ui/rowMotion'
@@ -347,7 +348,7 @@
 		},
 		'set-stop': {
 			title: 'Set clock stop time',
-			icon: 'timer-off',
+			icon: STOP_AT_ICON,
 			group: 'track',
 		},
 		'migrate-clock': {
@@ -771,7 +772,7 @@
 									class="row-button"
 									aria-label="End interruption at…"
 									use:instantTooltip
-									use:icon={'timer-off'}
+									use:icon={STOP_AT_ICON}
 									onclick={() => void setInterruptionStop(plugin)}
 								></button>
 								{@render moreButton(task)}
@@ -793,7 +794,7 @@
 									class="row-button"
 									aria-label={`Stop ${task.name} at…`}
 									use:instantTooltip
-									use:icon={'timer-off'}
+									use:icon={STOP_AT_ICON}
 									onclick={() => stopAt(task)}
 								></button>
 								{@render moreButton(task)}

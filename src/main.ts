@@ -15,6 +15,7 @@ import {
 	TaskTimeTrackerSettingTab,
 	type TaskTimeTrackerSettings,
 } from './settings'
+import { registerCustomIcons } from './ui/customIcons'
 import { openTaskManager } from './ui/TaskManagerModal'
 import { assignDateTimeType } from './ui/propertyTypes'
 import { DAY_END_PROPERTY, DAY_START_PROPERTY } from './core/time'
@@ -49,6 +50,7 @@ export default class TaskTimeTracker extends Plugin {
 
 	async onload() {
 		await this.loadSettings()
+		registerCustomIcons()
 		this.dailyLogs.register(this)
 		registerUserEditLog(this)
 
