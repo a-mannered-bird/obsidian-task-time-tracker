@@ -35,6 +35,7 @@
 	import { INTERRUPTION_TASK, taskChoice } from 'core/toggle'
 	import {
 		dropMove,
+		dayButtons,
 		dropSlot,
 		pausedByInterruption,
 		primaryStartIcon,
@@ -89,7 +90,9 @@
 	const interruptionActive = $derived(
 		layout.running.some((task) => task.name === INTERRUPTION_TASK)
 	)
+	const unavailable = $derived(dayButtons(tasks, log?.dayStart ?? null))
 	function interruptionHint() {
+		if (unavailable.interruption) return [unavailable.interruption]
 		return [
 			interruptionActive
 				? 'End it: say what interrupted you, its time goes there, and the paused tasks resume'
@@ -98,6 +101,7 @@
 		]
 	}
 	function endDayHint() {
+		if (unavailable.endDay) return [unavailable.endDay]
 		return [
 			'Set the end of day, stop the running clocks at it, tick the tasks with time and remove the ones without',
 			controlHint(plugin, 'endDay'),
@@ -673,21 +677,21 @@
 				class="interruption-button"
 				class:is-active={interruptionActive}
 				aria-pressed={interruptionActive}
+				disabled={unavailable.interruption !== null}
 				use:instantTooltip={interruptionHint}
 				onclick={() => void toggleInterruption(plugin)}
 			>
 				<span use:icon={'pause'}></span>
 				Interruption
 			</button>
-			{#if tasks.length > 0}
-				<button
-					use:instantTooltip={endDayHint}
-					onclick={() => void endDay(plugin)}
-				>
-					<span use:icon={'sunset'}></span>
-					End day
-				</button>
-			{/if}
+			<button
+				disabled={unavailable.endDay !== null}
+				use:instantTooltip={endDayHint}
+				onclick={() => void endDay(plugin)}
+			>
+				<span use:icon={'sunset'}></span>
+				End day
+			</button>
 		</div>
 	</div>
 
@@ -917,7 +921,7 @@
 	   #fafafa in the light theme). An overlay darkens or lightens whatever
 	   background the theme gives the button. */
 	@media (hover: hover) {
-		.buttons button:hover {
+		.buttons button:hover:enabled {
 			cursor: pointer;
 			background-image: linear-gradient(
 				var(--background-modifier-hover),

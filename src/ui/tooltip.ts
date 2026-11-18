@@ -64,7 +64,7 @@ export function instantTooltip(el: HTMLElement, hint?: TooltipHint) {
 	// listener on the body, which this one must precede.
 	const enter = (event: PointerEvent) => {
 		// Like Obsidian's own: no tooltip on touch.
-		if (event.pointerType !== 'mouse' || hovered) return
+		if (event.pointerType !== 'mouse') return
 		hovered = true
 		show()
 	}

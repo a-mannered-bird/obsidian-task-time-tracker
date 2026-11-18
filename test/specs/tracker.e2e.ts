@@ -336,6 +336,9 @@ describe('tracker tab', function () {
 
 	it('marks a task done, adds one to the plan, then ends the day', async function () {
 		let content = await writeToday([
+			'---',
+			`day_start: ${today.date}T00:00:00`,
+			'---',
 			'- [ ] Write',
 			`      [clock::${today.date}T00:00:00]`,
 			'- [ ] Run',
@@ -394,7 +397,7 @@ describe('tracker tab', function () {
 			{ timeoutMsg: 'the day was not ended' }
 		)
 		content = await obsidianPage.read(today.path)
-		assert.match(content, new RegExp(`^---\\nday_end: ${today.date}T`))
+		assert.match(content, new RegExp(`\\nday_end: ${today.date}T`))
 		assert.deepStrictEqual(
 			content.split('\n').filter((line) => line.startsWith('- [')),
 			['- [x] Write']
@@ -404,6 +407,7 @@ describe('tracker tab', function () {
 	it('asks for the end of day again when the note already has one', async function () {
 		await writeToday([
 			'---',
+			`day_start: ${today.date}T08:00:00`,
 			`day_end: ${today.date}T22:45:00`,
 			'---',
 			'- [ ] Chores',
@@ -864,7 +868,26 @@ describe('tracker tab', function () {
 		const tooltip = browser.$('.tooltip')
 
 		// No shortcut yet: the tooltip names the command to set one for.
+		const rects: string[] = []
+		for (let k = 0; k < 12; k++) {
+			rects.push(await browser.execute(() => {
+				const b = document.querySelector('button[aria-label="Start Chores"]')
+				const p = document.querySelector('.tab-panel') as HTMLElement | null
+				return `${Math.round(b?.getBoundingClientRect().x ?? -1)} panelW=${p?.clientWidth}/${p?.offsetWidth} scrollW=${p?.scrollWidth}`
+			}))
+			await browser.pause(100)
+		}
+		assert.fail('RECTS ' + rects.join(' | '))
 		await start.moveTo()
+		await browser.pause(300)
+		assert.fail('EVLOG ' + (await browser.execute(() => (window as unknown as { evlog: string[] }).evlog.join(' | ') + ' FINAL tip=' + document.querySelector('.tooltip')?.textContent)))
+		assert.fail('DEBUG ' + await browser.execute(() => {
+			const b = document.querySelector('button[aria-label="Start Chores"]')!
+			const r = b.getBoundingClientRect()
+			const at = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)
+			const m = document.querySelector('button[aria-label="More actions for Chores"]')!.getBoundingClientRect()
+			return JSON.stringify({ r, m, at: at?.outerHTML.slice(0, 120), tip: document.querySelector('.tooltip')?.textContent, hover: Array.from(document.querySelectorAll(':hover')).map(e=>e.tagName+'.'+e.className).slice(-3) })
+		}))
 		await expect(tooltip).toHaveText(
 			'Start Chores\nNo shortcut yet: set one for "Toggle task" in Settings → Hotkeys'
 		)
@@ -901,10 +924,9 @@ describe('tracker tab', function () {
 	})
 
 	it('explains the interruption button in its tooltip', async function () {
-		await writeToday(['- [ ] Chores'])
+		await writeToday(['- [ ] Chores', `      [clock::${today.date}T00:00:00]`])
 		await openTracker()
-		// The button has no aria-label of its own: the tooltip only exists
-		// if the hint is written before Obsidian's body listener looks.
+		await expect(browser.$('button=Interruption')).toBeEnabled()
 		await browser.$('button=Interruption').moveTo()
 		await expect(browser.$('.tooltip')).toHaveText(
 			expect.stringMatching(
@@ -914,14 +936,45 @@ describe('tracker tab', function () {
 	})
 
 	it('explains the end day button in its tooltip', async function () {
-		await writeToday(['- [ ] Chores'])
+		await writeToday([
+			'---',
+			`day_start: ${today.date}T08:00:00`,
+			'---',
+			'- [ ] Chores',
+		])
 		await openTracker()
+		await expect(browser.$('button=End day')).toBeEnabled()
 		await browser.$('button=End day').moveTo()
 		await expect(browser.$('.tooltip')).toHaveText(
 			expect.stringMatching(
 				/^Set the end of day, stop the running clocks at it, tick the tasks with time and remove the ones without\n/
 			)
 		)
+	})
+
+	it('disables Interruption and End day until there is something to act on', async function () {
+		await writeToday(['- [ ] Chores'])
+		await openTracker()
+		const interruption = browser.$('button=Interruption')
+		const endDay = browser.$('button=End day')
+		const tooltip = browser.$('.tooltip')
+
+		// Nothing runs and the day has no start: both say why they are off.
+		await expect(interruption).toBeDisabled()
+		await interruption.moveTo()
+		await expect(tooltip).toHaveText('Nothing to interrupt: start a task first')
+		await expect(endDay).toBeDisabled()
+		await endDay.moveTo()
+		await expect(tooltip).toHaveText(
+			'The day has not started: set its start first'
+		)
+
+		// Starting Chores gives the interruption something to pause, and
+		// the day's first clock sets its start, so it can end too.
+		await button('Start Chores').click()
+		await expect(button('Stop Chores')).toBeDisplayed()
+		await expect(interruption).toBeEnabled()
+		await expect(endDay).toBeEnabled()
 	})
 
 	it('sets the duration of a running clock from its row', async function () {

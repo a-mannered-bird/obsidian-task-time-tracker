@@ -46,6 +46,28 @@ export function startActions(running: Task[]): StartActions {
 }
 
 /**
+ * Why the day buttons cannot be used yet, or null when they can: an
+ * interruption needs something running to interrupt, and ending the day
+ * needs a day that started (its start set, a task in the note).
+ */
+export type DayButtons = { interruption: string | null; endDay: string | null }
+
+export function dayButtons(tasks: Task[], dayStart: Date | null): DayButtons {
+	const missing = [
+		dayStart ? null : 'set its start',
+		tasks.length > 0 ? null : 'add a task',
+	].filter((step) => step !== null)
+	return {
+		interruption: tasks.some(isRunning)
+			? null
+			: 'Nothing to interrupt: start a task first',
+		endDay: missing.length
+			? `The day has not started: ${missing.join(' and ')} first`
+			: null,
+	}
+}
+
+/**
  * What the bar's last pressed button set: tasks picked from the bar then
  * start with the primary action, start alongside, or are only added to the
  * plan, until another of its buttons is pressed.

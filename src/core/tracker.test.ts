@@ -10,6 +10,7 @@ import {
 	moveTaskLine,
 	pausedByInterruption,
 	barAction,
+	dayButtons,
 	removeTaskLine,
 	rowActions,
 	startActions,
@@ -389,5 +390,43 @@ describe('removeTaskLine', () => {
 		].join('\n')
 		expect(removeTaskLine(content, 'Write blog post')).toBe('Some notes')
 		expect(removeTaskLine(content, 'Email')).toBeNull()
+	})
+})
+
+describe('dayButtons', () => {
+	const dayStart = new Date(2026, 10, 12, 8, 0)
+
+	it('offers both once the day started and a task runs', () => {
+		const tasks = parseTasks([
+			'- [ ] Chores',
+			'      [clock::2026-11-12T10:42:00]',
+		])
+		expect(dayButtons(tasks, dayStart)).toEqual({
+			interruption: null,
+			endDay: null,
+		})
+	})
+
+	it('has nothing to interrupt while no task runs', () => {
+		const tasks = parseTasks([
+			'- [ ] Chores',
+			'      [clock::2026-11-12T10:00:00--2026-11-12T10:42:00]',
+		])
+		expect(dayButtons(tasks, dayStart)).toEqual({
+			interruption: 'Nothing to interrupt: start a task first',
+			endDay: null,
+		})
+	})
+
+	it('cannot end a day without a start or a task', () => {
+		expect(dayButtons(parseTasks(['- [ ] Chores']), null).endDay).toBe(
+			'The day has not started: set its start first'
+		)
+		expect(dayButtons([], dayStart).endDay).toBe(
+			'The day has not started: add a task first'
+		)
+		expect(dayButtons([], null).endDay).toBe(
+			'The day has not started: set its start and add a task first'
+		)
 	})
 })
