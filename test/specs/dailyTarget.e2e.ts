@@ -271,6 +271,14 @@ describe('daily target', function () {
 			await expect(strip).toHaveText(
 				expect.stringContaining("You're viewing August 3, 2026")
 			)
+			console.log('PROBE', JSON.stringify(await browser.execute(() => {
+				const strip = document.querySelector('.other-day')!
+				const r = (el: Element | null) => { if (!el) return null; const b = el.getBoundingClientRect(); return { top: b.top, bottom: b.bottom, h: b.height } }
+				const text = strip.querySelector('span:not(.other-day-icon)')!
+				const range = document.createRange(); range.selectNodeContents(text)
+				const cs = getComputedStyle(text)
+				return { strip: r(strip), icon: r(strip.querySelector('.other-day-icon')), svg: r(strip.querySelector('svg')), text: r(text), glyphs: (() => { const b = range.getBoundingClientRect(); return { top: b.top, bottom: b.bottom } })(), button: r(strip.querySelector('button')), font: cs.fontSize, lh: cs.lineHeight, pad: getComputedStyle(strip).padding }
+			})))
 			await strip.$("button=Create today's note").click()
 
 			await expect(browser.$(`span=${today.date}`)).toBeDisplayed()

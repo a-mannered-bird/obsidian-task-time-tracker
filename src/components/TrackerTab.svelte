@@ -13,6 +13,7 @@
 		moveTask,
 		setDuration,
 		setInterruptionDuration,
+		setInterruptionStop,
 		setStop,
 		startTask,
 		stopFromLastEnd,
@@ -120,6 +121,11 @@
 
 	function editStart(task: Task, start: Date) {
 		if (log) void changeStart(plugin, log.file, task.name, start)
+	}
+
+	function stopAt(task: Task) {
+		const start = runningClockStart(task)
+		if (log && start) void setStop(plugin, log.file, task.name, start)
 	}
 
 	/** The task whose tag editor is open, if any: one at a time. */
@@ -567,11 +573,23 @@
 {#snippet elapsedTime(task: Task)}
 	{@const start = runningClockStart(task)}
 	{#if start}
+		{@const interruption = task.name === INTERRUPTION_TASK}
 		<button
 			class="elapsed"
-			use:instantTooltip
-			aria-label={`Started ${formatTimeOfDay(start)} · ${formatHoursMinutes(taskMinutes(task, now))} today. Click to change when ${task.name} started.`}
-			onclick={() => editStart(task, start)}
+			use:instantTooltip={() => [
+				`Started ${formatTimeOfDay(start)} · ${formatHoursMinutes(taskMinutes(task, now))} today`,
+				interruption
+					? 'Click to set how long the interruption lasted'
+					: 'Click to set how long the clock lasted',
+				interruption ? null : controlHint(plugin, 'setDuration'),
+			]}
+			aria-label={interruption
+				? 'Set duration of the interruption'
+				: `Set clock duration of ${task.name}`}
+			onclick={() =>
+				void (interruption
+					? setInterruptionDuration(plugin)
+					: setDuration(plugin, task.name))}
 		>
 			{elapsed(task)}
 		</button>
@@ -751,10 +769,10 @@
 								></button>
 								<button
 									class="row-button"
-									aria-label="Set duration of the interruption"
+									aria-label="End interruption at…"
 									use:instantTooltip
-									use:icon={'hourglass'}
-									onclick={() => void setInterruptionDuration(plugin)}
+									use:icon={'timer-off'}
+									onclick={() => void setInterruptionStop(plugin)}
 								></button>
 								{@render moreButton(task)}
 							</span>
@@ -773,12 +791,10 @@
 								></button>
 								<button
 									class="row-button"
-									aria-label={`Set clock duration of ${task.name}`}
-									use:instantTooltip={() => [
-										controlHint(plugin, 'setDuration'),
-									]}
-									use:icon={'hourglass'}
-									onclick={() => void setDuration(plugin, task.name)}
+									aria-label={`Stop ${task.name} at…`}
+									use:instantTooltip
+									use:icon={'timer-off'}
+									onclick={() => stopAt(task)}
 								></button>
 								{@render moreButton(task)}
 							</span>

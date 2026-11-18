@@ -36,6 +36,7 @@ function scripted(script: Script = {}) {
 	const minutes = [...(script.minutes ?? [])]
 	const times = [...(script.times ?? [])]
 	const notices: string[] = []
+	const timeTitles: string[] = []
 	const offered: string[][] = []
 	const vaultFlags: boolean[] = []
 	const prompts: Prompts = {
@@ -49,13 +50,14 @@ function scripted(script: Script = {}) {
 		},
 		promptMinutes: () => Promise.resolve(minutes.shift() ?? null),
 		promptTime: (request) => {
+			timeTitles.push(request.title)
 			const text = times.shift() ?? null
 			const parsed = text === null ? null : request.parse(text)
 			return Promise.resolve(parsed && 'at' in parsed ? parsed.at : null)
 		},
 		notify: (message) => notices.push(plainNoticeText(message)),
 	}
-	return { prompts, notices, offered, vaultFlags }
+	return { prompts, notices, offered, vaultFlags, timeTitles }
 }
 
 async function run(
@@ -319,6 +321,36 @@ describe('toggleTasks', () => {
 			`      [clock::${at(11, 45)}]`,
 			'- [ ] Walk the dog',
 			`      [clock::${at(11, 30)}--${at(11, 45)}]`,
+			'- [ ] Interruption',
+		])
+	})
+
+	it('ends an interruption at the time typed, asking about the interruption', async () => {
+		const note = new TaskNote(
+			[
+				'- [ ] Emails',
+				`      [clock::${at(11)}--${at(11, 30)}]`,
+				'- [ ] Walk the dog',
+				'- [ ] Interruption',
+				`      [clock::${at(11, 30)}]`,
+			].join('\n')
+		)
+		const { prompts, timeTitles } = scripted({
+			times: ['11:50'],
+			pick: ['Walk the dog'],
+		})
+		await toggleTasks(
+			note,
+			{ interruption: true, switch: true, timeTravel: true },
+			{ prompts, now }
+		)
+		expect(timeTitles).toEqual(['When did the interruption end?'])
+		expect(note.toString().split('\n')).toEqual([
+			'- [ ] Emails',
+			`      [clock::${at(11)}--${at(11, 30)}]`,
+			`      [clock::${at(11, 50)}]`,
+			'- [ ] Walk the dog',
+			`      [clock::${at(11, 30)}--${at(11, 50)}]`,
 			'- [ ] Interruption',
 		])
 	})

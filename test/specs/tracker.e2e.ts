@@ -543,15 +543,7 @@ describe('tracker tab', function () {
 		])
 		await openTracker()
 
-		// One label, shown by Obsidian as the tooltip: start, total, action.
-		const elapsed = browser.$(
-			'button[aria-label$="Click to change when Chores started."]'
-		)
-		await expect(elapsed).toHaveAttribute(
-			'aria-label',
-			expect.stringContaining('Started 00:00')
-		)
-		await elapsed.click()
+		await chooseFromRowMenu('Chores', 'Change clock start time')
 		const modal = await modalTitled('Change when Chores started')
 		await typeTime(modal, '00:05')
 		await modal.$('button=Change').click()
@@ -560,20 +552,16 @@ describe('tracker tab', function () {
 		assert.deepStrictEqual(clocksOf(content, '- [ ] Chores'), [
 			{ start: `${today.date}T00:05:00`, end: null },
 		])
-		await expect(elapsed).toHaveAttribute(
-			'aria-label',
-			expect.stringContaining('Started 00:05')
-		)
 	})
 
-	it('stops a running task at a typed time from its menu', async function () {
+	it('stops a running task at a typed time from its row', async function () {
 		let content = await writeToday([
 			'- [ ] Chores',
 			`      [clock::${today.date}T00:00:00]`,
 		])
 		await openTracker()
 
-		await chooseFromRowMenu('Chores', 'Set clock stop time')
+		await button('Stop Chores at…').click()
 		const modal = await modalTitled('Set when Chores stopped')
 		await typeTime(modal, '00:10')
 		await modal.$('button=Stop').click()
@@ -956,14 +944,16 @@ describe('tracker tab', function () {
 		await expect(endDay).toBeEnabled()
 	})
 
-	it('sets the duration of a running clock from its row', async function () {
+	it('sets the duration of a running clock from its timer', async function () {
 		let content = await writeToday([
 			'- [ ] Chores',
 			`      [clock::${today.date}T00:00:00]`,
 		])
 		await openTracker()
 
-		await button('Set clock duration of Chores').click()
+		const timer = button('Set clock duration of Chores')
+		await expect(timer).toHaveText(expect.stringMatching(/^\d+h \d\dm$/))
+		await timer.click()
 		const modal = await modalTitled('How long did the task last?')
 		const minutes = modal.$('input[type="number"]')
 		await minutes.setValue('10')
@@ -978,7 +968,7 @@ describe('tracker tab', function () {
 		await expect(button('Start Chores')).toBeDisplayed()
 	})
 
-	it('ends an interruption after the duration typed on its row', async function () {
+	it('ends an interruption after the duration typed from its timer', async function () {
 		let content = await writeToday([
 			'- [ ] Chores',
 			`      [clock::${today.date}T00:00:00--${today.date}T00:05:00]`,
@@ -1011,6 +1001,48 @@ describe('tracker tab', function () {
 
 		// 00:05 + 10 minutes: the call took 00:05–00:15 and Chores resumed
 		// then, not now.
+		content = await waitForChange(content)
+		assert.deepStrictEqual(clocksOf(content, '- [ ] Chores'), [
+			{ start: `${today.date}T00:00:00`, end: `${today.date}T00:05:00` },
+			{ start: `${today.date}T00:15:00`, end: null },
+		])
+		assert.deepStrictEqual(clocksOf(content, '- [ ] Phone call'), [
+			{ start: `${today.date}T00:05:00`, end: `${today.date}T00:15:00` },
+		])
+		await expect(browser.$('button=Interruption')).toHaveAttribute(
+			'aria-pressed',
+			'false'
+		)
+	})
+
+	it('ends an interruption at the time typed on its row', async function () {
+		let content = await writeToday([
+			'- [ ] Chores',
+			`      [clock::${today.date}T00:00:00--${today.date}T00:05:00]`,
+			'- [ ] Interruption',
+			`      [clock::${today.date}T00:05:00]`,
+		])
+		await openTracker()
+		await expect(browser.$('button=Interruption')).toHaveAttribute(
+			'aria-pressed',
+			'true'
+		)
+
+		// Notices can cover the running rows: press the button through the DOM.
+		const endAt = await button('End interruption at…').getElement()
+		await browser.execute((el) => el.click(), endAt)
+		const modal = await modalTitled('When did the interruption end?')
+		await typeTime(modal, '00:15')
+		await modal.$('button=OK').click()
+		const picker = browser.$('.prompt')
+		await expect(picker).toBeDisplayed()
+		await browser.keys([...'Phone call'])
+		await expect(picker.$('.suggestion-item.is-selected')).toHaveText(
+			'➕ Create "Phone call"'
+		)
+		await browser.keys('Enter')
+
+		// The call took 00:05–00:15 and Chores resumed then, not now.
 		content = await waitForChange(content)
 		assert.deepStrictEqual(clocksOf(content, '- [ ] Chores'), [
 			{ start: `${today.date}T00:00:00`, end: `${today.date}T00:05:00` },

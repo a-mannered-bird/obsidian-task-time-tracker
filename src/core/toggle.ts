@@ -333,10 +333,15 @@ async function resolveTime(
 		const day = options.fromLastTask ? reference : (context.day ?? now)
 		const after = latestClosedStart(note, selected, options)
 		const names = selected.map((task) => `"${task.name}"`).join(', ')
-		const started = after ? ` ${describeStart(after, now)}` : ''
+		const started = after ? describeStart(after, now) : ''
+		// Ending an interruption selects the paused tasks: naming them would
+		// say they toggle, while they resume.
+		const ending = Boolean(options.interruption && options.previous)
 		const picked = await prompts.promptTime({
-			title: 'When did it happen?',
-			description: `Toggles ${names}.${started}`,
+			title: ending ? 'When did the interruption end?' : 'When did it happen?',
+			description: ending
+				? started
+				: [`Toggles ${names}.`, started].filter(Boolean).join(' '),
 			reference,
 			minutesLabel: options.fromLastTask
 				? `Minutes before ${formatTimeOfDay(reference)}`
