@@ -141,7 +141,7 @@ async function consolidate(
 /**
  * Delete tasks from every daily note, clocks included, after the ritual:
  * type the name for one task, the count for several. Their colors and hide
- * flags go with them; quick actions pointing at them are only warned about.
+ * flags go with them.
  */
 export async function deleteTasks(
 	plugin: TaskTimeTracker,
@@ -155,7 +155,7 @@ export async function deleteTasks(
 				? `Delete "${names[0]}"`
 				: `Delete ${plural(names.length, 'task')}`,
 		message: [describeDeletion(names, preview), IRREVERSIBLE_NOTE],
-		warnings: referenceWarnings(plugin.settings, names),
+		warnings: referenceWarnings(names),
 		typeToConfirm: names.length === 1 ? names[0] : String(names.length),
 		confirmText: 'Delete',
 	})

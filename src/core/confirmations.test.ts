@@ -18,22 +18,14 @@ describe('confirmationMatches', () => {
 })
 
 describe('referenceWarnings', () => {
-	const settings = {
-		quickActions: [
-			{ name: 'Start focus', taskName: 'Deep work' },
-			{ name: 'Lunch', taskName: 'Lunch' },
-		],
-	}
-
-	it('names the quick actions and the interruption task among the names', () => {
-		expect(referenceWarnings(settings, ['Deep work', 'Interruption'])).toEqual([
-			'The quick action "Start focus" targets "Deep work".',
+	it('warns about the interruption task among the names', () => {
+		expect(referenceWarnings(['Deep work', 'Interruption'])).toEqual([
 			'"Interruption" holds the time of quick interruptions not assigned to a task yet.',
 		])
 	})
 
-	it('is empty when nothing references the names', () => {
-		expect(referenceWarnings(settings, ['Email'])).toEqual([])
+	it('is empty when the plugin relies on none of the names', () => {
+		expect(referenceWarnings(['Email'])).toEqual([])
 	})
 })
 

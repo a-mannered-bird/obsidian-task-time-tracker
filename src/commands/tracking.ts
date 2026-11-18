@@ -172,8 +172,8 @@ export function registerTrackingCommands(plugin: TaskTimeTracker) {
 }
 
 /**
- * Run engine steps on the target daily note; also used by the tracker tab
- * and the quick actions. A `choice` answers the steps' task picker without
+ * Run engine steps on the target daily note; also used by the tracker tab.
+ * A `choice` answers the steps' task picker without
  * showing it: the task the user already chose in the tab, added to the
  * note when it is new. The run's notices wait for its end, to be told
  * with what it wrote (`reportRun`).

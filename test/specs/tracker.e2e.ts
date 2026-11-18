@@ -401,6 +401,39 @@ describe('tracker tab', function () {
 		)
 	})
 
+	it('asks for the end of day again when the note already has one', async function () {
+		await writeToday([
+			'---',
+			`day_end: ${today.date}T22:45:00`,
+			'---',
+			'- [ ] Chores',
+			`      [clock::${today.date}T21:00:00--${today.date}T22:30:00]`,
+		])
+		await openTracker()
+		await expect(
+			browser.$('button[aria-label="End of day 22:45, change"]')
+		).toBeDisplayed()
+
+		await browser.$('button=End day').click()
+		const setEnd = await modalTitled('Set end of day')
+		await typeTime(setEnd, '23:15')
+		await setEnd.$('button=OK').click()
+
+		// Chores has a clock, so nothing is removed and no confirmation shows.
+		await browser.waitUntil(
+			async () =>
+				(await obsidianPage.read(today.path)).includes('- [x] Chores'),
+			{ timeoutMsg: 'the day was not ended' }
+		)
+		assert.match(
+			await obsidianPage.read(today.path),
+			new RegExp(`\\nday_end: ${today.date}T23:15:00\\n`)
+		)
+		await expect(
+			browser.$('button[aria-label="End of day 23:15, change"]')
+		).toBeDisplayed()
+	})
+
 	it('ends the day no earlier than the last clock', async function () {
 		const content = await writeToday([
 			'---',
@@ -864,7 +897,18 @@ describe('tracker tab', function () {
 		await browser.$('button=Interruption').moveTo()
 		await expect(browser.$('.tooltip')).toHaveText(
 			expect.stringMatching(
-				/^Interruption\nPause the running tasks and count the time until you say what interrupted you\n/
+				/^Pause the running tasks and count the time until you say what interrupted you\n/
+			)
+		)
+	})
+
+	it('explains the end day button in its tooltip', async function () {
+		await writeToday(['- [ ] Chores'])
+		await openTracker()
+		await browser.$('button=End day').moveTo()
+		await expect(browser.$('.tooltip')).toHaveText(
+			expect.stringMatching(
+				/^Set the end of day, stop the running clocks at it, tick the tasks with time and remove the ones without\n/
 			)
 		)
 	})

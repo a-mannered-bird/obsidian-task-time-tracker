@@ -21,7 +21,7 @@ Tracks time on the tasks of daily notes (`- [ ] Task #tag` lines with `[clock::s
 
 ## Architecture rules
 
-- **Task identity is the name, case-sensitive.** Tags are per-line decoration and may drift between notes; there is no canonical task registry. Only name-keyed settings (`taskColors`, `hiddenTasks`, quick actions, the unassigned task) exist, and rename/merge must migrate them (`settingsMigration.ts`).
+- **Task identity is the name, case-sensitive.** Tags are per-line decoration and may drift between notes; there is no canonical task registry. Only name-keyed settings (`taskColors`, `hiddenTasks`, dismissed warnings) exist, and rename/merge must migrate them (`settingsMigration.ts`).
 - **Decision logic lives in core, UI stays dumb.** Sorting, filtering, previews, confirmation gating, text of confirmations: pure functions with tests. Components and modals only render and call them.
 - **Bulk rewrites go through `runBulkEdit`** (`vault.process` per file, unchanged files skipped, failures reported and skipped — every transform is idempotent, so re-running is the recovery) behind `withProgressNotice`, and are previewed from the index alone (no file reads) before confirmation. Destructive ones (delete, merge) require the type-the-name ritual and mention File recovery; the plugin has no undo.
 - **Rename and merge are one engine** (`consolidateTasks`): the line already bearing the target name survives with its position and tags, other lines fold into it, clocks are unioned (overlapping and touching merge, zero-length dropped, a running clock only ever extends).

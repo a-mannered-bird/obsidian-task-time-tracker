@@ -8,7 +8,7 @@ const LABEL = 'aria-label'
  */
 const DELAY = 1
 
-/** A line shown under the label, or null for none. */
+/** A line shown in the tooltip, or null for none. */
 export type TooltipHint = () => string | null
 
 /**
@@ -17,11 +17,13 @@ export type TooltipHint = () => string | null
  * The label stays in the markup (it names the element); the tooltip
  * follows it when it changes.
  *
- * With a `hint`, the tooltip adds its line under the label (or under the
- * text of a button without a label). Obsidian shows the aria-label as the
- * tooltip, so the hint is only written there while the pointer is over the
- * element, and read then, so it is current; leaving puts the label back,
- * keeping the element's name the label alone.
+ * With a `hint`, the tooltip shows its line. A button showing text shows
+ * the hint alone, its text already saying what it is; an icon-only button
+ * keeps its label above the hint, being otherwise unnamed on screen.
+ * Obsidian shows the aria-label as the tooltip, so the hint is only written
+ * there while the pointer is over the element, and read then, so it is
+ * current; leaving puts the label back, keeping the element's name the
+ * label alone.
  */
 export function instantTooltip(el: HTMLElement, hint?: TooltipHint) {
 	let currentHint = hint
@@ -39,8 +41,9 @@ export function instantTooltip(el: HTMLElement, hint?: TooltipHint) {
 	}
 	const render = () => {
 		const line = hovered ? currentHint?.() : null
-		const name = label ?? el.textContent?.trim() ?? ''
-		write(line && name ? `${name}\n${line}` : label)
+		const showsText = Boolean(el.textContent?.trim())
+		if (!line) write(label)
+		else write(showsText || label === null ? line : `${label}\n${line}`)
 	}
 
 	if (label !== null) setTooltip(el, label, { delay: DELAY })

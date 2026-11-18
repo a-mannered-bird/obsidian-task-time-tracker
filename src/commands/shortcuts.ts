@@ -18,7 +18,7 @@ function shortcutOf(plugin: TaskTimeTracker, commandId: string): string | null {
 }
 
 /** The tooltip line about a command's shortcut, or null for none. */
-export function commandHint(
+function commandHint(
 	plugin: TaskTimeTracker,
 	commandId: string
 ): string | null {

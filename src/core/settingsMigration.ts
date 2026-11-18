@@ -1,29 +1,27 @@
 import { issueKeyNames } from './issues'
 
-/** The settings keyed by task name, generic over the quick action shape. */
-export type NameKeyedSettings<Action extends { taskName: string }> = {
+/** The settings keyed by task name. */
+export type NameKeyedSettings = {
 	taskColors: Record<string, string>
 	hiddenTasks: string[]
 	/** Dismissed warning keys (see issueKey); those naming a source are dropped. */
 	dismissedIssues: string[]
-	quickActions: Action[]
 }
 
 /**
  * Follow a rename or merge in the name-keyed settings, silently — these
- * migrations preserve intent (a button keeps working after a rename).
+ * migrations preserve intent (a color stays with its task after a rename).
  *
  * Colors: the target's own wins, else the first source with one transfers.
  * Hidden: the target's own flag when it already existed as a task, else
- * hidden only when every source was. Quick actions pointing at a source
- * follow to the target. Source entries are dropped.
+ * hidden only when every source was. Source entries are dropped.
  */
-export function migrateTaskNames<Action extends { taskName: string }>(
-	settings: NameKeyedSettings<Action>,
+export function migrateTaskNames(
+	settings: NameKeyedSettings,
 	sourceNames: string[],
 	targetName: string,
 	targetExists: boolean
-): NameKeyedSettings<Action> {
+): NameKeyedSettings {
 	const sources = sourceNames.filter((name) => name !== targetName)
 	const isSource = (name: string) => sources.includes(name)
 
@@ -52,21 +50,14 @@ export function migrateTaskNames<Action extends { taskName: string }>(
 		dismissedIssues: settings.dismissedIssues.filter(
 			(key) => !issueKeyNames(key).some(isSource)
 		),
-		quickActions: settings.quickActions.map((action) =>
-			isSource(action.taskName) ? { ...action, taskName: targetName } : action
-		),
 	}
 }
 
-/**
- * Drop the deleted task's own entries (color, hide flag). Quick actions are
- * left alone: the deletion warned about them, and what to do with them is
- * the user's call.
- */
-export function forgetTaskName<Action extends { taskName: string }>(
-	settings: NameKeyedSettings<Action>,
+/** Drop the deleted task's own entries (color, hide flag, dismissed warnings). */
+export function forgetTaskName(
+	settings: NameKeyedSettings,
 	name: string
-): NameKeyedSettings<Action> {
+): NameKeyedSettings {
 	const taskColors = { ...settings.taskColors }
 	delete taskColors[name]
 	return {

@@ -8,10 +8,6 @@ const settings = {
 		'["similar-name","Deep wok","Deep work"]',
 		'["tag-drift","Task A","#project"]',
 	],
-	quickActions: [
-		{ name: 'Focus', taskName: 'Deep wok', verb: 'toggle' },
-		{ name: 'Lunch', taskName: 'Lunch', verb: 'toggle' },
-	],
 }
 
 describe('migrateTaskNames', () => {
@@ -27,10 +23,6 @@ describe('migrateTaskNames', () => {
 			'Task A': 'var(--color-blue)',
 		})
 		expect(migrated.hiddenTasks).toEqual(['Task B', 'Deep work'])
-		expect(migrated.quickActions).toEqual([
-			{ name: 'Focus', taskName: 'Deep work', verb: 'toggle' },
-			{ name: 'Lunch', taskName: 'Lunch', verb: 'toggle' },
-		])
 		// The dismissal about the old name is dropped; the other one stays.
 		expect(migrated.dismissedIssues).toEqual([
 			'["tag-drift","Task A","#project"]',
@@ -71,13 +63,12 @@ describe('migrateTaskNames', () => {
 })
 
 describe('forgetTaskName', () => {
-	it('drops the color and hide flag only', () => {
+	it("drops the deleted task's entries", () => {
 		const forgotten = forgetTaskName(settings, 'Deep wok')
 		expect(forgotten.taskColors).toEqual({ 'Task A': 'var(--color-blue)' })
 		expect(forgotten.hiddenTasks).toEqual(['Task B'])
 		expect(forgotten.dismissedIssues).toEqual([
 			'["tag-drift","Task A","#project"]',
 		])
-		expect(forgotten.quickActions).toEqual(settings.quickActions)
 	})
 })

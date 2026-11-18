@@ -3,10 +3,6 @@ import './styles.css'
 import { registerCompleteJournalCommand } from './commands/completeJournal'
 import { registerFrontmatterTimeCommands } from './commands/frontmatterTime'
 import { registerLostClockWatch } from './commands/lostClocks'
-import {
-	normalizeQuickAction,
-	registerQuickActionCommands,
-} from './commands/quickActions'
 import { registerTrackingCommands } from './commands/tracking'
 import { registerPlanCommand } from './commands/plan'
 import { registerUserEditLog, type UserEdit } from './commands/userEdits'
@@ -86,7 +82,6 @@ export default class TaskTimeTracker extends Plugin {
 		registerPlanCommand(this)
 		registerFrontmatterTimeCommands(this)
 		registerCompleteJournalCommand(this)
-		registerQuickActionCommands(this)
 		registerStatsCodeBlock(this)
 
 		this.addSettingTab(new TaskTimeTrackerSettingTab(this.app, this))
@@ -118,8 +113,6 @@ export default class TaskTimeTracker extends Plugin {
 		// The stats tab was dropped; a view last left on it opens the tracker.
 		if (!isDailyViewTab(this.settings.lastDailyViewTab))
 			this.settings.lastDailyViewTab = DEFAULT_SETTINGS.lastDailyViewTab
-		this.settings.quickActions =
-			this.settings.quickActions.map(normalizeQuickAction)
 		// Drops the bold / italic / underline flags of older mappings.
 		this.settings.tagMappings = this.settings.tagMappings.map(
 			({ tag, emoji }) => ({ tag, emoji })

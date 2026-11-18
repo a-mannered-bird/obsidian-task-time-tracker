@@ -3,12 +3,7 @@
 	import { onMount } from 'svelte'
 	import { endDay } from 'commands/completeJournal'
 	import { promptOvernightStop, stopOvernightClock } from 'commands/overnight'
-	import { quickActionCommandId, runQuickAction } from 'commands/quickActions'
-	import {
-		commandHint,
-		controlHint,
-		titleWithShortcut,
-	} from 'commands/shortcuts'
+	import { controlHint, titleWithShortcut } from 'commands/shortcuts'
 	import { openNoteAtLine } from 'commands/taskActions'
 	import { deleteClockLine } from 'commands/timelineEdits'
 	import {
@@ -93,19 +88,24 @@
 	const interruptionActive = $derived(
 		layout.running.some((task) => task.name === INTERRUPTION_TASK)
 	)
-	function interruptionHint(): string {
-		const what = interruptionActive
-			? 'End it: say what interrupted you, its time goes there, and the paused tasks resume'
-			: 'Pause the running tasks and count the time until you say what interrupted you'
-		const shortcut = controlHint(plugin, 'interruption')
+	function explainedHint(what: string, control: ViewControl): string {
+		const shortcut = controlHint(plugin, control)
 		return shortcut ? `${what}\n${shortcut}` : what
 	}
-
-	const quickActions = $derived(
-		plugin.settings.quickActions.filter(
-			(action) => action.showInTracker && action.name && action.taskName
+	function interruptionHint(): string {
+		return explainedHint(
+			interruptionActive
+				? 'End it: say what interrupted you, its time goes there, and the paused tasks resume'
+				: 'Pause the running tasks and count the time until you say what interrupted you',
+			'interruption'
 		)
-	)
+	}
+	function endDayHint(): string {
+		return explainedHint(
+			'Set the end of day, stop the running clocks at it, tick the tasks with time and remove the ones without',
+			'endDay'
+		)
+	}
 
 	function runningClockStart(task: Task): Date | null {
 		return task.clocks.find((clock) => clock.end === null)?.start ?? null
@@ -680,17 +680,15 @@
 				<span use:icon={'pause'}></span>
 				Interruption
 			</button>
-			{#each quickActions as action (action.name)}
+			{#if tasks.length > 0}
 				<button
-					class="chip"
-					use:instantTooltip={() =>
-						commandHint(plugin, quickActionCommandId(action))}
-					onclick={() => void runQuickAction(plugin, action)}
+					use:instantTooltip={endDayHint}
+					onclick={() => void endDay(plugin)}
 				>
-					<span use:icon={'zap'}></span>
-					{action.name}
+					<span use:icon={'sunset'}></span>
+					End day
 				</button>
-			{/each}
+			{/if}
 		</div>
 	</div>
 
@@ -877,19 +875,6 @@
 			</p>
 		</div>
 	{/if}
-
-	{#if tasks.length > 0}
-		<div class="footer">
-			<button
-				class="end-day"
-				use:instantTooltip={() => controlHint(plugin, 'endDay')}
-				onclick={() => void endDay(plugin)}
-			>
-				<span use:icon={'sunset'}></span>
-				End day
-			</button>
-		</div>
-	{/if}
 {/if}
 
 <style>
@@ -904,9 +889,7 @@
 		gap: 0.5em;
 	}
 
-	.buttons button,
-	.end-day,
-	.chip {
+	.buttons button {
 		display: inline-flex;
 		align-items: center;
 		gap: 0.35em;
@@ -919,16 +902,11 @@
 		margin-bottom: 1.2em;
 	}
 
-	.chip {
-		border-radius: var(--radius-l);
-	}
-
 	/* Obsidian's own button hover barely shifts the background (white to
 	   #fafafa in the light theme). An overlay darkens or lightens whatever
 	   background the theme gives the button. */
 	@media (hover: hover) {
-		.buttons button:hover,
-		.end-day:hover {
+		.buttons button:hover {
 			cursor: pointer;
 			background-image: linear-gradient(
 				var(--background-modifier-hover),
@@ -1284,16 +1262,5 @@
 	.empty-title {
 		font-weight: var(--font-semibold);
 		color: var(--text-normal);
-	}
-
-	.footer {
-		margin-top: 1em;
-		padding-top: 0.75em;
-		border-top: 1px solid var(--background-modifier-border);
-	}
-
-	.end-day {
-		width: 100%;
-		justify-content: center;
 	}
 </style>

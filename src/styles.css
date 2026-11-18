@@ -11,11 +11,6 @@
 	width: 4em;
 }
 
-.task-time-tracker-toggle-label {
-	color: var(--text-muted);
-	font-size: var(--font-ui-smaller);
-}
-
 .task-time-tracker-prompt-error {
 	color: var(--text-error);
 	min-height: 1.5em;

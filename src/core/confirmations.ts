@@ -18,34 +18,16 @@ export function confirmationMatches(typed: string, expected: string): boolean {
 	return typed.trim() === expected
 }
 
-/** The name-keyed settings an operation may leave dangling. */
-export type ReferenceSettings = {
-	quickActions: { name: string; taskName: string }[]
-}
-
 /**
- * Warnings for settings pointing at one of the names — shown before a
- * deletion, which never touches them, so the user decides what to do.
+ * Warnings shown before a deletion about names the plugin itself relies on,
+ * so the user decides with that in mind.
  */
-export function referenceWarnings(
-	settings: ReferenceSettings,
-	names: string[]
-): string[] {
-	const affected = new Set(names)
-	const warnings: string[] = []
-	for (const action of settings.quickActions) {
-		if (affected.has(action.taskName)) {
-			warnings.push(
-				`The quick action "${action.name}" targets "${action.taskName}".`
-			)
-		}
-	}
-	if (affected.has(INTERRUPTION_TASK)) {
-		warnings.push(
-			`"${INTERRUPTION_TASK}" holds the time of quick interruptions not assigned to a task yet.`
-		)
-	}
-	return warnings
+export function referenceWarnings(names: string[]): string[] {
+	return names.includes(INTERRUPTION_TASK)
+		? [
+				`"${INTERRUPTION_TASK}" holds the time of quick interruptions not assigned to a task yet.`,
+			]
+		: []
 }
 
 /**

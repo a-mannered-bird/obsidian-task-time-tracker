@@ -32,26 +32,26 @@ day_end: 2026-08-16T23:40:00
 
 All commands act on the daily note you are currently in, or on today's daily note if the active file is not a daily note. Task pickers use Obsidian's fuzzy search and sort running tasks first, then unticked, then most recently worked on. Below the note's tasks they list the tasks of every other daily note (picking one adds it to the note), and last they offer to create the task you typed.
 
-| Command                    | What it does                                                                                                                                                             |
-| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Toggle task                | Pick a task; starts a clock on it if it is off, closes the running clock if it is on.                                                                                    |
-| Toggle task from…          | Same, but asks when the toggle happened: a time of day (`14:30`) or minutes ago (`15`; negative for later).                                                              |
-| Toggle task from last      | Same, but the toggle happens at the moment the last finished task ended (no gap between tasks).                                                                          |
-| Toggle and tick task       | Toggle, and mark the task as done (`- [x]`).                                                                                                                             |
-| Toggle and tick task from… | Toggle and tick, at a chosen time in the past.                                                                                                                           |
-| Switch task                | Close every running clock and start the picked task.                                                                                                                     |
-| Switch task from…          | Switch, at a chosen time in the past.                                                                                                                                    |
-| Switch and tick task       | Close and tick every running task, then start the picked one.                                                                                                            |
-| Switch and tick task from… | Same, at a chosen time in the past.                                                                                                                                      |
-| Switch to previous task(s) | Close every running clock and restart the task(s) that ended last.                                                                                                       |
-| Log interruption from…     | "I was interrupted at 14:30 (or N minutes ago) by X": switch to X at that time, then switch back to what was running before.                                             |
-| Toggle interruption        | Start the `Interruption` task; run again to stop it and pick which task the time actually belongs to. The tracker tab lists that task only while it runs.                |
-| Migrate current task       | Move the running clock line to another task (you clocked the wrong task), asking which one when several run.                                                             |
-| Set task duration          | For a running task, close its clock so that the session lasted the given number of minutes.                                                                              |
-| Plan a task                | Add a task from another daily note, or a new one, to the note without starting it.                                                                                       |
-| Set start of day           | Set the `day_start` property: a time of day (07:30) or minutes ago (15).                                                                                                 |
-| Set end of day             | Set the `day_end` property: a time of day (23:30; one before the start of day or the end of the last clock is on the next day) or minutes ago.                           |
-| End day                    | End-of-day cleanup: ask for the end of day when it is missing, close still-running clocks at it, tick every task that has a clock, remove tasks that were never clocked. |
+| Command                    | What it does                                                                                                                                                                  |
+| -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Toggle task                | Pick a task; starts a clock on it if it is off, closes the running clock if it is on.                                                                                         |
+| Toggle task from…          | Same, but asks when the toggle happened: a time of day (`14:30`) or minutes ago (`15`; negative for later).                                                                   |
+| Toggle task from last      | Same, but the toggle happens at the moment the last finished task ended (no gap between tasks).                                                                               |
+| Toggle and tick task       | Toggle, and mark the task as done (`- [x]`).                                                                                                                                  |
+| Toggle and tick task from… | Toggle and tick, at a chosen time in the past.                                                                                                                                |
+| Switch task                | Close every running clock and start the picked task.                                                                                                                          |
+| Switch task from…          | Switch, at a chosen time in the past.                                                                                                                                         |
+| Switch and tick task       | Close and tick every running task, then start the picked one.                                                                                                                 |
+| Switch and tick task from… | Same, at a chosen time in the past.                                                                                                                                           |
+| Switch to previous task(s) | Close every running clock and restart the task(s) that ended last.                                                                                                            |
+| Log interruption from…     | "I was interrupted at 14:30 (or N minutes ago) by X": switch to X at that time, then switch back to what was running before.                                                  |
+| Toggle interruption        | Start the `Interruption` task; run again to stop it and pick which task the time actually belongs to. The tracker tab lists that task only while it runs.                     |
+| Migrate current task       | Move the running clock line to another task (you clocked the wrong task), asking which one when several run.                                                                  |
+| Set task duration          | For a running task, close its clock so that the session lasted the given number of minutes.                                                                                   |
+| Plan a task                | Add a task from another daily note, or a new one, to the note without starting it.                                                                                            |
+| Set start of day           | Set the `day_start` property: a time of day (07:30) or minutes ago (15).                                                                                                      |
+| Set end of day             | Set the `day_end` property: a time of day (23:30; one before the start of day or the end of the last clock is on the next day) or minutes ago.                                |
+| End day                    | End-of-day cleanup: ask for the end of day (even when already set), close still-running clocks at it, tick every task that has a clock, remove tasks that were never clocked. |
 
 In the daily view's tracker tab, each row's ⋯ menu runs these actions on that task directly: for a running task, stop it when the last task ended, change its start, set its stop time or duration, migrate its clock, show the task or clock line, show the task in the task manager, delete the clock or the task; for an idle one, start it from when the last task ended, migrate its last clock, move it up, down, to the top or bottom of its list, show it in the note or the task manager, delete its last clock or the task. Deleting a task there removes it from that note only.
 

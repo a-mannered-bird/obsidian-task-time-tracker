@@ -1,10 +1,4 @@
 import { App, PluginSettingTab, Setting } from 'obsidian'
-import {
-	emptyQuickAction,
-	isQuickActionVerb,
-	QUICK_ACTION_VERBS,
-	type QuickAction,
-} from './commands/quickActions'
 import { NOTICE_ICON } from './core/noticeText'
 import { ZOOM_DEFAULT } from './core/timeline'
 import { ISSUE_KINDS, ISSUE_TITLES, type IssueKind } from './core/issues'
@@ -31,7 +25,6 @@ export interface TaskTimeTrackerSettings {
 	/** Individual warnings dismissed (keys from issueKey). */
 	dismissedIssues: string[]
 	tagMappings: TagMapping[]
-	quickActions: QuickAction[]
 	/**
 	 * The timeline opens each note zoomed to its day, as the Fit button does;
 	 * off, it opens at `timelineZoom`.
@@ -59,7 +52,6 @@ export const DEFAULT_SETTINGS: TaskTimeTrackerSettings = {
 	timelineFitOnOpen: true,
 	lastDailyViewTab: 'tracker',
 	timelineZoom: ZOOM_DEFAULT,
-	quickActions: [],
 	tagMappings: [
 		{
 			tag: '#project',
@@ -99,7 +91,6 @@ export class TaskTimeTrackerSettingTab extends PluginSettingTab {
 		this.displayTimelineSection(containerEl)
 		this.displayTaskManagementSection(containerEl)
 		this.displayWarningsSection(containerEl)
-		this.displayQuickActionsSection(containerEl)
 		this.displayTagMappingsSection(containerEl)
 
 		new Setting(containerEl)
@@ -198,121 +189,6 @@ export class TaskTimeTrackerSettingTab extends PluginSettingTab {
 						this.display()
 					})
 			)
-	}
-
-	private displayQuickActionsSection(containerEl: HTMLElement) {
-		new Setting(containerEl)
-			.setName('Quick actions')
-			.setDesc(
-				'One-click actions on a fixed task, shown in the tracker tab and registered as commands (restart the plugin to update the commands). The ensure verbs only act when the task is not already in that state.'
-			)
-			.setHeading()
-			.addButton((button) =>
-				button
-					.setButtonText('Add action')
-					.setCta()
-					.onClick(async () => {
-						this.plugin.settings.quickActions.push(emptyQuickAction())
-						await this.plugin.saveSettings()
-						this.display()
-					})
-			)
-
-		this.plugin.settings.quickActions.forEach((action, index) => {
-			const setting = new Setting(containerEl)
-			setting.settingEl.addClass('task-time-tracker-tag-mapping')
-
-			setting
-				.addText((text) =>
-					text
-						.setPlaceholder('Action name')
-						.setValue(action.name)
-						.onChange(async (value) => {
-							action.name = value.trim()
-							await this.plugin.saveSettings()
-						})
-				)
-				.addText((text) =>
-					text
-						.setPlaceholder('Task name')
-						.setValue(action.taskName)
-						.onChange(async (value) => {
-							action.taskName = value.trim()
-							await this.plugin.saveSettings()
-						})
-				)
-				.addDropdown((dropdown) => {
-					for (const verb of QUICK_ACTION_VERBS) dropdown.addOption(verb, verb)
-					dropdown.setValue(action.verb).onChange(async (value) => {
-						if (!isQuickActionVerb(value)) return
-						action.verb = value
-						await this.plugin.saveSettings()
-					})
-				})
-
-			const toggles: {
-				label: string
-				tooltip: string
-				key:
-					| 'timeTravel'
-					| 'showInTracker'
-					| 'setDayStart'
-					| 'setDayEnd'
-					| 'completeJournal'
-			}[] = [
-				{
-					label: 'custom time',
-					tooltip: 'Ask at what time the action happened',
-					key: 'timeTravel',
-				},
-				{
-					label: 'tracker',
-					tooltip: 'Show as a button in the tracker tab',
-					key: 'showInTracker',
-				},
-				{
-					label: 'start of day',
-					tooltip: 'Also set the start of day',
-					key: 'setDayStart',
-				},
-				{
-					label: 'end of day',
-					tooltip: 'Also set the end of day',
-					key: 'setDayEnd',
-				},
-				{
-					label: 'complete',
-					tooltip: 'Then end the day',
-					key: 'completeJournal',
-				},
-			]
-			for (const { label, tooltip, key } of toggles) {
-				setting.controlEl.createSpan({
-					text: label,
-					cls: 'task-time-tracker-toggle-label',
-				})
-				setting.addToggle((toggle) =>
-					toggle
-						.setTooltip(tooltip)
-						.setValue(action[key])
-						.onChange(async (value) => {
-							action[key] = value
-							await this.plugin.saveSettings()
-						})
-				)
-			}
-
-			setting.addExtraButton((button) =>
-				button
-					.setIcon('trash')
-					.setTooltip('Remove')
-					.onClick(async () => {
-						this.plugin.settings.quickActions.splice(index, 1)
-						await this.plugin.saveSettings()
-						this.display()
-					})
-			)
-		})
 	}
 
 	private displayTagMappingsSection(containerEl: HTMLElement) {

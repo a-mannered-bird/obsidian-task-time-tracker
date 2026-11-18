@@ -1,11 +1,9 @@
-import { type TFile } from 'obsidian'
 import { applyCompletion, isEmptyPlan, planCompletion } from 'core/complete'
 import { clockChanges, describeStops } from 'core/handOff'
 import { TaskNote } from 'core/note'
 import { recordWrites, rewriteNote } from 'core/noteRewrite'
 import { NOTICE_ICON } from 'core/noticeText'
 import { BUSY_NOTICE } from 'core/trackingRun'
-import { DAY_END_PROPERTY, readFrontmatterTime } from 'core/time'
 import { describeCompletion } from 'core/tracker'
 import { confirm } from 'ui/ConfirmModal'
 import { showNotice } from 'ui/notice'
@@ -35,12 +33,11 @@ export function registerCompleteJournalCommand(plugin: TaskTimeTracker) {
 }
 
 /**
- * End-of-day cleanup: ask for the end of day when the note has none, then
- * close running clocks at it, tick every clocked task and delete the tasks
- * that were never clocked. `dayEnd` is one just written by the caller,
- * which the metadata cache may not show yet.
+ * End-of-day cleanup: ask for the end of day, even when the note has one,
+ * then close running clocks at it, tick every clocked task and delete the
+ * tasks that were never clocked.
  */
-export async function endDay(plugin: TaskTimeTracker, dayEnd?: Date) {
+export async function endDay(plugin: TaskTimeTracker) {
 	const { app } = plugin
 	const { file } = currentTarget(plugin)
 	if (!file || isEmptyPlan(planCompletion(await readTaskNote(plugin, file)))) {
@@ -48,10 +45,7 @@ export async function endDay(plugin: TaskTimeTracker, dayEnd?: Date) {
 		return
 	}
 
-	const at =
-		dayEnd ??
-		savedDayEnd(plugin, file) ??
-		(await runTimeCommand(plugin, DAY_END_COMMAND))
+	const at = await runTimeCommand(plugin, DAY_END_COMMAND)
 	if (!at) return
 
 	// Read after the end of day was written, or writing the note would undo it.
@@ -92,9 +86,4 @@ export async function endDay(plugin: TaskTimeTracker, dayEnd?: Date) {
 		stops ? `${summary}\n${stops}.` : summary,
 		undoNoteWrite(io, write)
 	)
-}
-
-function savedDayEnd(plugin: TaskTimeTracker, file: TFile): Date | null {
-	const frontmatter = plugin.app.metadataCache.getFileCache(file)?.frontmatter
-	return readFrontmatterTime(frontmatter?.[DAY_END_PROPERTY])
 }
