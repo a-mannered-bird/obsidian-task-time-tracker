@@ -846,6 +846,18 @@ describe('tracker tab', function () {
 		await expect(button('Start Email')).toBeDisplayed()
 	})
 
+	it('teaches Toggle task from… on the Stop at… button', async function () {
+		await writeToday(['- [ ] Chores', `      [clock::${today.date}T00:00:00]`])
+		await openTracker()
+		const stopAt = button('Stop Chores at…')
+		await expect(stopAt).toBeDisplayed()
+
+		await stopAt.moveTo()
+		await expect(browser.$('.tooltip')).toHaveText(
+			'Stop Chores at…\nNo shortcut yet: set one for "Toggle task from…" in Settings → Hotkeys'
+		)
+	})
+
 	it('teaches the shortcut of a button in its tooltip', async function () {
 		await writeToday(['- [ ] Chores'])
 		await openTracker()

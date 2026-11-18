@@ -8,6 +8,7 @@ export const CONTROL_COMMANDS = {
 	switch: 'switch-task',
 	alongside: 'toggle-task',
 	stop: 'toggle-task',
+	stopAt: 'toggle-task-from',
 	done: 'toggle-tick-task',
 	fromLastEnd: 'toggle-task-from-last',
 	interruption: 'toggle-interruption',

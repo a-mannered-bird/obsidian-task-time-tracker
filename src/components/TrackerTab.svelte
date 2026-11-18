@@ -793,7 +793,7 @@
 								<button
 									class="row-button"
 									aria-label={`Stop ${task.name} at…`}
-									use:instantTooltip
+									use:instantTooltip={() => [controlHint(plugin, 'stopAt')]}
 									use:icon={STOP_AT_ICON}
 									onclick={() => stopAt(task)}
 								></button>
