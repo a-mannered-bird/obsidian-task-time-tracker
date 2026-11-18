@@ -254,13 +254,15 @@
 	 * Obsidian's scrollbars overlay the content instead of taking width, so
 	 * the panel reaches into the view's right padding: its scrollbar lands
 	 * there, as the view's own did, rather than over the timeline toolbar.
+	 * It reaches into the left padding too, as scrolling clips what
+	 * overflows: the running rows' background extends past the column.
 	 */
 	.tab-panel {
 		flex: 1;
 		min-height: 0;
 		overflow-y: auto;
-		margin-right: calc(-1 * var(--size-4-3));
-		padding-right: var(--size-4-3);
+		margin-inline: calc(-1 * var(--size-4-3));
+		padding-inline: var(--size-4-3);
 	}
 
 	.note-nav {

@@ -79,15 +79,13 @@ describe('describeHandOff', () => {
 
 	it('names the day of a stop in an earlier note', () => {
 		const nextDay = new Date(2026, 10, 13, 8, 0)
-		expect(
-			say({ ...handOff, started: [] }, { ...today, now: nextDay })
-		).toBe('⏹️ Stopped "Chores" (42m of 1h 12m yesterday) at 10:42')
+		expect(say({ ...handOff, started: [] }, { ...today, now: nextDay })).toBe(
+			'⏹️ Stopped "Chores" (42m of 1h 12m yesterday) at 10:42'
+		)
 	})
 
 	it('names a start', () => {
-		expect(say({ ...handOff, stopped: [] })).toBe(
-			'▶️ Started "Email" at 10:42'
-		)
+		expect(say({ ...handOff, stopped: [] })).toBe('▶️ Started "Email" at 10:42')
 	})
 
 	it('has nothing to say when nothing started or stopped', () => {

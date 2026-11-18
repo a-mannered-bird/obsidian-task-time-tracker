@@ -935,6 +935,53 @@ describe('tracker tab', function () {
 		await expect(button('Start Chores')).toBeDisplayed()
 	})
 
+	it('ends an interruption after the duration typed on its row', async function () {
+		let content = await writeToday([
+			'- [ ] Chores',
+			`      [clock::${today.date}T00:00:00--${today.date}T00:05:00]`,
+			'- [ ] Interruption',
+			`      [clock::${today.date}T00:05:00]`,
+		])
+		await openTracker()
+		await expect(browser.$('button=Interruption')).toHaveAttribute(
+			'aria-pressed',
+			'true'
+		)
+
+		// Notices can cover the running rows: press the button through the DOM.
+		const duration = await button(
+			'Set duration of the interruption'
+		).getElement()
+		await browser.execute((el) => el.click(), duration)
+		const modal = await modalTitled('How long did the interruption last?')
+		const minutes = modal.$('input[type="number"]')
+		await minutes.setValue('10')
+		await expect(minutes).toHaveValue('10')
+		await modal.$('button=OK').click()
+		const picker = browser.$('.prompt')
+		await expect(picker).toBeDisplayed()
+		await browser.keys([...'Phone call'])
+		await expect(picker.$('.suggestion-item.is-selected')).toHaveText(
+			'➕ Create "Phone call"'
+		)
+		await browser.keys('Enter')
+
+		// 00:05 + 10 minutes: the call took 00:05–00:15 and Chores resumed
+		// then, not now.
+		content = await waitForChange(content)
+		assert.deepStrictEqual(clocksOf(content, '- [ ] Chores'), [
+			{ start: `${today.date}T00:00:00`, end: `${today.date}T00:05:00` },
+			{ start: `${today.date}T00:15:00`, end: null },
+		])
+		assert.deepStrictEqual(clocksOf(content, '- [ ] Phone call'), [
+			{ start: `${today.date}T00:05:00`, end: `${today.date}T00:15:00` },
+		])
+		await expect(browser.$('button=Interruption')).toHaveAttribute(
+			'aria-pressed',
+			'false'
+		)
+	})
+
 	it('shows a set shortcut after a row menu item', async function () {
 		await writeToday(['- [ ] Chores', `      [clock::${today.date}T00:00:00]`])
 		await openTracker()

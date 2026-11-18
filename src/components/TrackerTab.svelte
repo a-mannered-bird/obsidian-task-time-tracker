@@ -12,6 +12,7 @@
 		migrateLastClock,
 		moveTask,
 		setDuration,
+		setInterruptionDuration,
 		setStop,
 		startTask,
 		stopFromLastEnd,
@@ -736,15 +737,21 @@
 								Interruption
 							</span>
 							{@render elapsedTime(task)}
-							<button
-								class="mod-cta end-button"
-								aria-label="End interruption"
-								use:instantTooltip={() => controlHint(plugin, 'interruption')}
-								onclick={() => void toggleInterruption(plugin)}
-							>
-								End
-							</button>
 							<span class="row-actions">
+								<button
+									class="row-button"
+									aria-label="End interruption"
+									use:instantTooltip={() => controlHint(plugin, 'interruption')}
+									use:icon={'square'}
+									onclick={() => void toggleInterruption(plugin)}
+								></button>
+								<button
+									class="row-button"
+									aria-label="Set duration of the interruption"
+									use:instantTooltip
+									use:icon={'hourglass'}
+									onclick={() => void setInterruptionDuration(plugin)}
+								></button>
 								{@render moreButton(task)}
 							</span>
 						{:else}
@@ -1002,13 +1009,6 @@
 	.interruption-name {
 		cursor: default;
 		color: var(--color-orange);
-	}
-
-	/* Orange like the rest of the interruption, not the accent. */
-	.end-button.mod-cta {
-		margin-left: 0.25em;
-		background: var(--color-orange);
-		color: var(--text-on-accent);
 	}
 
 	.overnight-name {

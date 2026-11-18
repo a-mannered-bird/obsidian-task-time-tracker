@@ -296,6 +296,32 @@ describe('toggleTasks', () => {
 			'- [ ] Interruption',
 		])
 	})
+	it('ends an interruption after the duration typed, from its own clock', async () => {
+		const note = new TaskNote(
+			[
+				'- [ ] Emails',
+				`      [clock::${at(11)}--${at(11, 30)}]`,
+				'- [ ] Walk the dog',
+				'- [ ] Interruption',
+				`      [clock::${at(11, 30)}]`,
+			].join('\n')
+		)
+		const { prompts } = scripted({ minutes: [15], pick: ['Walk the dog'] })
+		await toggleTasks(
+			note,
+			{ interruption: true, switch: true, setDuration: true },
+			{ prompts, now }
+		)
+		// 11:30 + 15 minutes: Emails resumes at 11:45, not at now (12:00).
+		expect(note.toString().split('\n')).toEqual([
+			'- [ ] Emails',
+			`      [clock::${at(11)}--${at(11, 30)}]`,
+			`      [clock::${at(11, 45)}]`,
+			'- [ ] Walk the dog',
+			`      [clock::${at(11, 30)}--${at(11, 45)}]`,
+			'- [ ] Interruption',
+		])
+	})
 })
 
 describe('quick interruption on a note without the interruption task', () => {

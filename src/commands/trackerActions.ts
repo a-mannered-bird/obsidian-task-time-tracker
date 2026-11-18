@@ -64,6 +64,18 @@ export function toggleInterruption(plugin: TaskTimeTracker): Promise<void> {
 }
 
 /**
+ * End the interruption after a duration typed from its start, then say
+ * what it was; the paused tasks resume at that time.
+ */
+export function setInterruptionDuration(
+	plugin: TaskTimeTracker
+): Promise<void> {
+	return runFromTab(plugin, [
+		{ switch: true, interruption: true, setDuration: true },
+	])
+}
+
+/**
  * On a past note followed by a later one, now is the wrong time to track
  * at, so each step asks when it happened.
  */

@@ -37,7 +37,10 @@ export type ToggleOptions = {
 	 * when several run.
 	 */
 	migrate?: boolean
-	/** Close the running clock of a task so that it lasted N minutes. */
+	/**
+	 * Close the running clock of a task so that it lasted N minutes; with
+	 * `interruption`, the interruption's, ending it at that time.
+	 */
 	setDuration?: boolean
 }
 
@@ -154,7 +157,10 @@ export async function toggleTasks(
 		if (selected.length === 0) return false
 	}
 
-	const at = await resolveTime(note, selected, effective, context)
+	// Ending an interruption selects the paused tasks, which do not run:
+	// its duration is the interruption's own clock.
+	const timed = endingInterruption && interruption ? interruption : selected[0]
+	const at = await resolveTime(note, selected, effective, context, timed)
 	if (!at) return false
 
 	let changed = false
@@ -289,18 +295,22 @@ async function resolveTime(
 	note: TaskNote,
 	selected: Task[],
 	options: ToggleOptions,
-	context: ToggleContext
+	context: ToggleContext,
+	timed: Task | undefined
 ): Promise<Date | null> {
 	const { prompts, now } = context
 
 	if (options.setDuration) {
-		const running = selected[0]?.clocks.find((clock) => clock.end === null)
-		if (!running) {
+		const running = timed?.clocks.find((clock) => clock.end === null)
+		if (!timed || !running) {
 			prompts.notify(`${NOTICE_ICON.info} The selected task is not running.`)
 			return null
 		}
 		const minutes = await prompts.promptMinutes({
-			title: 'How long did the task last?',
+			title:
+				timed.name === INTERRUPTION_TASK
+					? 'How long did the interruption last?'
+					: 'How long did the task last?',
 			defaultValue: 5,
 		})
 		return minutes === null ? null : addMinutes(running.start, minutes)
