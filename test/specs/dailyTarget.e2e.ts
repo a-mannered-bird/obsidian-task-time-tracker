@@ -119,11 +119,6 @@ describe('daily target', function () {
 		)
 		await expect(browser.$('p=Nothing tracked yet')).toBeDisplayed()
 		assert.strictEqual(await noteExists(dayNote(0).path), false)
-
-		// The reset deletes the note: start the next test without its clocks.
-		await browser.executeObsidian(({ plugins }, path) => {
-			plugins.obsidianTaskTimeTracker.lostClocks.forget(path)
-		}, yesterday.path)
 	})
 
 	it('stops a clock left running yesterday at a typed time', async function () {
@@ -210,11 +205,6 @@ describe('daily target', function () {
 				'',
 			].join('\n')
 		)
-
-		// The reset deletes the note: start the next test without its clocks.
-		await browser.executeObsidian(({ plugins }, path) => {
-			plugins.obsidianTaskTimeTracker.lostClocks.forget(path)
-		}, yesterday.path)
 	})
 
 	it('gives the start and end of day the date and time property type', async function () {

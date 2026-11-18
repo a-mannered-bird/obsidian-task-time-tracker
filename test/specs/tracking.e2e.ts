@@ -1,7 +1,7 @@
 import assert from 'node:assert'
 import { browser, expect } from '@wdio/globals'
 import { obsidianPage } from 'wdio-obsidian-service'
-import { clickNoticeButton, noticeWith } from './support/notices'
+import { noticeWith } from './support/notices'
 import { resetVault } from './support/vault'
 
 /**
@@ -96,39 +96,6 @@ describe('tracking commands', function () {
 		expect(await obsidianPage.read(NOTE)).toBe(before)
 	})
 
-	it('offer to restore a clock that an outside change removed', async function () {
-		await obsidianPage.openFile(NOTE)
-		const before = await obsidianPage.read(NOTE)
-		// The task manager scans every daily note, so the plugin knows what
-		// the note held before the change.
-		await browser.executeObsidianCommand(
-			'obsidian-task-time-tracker:manage-tasks'
-		)
-		await expect(
-			browser.$('.task-time-tracker-manager-modal table')
-		).toBeDisplayed()
-		await browser.keys('Escape')
-
-		// A sync reconciling two versions badly: Task A's clock is gone.
-		const withoutClock = before
-			.split('\n')
-			.filter((line) => !line.includes('2026-08-03T09:00:00'))
-			.join('\n')
-		await browser.executeObsidian(
-			({ app }, path, content) => app.vault.adapter.write(path, content),
-			NOTE,
-			withoutClock
-		)
-
-		const notice = browser.$('.notice*=disappeared')
-		await expect(notice).toHaveText(
-			expect.stringContaining('"Task A" 09:00–09:30')
-		)
-		await clickNoticeButton(notice, 'Restore')
-		await expect(browser.$('.notice*=Clock restored.')).toBeDisplayed()
-		expect(await obsidianPage.read(NOTE)).toBe(before)
-	})
-
 	it('redo the toggle when the note changes while the picker is open', async function () {
 		await obsidianPage.openFile(NOTE)
 		const before = await obsidianPage.read(NOTE)
@@ -169,15 +136,6 @@ describe('tracking commands', function () {
 			'- [ ] Lunch',
 			'      [clock::2026-08-03T12:00:00--2026-08-03T12:30:00]',
 		])
-
-		// The vault reset before the next test removes the clock added here,
-		// which is what the plugin watches for: start that test from a note
-		// the plugin knows nothing about.
-		await browser.executeObsidian(({ plugins }, path) => {
-			const { lostClocks } = plugins.obsidianTaskTimeTracker
-			lostClocks.forget(path)
-			lostClocks.acknowledge(path, '')
-		}, NOTE)
 	})
 
 	it('follow the note in the open picker and act on what it shows', async function () {
@@ -227,13 +185,6 @@ describe('tracking commands', function () {
 			/^ {6}\[clock::2026-08-03T10:00:00--\d{4}-\d\d-\d\dT[\d:]{8}\]$/
 		)
 		assert.deepStrictEqual(lines.slice(0, 5), before.trimEnd().split('\n'))
-
-		// The vault reset removes the clock: see the previous test.
-		await browser.executeObsidian(({ plugins }, path) => {
-			const { lostClocks } = plugins.obsidianTaskTimeTracker
-			lostClocks.forget(path)
-			lostClocks.acknowledge(path, '')
-		}, NOTE)
 	})
 
 	it('groups the picker rows, and plans a typed task from its own command', async function () {

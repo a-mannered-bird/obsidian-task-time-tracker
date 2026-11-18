@@ -154,19 +154,6 @@ describe('tracker tab', function () {
 		await resetVault()
 	})
 
-	afterEach(async function () {
-		// The reset deletes today's note and restores the fixtures: forget
-		// the clocks started here.
-		await browser.executeObsidian(
-			({ plugins }, paths) => {
-				for (const path of paths) {
-					plugins.obsidianTaskTimeTracker.lostClocks.forget(path)
-				}
-			},
-			[today.path, pastNote.path]
-		)
-	})
-
 	it('starts a task, adds one alongside, then switches to a third', async function () {
 		let content = await writeToday([
 			'- [ ] Chores',

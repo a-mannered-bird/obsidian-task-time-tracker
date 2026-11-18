@@ -84,8 +84,7 @@ export async function readTaskNote(
 
 /**
  * Compare-and-swap access to the note for writers that must not overwrite
- * a change made since their read. A successful write is acknowledged, so
- * the clocks it removes are not reported as lost.
+ * a change made since their read.
  */
 export function noteIo(plugin: TaskTimeTracker, file: TFile): NoteIo {
 	return {
@@ -97,7 +96,6 @@ export function noteIo(plugin: TaskTimeTracker, file: TFile): NoteIo {
 				replaced = current === expected
 				return replaced ? next : current
 			})
-			if (replaced) plugin.lostClocks.acknowledge(file.path, next)
 			return replaced
 		},
 	}

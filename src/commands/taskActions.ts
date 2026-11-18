@@ -28,7 +28,6 @@ import { promptRetag } from 'ui/RetagModal'
 import { promptText } from 'ui/TextPromptModal'
 import { showUndoNotice } from 'ui/undoNotice'
 import type TaskTimeTracker from '../main'
-import { ownWritesVault } from './lostClocks'
 import { noteIo } from './target'
 import { undoNoteWrite } from './undo'
 
@@ -120,7 +119,7 @@ async function consolidate(
 ): Promise<boolean> {
 	const report = await withProgressNotice('Updating notes', (onProgress) =>
 		consolidateInVault(
-			ownWritesVault(plugin),
+			plugin.app.vault,
 			plugin.vaultTasks,
 			sourceNames,
 			targetName,
@@ -162,7 +161,7 @@ export async function deleteTasks(
 	if (!confirmed) return false
 
 	const report = await withProgressNotice('Deleting', (onProgress) =>
-		deleteInVault(ownWritesVault(plugin), plugin.vaultTasks, names, onProgress)
+		deleteInVault(plugin.app.vault, plugin.vaultTasks, names, onProgress)
 	)
 	for (const name of names) {
 		Object.assign(plugin.settings, forgetTaskName(plugin.settings, name))
@@ -207,13 +206,7 @@ export async function changeTags(
 	if (!confirmed) return false
 
 	const report = await withProgressNotice('Updating notes', (onProgress) =>
-		retagInVault(
-			ownWritesVault(plugin),
-			plugin.vaultTasks,
-			names,
-			change,
-			onProgress
-		)
+		retagInVault(plugin.app.vault, plugin.vaultTasks, names, change, onProgress)
 	)
 	reportOutcome(
 		report,

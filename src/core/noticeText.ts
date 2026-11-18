@@ -13,7 +13,6 @@ export const NOTICE_ICON = {
 	dayEnd: '🌇',
 	dayEnded: '🌙',
 	undone: '↩️',
-	restored: '♻️',
 	updated: '📝',
 	progress: '⏳',
 	reload: '🔄',
