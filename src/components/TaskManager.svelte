@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Menu, Notice, SearchComponent, type IconName } from 'obsidian'
+	import { Menu, SearchComponent, type IconName } from 'obsidian'
 	import { onMount } from 'svelte'
 	import {
 		changeTags,
@@ -30,6 +30,7 @@
 	import type { VaultTaskInfo } from 'core/vaultTaskIndex'
 	import { openColorMenu } from 'ui/colorMenu'
 	import { icon } from 'ui/icon'
+	import { showNotice } from 'ui/notice'
 	import type TaskTimeTracker from '../main'
 
 	type Props = {
@@ -267,7 +268,7 @@
 					case 'outside-day':
 						item.onClick(() => {
 							// Stays long enough to read next to the opened note.
-							new Notice(explainOutsideDay(issue), 15000)
+							showNotice(explainOutsideDay(issue), 15000)
 							void goTo(issue.path, issue.lineIndex)
 						})
 						break

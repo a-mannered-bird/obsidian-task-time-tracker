@@ -2,7 +2,7 @@ import assert from 'node:assert'
 import { browser, expect } from '@wdio/globals'
 import { obsidianPage } from 'wdio-obsidian-service'
 import { openDailyView } from './support/dailyView'
-import { clickNoticeButton } from './support/notices'
+import { clickNoticeButton, noticeWith } from './support/notices'
 import { resetVault } from './support/vault'
 
 /**
@@ -154,7 +154,7 @@ describe('timeline tab', function () {
 		await expect(block('Task A, 09:15 to 09:45')).toBeFocused()
 
 		await clickNoticeButton(
-			browser.$('.notice*=Task A 09:00–09:30 → 09:15–09:45'),
+			noticeWith('"Task A" 09:00–09:30 → 09:15–09:45'),
 			'Undo'
 		)
 		await expect(block('Task A, 09:00 to 09:30')).toBeDisplayed()
@@ -197,7 +197,7 @@ describe('timeline tab', function () {
 		)
 
 		await clickNoticeButton(
-			browser.$('.notice*=Lunch 12:10–12:20 → 12:00–12:10'),
+			noticeWith('"Lunch" 12:10–12:20 → 12:00–12:10'),
 			'Undo'
 		)
 		await expect(block('Lunch, 12:10 to 12:20')).toBeDisplayed()
@@ -380,10 +380,7 @@ describe('timeline tab', function () {
 		)
 
 		// Undo takes the task line it added away with the clock.
-		await clickNoticeButton(
-			browser.$('.notice*=Added Retro 10:00–10:30'),
-			'Undo'
-		)
+		await clickNoticeButton(noticeWith('Added "Retro" 10:00–10:30'), 'Undo')
 		await expect(block('Task A, 09:00 to 09:30')).toBeDisplayed()
 		assert.strictEqual(await waitForChange(added), before)
 	})
@@ -427,10 +424,7 @@ describe('timeline tab', function () {
 		)
 		await expect(block('Task B, 09:15 to 09:45')).toBeDisplayed()
 
-		await clickNoticeButton(
-			browser.$('.notice*=Deleted Task A 09:00–09:30'),
-			'Undo'
-		)
+		await clickNoticeButton(noticeWith('Deleted "Task A" 09:00–09:30'), 'Undo')
 		await expect(block('Task A, 09:00 to 09:30')).toBeDisplayed()
 		assert.strictEqual(await waitForChange(deleted), before)
 	})

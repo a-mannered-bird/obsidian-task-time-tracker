@@ -1,14 +1,8 @@
 import { Notice } from 'obsidian'
+import { NOTICE_ICON } from 'core/noticeText'
+import { appendNoticeText, NOTICE_DURATION, showNotice } from './notice'
 
-/**
- * How long every notice about the clocks stays, buttons or not: long
- * enough to reach Change or Undo, and the same for all so none of them
- * reads as more or less important.
- */
-export const NOTICE_DURATION = 8000
-
-/** A notice button; `cta` gives it the accent color (Change, never Undo). */
-export type NoticeAction = { label: string; run: () => void; cta?: boolean }
+export type NoticeAction = { label: string; run: () => void }
 
 /** Notice telling what happened, with buttons acting on it. */
 export function showActionNotice(
@@ -16,14 +10,12 @@ export function showActionNotice(
 	actions: NoticeAction[]
 ): Notice {
 	const fragment = new DocumentFragment()
-	fragment.createDiv({ text: message })
+	appendNoticeText(fragment.createDiv(), message)
 	const buttons = fragment.createDiv({
 		cls: 'task-time-tracker-notice-buttons',
 	})
-	for (const { label, run, cta } of actions) {
-		buttons
-			.createEl('button', { text: label, cls: cta ? 'mod-cta' : undefined })
-			.addEventListener('click', run)
+	for (const { label, run } of actions) {
+		buttons.createEl('button', { text: label }).addEventListener('click', run)
 	}
 	return new Notice(fragment, NOTICE_DURATION)
 }
@@ -51,7 +43,9 @@ export function showUndoNotice(
 				if (latestUndo === notice) latestUndo = null
 				void undo().then((done) => {
 					if (done)
-						new Notice('The last action has been reverted.', NOTICE_DURATION)
+						showNotice(
+							`${NOTICE_ICON.undone} The last action has been reverted.`
+						)
 				})
 			},
 		},

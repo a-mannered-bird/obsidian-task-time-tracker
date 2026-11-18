@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { TaskNote } from './note'
 import { taskChoice, type Prompts, type ToggleOptions } from './toggle'
 import { applyTrackingSteps, STALE_NOTICE, type NoteIo } from './trackingRun'
+import { plainNoticeText } from './noticeText'
 
 const now = new Date(2026, 7, 16, 12, 0, 0)
 
@@ -47,7 +48,7 @@ function fakeNote(lines: string[]) {
 			const parsed = time === null ? null : request.parse(time)
 			return Promise.resolve(parsed && 'at' in parsed ? parsed.at : null)
 		},
-		notify: (message) => notices.push(message),
+		notify: (message) => notices.push(plainNoticeText(message)),
 	})
 	const run = (prompts: Prompts, steps: ToggleOptions[] = [{}]) =>
 		applyTrackingSteps(io, steps, {
@@ -150,7 +151,7 @@ describe('applyTrackingSteps', () => {
 		])
 		expect(note.prompted()).toBe(1)
 		expect(note.notices).toEqual([
-			'☕️ "Emails" toggled off at 12:00:00 (10 / 10m).',
+			'⏹️ Stopped "Emails" (10m of 10m today) at 12:00.',
 		])
 	})
 

@@ -1,4 +1,5 @@
 import { Notice } from 'obsidian'
+import { NOTICE_ICON } from 'core/noticeText'
 
 const KEEP_OPEN = 'Keep the vault open until this finishes.'
 
@@ -28,7 +29,8 @@ function progressMessage(
 	total: number
 ): DocumentFragment {
 	const fragment = document.createDocumentFragment()
-	fragment.appendText(total ? `${label} ${done}/${total}…` : `${label}…`)
+	const count = total ? ` ${done}/${total}` : ''
+	fragment.appendText(`${NOTICE_ICON.progress} ${label}${count}…`)
 	fragment.createEl('br')
 	fragment.appendText(KEEP_OPEN)
 	return fragment

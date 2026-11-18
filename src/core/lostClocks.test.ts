@@ -6,6 +6,7 @@ import {
 	restoreLostClocks,
 } from './lostClocks'
 import { parseTasks } from './parser'
+import { plainNoticeText } from './noticeText'
 
 const tasks = (lines: string[]) => parseTasks(lines)
 const spans = (lost: { taskName: string; start: Date; end: Date | null }[]) =>
@@ -112,8 +113,8 @@ describe('describeLostClocks', () => {
 			]),
 			[]
 		)
-		expect(describeLostClocks('2026-08-16', lost)).toBe(
-			'4 clocks disappeared from 2026-08-16 in a change made outside the editor, such as a sync: "Emails" 09:00–09:30, "Emails" running since 11:00, "Walk the dog" 10:00–10:30, and 1 more.'
+		expect(plainNoticeText(describeLostClocks('2026-08-16', lost))).toBe(
+			'⚠️ 4 clocks disappeared from 2026-08-16 in a change made outside the editor, such as a sync: "Emails" 09:00–09:30, "Emails" running since 11:00, "Walk the dog" 10:00–10:30, and 1 more.'
 		)
 	})
 })

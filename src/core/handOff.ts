@@ -1,6 +1,11 @@
-import type { ClockKey, Task } from 'types/tasks'
+import type { ClockKey, ClockTimes, Task } from 'types/tasks'
+import { taskMinutes } from './aggregate'
+import { isSameDay } from './dailyNotes'
 import { TaskNote } from './note'
-import { formatTimeOfDay } from './timeline'
+import { NOTICE_ICON, noticeTask } from './noticeText'
+import { describeDay } from './overnight'
+import { formatHoursMinutes, getMinutesBetween } from './time'
+import { describeClockEdit, formatTimeOfDay } from './timeline'
 
 /**
  * What one tracker action did to the clocks: those it stopped (with the
@@ -64,23 +69,84 @@ export function clockChanges(before: Task[], after: Task[]): HandOff {
 	return { stopped, started }
 }
 
+/** The note a stop happened in, as the write left it. */
+export type StopContext = { tasks: Task[]; day: Date; now: Date }
+
 /**
- * `Switched from Chores to Email at 10:42`, `Stopped Chores at 10:42`,
- * `Started Email at 10:42`; null when no clock started or stopped.
+ * `🔀 Switched from "Chores" (25m of 1h 10m today) to "Email" at 10:42`,
+ * `⏹️ Stopped "Chores" (…) at 10:42`, `▶️ Started "Email" at 10:42`; null
+ * when no clock started or stopped. A stopped clock tells how long it ran
+ * out of its task's time that day.
  */
-export function describeHandOff(handOff: HandOff): string | null {
-	const names = (clocks: ClockKey[]) =>
-		clocks.map((clock) => clock.taskName).join(', ')
+export function describeHandOff(
+	handOff: HandOff,
+	context: StopContext
+): string | null {
+	const started = handOff.started
+		.map((clock) => noticeTask(clock.taskName))
+		.join(', ')
 	const first = handOff.stopped[0]
 	if (!first) {
-		const started = handOff.started[0]
-		if (!started) return null
-		return `Started ${names(handOff.started)} at ${formatTimeOfDay(started.start)}`
+		const [clock] = handOff.started
+		if (!clock) return null
+		return `${NOTICE_ICON.start} Started ${started} at ${formatTimeOfDay(clock.start)}`
 	}
-	const at = formatTimeOfDay(first.end)
 	if (handOff.started.length === 0)
-		return `Stopped ${names(handOff.stopped)} at ${at}`
-	return `Switched from ${names(handOff.stopped)} to ${names(handOff.started)} at ${at}`
+		return describeStops(handOff.stopped, context)
+	const stopped = handOff.stopped
+		.map((clock) => describeStoppedClock(clock, context))
+		.join(', ')
+	return `${NOTICE_ICON.switch} Switched from ${stopped} to ${started} at ${formatTimeOfDay(first.end)}`
+}
+
+/** `⏹️ Stopped "Chores" (25m of 1h 10m today) at 10:42`; null for none. */
+export function describeStops(
+	stopped: HandOff['stopped'],
+	context: StopContext
+): string | null {
+	const [first] = stopped
+	return first ? stopSentence(stopped, first.end, context) : null
+}
+
+function stopSentence(
+	stopped: HandOff['stopped'],
+	at: Date,
+	context: StopContext
+): string {
+	const clocks = stopped
+		.map((clock) => describeStoppedClock(clock, context))
+		.join(', ')
+	return `${NOTICE_ICON.stop} Stopped ${clocks} at ${formatTimeOfDay(at)}`
+}
+
+/** `"Chores" (25m of 1h 10m today)`: the clock's length, then its task's day. */
+export function describeStoppedClock(
+	clock: ClockKey & { end: Date },
+	context: StopContext
+): string {
+	const task = context.tasks.find((other) => other.name === clock.taskName)
+	const total = task ? taskMinutes(task, context.now) : 0
+	const lasted = getMinutesBetween(clock.start, clock.end)
+	return `${noticeTask(clock.taskName)} (${formatHoursMinutes(lasted)} of ${formatHoursMinutes(total)} ${dayPhrase(context.day, context.now)})`
+}
+
+function dayPhrase(day: Date, now: Date): string {
+	if (isSameDay(day, now)) return 'today'
+	const described = describeDay(day, now)
+	return described === 'yesterday' ? described : `on ${described}`
+}
+
+/** A running clock given an end reads as its stop; other edits show both ranges. */
+export function describeRetime(
+	key: ClockKey,
+	times: ClockTimes,
+	context: StopContext
+): string {
+	if (key.end !== null || times.end === null) {
+		return describeClockEdit(key.taskName, key, times)
+	}
+	const clock = { taskName: key.taskName, start: times.start, end: times.end }
+	return stopSentence([clock], times.end, context)
 }
 
 /**

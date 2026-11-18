@@ -7,6 +7,7 @@ import {
 	type ToggleContext,
 	type ToggleOptions,
 } from './toggle'
+import { NOTICE_ICON } from './noticeText'
 
 /** How the runner reaches the note; the commands wire it to the vault. */
 export type NoteIo = {
@@ -31,10 +32,9 @@ class NoteChangedError extends Error {}
 
 const MAX_REDOS = 3
 
-export const STALE_NOTICE =
-	'The note changed while you were choosing and the action no longer applies. Nothing was written.'
-export const BUSY_NOTICE =
-	'The note kept changing while the action was written. Nothing was written, try again.'
+export const STALE_NOTICE = `${NOTICE_ICON.warning} The note changed while you were choosing and the action no longer applies. Nothing was written.`
+export const CLOCKS_CHANGED_NOTICE = `${NOTICE_ICON.warning} The clocks changed elsewhere, nothing was written.`
+export const BUSY_NOTICE = `${NOTICE_ICON.warning} The note kept changing while the action was written. Nothing was written, try again.`
 
 /**
  * Run tracking steps on the note and write the result back. The user may sit

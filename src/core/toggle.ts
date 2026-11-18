@@ -1,7 +1,8 @@
 import type { Task } from 'types/tasks'
-import { taskMinutes } from './aggregate'
 import { getLastEnd, isRunning, type TaskNote } from './note'
-import { addMinutes, formatLocalDateTime, getMinutesBetween } from './time'
+import { addMinutes } from './time'
+import { describeStoppedClock } from './handOff'
+import { NOTICE_ICON, noticeTask } from './noticeText'
 import { formatTimeOfDay } from './timeline'
 import { describeStart, parseToggleTime, type TypedTime } from './typedTime'
 
@@ -119,12 +120,12 @@ export async function toggleTasks(
 	options: ToggleOptions,
 	context: ToggleContext
 ): Promise<boolean> {
-	const { prompts, now } = context
+	const { prompts } = context
 
 	if (options.migrate) return migrateClock(note, options, context)
 
 	if (options.setDuration && note.getRunningTasks().length === 0) {
-		prompts.notify('No running task found.')
+		prompts.notify(`${NOTICE_ICON.info} No running task found.`)
 		return false
 	}
 
@@ -162,7 +163,7 @@ export async function toggleTasks(
 			.getRunningTasks()
 			.filter((task) => !selected.some(sameTask(task)))
 		for (const task of toStop) {
-			toggleOne(note, task, at, Boolean(effective.tick), prompts, now)
+			toggleOne(note, task, at, Boolean(effective.tick), context)
 			changed = true
 		}
 	}
@@ -171,12 +172,14 @@ export async function toggleTasks(
 		const fresh = note.findTask(task.name)
 		if (!fresh) continue
 		if (effective.switch && isRunning(fresh)) {
-			prompts.notify(`"${fresh.name}" is already running.`)
+			prompts.notify(
+				`${NOTICE_ICON.info} ${noticeTask(fresh.name)} is already running.`
+			)
 			continue
 		}
 		// When switching, ticking applies to the tasks being closed, not the new one.
 		const shouldTick = Boolean(effective.tick && !effective.switch)
-		toggleOne(note, fresh, at, shouldTick, prompts, now)
+		toggleOne(note, fresh, at, shouldTick, context)
 		changed = true
 	}
 
@@ -203,7 +206,9 @@ async function selectTasks(
 	if (options.previous) {
 		const last = getLastEndedTasks(note.tasks)
 		if (last.length === 0) {
-			prompts.notify('No tasks have been worked on today yet.')
+			prompts.notify(
+				`${NOTICE_ICON.info} No tasks have been worked on today yet.`
+			)
 			return null
 		}
 		return last
@@ -215,7 +220,11 @@ async function selectTasks(
 	if (names) {
 		const found = names.flatMap((name) => {
 			const task = note.findTask(name)
-			if (!task) prompts.notify(`Couldn't find "${name}".`)
+			if (!task) {
+				prompts.notify(
+					`${NOTICE_ICON.warning} Couldn't find ${noticeTask(name)}.`
+				)
+			}
 			return task ? [task] : []
 		})
 		return found.length > 0 ? found : null
@@ -260,12 +269,16 @@ function keepTasksNeedingChange(
 		const isOn = isRunning(task)
 		const needsChange = (targetState === 'on') !== isOn
 		if (!needsChange) {
-			prompts.notify(`"${task.name}" is already ${isOn ? 'on' : 'off'}.`)
+			prompts.notify(
+				`${NOTICE_ICON.info} ${noticeTask(task.name)} is already ${isOn ? 'on' : 'off'}.`
+			)
 		}
 		return needsChange
 	})
 	if (kept.length === 0 && tasks.length > 1) {
-		prompts.notify('All selected tasks are already in the desired state.')
+		prompts.notify(
+			`${NOTICE_ICON.info} All selected tasks are already in the desired state.`
+		)
 	}
 	return kept
 }
@@ -283,7 +296,7 @@ async function resolveTime(
 	if (options.setDuration) {
 		const running = selected[0]?.clocks.find((clock) => clock.end === null)
 		if (!running) {
-			prompts.notify('The selected task is not running.')
+			prompts.notify(`${NOTICE_ICON.info} The selected task is not running.`)
 			return null
 		}
 		const minutes = await prompts.promptMinutes({
@@ -298,7 +311,9 @@ async function resolveTime(
 		const last = getLastEndedTasks(note.tasks)[0]
 		const end = last ? getLastEnd(last) : null
 		if (!end) {
-			prompts.notify('No tasks have been worked on today yet.')
+			prompts.notify(
+				`${NOTICE_ICON.info} No tasks have been worked on today yet.`
+			)
 			return null
 		}
 		at = end
@@ -345,8 +360,9 @@ function latestClosedStart(
 
 // ----- mutations -----
 
-const TOGGLED = 'toggled'
-const TOGGLE_NOTICE = new RegExp(`^(✅|☕️|⏰) ".*" ${TOGGLED} (on|off)`)
+const TOGGLE_NOTICE = new RegExp(
+	`^(${NOTICE_ICON.start} Started|${NOTICE_ICON.stop} Stopped|${NOTICE_ICON.done} (Finished|Started and ticked)) `
+)
 
 /**
  * Whether a notice only reports a clock started or stopped, which a caller
@@ -361,24 +377,29 @@ function toggleOne(
 	task: Task,
 	at: Date,
 	tick: boolean,
-	prompts: Prompts,
-	now: Date
+	context: ToggleContext
 ) {
-	const closing = isRunning(task)
-	if (closing) note.stopClock(task, at)
+	const running = task.clocks.find((clock) => clock.end === null)
+	if (running) note.stopClock(task, at)
 	else note.startClock(task, at)
 	if (tick) note.setTicked(note.findTask(task.name) ?? task, true)
 
-	const time = formatLocalDateTime(at).split('T')[1]
-	const emoji = tick ? '✅' : closing ? '☕️' : '⏰'
-	let message = `${emoji} "${task.name}" ${TOGGLED} ${closing ? 'off' : 'on'}${tick ? ' and ticked' : ''} at ${time}`
-	if (closing) {
-		const running = task.clocks.find((clock) => clock.end === null)
-		const session = running ? getMinutesBetween(running.start, at) : 0
-		const total = taskMinutes(note.findTask(task.name) ?? task, now)
-		message += ` (${session} / ${total}m)`
+	const time = formatTimeOfDay(at)
+	if (!running) {
+		const started = tick
+			? `${NOTICE_ICON.done} Started and ticked`
+			: `${NOTICE_ICON.start} Started`
+		context.prompts.notify(`${started} ${noticeTask(task.name)} at ${time}.`)
+		return
 	}
-	prompts.notify(`${message}.`)
+	const stopped = describeStoppedClock(
+		{ taskName: task.name, start: running.start, end: at },
+		{ tasks: note.tasks, day: context.day ?? context.now, now: context.now }
+	)
+	const verb = tick
+		? `${NOTICE_ICON.done} Finished`
+		: `${NOTICE_ICON.stop} Stopped`
+	context.prompts.notify(`${verb} ${stopped} at ${time}.`)
 }
 
 async function migrateClock(
@@ -393,11 +414,17 @@ async function migrateClock(
 			? await pickRunningTask(note, prompts)
 			: note.findTask(taskName)
 	if (!from) {
-		if (taskName !== undefined) prompts.notify(`Couldn't find "${taskName}".`)
+		if (taskName !== undefined) {
+			prompts.notify(
+				`${NOTICE_ICON.warning} Couldn't find ${noticeTask(taskName)}.`
+			)
+		}
 		return false
 	}
 	if (from.clocks.length === 0) {
-		prompts.notify(`"${from.name}" has no clock to migrate.`)
+		prompts.notify(
+			`${NOTICE_ICON.info} ${noticeTask(from.name)} has no clock to migrate.`
+		)
 		return false
 	}
 	return moveLastClockTo(
@@ -415,7 +442,7 @@ async function pickRunningTask(
 ): Promise<Task | null> {
 	const running = note.getRunningTasks()
 	if (running.length === 0) {
-		prompts.notify('No running task to migrate.')
+		prompts.notify(`${NOTICE_ICON.info} No running task to migrate.`)
 		return null
 	}
 	if (running.length === 1) return running[0] ?? null
@@ -447,7 +474,9 @@ async function moveLastClockTo(
 	const freshTarget = note.findTask(target.name)
 	if (!freshFrom || !freshTarget) return false
 	note.moveLastClock(freshFrom, freshTarget)
-	prompts.notify(`⤴️ Clock moved from "${from.name}" to "${target.name}".`)
+	prompts.notify(
+		`${NOTICE_ICON.move} Clock moved from ${noticeTask(from.name)} to ${noticeTask(target.name)}.`
+	)
 	return true
 }
 

@@ -1,4 +1,4 @@
-import { Notice, type TFile } from 'obsidian'
+import { type TFile } from 'obsidian'
 import { describeNoteTaskRemoval } from 'core/confirmations'
 import { extractTaskBlocks } from 'core/consolidate'
 import { asksTrackingTime, type DailyTarget } from 'core/dailyNotes'
@@ -10,23 +10,18 @@ import {
 import { setNoteTaskTags } from 'core/rowTags'
 import { moveTaskLine, removeTaskLine, type TaskMove } from 'core/tracker'
 import { askingTime, type TaskChoice, type ToggleOptions } from 'core/toggle'
-import { BUSY_NOTICE } from 'core/trackingRun'
+import { NOTICE_ICON, noticeTask } from 'core/noticeText'
+import { BUSY_NOTICE, CLOCKS_CHANGED_NOTICE } from 'core/trackingRun'
 import { describeStart, parseEndTime, parseStartTime } from 'core/typedTime'
 import { confirmAction } from 'ui/ConfirmActionModal'
+import { showNotice } from 'ui/notice'
 import { promptTime } from 'ui/timePrompt'
 import { showUndoNotice } from 'ui/undoNotice'
 import type TaskTimeTracker from '../main'
 import { retimeClockLine } from './timelineEdits'
-import {
-	currentTarget,
-	NOTICE_DURATION,
-	noteIo,
-	readNoteContent,
-} from './target'
+import { currentTarget, noteIo, readNoteContent } from './target'
 import { runTrackingSteps } from './tracking'
 import { undoNoteWrite } from './undo'
-
-const GONE_NOTICE = 'The clocks changed elsewhere, nothing was written.'
 
 /**
  * How the user started a task in the tracker tab: Start while nothing ran,
@@ -166,7 +161,7 @@ export async function deleteTaskFromNote(
 	const write = recorder.written()
 	if (write) {
 		showUndoNotice(
-			`Deleted ${taskName} from this note`,
+			`${NOTICE_ICON.remove} Deleted ${noticeTask(taskName)} from this note.`,
 			undoNoteWrite(noteIo(plugin, file), write)
 		)
 	}
@@ -234,7 +229,7 @@ export async function setStop(
 
 /** Tell about a write that did not happen; true when it did. */
 function wrote(outcome: RewriteOutcome): boolean {
-	if (outcome === 'gone') new Notice(GONE_NOTICE, NOTICE_DURATION)
-	if (outcome === 'busy') new Notice(BUSY_NOTICE, NOTICE_DURATION)
+	if (outcome === 'gone') showNotice(CLOCKS_CHANGED_NOTICE)
+	if (outcome === 'busy') showNotice(BUSY_NOTICE)
 	return outcome === 'written'
 }

@@ -1,4 +1,3 @@
-import { Notice } from 'obsidian'
 import type { DailyTarget } from 'core/dailyNotes'
 import {
 	describeMarkChanges,
@@ -11,17 +10,17 @@ import {
 	type HandOff,
 } from 'core/handOff'
 import { recordWrites, rewriteNote, type NoteWrite } from 'core/noteRewrite'
+import { NOTICE_ICON, plainNoticeText } from 'core/noticeText'
 import { parseTasks } from 'core/parser'
 import { isToggleNotice } from 'core/toggle'
-import { BUSY_NOTICE } from 'core/trackingRun'
+import { BUSY_NOTICE, CLOCKS_CHANGED_NOTICE } from 'core/trackingRun'
 import { describeStart, parseEndTime, parseStartTime } from 'core/typedTime'
+import { showNotice } from 'ui/notice'
 import { promptTime } from 'ui/timePrompt'
 import { showUndoNotice } from 'ui/undoNotice'
 import type TaskTimeTracker from '../main'
-import { NOTICE_DURATION, targetIo } from './target'
+import { stopContext, targetIo } from './target'
 import { undoNoteWrite } from './undo'
-
-const GONE_NOTICE = 'The clocks changed elsewhere, nothing was written.'
 
 /**
  * Tell what a tracking run did. A single run that started or stopped
@@ -38,17 +37,19 @@ export function reportRun(
 	singleRun: boolean
 ): void {
 	if (!write) {
-		for (const message of notices) new Notice(message, NOTICE_DURATION)
+		for (const message of notices) showNotice(message)
 		return
 	}
 	const handOff = clockChanges(
 		parseTasks(write.before.split('\n')),
 		parseTasks(write.after.split('\n'))
 	)
-	const message = singleRun ? describeHandOff(handOff) : null
+	const message = singleRun
+		? describeHandOff(handOff, stopContext(plugin, target.path, write.after))
+		: null
 	if (message) {
 		for (const notice of notices) {
-			if (!isToggleNotice(notice)) new Notice(notice, NOTICE_DURATION)
+			if (!isToggleNotice(notice)) showNotice(notice)
 		}
 		offerHandOff(plugin, target, handOff, message, write)
 		return
@@ -58,7 +59,7 @@ export function reportRun(
 		...describeMarkChanges(write.before, write.after, new Date()),
 	]
 	showUndoNotice(
-		lines.join('\n') || 'Note updated.',
+		lines.join('\n') || `${NOTICE_ICON.updated} Note updated.`,
 		undoNoteWrite(targetIo(plugin, target), write)
 	)
 }
@@ -79,7 +80,6 @@ function offerHandOff(
 	showUndoNotice(text, undoNoteWrite(targetIo(plugin, target), write), [
 		{
 			label: 'Change',
-			cta: true,
 			run: () => void changeHandOff(plugin, target, handOff, message),
 		},
 	])
@@ -100,12 +100,16 @@ async function changeHandOff(
 		const moved = moveHandOff(content, handOff, at)
 		return moved === null ? null : keepDayStartOnFirstClock(content, moved)
 	})
-	if (outcome === 'gone') new Notice(GONE_NOTICE, NOTICE_DURATION)
-	if (outcome === 'busy') new Notice(BUSY_NOTICE, NOTICE_DURATION)
+	if (outcome === 'gone') showNotice(CLOCKS_CHANGED_NOTICE)
+	if (outcome === 'busy') showNotice(BUSY_NOTICE)
 	const write = recorder.written()
 	if (!write) return
 	const moved = moveTimes(handOff, at)
-	offerHandOff(plugin, target, moved, describeHandOff(moved) ?? message, write)
+	const described = describeHandOff(
+		moved,
+		stopContext(plugin, target.path, write.after)
+	)
+	offerHandOff(plugin, target, moved, described ?? message, write)
 }
 
 /**
@@ -129,7 +133,7 @@ function promptHandOffTime(
 		)
 		return promptTime(plugin.app, {
 			...request,
-			description: `${message}. ${describeStart(latestStart, now)}`,
+			description: `${plainNoticeText(message)}. ${describeStart(latestStart, now)}`,
 			parse: (text) => parseEndTime(text, latestStart, now),
 		})
 	}
@@ -137,7 +141,7 @@ function promptHandOffTime(
 	if (!started) return Promise.resolve(null)
 	return promptTime(plugin.app, {
 		...request,
-		description: `${message}.`,
+		description: `${plainNoticeText(message)}.`,
 		parse: (text) => parseStartTime(text, started.start, now),
 	})
 }

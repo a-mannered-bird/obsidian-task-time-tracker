@@ -1,4 +1,4 @@
-import { Notice, type IconName } from 'obsidian'
+import { type IconName } from 'obsidian'
 import { getDailyNoteDate } from 'core/dailyNotes'
 import { TaskNote } from 'core/note'
 import { noteDayHeading } from 'core/overnight'
@@ -13,15 +13,11 @@ import { recordWrites } from 'core/noteRewrite'
 import { applyTrackingSteps } from 'core/trackingRun'
 import { pickTask, type PickerNote } from 'ui/TaskSuggestModal'
 import { promptMinutes } from 'ui/MinutesPromptModal'
+import { showNotice } from 'ui/notice'
 import { promptTime } from 'ui/timePrompt'
 import type TaskTimeTracker from '../main'
 import { reportRun } from './handOffNotice'
-import {
-	currentTarget,
-	NOTICE_DURATION,
-	readTaskNote,
-	targetIo,
-} from './target'
+import { currentTarget, readTaskNote, targetIo } from './target'
 
 type TrackingCommand = {
 	id: string
@@ -213,7 +209,7 @@ function interactivePrompts(plugin: TaskTimeTracker, path: string): Prompts {
 		pickTask: (note, request) => pickNoteTask(plugin, path, note, request),
 		promptMinutes: (promptOptions) => promptMinutes(app, promptOptions),
 		promptTime: (request) => promptTime(app, request),
-		notify: (message) => new Notice(message, NOTICE_DURATION),
+		notify: (message) => showNotice(message),
 	}
 }
 

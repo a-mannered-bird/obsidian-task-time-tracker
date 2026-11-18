@@ -1,13 +1,15 @@
-import { App, Notice, PluginSettingTab, Setting } from 'obsidian'
+import { App, PluginSettingTab, Setting } from 'obsidian'
 import {
 	emptyQuickAction,
 	isQuickActionVerb,
 	QUICK_ACTION_VERBS,
 	type QuickAction,
 } from './commands/quickActions'
+import { NOTICE_ICON } from './core/noticeText'
 import { ZOOM_DEFAULT } from './core/timeline'
 import { ISSUE_KINDS, ISSUE_TITLES, type IssueKind } from './core/issues'
 import type TaskTimeTracker from './main'
+import { showNotice } from './ui/notice'
 import { openTaskManager } from './ui/TaskManagerModal'
 import type { TagMapping } from './types/tags'
 
@@ -109,7 +111,9 @@ export class TaskTimeTrackerSettingTab extends PluginSettingTab {
 					.setCta()
 					.onClick(async () => {
 						await this.plugin.refreshViews()
-						new Notice('Task time tracker: views reloaded.')
+						showNotice(
+							`${NOTICE_ICON.reload} Task time tracker: views reloaded.`
+						)
 					})
 			)
 	}

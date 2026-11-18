@@ -22,6 +22,7 @@ import {
 	timelineBlocks,
 	type SnapOptions,
 } from './timeline'
+import { plainNoticeText } from './noticeText'
 
 const at = (h: number, m = 0, s = 0) => new Date(2026, 7, 3, h, m, s)
 const day = at(0)
@@ -431,19 +432,23 @@ describe('retimeClock', () => {
 describe('describeClockEdit', () => {
 	it('shows the times before and after', () => {
 		expect(
-			describeClockEdit(
-				'Deep work',
-				{ start: at(9), end: at(10, 30) },
-				{ start: at(9, 15), end: at(10, 30) }
+			plainNoticeText(
+				describeClockEdit(
+					'Deep work',
+					{ start: at(9), end: at(10, 30) },
+					{ start: at(9, 15), end: at(10, 30) }
+				)
 			)
-		).toBe('Deep work 09:00–10:30 → 09:15–10:30')
+		).toBe('✏️ "Deep work" 09:00–10:30 → 09:15–10:30')
 		expect(
-			describeClockEdit(
-				'Email',
-				{ start: at(13), end: null },
-				{ start: at(12, 45), end: null }
+			plainNoticeText(
+				describeClockEdit(
+					'Email',
+					{ start: at(13), end: null },
+					{ start: at(12, 45), end: null }
+				)
 			)
-		).toBe('Email 13:00–now → 12:45–now')
+		).toBe('✏️ "Email" 13:00–now → 12:45–now')
 	})
 })
 
@@ -544,8 +549,10 @@ describe('removeClock', () => {
 describe('describeClockAdded', () => {
 	it('names the task and the times', () => {
 		expect(
-			describeClockAdded('Deep work', { start: at(9), end: at(10, 30) })
-		).toBe('Added Deep work 09:00–10:30')
+			plainNoticeText(
+				describeClockAdded('Deep work', { start: at(9), end: at(10, 30) })
+			)
+		).toBe('➕ Added "Deep work" 09:00–10:30')
 	})
 })
 
@@ -578,8 +585,10 @@ describe('clockActions', () => {
 
 describe('describeClockDeleted', () => {
 	it('names the task and the times, now for a running clock', () => {
-		expect(describeClockDeleted('Email', { start: at(13), end: null })).toBe(
-			'Deleted Email 13:00–now'
-		)
+		expect(
+			plainNoticeText(
+				describeClockDeleted('Email', { start: at(13), end: null })
+			)
+		).toBe('🗑️ Deleted "Email" 13:00–now')
 	})
 })

@@ -12,6 +12,7 @@ import {
 	visibleIssues,
 	type TaskIssue,
 } from './issues'
+import { plainNoticeText } from './noticeText'
 import { VaultTaskIndex } from './vaultTaskIndex'
 
 const now = new Date(2026, 7, 5, 12, 0, 0)
@@ -414,32 +415,36 @@ describe('issueKey / visibleIssues', () => {
 describe('explainOutsideDay', () => {
 	it('spells out the clock and the boundary it falls outside of', () => {
 		expect(
-			explainOutsideDay({
-				kind: 'outside-day',
-				name: 'Night feed',
-				path: 'Journal/2026-08-01.md',
-				lineIndex: 5,
-				start: new Date(2026, 7, 1, 3, 0, 0),
-				end: new Date(2026, 7, 1, 3, 20, 0),
-				boundary: new Date(2026, 7, 1, 7, 0, 0),
-				side: 'before-start',
-			})
+			plainNoticeText(
+				explainOutsideDay({
+					kind: 'outside-day',
+					name: 'Night feed',
+					path: 'Journal/2026-08-01.md',
+					lineIndex: 5,
+					start: new Date(2026, 7, 1, 3, 0, 0),
+					end: new Date(2026, 7, 1, 3, 20, 0),
+					boundary: new Date(2026, 7, 1, 7, 0, 0),
+					side: 'before-start',
+				})
+			)
 		).toBe(
-			'"Night feed" clocked 2026-08-01 03:00–03:20 ends before the start of day recorded in 2026-08-01, 2026-08-01 07:00. Either the clock belongs to another note, or the start of day is wrong.'
+			'⚠️ "Night feed" clocked 2026-08-01 03:00–03:20 ends before the start of day recorded in 2026-08-01, 2026-08-01 07:00. Either the clock belongs to another note, or the start of day is wrong.'
 		)
 		expect(
-			explainOutsideDay({
-				kind: 'outside-day',
-				name: 'Deep work',
-				path: '2026-08-01.md',
-				lineIndex: 6,
-				start: new Date(2026, 7, 2, 1, 30, 0),
-				end: null,
-				boundary: new Date(2026, 7, 2, 1, 0, 0),
-				side: 'after-end',
-			})
+			plainNoticeText(
+				explainOutsideDay({
+					kind: 'outside-day',
+					name: 'Deep work',
+					path: '2026-08-01.md',
+					lineIndex: 6,
+					start: new Date(2026, 7, 2, 1, 30, 0),
+					end: null,
+					boundary: new Date(2026, 7, 2, 1, 0, 0),
+					side: 'after-end',
+				})
+			)
 		).toBe(
-			'"Deep work" clocked 2026-08-02 01:30, still running starts after the end of day recorded in 2026-08-01, 2026-08-02 01:00. Either the clock belongs to another note, or the end of day is wrong.'
+			'⚠️ "Deep work" clocked 2026-08-02 01:30, still running starts after the end of day recorded in 2026-08-01, 2026-08-02 01:00. Either the clock belongs to another note, or the end of day is wrong.'
 		)
 	})
 })

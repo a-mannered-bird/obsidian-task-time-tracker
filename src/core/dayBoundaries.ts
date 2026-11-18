@@ -9,6 +9,7 @@ import {
 	readFrontmatterTime,
 } from './time'
 import { atTime } from './typedTime'
+import { NOTICE_ICON } from './noticeText'
 
 export type DayMark = 'start' | 'end'
 
@@ -22,8 +23,8 @@ export const DAY_MARK_PROPERTY: Record<DayMark, string> = {
 }
 
 const LABEL: Record<DayMark, string> = {
-	start: 'Start of day',
-	end: 'End of day',
+	start: `${NOTICE_ICON.dayStart} Start of day`,
+	end: `${NOTICE_ICON.dayEnd} End of day`,
 }
 
 function tasksOf(content: string): Task[] {
@@ -124,7 +125,7 @@ export function describeMarkChanges(
 	})
 }
 
-/** `Start of day set to 07:05.`, `End of day set to yesterday at 23:40.` */
+/** `🌅 Start of day set to 07:05.`, `🌇 End of day set to yesterday at 23:40.` */
 export function describeMarkSet(mark: DayMark, at: Date, now: Date): string {
 	const when = atTime(at, now)
 	return `${LABEL[mark]} set to ${when.startsWith('at ') ? when.slice(3) : when}.`

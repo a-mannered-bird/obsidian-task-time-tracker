@@ -1,4 +1,4 @@
-import { Notice, type IconName } from 'obsidian'
+import { type IconName } from 'obsidian'
 import type { DailyTarget } from 'core/dailyNotes'
 import { setFrontmatterValue } from 'core/frontmatter'
 import { recordWrites, rewriteNote } from 'core/noteRewrite'
@@ -16,15 +16,11 @@ import {
 } from 'core/dayBoundaries'
 import { formatTimeOfDay } from 'core/timeline'
 import { dayEndFloor, parseDayEnd, parseDayStart } from 'core/typedTime'
+import { showNotice } from 'ui/notice'
 import { promptTime } from 'ui/timePrompt'
 import { showUndoNotice } from 'ui/undoNotice'
 import type TaskTimeTracker from '../main'
-import {
-	currentTarget,
-	NOTICE_DURATION,
-	readTaskNote,
-	targetIo,
-} from './target'
+import { currentTarget, readTaskNote, targetIo } from './target'
 import { undoNoteWrite } from './undo'
 
 export type TimeCommand = {
@@ -130,7 +126,7 @@ export async function writeDayTime(
 			formatLocalDateTime(time)
 		)
 	)
-	if (outcome === 'busy') new Notice(BUSY_NOTICE, NOTICE_DURATION)
+	if (outcome === 'busy') showNotice(BUSY_NOTICE)
 	const write = recorder.written()
 	if (!write) return outcome === 'unchanged'
 	showUndoNotice(

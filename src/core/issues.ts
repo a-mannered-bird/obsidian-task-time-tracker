@@ -6,6 +6,7 @@ import {
 	getMinutesBetween,
 } from './time'
 import type { VaultTaskIndex, VaultTaskOccurrence } from './vaultTaskIndex'
+import { NOTICE_ICON, noticeTask } from './noticeText'
 
 /** A clock line to jump to; `start` identifies the clock across edits. */
 type ClockRef = { path: string; lineIndex: number; start: Date }
@@ -103,7 +104,7 @@ export function explainOutsideDay(
 		issue.side === 'before-start'
 			? ['ends before', 'start of day']
 			: ['starts after', 'end of day']
-	return `"${issue.name}" clocked ${clock} ${relation} the ${boundary} recorded in ${noteName(issue.path)}, ${formatDateTime(issue.boundary)}. Either the clock belongs to another note, or the ${boundary} is wrong.`
+	return `${NOTICE_ICON.warning} ${noticeTask(issue.name)} clocked ${clock} ${relation} the ${boundary} recorded in ${noteName(issue.path)}, ${formatDateTime(issue.boundary)}. Either the clock belongs to another note, or the ${boundary} is wrong.`
 }
 
 function formatDateTime(date: Date): string {

@@ -1,14 +1,15 @@
 import { MarkdownView, type TFile } from 'obsidian'
 import {
 	createDailyNote,
+	getDailyNoteDate,
 	resolveTarget,
 	type DailyTarget,
 } from 'core/dailyNotes'
+import type { StopContext } from 'core/handOff'
 import { TaskNote } from 'core/note'
+import { parseTasks } from 'core/parser'
 import type { NoteIo } from 'core/trackingRun'
 import type TaskTimeTracker from '../main'
-
-export { NOTICE_DURATION } from 'ui/undoNotice'
 
 /** The daily note commands act on: see resolveTarget. */
 export function currentTarget(plugin: TaskTimeTracker): DailyTarget {
@@ -43,6 +44,20 @@ export function targetIo(plugin: TaskTimeTracker, target: DailyTarget): NoteIo {
 			const written = existing ?? (await ensureTargetFile(plugin, target))
 			return noteIo(plugin, written).replace(expected, next)
 		},
+	}
+}
+
+/** What a notice about clocks stopped in `content` measures them against. */
+export function stopContext(
+	plugin: TaskTimeTracker,
+	path: string,
+	content: string
+): StopContext {
+	const now = new Date()
+	return {
+		tasks: parseTasks(content.split('\n')),
+		day: getDailyNoteDate(plugin.getDailyNotesConfig(), path) ?? now,
+		now,
 	}
 }
 

@@ -1,16 +1,11 @@
-import { Notice } from 'obsidian'
 import { rewriteNote } from 'core/noteRewrite'
 import { noteDayHeading } from 'core/overnight'
 import { addTaskLine } from 'core/tracker'
 import { BUSY_NOTICE } from 'core/trackingRun'
 import { pickTask } from 'ui/TaskSuggestModal'
+import { showNotice } from 'ui/notice'
 import type TaskTimeTracker from '../main'
-import {
-	currentTarget,
-	NOTICE_DURATION,
-	readTaskNote,
-	targetIo,
-} from './target'
+import { currentTarget, readTaskNote, targetIo } from './target'
 import { loadVaultEntries } from './tracking'
 
 /** Add a task to the note's plan without starting it. */
@@ -23,7 +18,7 @@ export async function addToPlan(
 		targetIo(plugin, currentTarget(plugin)),
 		(content) => addTaskLine(content, name, tags)
 	)
-	if (outcome === 'busy') new Notice(BUSY_NOTICE, NOTICE_DURATION)
+	if (outcome === 'busy') showNotice(BUSY_NOTICE)
 }
 
 /**

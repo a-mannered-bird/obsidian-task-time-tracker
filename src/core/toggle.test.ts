@@ -8,6 +8,7 @@ import {
 	toggleTasks,
 	type Prompts,
 } from './toggle'
+import { plainNoticeText } from './noticeText'
 
 const now = new Date(2026, 7, 16, 12, 0, 0)
 const at = (h: number, m = 0) =>
@@ -52,7 +53,7 @@ function scripted(script: Script = {}) {
 			const parsed = text === null ? null : request.parse(text)
 			return Promise.resolve(parsed && 'at' in parsed ? parsed.at : null)
 		},
-		notify: (message) => notices.push(message),
+		notify: (message) => notices.push(plainNoticeText(message)),
 	}
 	return { prompts, notices, offered, vaultFlags }
 }
@@ -85,9 +86,10 @@ describe('toggleTasks', () => {
 
 		const off = await run({}, { pick: ['Emails'] })
 		expect(off.lines[4]).toBe(`      [clock::${at(11)}--${at(12)}]`)
-		expect(off.notices[0]).toMatch(
-			/"Emails" toggled off at 12:00:00 \(60 \/ 60m\)/
-		)
+		// The clock ran 11:00–12:00, the only time on Emails today.
+		expect(off.notices).toEqual([
+			'⏹️ Stopped "Emails" (1h 00m of 1h 00m today) at 12:00.',
+		])
 	})
 
 	it('does nothing when the picker is dismissed', async () => {
@@ -151,7 +153,7 @@ describe('toggleTasks', () => {
 	it('switches to a preset task and keeps it running if it already is', async () => {
 		const result = await run({ switch: true, taskName: 'Emails' })
 		expect(result.changed).toBe(false)
-		expect(result.notices).toEqual(['"Emails" is already running.'])
+		expect(result.notices).toEqual(['ℹ️ "Emails" is already running.'])
 	})
 
 	it('switch to previous restarts the last ended task(s) and closes the running ones', async () => {
@@ -163,7 +165,7 @@ describe('toggleTasks', () => {
 	it('targetState only acts when the state differs', async () => {
 		const noop = await run({ taskName: 'Emails', targetState: 'on' })
 		expect(noop.changed).toBe(false)
-		expect(noop.notices).toEqual(['"Emails" is already on.'])
+		expect(noop.notices).toEqual(['ℹ️ "Emails" is already on.'])
 
 		const act = await run({ taskName: 'Emails', targetState: 'off' })
 		expect(act.changed).toBe(true)
@@ -172,7 +174,7 @@ describe('toggleTasks', () => {
 	it('reports a missing preset task', async () => {
 		const result = await run({ taskName: 'Nope' })
 		expect(result.changed).toBe(false)
-		expect(result.notices).toEqual(['Couldn\'t find "Nope".'])
+		expect(result.notices).toEqual(['⚠️ Couldn\'t find "Nope".'])
 	})
 
 	it('sets the duration of a running task from its start', async () => {
@@ -262,7 +264,9 @@ describe('toggleTasks', () => {
 		const result = await run({ migrate: true, taskName: 'Walk the dog' })
 		expect(result.changed).toBe(false)
 		expect(result.offered).toEqual([])
-		expect(result.notices).toEqual(['"Walk the dog" has no clock to migrate.'])
+		expect(result.notices).toEqual([
+			'ℹ️ "Walk the dog" has no clock to migrate.',
+		])
 	})
 
 	it('quick interruption starts Interruption, then ends it, returns to previous and reassigns', async () => {
@@ -362,7 +366,7 @@ describe('isToggleNotice', () => {
 	it('tells the notices of started and stopped clocks from the others', async () => {
 		const { notices } = await run({ taskName: 'Emails' })
 		expect(notices.map(isToggleNotice)).toEqual([true])
-		expect(isToggleNotice('"Emails" is already running.')).toBe(false)
+		expect(isToggleNotice('ℹ️ "Emails" is already running.')).toBe(false)
 	})
 })
 

@@ -34,7 +34,8 @@ Tracks time on the tasks of daily notes (`- [ ] Task #tag` lines with `[clock::s
 - Comments explain a non-obvious why or a workaround, never what well-named code already says.
 - Shared test doubles go to `src/test/` once a second test file needs them; fixtures (note contents, expected outputs) stay inside their test file, written as literal note lines — never hidden behind helpers.
 - Tests assert behavior; no tests for constants or mock functions; select elements by role/label, not by class, where a11y attributes exist.
-- UI text in sentence case; no emoji in UI strings unless it is part of the design (pickers use tag emojis by design).
+- UI text in sentence case; no emoji in UI strings unless it is part of the design (pickers use tag emojis by design, notices start with one).
+- Notices: the text is built in core and starts with an emoji from `NOTICE_ICON`; task names go through `noticeTask()` so they show bold and quoted; show it with `showNotice` / `showUndoNotice` (`ui/notice.ts`), never `new Notice` on a raw string. A notice about a stopped clock says how long it ran out of its task's time that day (`describeStops`, `describeRetime`). Tests compare `plainNoticeText(...)`; E2E specs find notices with `noticeWith` (the `*=` selector cannot take the quotes).
 
 ## Testing
 

@@ -4,6 +4,7 @@ import type {
 	FinishedClockTimes,
 	Task,
 } from 'types/tasks'
+import { NOTICE_ICON, noticeTask } from './noticeText'
 import { TaskNote } from './note'
 import { addDays } from './dailyNotes'
 import { startOfDay } from './ranges'
@@ -557,20 +558,14 @@ export function clockActions(
 	return reopenable ? ['open', 'reopen', 'delete'] : ['open', 'delete']
 }
 
-/** `Deleted Deep work 09:00–10:30`, shown with the undo button. */
-export function describeClockDeleted(
-	taskName: string,
-	times: ClockTimes
-): string {
-	return `Deleted ${taskName} ${formatRange(times)}`
+/** `🗑️ Deleted "Deep work" 09:00–10:30`, shown with the undo button. */
+export function describeClockDeleted(name: string, times: ClockTimes): string {
+	return `${NOTICE_ICON.remove} Deleted ${noticeTask(name)} ${formatRange(times)}`
 }
 
-/** `Added Deep work 09:00–10:30`, shown with the undo button. */
-export function describeClockAdded(
-	taskName: string,
-	times: ClockTimes
-): string {
-	return `Added ${taskName} ${formatRange(times)}`
+/** `➕ Added "Deep work" 09:00–10:30`, shown with the undo button. */
+export function describeClockAdded(name: string, times: ClockTimes): string {
+	return `${NOTICE_ICON.add} Added ${noticeTask(name)} ${formatRange(times)}`
 }
 
 export function formatTimeOfDay(date: Date): string {
@@ -582,13 +577,13 @@ function formatRange(times: ClockTimes): string {
 	return `${formatTimeOfDay(times.start)}–${end}`
 }
 
-/** `Deep work 09:00–10:30 → 09:15–10:30`, shown with the undo button. */
+/** `✏️ "Deep work" 09:00–10:30 → 09:15–10:30`, shown with the undo button. */
 export function describeClockEdit(
-	taskName: string,
+	name: string,
 	before: ClockTimes,
 	after: ClockTimes
 ): string {
-	return `${taskName} ${formatRange(before)} → ${formatRange(after)}`
+	return `${NOTICE_ICON.edit} ${noticeTask(name)} ${formatRange(before)} → ${formatRange(after)}`
 }
 
 /** What a block says, from the most to the least important part. */

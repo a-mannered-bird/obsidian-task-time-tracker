@@ -3,7 +3,7 @@ import { browser, expect } from '@wdio/globals'
 import { obsidianPage } from 'wdio-obsidian-service'
 import { openDailyView } from './support/dailyView'
 import { dayNote, promptDay } from './support/days'
-import { clickNoticeButton } from './support/notices'
+import { clickNoticeButton, noticeWith } from './support/notices'
 import {
 	expectTimeMinutesAgo,
 	minutesField,
@@ -459,7 +459,7 @@ describe('tracker tab', function () {
 		assert.deepStrictEqual(states(content, '- [ ] Email'), ['running'])
 
 		// One notice tells the switch, instead of one per clock.
-		const notice = browser.$('.notice*=Switched from Chores to Email at')
+		const notice = noticeWith('Switched from "Chores" (')
 		await clickNoticeButton(notice, 'Change')
 		const modal = await modalTitled('Change the time')
 		await typeTime(modal, '00:01')
@@ -473,6 +473,11 @@ describe('tracker tab', function () {
 		assert.deepStrictEqual(clocksOf(content, '- [ ] Email'), [
 			{ start: `${today.date}T00:01:00`, end: null },
 		])
+		// The moved switch has its own notice: Chores now ran 00:00–00:01,
+		// its only clock today.
+		await expect(
+			noticeWith('Switched from "Chores" (1m of 1m today) to "Email" at 00:01')
+		).toBeDisplayed()
 	})
 
 	it('changes when a task started from its notice, then undoes it', async function () {
@@ -486,7 +491,7 @@ describe('tracker tab', function () {
 		assert.deepStrictEqual(states(content, '- [ ] Chores'), ['running'])
 
 		// A start gets its notice too, like a stop or a switch.
-		await clickNoticeButton(browser.$('.notice*=Started Chores at'), 'Change')
+		await clickNoticeButton(noticeWith('Started "Chores" at'), 'Change')
 		const modal = await modalTitled('Change the time')
 		await typeTime(modal, '00:05')
 		await modal.$('button=Change').click()
@@ -496,12 +501,9 @@ describe('tracker tab', function () {
 		])
 
 		// The changed start has its own notice: Undo takes back the change.
-		await clickNoticeButton(
-			browser.$('.notice*=Started Chores at 00:05'),
-			'Undo'
-		)
+		await clickNoticeButton(noticeWith('Started "Chores" at 00:05'), 'Undo')
 		await expect(
-			browser.$('.notice=The last action has been reverted.')
+			browser.$('.notice*=The last action has been reverted.')
 		).toBeDisplayed()
 		content = await waitForChange(content)
 		assert.deepStrictEqual(clocksOf(content, '- [ ] Chores'), started)
@@ -719,9 +721,9 @@ describe('tracker tab', function () {
 		)
 
 		// Undo finds the clock by the time written, to the second.
-		await clickNoticeButton(browser.$('.notice*=Chores 00:00'), 'Undo')
+		await clickNoticeButton(noticeWith('"Chores" 00:00'), 'Undo')
 		await expect(
-			browser.$('.notice=The last action has been reverted.')
+			browser.$('.notice*=The last action has been reverted.')
 		).toBeDisplayed()
 		await waitForChange(content)
 		assert.strictEqual(await obsidianPage.read(today.path), original)

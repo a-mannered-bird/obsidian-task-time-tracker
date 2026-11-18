@@ -1,25 +1,28 @@
-import { Notice, type TFile } from 'obsidian'
+import { type TFile } from 'obsidian'
 import { applyCompletion, isEmptyPlan, planCompletion } from 'core/complete'
+import { clockChanges, describeStops } from 'core/handOff'
 import { TaskNote } from 'core/note'
 import { recordWrites, rewriteNote } from 'core/noteRewrite'
+import { NOTICE_ICON } from 'core/noticeText'
 import { BUSY_NOTICE } from 'core/trackingRun'
 import { DAY_END_PROPERTY, readFrontmatterTime } from 'core/time'
 import { describeCompletion } from 'core/tracker'
 import { confirm } from 'ui/ConfirmModal'
+import { showNotice } from 'ui/notice'
 import { showUndoNotice } from 'ui/undoNotice'
 import type TaskTimeTracker from '../main'
 import { DAY_END_COMMAND, runTimeCommand } from './frontmatterTime'
 import {
 	currentTarget,
-	NOTICE_DURATION,
 	noteIo,
+	stopContext,
 	readNoteContent,
 	readTaskNote,
 } from './target'
 import { undoNoteWrite } from './undo'
 
-const NOTHING_TO_COMPLETE = 'Nothing to complete.'
-const CHANGED_MEANWHILE = 'The note changed meanwhile, the day was not ended.'
+const NOTHING_TO_COMPLETE = `${NOTICE_ICON.info} Nothing to complete.`
+const CHANGED_MEANWHILE = `${NOTICE_ICON.warning} The note changed meanwhile, the day was not ended.`
 
 export function registerCompleteJournalCommand(plugin: TaskTimeTracker) {
 	plugin.addCommand({
@@ -41,7 +44,7 @@ export async function endDay(plugin: TaskTimeTracker, dayEnd?: Date) {
 	const { app } = plugin
 	const { file } = currentTarget(plugin)
 	if (!file || isEmptyPlan(planCompletion(await readTaskNote(plugin, file)))) {
-		new Notice(NOTHING_TO_COMPLETE, NOTICE_DURATION)
+		showNotice(NOTHING_TO_COMPLETE)
 		return
 	}
 
@@ -73,12 +76,20 @@ export async function endDay(plugin: TaskTimeTracker, dayEnd?: Date) {
 	const outcome = await rewriteNote(recorder.io, (current) =>
 		current === content ? completed : null
 	)
-	if (outcome === 'gone') new Notice(CHANGED_MEANWHILE, NOTICE_DURATION)
-	if (outcome === 'busy') new Notice(BUSY_NOTICE, NOTICE_DURATION)
+	if (outcome === 'gone') showNotice(CHANGED_MEANWHILE)
+	if (outcome === 'busy') showNotice(BUSY_NOTICE)
 	const write = recorder.written()
 	if (!write) return
+	const summary = `${NOTICE_ICON.dayEnded} Day ended: ${plan.toClose.length} closed, ${plan.toTick.length} ticked, ${plan.toRemove.length} removed.`
+	const stops = describeStops(
+		clockChanges(
+			new TaskNote(write.before).tasks,
+			new TaskNote(write.after).tasks
+		).stopped,
+		stopContext(plugin, file.path, write.after)
+	)
 	showUndoNotice(
-		`Day ended: ${plan.toClose.length} closed, ${plan.toTick.length} ticked, ${plan.toRemove.length} removed.`,
+		stops ? `${summary}\n${stops}.` : summary,
 		undoNoteWrite(io, write)
 	)
 }

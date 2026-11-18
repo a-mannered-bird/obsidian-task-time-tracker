@@ -18,3 +18,15 @@ export async function clickNoticeButton(
 	}, element)
 	await notice.$(`button=${label}`).click()
 }
+
+/**
+ * The notice holding `text`. Notices quote task names, and the `*=`
+ * selector cannot take a double quote (WebdriverIO puts the text in a
+ * double-quoted XPath string), so this one quotes with single quotes.
+ */
+export function noticeWith(text: string): ChainablePromiseElement {
+	if (text.includes("'")) throw new Error(`Cannot look up ${text}`)
+	return browser.$(
+		`//*[contains(concat(" ", normalize-space(@class), " "), " notice ")][contains(., '${text}')]`
+	)
+}

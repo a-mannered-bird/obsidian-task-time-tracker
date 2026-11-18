@@ -1,24 +1,30 @@
-import { Notice, type TFile } from 'obsidian'
-import { rewriteNote, type RewriteOutcome } from 'core/noteRewrite'
+import { type TFile } from 'obsidian'
+import { describeRetime } from 'core/handOff'
+import {
+	recordWrites,
+	rewriteNote,
+	type RewriteOutcome,
+} from 'core/noteRewrite'
 import {
 	addClock,
 	describeClockAdded,
 	describeClockDeleted,
-	describeClockEdit,
 	formatTimeOfDay,
 	removeClock,
 	retimeClock,
 	type ClockTarget,
 } from 'core/timeline'
 import { TaskNote } from 'core/note'
+import { NOTICE_ICON } from 'core/noticeText'
 import { BUSY_NOTICE } from 'core/trackingRun'
 import type { ClockKey, ClockTimes, FinishedClockTimes } from 'types/tasks'
+import { showNotice } from 'ui/notice'
 import { showUndoNotice } from 'ui/undoNotice'
 import type TaskTimeTracker from '../main'
-import { NOTICE_DURATION, noteIo, readTaskNote } from './target'
+import { noteIo, readTaskNote, stopContext } from './target'
 import { pickNoteTask } from './tracking'
 
-const GONE_NOTICE = 'The clock changed elsewhere, nothing was written.'
+const GONE_NOTICE = `${NOTICE_ICON.warning} The clock changed elsewhere, nothing was written.`
 
 /**
  * Write new times to one clock line, found by what it held when the
@@ -31,12 +37,19 @@ export async function retimeClockLine(
 	times: ClockTimes,
 	undoable = true
 ): Promise<boolean> {
-	const outcome = await rewriteNote(noteIo(plugin, file), (content) =>
+	const recorder = recordWrites(noteIo(plugin, file))
+	const outcome = await rewriteNote(recorder.io, (content) =>
 		retimeClock(content, key, times)
 	)
-	if (!wrote(outcome)) return outcome === 'unchanged'
+	const write = recorder.written()
+	if (!wrote(outcome) || !write) return outcome === 'unchanged'
 	if (undoable) {
-		showUndoNotice(describeClockEdit(key.taskName, key, times), () =>
+		const message = describeRetime(
+			key,
+			times,
+			stopContext(plugin, file.path, write.after)
+		)
+		showUndoNotice(message, () =>
 			retimeClockLine(
 				plugin,
 				file,
@@ -112,7 +125,7 @@ export async function deleteClockLine(
 
 /** Tell about a write that did not happen; true when it did. */
 export function wrote(outcome: RewriteOutcome): boolean {
-	if (outcome === 'gone') new Notice(GONE_NOTICE, NOTICE_DURATION)
-	if (outcome === 'busy') new Notice(BUSY_NOTICE, NOTICE_DURATION)
+	if (outcome === 'gone') showNotice(GONE_NOTICE)
+	if (outcome === 'busy') showNotice(BUSY_NOTICE)
 	return outcome === 'written'
 }

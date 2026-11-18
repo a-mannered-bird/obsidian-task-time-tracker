@@ -2,13 +2,14 @@ import type { TFile } from 'obsidian'
 import { describeMarkChanges, endDayWithLastClock } from 'core/dayBoundaries'
 import { recordWrites, rewriteNote } from 'core/noteRewrite'
 import type { OvernightClock } from 'core/overnight'
-import { describeClockEdit, retimeClock } from 'core/timeline'
+import { describeRetime } from 'core/handOff'
+import { retimeClock } from 'core/timeline'
 import { describeStart, parseEndTime } from 'core/typedTime'
 import type { ClockKey } from 'types/tasks'
 import { promptTime } from 'ui/timePrompt'
 import { showUndoNotice } from 'ui/undoNotice'
 import type TaskTimeTracker from '../main'
-import { noteIo } from './target'
+import { noteIo, stopContext } from './target'
 import { wrote } from './timelineEdits'
 import { undoNoteWrite } from './undo'
 
@@ -45,7 +46,7 @@ async function endClockAt(
 	const write = recorder.written()
 	if (!wrote(outcome) || !write) return outcome === 'unchanged'
 	const message = [
-		describeClockEdit(key.taskName, key, times),
+		describeRetime(key, times, stopContext(plugin, file.path, write.after)),
 		...describeMarkChanges(write.before, write.after, new Date()),
 	].join('\n')
 	const ended = { ...key, end: at }

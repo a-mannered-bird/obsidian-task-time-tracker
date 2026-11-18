@@ -1,4 +1,3 @@
-import { Notice } from 'obsidian'
 import type { BulkEditReport, BulkTransformResult } from 'core/bulkEdit'
 import { consolidateTasks, extractTaskBlocks } from 'core/consolidate'
 import {
@@ -9,6 +8,7 @@ import {
 	plural,
 	referenceWarnings,
 } from 'core/confirmations'
+import { NOTICE_ICON, noticeTask } from 'core/noticeText'
 import { parseTaskInput } from 'core/parser'
 import { forgetTaskName, migrateTaskNames } from 'core/settingsMigration'
 import {
@@ -22,13 +22,14 @@ import {
 import { recordWrites, rewriteNote } from 'core/noteRewrite'
 import { BUSY_NOTICE } from 'core/trackingRun'
 import { confirmAction } from 'ui/ConfirmActionModal'
+import { showNotice } from 'ui/notice'
 import { withProgressNotice } from 'ui/progressNotice'
 import { promptRetag } from 'ui/RetagModal'
 import { promptText } from 'ui/TextPromptModal'
 import { showUndoNotice } from 'ui/undoNotice'
 import type TaskTimeTracker from '../main'
 import { ownWritesVault } from './lostClocks'
-import { NOTICE_DURATION, noteIo } from './target'
+import { noteIo } from './target'
 import { undoNoteWrite } from './undo'
 
 /**
@@ -133,7 +134,7 @@ async function consolidate(
 	)
 	await plugin.saveSettings()
 
-	reportOutcome(report, `"${targetName}"`)
+	reportOutcome(report, noticeTask(targetName))
 	return report.changedPaths.length > 0
 }
 
@@ -168,7 +169,10 @@ export async function deleteTasks(
 	}
 	await plugin.saveSettings()
 
-	reportOutcome(report, names.length === 1 ? `"${names[0]}"` : 'Deletion')
+	reportOutcome(
+		report,
+		names[0] && names.length === 1 ? noticeTask(names[0]) : 'Deletion'
+	)
 	return report.changedPaths.length > 0
 }
 
@@ -189,7 +193,7 @@ export async function changeTags(
 
 	const preview = previewRetag(plugin.vaultTasks, names, change)
 	if (preview.taskLines === 0) {
-		new Notice('No line of the tasks needs that change.', NOTICE_DURATION)
+		showNotice(`${NOTICE_ICON.info} No line of the tasks needs that change.`)
 		return false
 	}
 	const confirmed = await confirmAction(plugin.app, {
@@ -211,7 +215,10 @@ export async function changeTags(
 			onProgress
 		)
 	)
-	reportOutcome(report, names.length === 1 ? `"${names[0]}"` : 'Tags')
+	reportOutcome(
+		report,
+		names[0] && names.length === 1 ? noticeTask(names[0]) : 'Tags'
+	)
 	return report.changedPaths.length > 0
 }
 
@@ -228,7 +235,7 @@ export async function joinOverlappingClocks(
 	if (!plugin.settings.skipOverlapJoinNotice) {
 		const file = plugin.app.vault.getFileByPath(path)
 		if (!file) {
-			new Notice(`${path} no longer exists.`, NOTICE_DURATION)
+			showNotice(`${NOTICE_ICON.warning} ${path} no longer exists.`)
 			return false
 		}
 		const content = await plugin.app.vault.cachedRead(file)
@@ -253,7 +260,7 @@ export async function joinOverlappingClocks(
 	}
 	const file = plugin.app.vault.getFileByPath(path)
 	if (!file) {
-		new Notice(`${path} no longer exists.`, NOTICE_DURATION)
+		showNotice(`${NOTICE_ICON.warning} ${path} no longer exists.`)
 		return false
 	}
 	const io = noteIo(plugin, file)
@@ -264,16 +271,18 @@ export async function joinOverlappingClocks(
 		removed = joined.removedClockLines
 		return joined.content
 	})
-	if (outcome === 'busy') new Notice(BUSY_NOTICE, NOTICE_DURATION)
+	if (outcome === 'busy') showNotice(BUSY_NOTICE)
 	const write = recorder.written()
 	if (!write) {
 		if (outcome !== 'busy') {
-			new Notice(`"${name}": nothing to join in ${path}.`, NOTICE_DURATION)
+			showNotice(
+				`${NOTICE_ICON.info} ${noticeTask(name)}: nothing to join in ${path}.`
+			)
 		}
 		return false
 	}
 	showUndoNotice(
-		`"${name}": ${plural(removed, 'clock line')} joined in ${path}.`,
+		`${NOTICE_ICON.join} ${noticeTask(name)}: ${plural(removed, 'clock line')} joined in ${path}.`,
 		undoNoteWrite(io, write)
 	)
 	return true
@@ -287,7 +296,7 @@ export async function openNoteAtLine(
 ): Promise<void> {
 	const file = plugin.app.vault.getFileByPath(path)
 	if (!file) {
-		new Notice(`${path} no longer exists.`, NOTICE_DURATION)
+		showNotice(`${NOTICE_ICON.warning} ${path} no longer exists.`)
 		return
 	}
 	await plugin.app.workspace.getLeaf(false).openFile(file, { eState: { line } })
@@ -298,11 +307,11 @@ function reportOutcome(
 	subject: string
 ) {
 	const updated = plural(report.changedPaths.length, 'note')
-	new Notice(`${subject}: ${updated} updated.`, NOTICE_DURATION)
+	showNotice(`${NOTICE_ICON.updated} ${subject}: ${updated} updated.`)
 	if (report.failures.length) {
 		const paths = report.failures.map((failure) => failure.path).join(', ')
-		new Notice(
-			`${plural(report.failures.length, 'note')} could not be updated, run the operation again: ${paths}`,
+		showNotice(
+			`${NOTICE_ICON.warning} ${plural(report.failures.length, 'note')} could not be updated, run the operation again: ${paths}`,
 			0
 		)
 	}

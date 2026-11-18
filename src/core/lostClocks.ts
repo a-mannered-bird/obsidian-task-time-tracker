@@ -4,6 +4,7 @@ import { uncoveredIntervals } from './intervals'
 import { TaskNote } from './note'
 import { parseTasks } from './parser'
 import { formatLocalDateTime } from './time'
+import { NOTICE_ICON, noticeTask } from './noticeText'
 
 /** A clock a note used to hold and no longer does. */
 export type LostClock = {
@@ -99,7 +100,7 @@ export function describeLostClocks(
 	const listed = lost.slice(0, LISTED_CLOCKS).map(describeClock)
 	const more = lost.length - listed.length
 	if (more > 0) listed.push(`and ${more} more`)
-	return `${count} disappeared from ${noteName} in a change made outside the editor, such as a sync: ${listed.join(', ')}.`
+	return `${NOTICE_ICON.warning} ${count} disappeared from ${noteName} in a change made outside the editor, such as a sync: ${listed.join(', ')}.`
 }
 
 function describeClock(clock: LostClock): string {
@@ -108,7 +109,7 @@ function describeClock(clock: LostClock): string {
 	const span = clock.end
 		? `${time(clock.start)}–${time(clock.end)}`
 		: `running since ${time(clock.start)}`
-	return `"${clock.taskName}" ${span}`
+	return `${noticeTask(clock.taskName)} ${span}`
 }
 
 /**

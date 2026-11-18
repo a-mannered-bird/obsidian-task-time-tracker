@@ -1,7 +1,7 @@
 import assert from 'node:assert'
 import { browser, expect } from '@wdio/globals'
 import { obsidianPage } from 'wdio-obsidian-service'
-import { clickNoticeButton } from './support/notices'
+import { clickNoticeButton, noticeWith } from './support/notices'
 import { resetVault } from './support/vault'
 
 /**
@@ -220,7 +220,7 @@ describe('tracking commands', function () {
 
 		// Picked as running, so the toggle stops the clock the other device
 		// started instead of giving up on a stale pick.
-		await expect(browser.$('.notice*=Stopped Email at')).toBeDisplayed()
+		await expect(noticeWith('Stopped "Email" (')).toBeDisplayed()
 		const lines = (await obsidianPage.read(NOTE)).split('\n')
 		assert.match(
 			lines[5] ?? '',

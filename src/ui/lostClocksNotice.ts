@@ -1,4 +1,5 @@
 import { Notice } from 'obsidian'
+import { appendNoticeText } from './notice'
 
 /**
  * Notice that stays until answered. Any click closes it (Obsidian's own
@@ -10,7 +11,7 @@ export function showLostClocksNotice(
 	onClose: () => void
 ): Notice {
 	const fragment = new DocumentFragment()
-	fragment.createDiv({ text: message })
+	appendNoticeText(fragment.createDiv(), message)
 	const buttons = fragment.createDiv({
 		cls: 'task-time-tracker-notice-buttons',
 	})

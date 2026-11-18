@@ -147,7 +147,7 @@ describe('describeMarkChanges', () => {
 			'---'
 		)
 		expect(describeMarkChanges(before, after, now)).toEqual([
-			'End of day set to yesterday at 23:45.',
+			'🌇 End of day set to yesterday at 23:45.',
 		])
 	})
 })
@@ -157,10 +157,10 @@ describe('describeMarkSet', () => {
 
 	it('says the time, with its day when not today', () => {
 		expect(describeMarkSet('start', new Date(2026, 10, 17, 7, 5), now)).toBe(
-			'Start of day set to 07:05.'
+			'🌅 Start of day set to 07:05.'
 		)
 		expect(describeMarkSet('end', new Date(2026, 10, 16, 23, 45), now)).toBe(
-			'End of day set to yesterday at 23:45.'
+			'🌇 End of day set to yesterday at 23:45.'
 		)
 	})
 })

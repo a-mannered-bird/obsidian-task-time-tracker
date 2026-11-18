@@ -1,4 +1,4 @@
-import { Notice } from 'obsidian'
+import type { Notice } from 'obsidian'
 import type { BulkEditVault } from 'core/bulkEdit'
 import {
 	describeLostClocks,
@@ -6,10 +6,12 @@ import {
 	type LostClock,
 } from 'core/lostClocks'
 import { recordWrites, rewriteNote } from 'core/noteRewrite'
+import { NOTICE_ICON } from 'core/noticeText'
 import { showLostClocksNotice } from 'ui/lostClocksNotice'
+import { showNotice } from 'ui/notice'
 import { showUndoNotice } from 'ui/undoNotice'
 import type TaskTimeTracker from '../main'
-import { NOTICE_DURATION, noteIo } from './target'
+import { noteIo } from './target'
 import { undoNoteWrite } from './undo'
 
 /**
@@ -61,7 +63,7 @@ async function restore(
 	const { app } = plugin
 	const file = app.vault.getFileByPath(path)
 	if (!file) {
-		new Notice(`${path} no longer exists.`, NOTICE_DURATION)
+		showNotice(`${NOTICE_ICON.warning} ${path} no longer exists.`)
 		return
 	}
 	const io = noteIo(plugin, file)
@@ -70,7 +72,7 @@ async function restore(
 	const write = recorder.written()
 	if (!write) return
 	showUndoNotice(
-		lost.length === 1 ? 'Clock restored.' : `${lost.length} clocks restored.`,
+		`${NOTICE_ICON.restored} ${lost.length === 1 ? 'Clock' : `${lost.length} clocks`} restored.`,
 		undoNoteWrite(io, write)
 	)
 }
