@@ -541,10 +541,12 @@
 		{#if slot.emoji === null}
 			<span class="tag-hash" aria-hidden="true" use:icon={'hash'}></span>
 		{:else}
-			{slot.emoji}
-			{#if slot.badge > 0}
-				<span class="tag-badge" aria-hidden="true">+{slot.badge}</span>
-			{/if}
+			<span class="tag-emoji">
+				{slot.emoji}
+				{#if slot.badge > 0}
+					<span class="tag-badge" aria-hidden="true">+{slot.badge}</span>
+				{/if}
+			</span>
 		{/if}
 	</button>
 {/snippet}
@@ -1205,11 +1207,19 @@
 		color: var(--text-muted);
 	}
 
+	/* The badge anchors to the glyph, not the slot: the slot grows to a
+	   finger-sized target on mobile and would carry the badge away from it. */
+	.tag-emoji {
+		position: relative;
+		display: inline-flex;
+		line-height: 1;
+	}
+
 	/* Over the emojis' corner, so the slot keeps one emoji's width. */
 	.tag-badge {
 		position: absolute;
-		top: -3px;
-		right: -5px;
+		top: -8px;
+		right: -7px;
 		min-width: 12px;
 		padding: 0 2px;
 		border-radius: 6px;
