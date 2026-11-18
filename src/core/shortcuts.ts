@@ -22,19 +22,13 @@ export const CONTROL_COMMANDS = {
 
 export type ViewControl = keyof typeof CONTROL_COMMANDS
 
-/** A tooltip line; an aside is set apart from the others (in italics). */
-export type HintLine = { text: string; aside: boolean }
-
 /**
  * The tooltip line about a command's shortcut, as Obsidian prints it: the
  * shortcut, or an invitation naming the command to look up in the Hotkeys
- * settings when none is set (`''`), an aside so it reads as a suggestion.
+ * settings when none is set (`''`).
  */
-export function shortcutHint(commandName: string, shortcut: string): HintLine {
+export function shortcutHint(commandName: string, shortcut: string): string {
 	return shortcut
-		? { text: `Shortcut: ${shortcut}`, aside: false }
-		: {
-				text: `No shortcut yet: set one for "${commandName}" in Settings → Hotkeys`,
-				aside: true,
-			}
+		? `Shortcut: ${shortcut}`
+		: `No shortcut yet: set one for "${commandName}" in Settings → Hotkeys`
 }

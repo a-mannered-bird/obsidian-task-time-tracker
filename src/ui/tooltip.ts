@@ -1,10 +1,12 @@
 import { displayTooltip } from 'obsidian'
-import type { HintLine } from 'core/shortcuts'
 
 const LABEL = 'aria-label'
 
+/** A tooltip line set apart from the others, smaller and in italics. */
+export type TooltipAside = { aside: string }
+
 /** Lines shown in the tooltip; null ones are skipped. */
-export type TooltipHint = () => (string | HintLine | null)[]
+export type TooltipHint = () => (string | TooltipAside | null)[]
 
 /**
  * Svelte action: show a tooltip as soon as the pointer is over the element,
@@ -31,7 +33,7 @@ export function instantTooltip(el: HTMLElement, hint?: TooltipHint) {
 		if (text) el.setAttribute(LABEL, text)
 	}
 
-	const lines = (): (string | HintLine)[] => {
+	const lines = (): (string | TooltipAside)[] => {
 		const extra = (currentHint?.() ?? []).filter((line) => line !== null)
 		const showsText = Boolean(el.textContent?.trim())
 		const label = el.getAttribute(LABEL)
@@ -45,8 +47,8 @@ export function instantTooltip(el: HTMLElement, hint?: TooltipHint) {
 			if (typeof line === 'string') fragment.createDiv({ text: line })
 			else
 				fragment.createDiv({
-					text: line.text,
-					cls: line.aside ? 'task-time-tracker-tooltip-aside' : undefined,
+					text: line.aside,
+					cls: 'task-time-tracker-tooltip-aside',
 				})
 		}
 		// Delay 0 shows it at once, before Obsidian's listener on the body

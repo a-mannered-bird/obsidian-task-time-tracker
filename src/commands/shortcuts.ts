@@ -2,10 +2,10 @@ import { Platform } from 'obsidian'
 import {
 	CONTROL_COMMANDS,
 	shortcutHint,
-	type HintLine,
 	type ViewControl,
 } from 'core/shortcuts'
 import { printHotkey } from 'ui/hotkeys'
+import type { TooltipAside } from 'ui/tooltip'
 import type TaskTimeTracker from '../main'
 
 /**
@@ -18,22 +18,25 @@ function shortcutOf(plugin: TaskTimeTracker, commandId: string): string | null {
 	return printHotkey(plugin.app, `${plugin.manifest.id}:${commandId}`)
 }
 
-/** The tooltip line about a command's shortcut, or null for none. */
+/**
+ * The tooltip line about a command's shortcut, or null for none: an aside,
+ * secondary to what the control does.
+ */
 function commandHint(
 	plugin: TaskTimeTracker,
 	commandId: string
-): HintLine | null {
+): TooltipAside | null {
 	const name = plugin.commandNames.get(commandId)
 	const shortcut = shortcutOf(plugin, commandId)
 	return name === undefined || shortcut === null
 		? null
-		: shortcutHint(name, shortcut)
+		: { aside: shortcutHint(name, shortcut) }
 }
 
 export function controlHint(
 	plugin: TaskTimeTracker,
 	control: ViewControl
-): HintLine | null {
+): TooltipAside | null {
 	return commandHint(plugin, CONTROL_COMMANDS[control])
 }
 

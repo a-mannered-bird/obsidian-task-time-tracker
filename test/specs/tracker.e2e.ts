@@ -872,7 +872,7 @@ describe('tracker tab', function () {
 		await expect(tooltip).toHaveText(
 			'Start Chores\nNo shortcut yet: set one for "Toggle task" in Settings → Hotkeys'
 		)
-		// The invitation is an aside, in italics; the label is not.
+		// The shortcut line is an aside, in italics; the label is not.
 		await expect(tooltip.$('div*=No shortcut yet')).toHaveStyle({
 			fontStyle: 'italic',
 		})
@@ -894,9 +894,9 @@ describe('tracker tab', function () {
 		await expect(tooltip).toHaveText(
 			expect.stringMatching(/^Start Chores\nShortcut: \S/)
 		)
-		// A set shortcut keeps the tooltip's own font.
+		// A set shortcut is an aside too.
 		await expect(tooltip.$('div*=Shortcut:')).toHaveStyle({
-			fontStyle: 'normal',
+			fontStyle: 'italic',
 		})
 		await browser.executeObsidian(({ app }) => {
 			const { hotkeyManager } = app as unknown as WithHotkeys
