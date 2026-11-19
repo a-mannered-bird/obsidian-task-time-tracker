@@ -1,3 +1,4 @@
+import type { GoalSuggestionDismissal } from './goalCards'
 import { issueKeyNames } from './issues'
 
 /** The settings keyed by task name. */
@@ -6,6 +7,8 @@ export type NameKeyedSettings = {
 	hiddenTasks: string[]
 	/** Dismissed warning keys (see issueKey); those naming a source are dropped. */
 	dismissedIssues: string[]
+	/** Goal suggestions dismissed for a day; they follow their task. */
+	dismissedGoalSuggestions: GoalSuggestionDismissal[]
 }
 
 /**
@@ -15,6 +18,7 @@ export type NameKeyedSettings = {
  * Colors: the target's own wins, else the first source with one transfers.
  * Hidden: the target's own flag when it already existed as a task, else
  * hidden only when every source was. Source entries are dropped.
+ * Dismissed goal suggestions move to the target.
  */
 export function migrateTaskNames(
 	settings: NameKeyedSettings,
@@ -50,10 +54,16 @@ export function migrateTaskNames(
 		dismissedIssues: settings.dismissedIssues.filter(
 			(key) => !issueKeyNames(key).some(isSource)
 		),
+		dismissedGoalSuggestions: settings.dismissedGoalSuggestions.map((entry) =>
+			isSource(entry.taskName) ? { ...entry, taskName: targetName } : entry
+		),
 	}
 }
 
-/** Drop the deleted task's own entries (color, hide flag, dismissed warnings). */
+/**
+ * Drop the deleted task's own entries (color, hide flag, dismissed warnings
+ * and goal suggestions).
+ */
 export function forgetTaskName(
 	settings: NameKeyedSettings,
 	name: string
@@ -66,6 +76,9 @@ export function forgetTaskName(
 		hiddenTasks: settings.hiddenTasks.filter((hidden) => hidden !== name),
 		dismissedIssues: settings.dismissedIssues.filter(
 			(key) => !issueKeyNames(key).includes(name)
+		),
+		dismissedGoalSuggestions: settings.dismissedGoalSuggestions.filter(
+			(entry) => entry.taskName !== name
 		),
 	}
 }

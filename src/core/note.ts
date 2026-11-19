@@ -210,6 +210,43 @@ export class TaskNote {
 		return task
 	}
 
+	/** Add a goal line below the task's other goal lines, indented like them. */
+	addGoal(task: Task, goal: Goal): void {
+		const goalLines = goalLineIndexes(task)
+		const last = goalLines[goalLines.length - 1]
+		const sibling = goalLines[0] ?? task.clocks[0]?.lineIndex
+		const indent =
+			sibling === undefined
+				? DEFAULT_CLOCK_INDENT
+				: getIndent(this.lines[sibling]!)
+		this.lines.splice(
+			(last ?? task.lineIndex) + 1,
+			0,
+			formatGoalLine(goal, indent)
+		)
+		this.invalidate()
+		this.normalizeBlock(task.lineIndex)
+	}
+
+	/** Rewrite the goal line at this index, keeping its indent. */
+	setGoal(lineIndex: number, goal: Goal): void {
+		const owner = this.ownerOfGoalLine(lineIndex)
+		this.lines[lineIndex] = formatGoalLine(
+			goal,
+			getIndent(this.lines[lineIndex]!)
+		)
+		this.invalidate()
+		if (owner) this.normalizeBlock(owner.lineIndex)
+	}
+
+	/** Remove the goal line at this index. */
+	removeGoal(lineIndex: number): void {
+		const owner = this.ownerOfGoalLine(lineIndex)
+		this.lines.splice(lineIndex, 1)
+		this.invalidate()
+		if (owner) this.normalizeBlock(owner.lineIndex)
+	}
+
 	/** Remove the task line and all its clock and goal lines. */
 	removeTask(task: Task): void {
 		const count = taskBlockEnd(task) - task.lineIndex
@@ -256,6 +293,12 @@ export class TaskNote {
 	private ownerOfClockLine(clockLineIndex: number): Task | undefined {
 		return this.tasks.find((task) =>
 			task.clocks.some((clock) => clock.lineIndex === clockLineIndex)
+		)
+	}
+
+	private ownerOfGoalLine(goalLineIndex: number): Task | undefined {
+		return this.tasks.find((task) =>
+			goalLineIndexes(task).includes(goalLineIndex)
 		)
 	}
 

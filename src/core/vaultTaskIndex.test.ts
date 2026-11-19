@@ -175,3 +175,37 @@ describe('VaultTaskIndex.occurrences', () => {
 		])
 	})
 })
+
+describe('VaultTaskIndex goals', () => {
+	const notes = {
+		'Journal/2026-08-01.md': [
+			'- [ ] Run',
+			'      [goal::distance 5/10 km]',
+		].join('\n'),
+		'Journal/2026-08-02.md': [
+			'- [ ] Run',
+			'      [goal::distance 3/6 mi]',
+			'      [goal::1h]',
+		].join('\n'),
+		'Journal/2026-08-03.md': ['- [ ] Run', '- [ ] Anki'].join('\n'),
+	}
+
+	it("finds a task's most recent goals before a day, skipping lines without", async () => {
+		const { index } = await makeBuiltIndex(notes)
+		const recent = index.recentGoals('Run', new Date(2026, 7, 4))
+		expect(recent?.date).toEqual(new Date('2026-08-02T00:00:00'))
+		expect(recent?.goals).toMatchObject([
+			{ metric: 'distance', unit: 'mi' },
+			{ kind: 'time', minutes: 60 },
+		])
+		expect(index.recentGoals('Run', new Date(2026, 7, 2))?.goals).toHaveLength(
+			1
+		)
+		expect(index.recentGoals('Anki', new Date(2026, 7, 4))).toBeNull()
+	})
+
+	it('lists the metrics with their latest unit', async () => {
+		const { index } = await makeBuiltIndex(notes)
+		expect(index.metrics()).toEqual([{ metric: 'distance', unit: 'mi' }])
+	})
+})

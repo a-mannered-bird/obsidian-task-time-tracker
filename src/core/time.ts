@@ -7,9 +7,14 @@ const pad = (n: number) => n.toString().padStart(2, '0')
 /** Local `YYYY-MM-DDTHH:mm:ss`, the timestamp format written in daily notes. */
 export function formatLocalDateTime(date: Date): string {
 	return (
-		`${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}` +
+		`${formatLocalDate(date)}` +
 		`T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`
 	)
+}
+
+/** Local `YYYY-MM-DD`. */
+export function formatLocalDate(date: Date): string {
+	return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
 }
 
 /**

@@ -7,6 +7,7 @@ import {
 	planCompletion,
 	withRemovals,
 } from 'core/complete'
+import { describeMissingResults, missingResults } from 'core/goalCards'
 import { clockChanges, describeStops } from 'core/handOff'
 import { TaskNote } from 'core/note'
 import { recordWrites, rewriteNote } from 'core/noteRewrite'
@@ -89,15 +90,16 @@ export async function endDay(plugin: TaskTimeTracker) {
 	const write = recorder.written()
 	if (!write) return
 	const summary = `${NOTICE_ICON.dayEnded} Day ended: ${plan.toClose.length} closed, ${plan.toTick.length} ticked, ${plan.toRemove.length} removed.`
+	const after = new TaskNote(write.after).tasks
 	const stops = describeStops(
-		clockChanges(
-			new TaskNote(write.before).tasks,
-			new TaskNote(write.after).tasks
-		).stopped,
+		clockChanges(new TaskNote(write.before).tasks, after).stopped,
 		stopContext(plugin, file.path, write.after)
 	)
+	const missing = describeMissingResults(missingResults(after))
 	showUndoNotice(
-		stops ? `${summary}\n${stops}.` : summary,
+		[summary, stops ? `${stops}.` : null, missing]
+			.filter((line) => line !== null)
+			.join('\n'),
 		undoNoteWrite(io, write)
 	)
 }

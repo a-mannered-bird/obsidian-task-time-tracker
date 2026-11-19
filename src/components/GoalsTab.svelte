@@ -1,0 +1,599 @@
+<script lang="ts">
+	import { Menu, type TFile } from 'obsidian'
+	import { onMount } from 'svelte'
+	import {
+		addSuggestedGoals,
+		deleteGoal,
+		dismissGoalSuggestion,
+		editGoalUnit,
+		setGoalAchieved,
+		setGoalFlow,
+		setGoalTarget,
+		stepGoal,
+	} from 'commands/goalActions'
+	import type { DailyLog } from 'core/dailyLogs'
+	import { isSameDay, startOfDay } from 'core/dailyNotes'
+	import {
+		defaultGoalColor,
+		describeSuggestedTarget,
+		goalLabel,
+		dismissedOn,
+		goalCards,
+		goalSuggestions,
+		groupGoalCards,
+		METRIC_GOAL_EMOJI,
+		TIME_GOAL_EMOJI,
+		type GoalCard,
+		type GoalSuggestion,
+	} from 'core/goalCards'
+	import { formatGoalNumber, formatTargetField } from 'core/goalEdits'
+	import { formatGoalMinutes } from 'core/goals'
+	import { formatLocalDate } from 'core/time'
+	import { icon } from 'ui/icon'
+	import { instantTooltip } from 'ui/tooltip'
+	import type TaskTimeTracker from '../main'
+
+	type Props = {
+		plugin: TaskTimeTracker
+		/** Null until the note's first write creates it. */
+		log: DailyLog | null
+		loading: boolean
+	}
+
+	const { plugin, log, loading }: Props = $props()
+
+	let now = $state(new Date())
+	// svelte-ignore state_referenced_locally -- the plugin never changes
+	let indexReady = $state(plugin.vaultTasks.isReady)
+	/** Bumped when a suggestion is dismissed: the settings are not reactive. */
+	let dismissals = $state(0)
+
+	const dayOver = $derived(
+		log !== null &&
+			(log.dayEnd !== null || startOfDay(log.date) < startOfDay(now))
+	)
+	const cards = $derived(goalCards(log?.tasks ?? [], now, dayOver))
+	const groups = $derived(groupGoalCards(cards))
+	const suggestions = $derived.by(() => {
+		void dismissals
+		if (!log || !indexReady) return []
+		const day = startOfDay(log.date)
+		return goalSuggestions(
+			log.tasks,
+			(name) => plugin.vaultTasks.recentGoals(name, day),
+			dismissedOn(
+				plugin.settings.dismissedGoalSuggestions,
+				formatLocalDate(log.date)
+			)
+		)
+	})
+
+	/*
+	 * The ring pops once when a goal is reached while the tab is open; the
+	 * cards already done when it opened, or on another note, do not.
+	 */
+	let shownPath: string | null = null
+	let doneIds = new Set<string>()
+	let popped = $state(new Set<string>())
+	$effect(() => {
+		const path = log?.file.path ?? null
+		const done = new Set(
+			cards.filter((card) => card.state === 'done').map((card) => card.id)
+		)
+		if (path === shownPath) {
+			const fresh = [...done].filter((id) => !doneIds.has(id))
+			if (fresh.length) popped = new Set([...popped, ...fresh])
+		} else {
+			popped = new Set()
+		}
+		shownPath = path
+		doneIds = done
+	})
+
+	function emoji(card: GoalCard): string {
+		return card.goal.kind === 'time' ? TIME_GOAL_EMOJI : METRIC_GOAL_EMOJI
+	}
+
+	function ringLabel(card: GoalCard): string {
+		const share = `${Math.round(card.progress * 100)}% of the target`
+		if (card.state === 'done') return `${share}, done`
+		if (card.state === 'over') return 'Over the limit'
+		return share
+	}
+
+	function achievedField(card: GoalCard): string {
+		return card.goal.kind === 'metric'
+			? formatGoalNumber(card.goal.achieved, card.goal.decimalComma)
+			: ''
+	}
+
+	/** Commit a field on change (blur or Enter), unless left as it was. */
+	function commit(
+		event: Event & { currentTarget: HTMLInputElement },
+		shown: string,
+		write: (file: TFile, value: string) => Promise<void>
+	) {
+		const value = event.currentTarget.value
+		if (value.trim() === shown || !log) return
+		void write(log.file, value)
+	}
+
+	function fieldKeys(
+		event: KeyboardEvent & { currentTarget: HTMLInputElement },
+		shown: string
+	) {
+		if (event.key === 'Enter') event.currentTarget.blur()
+		if (event.key === 'Escape') {
+			event.currentTarget.value = shown
+			event.currentTarget.blur()
+		}
+	}
+
+	/** Width in characters, for when `field-sizing` is not supported. */
+	function size(value: string): number {
+		return Math.max(2, value.length + 1)
+	}
+
+	function openMenu(event: MouseEvent, card: GoalCard) {
+		if (!log) return
+		const file = log.file
+		const menu = new Menu()
+		if (card.key.metric !== null) {
+			menu.addItem((item) =>
+				item
+					.setTitle('Edit unit…')
+					.setIcon('ruler')
+					.onClick(() => void editGoalUnit(plugin, file, card.key))
+			)
+		}
+		menu.addItem((item) =>
+			item
+				.setTitle('Delete goal')
+				.setIcon('trash-2')
+				.setWarning(true)
+				.onClick(() => void deleteGoal(plugin, file, card.key))
+		)
+		menu.showAtMouseEvent(event)
+	}
+
+	function suggestedFrom(suggestion: GoalSuggestion): string {
+		if (!log) return ''
+		const sameWeek =
+			startOfDay(log.date).valueOf() - startOfDay(suggestion.from).valueOf() <
+			7 * 24 * 3600 * 1000
+		return suggestion.from.toLocaleDateString(
+			'en-US',
+			sameWeek ? { weekday: 'long' } : { month: 'long', day: 'numeric' }
+		)
+	}
+
+	function addSuggestions(list: GoalSuggestion[]) {
+		if (log) void addSuggestedGoals(plugin, log.file, list)
+	}
+
+	async function dismiss(suggestion: GoalSuggestion) {
+		if (!log) return
+		await dismissGoalSuggestion(plugin, log.date, suggestion.key)
+		dismissals++
+	}
+
+	onMount(() => {
+		if (!indexReady) {
+			void plugin.vaultTasks.ensureBuilt().then(() => (indexReady = true))
+		}
+		const tick = window.setInterval(() => (now = new Date()), 60 * 1000)
+		return () => window.clearInterval(tick)
+	})
+
+	const isToday = $derived(log ? isSameDay(log.date, now) : true)
+</script>
+
+<div class="goals-tab" aria-busy={loading}>
+	{#if suggestions.length > 1}
+		<div class="goals-toolbar">
+			<button onclick={() => addSuggestions(suggestions)}>
+				Add all suggestions
+			</button>
+		</div>
+	{/if}
+
+	{#each groups as group (group.taskName ?? '')}
+		{#if group.taskName}
+			<h3 class="group-title">{group.taskName}</h3>
+		{/if}
+		<div class="cards" role="list" aria-label={group.taskName ?? 'Goals'}>
+			{#each group.cards as card (card.id)}
+				{@const shownAchieved = achievedField(card)}
+				{@const shownTarget = formatTargetField(card.goal)}
+				<div
+					class="card"
+					class:is-done={card.state === 'done'}
+					class:is-over={card.state === 'over'}
+					role="listitem"
+					aria-label={card.title}
+					style:--goal-color={defaultGoalColor(card.goal)}
+					style:--progress={card.state === 'done' ? 1 : card.progress}
+				>
+					<span class="title"
+						>{group.taskName ? goalLabel(card.goal) : card.title}</span
+					>
+					<button
+						class="menu-button"
+						aria-label="Actions for {card.title}"
+						use:icon={'more-horizontal'}
+						onclick={(event) => openMenu(event, card)}
+					></button>
+					<div class="ring-row">
+						{#if card.goal.kind === 'metric'}
+							<button
+								class="step"
+								aria-label="Decrease {card.title}"
+								disabled={!log}
+								onclick={() =>
+									log && void stepGoal(plugin, log.file, card.key, -1)}
+								>−</button
+							>
+						{/if}
+						<div
+							class="ring"
+							class:pops={popped.has(card.id)}
+							role="img"
+							aria-label={ringLabel(card)}
+						>
+							<span>{emoji(card)}</span>
+						</div>
+						{#if card.goal.kind === 'metric'}
+							<button
+								class="step"
+								aria-label="Increase {card.title}"
+								disabled={!log}
+								onclick={() =>
+									log && void stepGoal(plugin, log.file, card.key, 1)}>+</button
+							>
+						{/if}
+					</div>
+					<div class="values">
+						{#if card.goal.kind === 'time'}
+							<span
+								class="field is-readonly"
+								aria-label="Time spent on {card.title}"
+								use:instantTooltip={() => ['From the clocks']}
+								>{formatGoalMinutes(card.achieved ?? 0)}</span
+							>
+						{:else}
+							<input
+								class="field"
+								aria-label="Result of {card.title}"
+								inputmode="decimal"
+								value={shownAchieved}
+								size={size(shownAchieved)}
+								onchange={(event) =>
+									commit(event, shownAchieved, (file, value) =>
+										setGoalAchieved(plugin, file, card.key, value)
+									)}
+								onkeydown={(event) => fieldKeys(event, shownAchieved)}
+							/>
+						{/if}
+						<span aria-hidden="true">/</span>
+						<input
+							class="field"
+							aria-label="Target of {card.title}"
+							value={shownTarget}
+							size={size(shownTarget)}
+							onchange={(event) =>
+								commit(event, shownTarget, (file, value) =>
+									setGoalTarget(plugin, file, card.key, value)
+								)}
+							onkeydown={(event) => fieldKeys(event, shownTarget)}
+						/>
+						{#if card.goal.kind === 'metric' && card.goal.unit}
+							<span class="unit">{card.goal.unit}</span>
+						{/if}
+					</div>
+				</div>
+			{/each}
+		</div>
+	{/each}
+
+	<div class="cards" role="list" aria-label="Suggestions and new goals">
+		{#each suggestions as suggestion (suggestion.id)}
+			<div
+				class="card is-suggested"
+				role="listitem"
+				aria-label="Suggested {suggestion.title}"
+			>
+				<span class="title">{suggestion.title}</span>
+				<button
+					class="menu-button"
+					aria-label="Dismiss {suggestion.title} for this day"
+					use:icon={'x'}
+					onclick={() => void dismiss(suggestion)}
+				></button>
+				<div class="ring is-ghost" aria-hidden="true">
+					<span>
+						{suggestion.goal.kind === 'time'
+							? TIME_GOAL_EMOJI
+							: METRIC_GOAL_EMOJI}
+					</span>
+				</div>
+				<span class="suggested-target">
+					{describeSuggestedTarget(suggestion.goal)}
+				</span>
+				<span class="suggested-from">
+					Suggested · from {suggestedFrom(suggestion)}
+				</span>
+				<button
+					class="mod-cta add-suggestion"
+					onclick={() => addSuggestions([suggestion])}
+				>
+					{isToday ? 'Add to today' : 'Add to this day'}
+				</button>
+			</div>
+		{/each}
+		<div class="new-slot" role="listitem">
+			<button class="card is-new" onclick={() => void setGoalFlow(plugin)}>
+				<span class="plus" use:icon={'plus'}></span>
+				<span>Add goal</span>
+			</button>
+		</div>
+	</div>
+</div>
+
+<style>
+	.goals-tab {
+		display: grid;
+		gap: var(--size-4-3);
+	}
+
+	.goals-toolbar {
+		display: flex;
+		justify-content: flex-end;
+	}
+
+	.group-title {
+		margin: var(--size-4-2) 0 0;
+		color: var(--text-muted);
+		font-size: var(--font-ui-small);
+		font-weight: var(--font-semibold);
+	}
+
+	.cards {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(8em, 1fr));
+		gap: var(--size-4-2);
+	}
+
+	.card {
+		position: relative;
+		display: grid;
+		justify-items: center;
+		align-content: start;
+		gap: var(--size-4-2);
+		padding: var(--size-4-2) var(--size-4-2) var(--size-4-3);
+		border: 1px solid var(--background-modifier-border);
+		border-radius: var(--radius-l);
+		background: var(--background-primary);
+		text-align: center;
+		font-variant-numeric: tabular-nums;
+	}
+
+	.card.is-done {
+		border-color: var(--color-green);
+		background: color-mix(
+			in srgb,
+			var(--color-green) 9%,
+			var(--background-primary)
+		);
+		box-shadow: 0 0 0 3px
+			color-mix(in srgb, var(--color-green) 14%, transparent);
+	}
+
+	.card.is-over {
+		border-color: var(--color-red);
+		background: color-mix(
+			in srgb,
+			var(--color-red) 7%,
+			var(--background-primary)
+		);
+	}
+
+	.title {
+		padding: 0 2em;
+		color: var(--text-muted);
+		font-size: var(--font-ui-smaller);
+		overflow-wrap: anywhere;
+	}
+
+	.menu-button {
+		all: unset;
+		position: absolute;
+		top: var(--size-4-2);
+		right: var(--size-4-2);
+		display: inline-flex;
+		cursor: pointer;
+		color: var(--text-faint);
+		border-radius: var(--radius-s);
+	}
+
+	.menu-button:hover {
+		color: var(--text-normal);
+	}
+
+	.menu-button :global(svg) {
+		width: var(--icon-s);
+		height: var(--icon-s);
+	}
+
+	.ring-row {
+		display: flex;
+		align-items: center;
+		gap: var(--size-4-1);
+	}
+
+	.ring {
+		display: grid;
+		place-items: center;
+		flex-shrink: 0;
+		width: 3.2em;
+		height: 3.2em;
+		border-radius: 50%;
+		background: conic-gradient(
+			var(--goal-color) calc(var(--progress) * 1turn),
+			var(--background-modifier-border) 0
+		);
+	}
+
+	.card.is-over .ring {
+		background: var(--color-red);
+	}
+
+	.ring > span {
+		display: grid;
+		place-items: center;
+		width: 2.45em;
+		height: 2.45em;
+		border-radius: 50%;
+		background: var(--background-primary);
+		font-size: 1.05em;
+	}
+
+	.card.is-done .ring > span {
+		background: color-mix(
+			in srgb,
+			var(--color-green) 9%,
+			var(--background-primary)
+		);
+	}
+
+	.ring.pops {
+		animation: goal-ring-pop 600ms ease-out 1;
+	}
+
+	@keyframes goal-ring-pop {
+		40% {
+			transform: scale(1.12);
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.ring.pops {
+			animation: none;
+		}
+	}
+
+	.ring.is-ghost {
+		background: repeating-conic-gradient(
+			var(--background-modifier-border) 0 15deg,
+			transparent 15deg 30deg
+		);
+	}
+
+	.ring.is-ghost > span {
+		opacity: 0.7;
+	}
+
+	.step {
+		display: grid;
+		place-items: center;
+		flex-shrink: 0;
+		width: 1.6em;
+		height: 1.6em;
+		padding: 0;
+		border-radius: 50%;
+		font-size: var(--font-ui-medium);
+		line-height: 1;
+	}
+
+	.values {
+		display: flex;
+		flex-wrap: wrap;
+		justify-content: center;
+		align-items: center;
+		gap: 0.25em;
+		font-size: var(--font-ui-small);
+	}
+
+	.field {
+		field-sizing: content;
+		min-width: 2ch;
+		height: auto;
+		padding: 0 0.3em;
+		font-size: var(--font-ui-small);
+		line-height: 1.5;
+		text-align: center;
+		font-variant-numeric: tabular-nums;
+	}
+
+	.field.is-readonly {
+		border: 1px dashed var(--background-modifier-border);
+		border-radius: var(--input-radius);
+		color: var(--text-muted);
+	}
+
+	.unit {
+		color: var(--text-muted);
+	}
+
+	.card.is-suggested {
+		border: 1.5px dashed var(--interactive-accent);
+		background: color-mix(
+			in srgb,
+			var(--interactive-accent) 5%,
+			var(--background-primary)
+		);
+	}
+
+	.suggested-target {
+		color: var(--text-muted);
+		font-size: var(--font-ui-small);
+	}
+
+	.suggested-from {
+		color: var(--text-accent);
+		font-size: var(--font-ui-smaller);
+	}
+
+	.add-suggestion {
+		font-size: var(--font-ui-smaller);
+		border-radius: 999px;
+	}
+
+	.new-slot {
+		display: grid;
+	}
+
+	.card.is-new {
+		all: unset;
+		box-sizing: border-box;
+		display: grid;
+		justify-items: center;
+		align-content: center;
+		gap: var(--size-4-2);
+		min-height: 9em;
+		padding: var(--size-4-2);
+		border: 1.5px dashed var(--text-faint);
+		border-radius: var(--radius-l);
+		color: var(--text-muted);
+		font-size: var(--font-ui-small);
+		cursor: pointer;
+	}
+
+	.card.is-new:hover {
+		color: var(--text-normal);
+		border-color: var(--text-muted);
+	}
+
+	.card.is-new:focus-visible {
+		outline: 2px solid var(--interactive-accent);
+		outline-offset: 2px;
+	}
+
+	.plus {
+		display: grid;
+		place-items: center;
+		width: 3.4em;
+		height: 3.4em;
+		border: 1.5px dashed var(--text-faint);
+		border-radius: 50%;
+	}
+</style>

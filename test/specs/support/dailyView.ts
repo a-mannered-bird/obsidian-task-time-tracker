@@ -1,6 +1,6 @@
 import { browser, expect } from '@wdio/globals'
 
-type DailyViewTab = 'Tracker' | 'Timeline'
+type DailyViewTab = 'Tracker' | 'Goals' | 'Timeline'
 
 /**
  * Pressed through the DOM, not with a real click: on CI a late notice of the

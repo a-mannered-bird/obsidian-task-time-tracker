@@ -28,6 +28,7 @@
 	import { icon } from 'ui/icon'
 	import { instantTooltip } from 'ui/tooltip'
 	import { openTaskManager } from 'ui/TaskManagerModal'
+	import GoalsTab from './GoalsTab.svelte'
 	import TimelineTab from './TimelineTab.svelte'
 	import TrackerTab from './TrackerTab.svelte'
 	import type TaskTimeTracker from '../main'
@@ -41,6 +42,7 @@
 
 	const TABS: { id: DailyViewTab; label: string }[] = [
 		{ id: 'tracker', label: 'Tracker' },
+		{ id: 'goals', label: 'Goals' },
 		{ id: 'timeline', label: 'Timeline' },
 	]
 
@@ -262,6 +264,8 @@
 				{otherDay}
 				{loading}
 			/>
+		{:else if active === 'goals'}
+			<GoalsTab {plugin} {log} {loading} />
 		{:else}
 			<TimelineTab {plugin} {log} {loading} />
 		{/if}

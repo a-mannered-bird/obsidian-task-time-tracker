@@ -125,6 +125,45 @@ export class VaultTaskIndex {
 		return [...tags].sort((a, b) => a.localeCompare(b))
 	}
 
+	/**
+	 * The goals of the task's most recent line holding any, in a note
+	 * before `before`, with that note's date.
+	 */
+	recentGoals(
+		name: string,
+		before: Date
+	): { date: Date; goals: Goal[] } | null {
+		let recent: { date: Date; goals: Goal[] } | null = null
+		for (const entry of this.byPath.values()) {
+			if (entry.date >= before) continue
+			if (recent && entry.date <= recent.date) continue
+			const task = entry.tasks.find(
+				(t) => t.name === name && t.goals.length > 0
+			)
+			if (task) recent = { date: entry.date, goals: task.goals }
+		}
+		return recent
+	}
+
+	/** Every metric used in a goal line, with its most recent unit, by name. */
+	metrics(): { metric: string; unit: string }[] {
+		const latest = new Map<string, { unit: string; date: Date }>()
+		for (const entry of this.byPath.values()) {
+			for (const task of entry.tasks) {
+				for (const goal of task.goals) {
+					if (goal.kind !== 'metric') continue
+					const known = latest.get(goal.metric)
+					if (!known || entry.date > known.date) {
+						latest.set(goal.metric, { unit: goal.unit, date: entry.date })
+					}
+				}
+			}
+		}
+		return [...latest]
+			.map(([metric, { unit }]) => ({ metric, unit }))
+			.sort((a, b) => a.metric.localeCompare(b.metric))
+	}
+
 	/** Every line of the task across the vault, oldest note first. */
 	occurrences(name: string): VaultTaskOccurrence[] {
 		const result: VaultTaskOccurrence[] = []

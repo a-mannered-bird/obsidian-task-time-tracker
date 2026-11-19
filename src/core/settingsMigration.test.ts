@@ -8,6 +8,10 @@ const settings = {
 		'["similar-name","Deep wok","Deep work"]',
 		'["tag-drift","Task A","#project"]',
 	],
+	dismissedGoalSuggestions: [
+		{ day: '2026-08-03', taskName: 'Deep wok', metric: null, unit: '' },
+		{ day: '2026-08-03', taskName: 'Task A', metric: 'pages', unit: '' },
+	],
 }
 
 describe('migrateTaskNames', () => {
@@ -26,6 +30,11 @@ describe('migrateTaskNames', () => {
 		// The dismissal about the old name is dropped; the other one stays.
 		expect(migrated.dismissedIssues).toEqual([
 			'["tag-drift","Task A","#project"]',
+		])
+		// A suggestion dismissed for the old name stays dismissed.
+		expect(migrated.dismissedGoalSuggestions).toEqual([
+			{ day: '2026-08-03', taskName: 'Deep work', metric: null, unit: '' },
+			{ day: '2026-08-03', taskName: 'Task A', metric: 'pages', unit: '' },
 		])
 	})
 
@@ -69,6 +78,9 @@ describe('forgetTaskName', () => {
 		expect(forgotten.hiddenTasks).toEqual(['Task B'])
 		expect(forgotten.dismissedIssues).toEqual([
 			'["tag-drift","Task A","#project"]',
+		])
+		expect(forgotten.dismissedGoalSuggestions).toEqual([
+			{ day: '2026-08-03', taskName: 'Task A', metric: 'pages', unit: '' },
 		])
 	})
 })

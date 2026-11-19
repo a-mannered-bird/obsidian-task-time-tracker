@@ -6,6 +6,7 @@ import type TaskTimeTracker from './main'
 import { showNotice } from './ui/notice'
 import { openTaskManager } from './ui/TaskManagerModal'
 import type { TagMapping } from './types/tags'
+import type { GoalSuggestionDismissal } from './core/goalCards'
 
 export interface TaskTimeTrackerSettings {
 	/**
@@ -30,13 +31,15 @@ export interface TaskTimeTrackerSettings {
 	 * off, it opens at `timelineZoom`.
 	 */
 	timelineFitOnOpen: boolean
+	/** Goal suggestions dismissed for a day (see pruneDismissals). */
+	dismissedGoalSuggestions: GoalSuggestionDismissal[]
 	/** UI state, not shown in the settings tab. */
 	lastDailyViewTab: DailyViewTab
 	/** Timeline tab zoom in pixels per hour (UI state). */
 	timelineZoom: number
 }
 
-const DAILY_VIEW_TABS = ['tracker', 'timeline'] as const
+const DAILY_VIEW_TABS = ['tracker', 'goals', 'timeline'] as const
 export type DailyViewTab = (typeof DAILY_VIEW_TABS)[number]
 
 export function isDailyViewTab(value: unknown): value is DailyViewTab {
@@ -49,6 +52,7 @@ export const DEFAULT_SETTINGS: TaskTimeTrackerSettings = {
 	skipOverlapJoinNotice: false,
 	ignoredIssueKinds: [],
 	dismissedIssues: [],
+	dismissedGoalSuggestions: [],
 	timelineFitOnOpen: true,
 	lastDailyViewTab: 'tracker',
 	timelineZoom: ZOOM_DEFAULT,
