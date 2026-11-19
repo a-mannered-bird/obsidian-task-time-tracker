@@ -628,6 +628,30 @@
 	></button>
 {/snippet}
 
+{#snippet idleActions(task: Task)}
+	<span class="row-actions">
+		<button
+			class="row-button"
+			use:instantTooltip={() => [controlHint(plugin, actions.primary)]}
+			aria-label={actions.primary === 'switch'
+				? `Switch to ${task.name}`
+				: `Start ${task.name}`}
+			use:icon={primaryStartIcon(actions.primary)}
+			onclick={() => start(task, actions.primary)}
+		></button>
+		{#if actions.alongside}
+			<button
+				class="row-button"
+				aria-label={`Start ${task.name} alongside`}
+				use:instantTooltip={() => [controlHint(plugin, 'alongside')]}
+				use:icon={'plus'}
+				onclick={() => start(task, 'alongside')}
+			></button>
+		{/if}
+		{@render moreButton(task)}
+	</span>
+{/snippet}
+
 <!-- A running task's checkbox stops it as it ticks it (Done). -->
 {#snippet checkbox(task: Task, running = false)}
 	{@const color = plugin.settings.taskColors[task.name]}
@@ -870,29 +894,7 @@
 						{#if minutes > 0}
 							<span class="muted total">{formatHoursMinutes(minutes)}</span>
 						{/if}
-						<span class="row-actions">
-							<button
-								class="row-button"
-								use:instantTooltip={() => [
-									controlHint(plugin, actions.primary),
-								]}
-								aria-label={actions.primary === 'switch'
-									? `Switch to ${task.name}`
-									: `Start ${task.name}`}
-								use:icon={primaryStartIcon(actions.primary)}
-								onclick={() => start(task, actions.primary)}
-							></button>
-							{#if actions.alongside}
-								<button
-									class="row-button"
-									aria-label={`Start ${task.name} alongside`}
-									use:instantTooltip={() => [controlHint(plugin, 'alongside')]}
-									use:icon={'plus'}
-									onclick={() => start(task, 'alongside')}
-								></button>
-							{/if}
-							{@render moreButton(task)}
-						</span>
+						{@render idleActions(task)}
 						{@render tagEditor(task)}
 					</li>
 				{/each}
@@ -919,9 +921,7 @@
 								{#if minutes > 0}
 									<span class="muted total">{formatHoursMinutes(minutes)}</span>
 								{/if}
-								<span class="row-actions">
-									{@render moreButton(task)}
-								</span>
+								{@render idleActions(task)}
 								{@render tagEditor(task)}
 							</li>
 						{/each}
