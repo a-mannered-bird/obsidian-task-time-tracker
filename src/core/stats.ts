@@ -1,13 +1,19 @@
 import type { MinutesByKey, Task } from 'types/tasks'
-import {
-	minutesByFilterEntry,
-	minutesByTag,
-	minutesByTask,
-	sortByMinutes,
-} from './aggregate'
+import { sortByMinutes } from './aggregate'
 import { addDays } from './dailyNotes'
 import type { DailyLog } from './dailyLogs'
-import { tasksToIntervals, uncoveredMinutes } from './intervals'
+import {
+	clockToInterval,
+	tasksToIntervals,
+	uncoveredMinutes,
+} from './intervals'
+import {
+	addOverlap,
+	computeOverlap,
+	emptyOverlap,
+	type TaskOverlap,
+	type TaskSpan,
+} from './overlap'
 import { countDays, startOfDay } from './ranges'
 import { getMinutesBetween } from './time'
 
@@ -26,7 +32,11 @@ export type DayPoint = {
 	date: Date
 	/** Minutes per task name or tag, depending on `groupBy`. */
 	minutes: MinutesByKey
-	total: number
+	/** Minutes during which at least one (filtered) task ran. */
+	covered: number
+	/** Minutes counted more than once because tasks ran at the same time. */
+	concurrent: number
+	byTask: Record<string, TaskOverlap>
 	/** Null when the note is missing or the frontmatter times are not set. */
 	offTime: number | null
 	unlogged: number | null
@@ -40,9 +50,12 @@ export type RangeStats = {
 	days: number
 	/** Days on which at least one minute was logged. */
 	loggedDays: number
-	totalMinutes: number
+	coveredMinutes: number
+	concurrentMinutes: number
 	/** Totals per task or tag, most minutes first; zero-minute keys omitted. */
 	byKey: [string, number][]
+	/** Time, shared time and partners of each task, whatever the grouping. */
+	byTask: Record<string, TaskOverlap>
 	perDay: DayPoint[]
 	averagePerDay: number
 	averagePerLoggedDay: number
@@ -71,35 +84,41 @@ export function computeRangeStats(
 		const log = byDate.get(dayKey(date))
 		const previous = byDate.get(dayKey(addDays(date, -1)))
 		const tasks = log ? filterTasks(log.tasks, options.filter) : []
-		const minutes = aggregateMinutes(tasks, options)
+		const overlap = computeOverlap(taskSpans(tasks, options))
 		perDay.push({
 			date,
-			minutes,
-			total: Object.values(minutes).reduce((sum, m) => sum + m, 0),
+			minutes: overlap.byKey,
+			covered: overlap.covered,
+			concurrent: overlap.concurrent,
+			byTask: overlap.byTask,
 			// Time-of-day facts describe the whole day, so the filter does not
 			// apply: "unlogged" stays "no clock at all", not "not on <filter>".
 			...timeOfDay(log, previous, log?.tasks ?? [], now),
 		})
 	}
 
-	const totals: MinutesByKey = {}
+	const totals = emptyOverlap()
 	for (const point of perDay) {
-		for (const [key, minutes] of Object.entries(point.minutes)) {
-			totals[key] = (totals[key] ?? 0) + minutes
-		}
+		addOverlap(totals, {
+			covered: point.covered,
+			concurrent: point.concurrent,
+			byKey: point.minutes,
+			byTask: point.byTask,
+		})
 	}
-	const totalMinutes = perDay.reduce((sum, point) => sum + point.total, 0)
-	const loggedDays = perDay.filter((point) => point.total > 0).length
+	const loggedDays = perDay.filter((point) => point.covered > 0).length
 	const days = countDays(range)
 
 	return {
 		days,
 		loggedDays,
-		totalMinutes,
-		byKey: sortByMinutes(totals).filter(([, minutes]) => minutes > 0),
+		coveredMinutes: totals.covered,
+		concurrentMinutes: totals.concurrent,
+		byKey: sortByMinutes(totals.byKey).filter(([, minutes]) => minutes > 0),
+		byTask: totals.byTask,
 		perDay,
-		averagePerDay: days ? totalMinutes / days : 0,
-		averagePerLoggedDay: loggedDays ? totalMinutes / loggedDays : 0,
+		averagePerDay: days ? totals.covered / days : 0,
+		averagePerLoggedDay: loggedDays ? totals.covered / loggedDays : 0,
 		timeOfDay: {
 			offTime: average(perDay.map((p) => p.offTime)),
 			unlogged: average(perDay.map((p) => p.unlogged)),
@@ -118,16 +137,33 @@ export function filterTasks(tasks: Task[], filter?: string[]): Task[] {
 	)
 }
 
-/** Minutes per key for the already-filtered tasks of one day. */
-function aggregateMinutes(tasks: Task[], options: StatsOptions): MinutesByKey {
-	const { groupBy, filter, now } = options
+/** The clocks of the already-filtered tasks of one day, with their row keys. */
+function taskSpans(tasks: Task[], options: StatsOptions): TaskSpan[] {
+	return tasks.flatMap((task) => {
+		const keys = rowKeys(task, options)
+		return task.clocks.map((clock) => ({
+			task: task.name,
+			keys,
+			interval: clockToInterval(clock, options.now),
+		}))
+	})
+}
+
+/**
+ * The rows a task counts towards: its name, its tags, or the filter entries
+ * it matches (a name entry for that task, a tag entry for every carrier).
+ */
+function rowKeys(task: Task, options: StatsOptions): string[] {
+	const { groupBy, filter = [] } = options
 	switch (groupBy) {
 		case 'task':
-			return minutesByTask(tasks, now)
+			return [task.name]
 		case 'tag':
-			return minutesByTag(restrictTagsToFilter(tasks, filter), now)
+			return restrictTagsToFilter(task, filter)
 		case 'filter':
-			return minutesByFilterEntry(tasks, filter ?? [], now)
+			return filter.filter(
+				(entry) => entry === task.name || task.tags.includes(entry)
+			)
 	}
 }
 
@@ -136,12 +172,9 @@ function aggregateMinutes(tasks: Task[], options: StatsOptions): MinutesByKey {
  * tags carried by the same tasks. A task matched by name (none of its tags
  * is in the filter) keeps all of its tags.
  */
-function restrictTagsToFilter(tasks: Task[], filter?: string[]): Task[] {
-	if (!filter || filter.length === 0) return tasks
-	return tasks.map((task) => {
-		const kept = task.tags.filter((tag) => filter.includes(tag))
-		return kept.length ? { ...task, tags: kept } : task
-	})
+function restrictTagsToFilter(task: Task, filter: string[]): string[] {
+	const kept = task.tags.filter((tag) => filter.includes(tag))
+	return kept.length ? kept : task.tags
 }
 
 /** Average of the non-null values, or null when there is none. */

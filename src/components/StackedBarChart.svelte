@@ -13,20 +13,42 @@
 		tooltipLabel?: string
 		/** Minutes per series key; missing keys count as 0. */
 		minutes: Record<string, number>
-		total: number
+		/** Minutes of each series shared with another task, hatched on top. */
+		shared: Record<string, number>
+		covered: number
+		concurrent: number
 	}
 
 	type Props = {
 		points: ChartPoint[]
 		series: ChartSeries[]
+		/** Whether some segment has a shared part, for the legend. */
+		hatched: boolean
 	}
 
-	const { points, series }: Props = $props()
+	const { points, series, hatched }: Props = $props()
 
 	const HEIGHT = 160
+	const PLOT_HEIGHT_PX = 200
 	const GAP = 2
+	const uid = $props.id()
+	const hatchId = `task-time-tracker-hatch-${uid}`
 
-	const yMax = $derived(niceMax(Math.max(...points.map((p) => p.total), 60)))
+	let plotWidth = $state(0)
+	/*
+	 * The SVG stretches its 100-unit width to the plot's, unevenly in x and y:
+	 * the hatch pattern undoes that scale so its stripes stay at 45°.
+	 */
+	const hatchTransform = $derived(
+		`scale(${100 / Math.max(plotWidth, 1)} ${HEIGHT / PLOT_HEIGHT_PX}) rotate(45)`
+	)
+
+	const stacked = (point: ChartPoint) =>
+		series.reduce((sum, s) => sum + (point.minutes[s.key] ?? 0), 0)
+
+	const yMax = $derived(
+		niceMax(Math.max(...points.map((p) => Math.max(stacked(p), p.covered)), 60))
+	)
 	const ticks = $derived([0.5, 1].map((f) => f * yMax))
 	const barSlot = $derived(100 / points.length)
 	// Label roughly every nth bar so long ranges stay readable.
@@ -42,7 +64,8 @@
 		return series
 			.map((s) => {
 				const minutes = point.minutes[s.key] ?? 0
-				const segment = { ...s, minutes, from: offset }
+				const shared = Math.min(point.shared[s.key] ?? 0, minutes)
+				const segment = { ...s, minutes, shared, from: offset }
 				offset += minutes
 				return segment
 			})
@@ -63,13 +86,24 @@
 
 <div class="chart">
 	<!-- Marks only: text lives in HTML so the stretched SVG cannot distort it. -->
-	<div class="plot">
+	<div class="plot" bind:clientWidth={plotWidth}>
 		<svg
 			viewBox="0 0 100 {HEIGHT}"
 			preserveAspectRatio="none"
 			role="img"
 			aria-label="Logged time per day"
 		>
+			<defs>
+				<pattern
+					id={hatchId}
+					width="6"
+					height="6"
+					patternUnits="userSpaceOnUse"
+					patternTransform={hatchTransform}
+				>
+					<rect class="hatch-stripe" width="3" height="6" />
+				</pattern>
+			</defs>
 			{#each ticks as tick (tick)}
 				<line
 					class="grid"
@@ -81,18 +115,41 @@
 			{/each}
 			{#each points as point, i (point.label)}
 				{@const slotX = i * barSlot}
+				{@const opacity = hovered === null || hovered === i ? 1 : 0.35}
 				{#each segments(point) as segment (segment.key)}
+					{@const height = Math.max(y(segment.minutes) - GAP, 1)}
 					<rect
 						class="segment"
 						x={slotX + barSlot * 0.15}
 						width={barSlot * 0.7}
 						y={HEIGHT - y(segment.from + segment.minutes)}
-						height={Math.max(y(segment.minutes) - GAP, 1)}
+						{height}
 						rx="1"
 						fill={segment.color}
-						opacity={hovered === null || hovered === i ? 1 : 0.35}
+						{opacity}
 					/>
+					{#if segment.shared > 0}
+						<rect
+							x={slotX + barSlot * 0.15}
+							width={barSlot * 0.7}
+							y={HEIGHT - y(segment.from + segment.minutes)}
+							height={Math.min(y(segment.shared), height)}
+							rx="1"
+							fill="url(#{hatchId})"
+							{opacity}
+						/>
+					{/if}
 				{/each}
+				{#if point.covered > 0}
+					<line
+						class="covered-tick"
+						x1={slotX + barSlot * 0.08}
+						x2={slotX + barSlot * 0.92}
+						y1={HEIGHT - y(point.covered)}
+						y2={HEIGHT - y(point.covered)}
+						{opacity}
+					/>
+				{/if}
 				<!-- Full-column hit target, wider than the bar itself. -->
 				<rect
 					class="hit"
@@ -128,7 +185,12 @@
 		{@const point = points[hovered]!}
 		<div class="tooltip">
 			<strong>{point.tooltipLabel ?? point.label}</strong>
-			<span>{formatHoursMinutes(point.total)}</span>
+			<span>Covered · {formatHoursMinutes(point.covered)}</span>
+			{#if point.concurrent > 0}
+				<span class="tooltip-muted"
+					>+{formatHoursMinutes(point.concurrent)} concurrent</span
+				>
+			{/if}
 			{#each segments(point).reverse() as segment (segment.key)}
 				<div class="tooltip-row">
 					<span class="chip" style:background={segment.color}></span>
@@ -139,7 +201,7 @@
 		</div>
 	{/if}
 
-	{#if series.length > 1}
+	{#if series.length > 1 || hatched}
 		<div class="legend">
 			{#each series as s (s.key)}
 				<span class="legend-item">
@@ -147,6 +209,30 @@
 					{s.key}
 				</span>
 			{/each}
+			{#if hatched}
+				<span class="legend-item">
+					<svg class="chip" viewBox="0 0 10 10" aria-hidden="true">
+						<rect width="10" height="10" fill="var(--text-muted)" />
+						<rect width="10" height="10" fill="url(#{hatchId}-legend)" />
+						<defs>
+							<pattern
+								id="{hatchId}-legend"
+								width="4"
+								height="4"
+								patternUnits="userSpaceOnUse"
+								patternTransform="rotate(45)"
+							>
+								<rect class="hatch-stripe" width="2" height="4" />
+							</pattern>
+						</defs>
+					</svg>
+					Shared with another task
+				</span>
+			{/if}
+			<span class="legend-item">
+				<span class="tick-chip"></span>
+				Covered
+			</span>
 		</div>
 	{/if}
 </div>
@@ -165,7 +251,7 @@
 		position: relative;
 	}
 
-	svg {
+	.plot svg {
 		display: block;
 		width: 100%;
 		height: 200px;
@@ -210,6 +296,28 @@
 
 	.hit {
 		fill: transparent;
+	}
+
+	.hatch-stripe {
+		fill: var(--background-primary);
+		opacity: 0.55;
+	}
+
+	.covered-tick {
+		stroke: var(--text-normal);
+		stroke-width: 2;
+		vector-effect: non-scaling-stroke;
+	}
+
+	.tick-chip {
+		display: inline-block;
+		width: 10px;
+		height: 2px;
+		background: var(--text-normal);
+	}
+
+	.tooltip-muted {
+		color: var(--text-muted);
 	}
 
 	.tooltip {

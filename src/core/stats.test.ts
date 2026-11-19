@@ -50,7 +50,7 @@ describe('computeRangeStats', () => {
 	const stats = computeRangeStats(logs, { range, groupBy: 'task', now })
 
 	it('produces one point per calendar day, empty for missing notes', () => {
-		expect(stats.perDay.map((p) => [p.date.getDate(), p.total])).toEqual([
+		expect(stats.perDay.map((p) => [p.date.getDate(), p.covered])).toEqual([
 			[16, 150],
 			[17, 0],
 			[18, 60],
@@ -60,7 +60,7 @@ describe('computeRangeStats', () => {
 	})
 
 	it('totals by task, most minutes first without unclocked tasks, and both averages', () => {
-		expect(stats.totalMinutes).toBe(210)
+		expect(stats.coveredMinutes).toBe(210)
 		expect(stats.byKey).toEqual([
 			['Write plugin', 180],
 			['Walk the dog', 30],
@@ -116,7 +116,7 @@ describe('computeRangeStats', () => {
 			now,
 		})
 		expect(filtered.byKey).toEqual([['Walk the dog', 30]])
-		expect(filtered.totalMinutes).toBe(30)
+		expect(filtered.coveredMinutes).toBe(30)
 	})
 
 	it('grouping by tag with a tag filter only shows the filtered tags', () => {
@@ -127,7 +127,7 @@ describe('computeRangeStats', () => {
 			now,
 		})
 		expect(filtered.byKey).toEqual([['#routine', 30]])
-		expect(filtered.totalMinutes).toBe(30)
+		expect(filtered.coveredMinutes).toBe(30)
 	})
 
 	it('a task matched by name keeps all of its tags in the tag grouping', () => {
@@ -156,7 +156,7 @@ describe('computeRangeStats', () => {
 			['Write plugin', 180],
 			['#outside', 30],
 		])
-		expect(filtered.totalMinutes).toBe(210)
+		expect(filtered.coveredMinutes).toBe(210)
 	})
 
 	it('computes time-of-day stats from all tasks even when a filter is set', () => {
@@ -167,6 +167,76 @@ describe('computeRangeStats', () => {
 			now,
 		})
 		expect(filtered.perDay[0]!.unlogged).toBe(stats.perDay[0]!.unlogged)
+	})
+})
+
+describe('computeRangeStats with tasks running at the same time', () => {
+	const overlapping = [
+		log(16, [
+			'- [ ] Deep work #project',
+			clock(16, '09:00', '11:00'),
+			// Two clocks of the same task overlapping by 30 minutes.
+			clock(16, '10:30', '11:30'),
+			'- [ ] Email #project #admin',
+			clock(16, '11:00', '12:00'),
+			'- [ ] Music #leisure',
+			`      [clock::2026-08-16T19:30:00]`,
+		]),
+	]
+	const day = { start: d(16), end: d(16) }
+	const at20 = d(16, 20, 0)
+
+	it('counts covered and concurrent time, and each task once per minute', () => {
+		const stats = computeRangeStats(overlapping, {
+			range: day,
+			groupBy: 'task',
+			now: at20,
+		})
+		// Deep work 9:00–11:30 (150), Email 11:00–12:00 (60), Music running
+		// since 19:30 (30): 240 counted, 11:00–11:30 counted twice.
+		expect(stats.byKey).toEqual([
+			['Deep work', 150],
+			['Email', 60],
+			['Music', 30],
+		])
+		expect(stats.coveredMinutes).toBe(210)
+		expect(stats.concurrentMinutes).toBe(30)
+		expect(stats.byTask['Deep work']).toEqual({
+			minutes: 150,
+			shared: 30,
+			partners: { Email: 30 },
+		})
+		expect(stats.averagePerDay).toBe(210)
+	})
+
+	it('measures a tag as the time any of its tasks ran, concurrency still between tasks', () => {
+		const stats = computeRangeStats(overlapping, {
+			range: day,
+			groupBy: 'tag',
+			now: at20,
+		})
+		expect(stats.byKey).toEqual([
+			['#project', 180],
+			['#admin', 60],
+			['#leisure', 30],
+		])
+		expect(stats.concurrentMinutes).toBe(30)
+		expect(stats.byTask.Email?.shared).toBe(30)
+	})
+
+	it('computes concurrency after the filter', () => {
+		const stats = computeRangeStats(overlapping, {
+			range: day,
+			groupBy: 'filter',
+			filter: ['Email', '#leisure'],
+			now: at20,
+		})
+		expect(stats.byKey).toEqual([
+			['Email', 60],
+			['#leisure', 30],
+		])
+		expect(stats.coveredMinutes).toBe(90)
+		expect(stats.concurrentMinutes).toBe(0)
 	})
 })
 

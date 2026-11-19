@@ -281,11 +281,11 @@ Grilled on 2026-11-18; mockups and the reasoning behind each choice are on the d
 
 ## Phase 12: Overlap in the stats
 
-- [ ] Core, tested: the sweep computing covered, concurrent, per-task exclusive and shared minutes, partners per task; same-task overlaps counted once; Share of covered time in every grouping.
-- [ ] `task-stats` block: Covered summary with concurrent time, reconciling footer, Overlap % column with the partners tooltip (task mode), header tooltips.
-- [ ] Chart: hatched shared part per segment (task mode), covered tick on every bar, tooltip with covered and concurrent.
-- [ ] Restyle `KeyValueTable` (swatches, tabular numbers, muted headers and footer, tooltip cells).
-- [ ] E2E asserting covered, concurrent and one Overlap % on a fixture day with two concurrent tasks.
+- [x] Core, tested: the sweep computing covered, concurrent, per-task exclusive and shared minutes, partners per task; same-task overlaps counted once; Share of covered time in every grouping.
+- [x] `task-stats` block: Covered summary with concurrent time, reconciling footer, Overlap % column with the partners tooltip (task mode), header tooltips.
+- [x] Chart: hatched shared part per segment (task mode), covered tick on every bar, tooltip with covered and concurrent.
+- [x] Restyle `KeyValueTable` (swatches, tabular numbers, muted headers and footer, tooltip cells).
+- [x] E2E asserting covered, concurrent and one Overlap % on a fixture day with two concurrent tasks.
 
 ## Phase 13: Progression
 

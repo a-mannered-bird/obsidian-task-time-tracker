@@ -1,12 +1,15 @@
 import { displayTooltip } from 'obsidian'
+import type { RichLine } from 'core/richText'
 
 const LABEL = 'aria-label'
 
 /** A tooltip line set apart from the others, smaller and in italics. */
 export type TooltipAside = { aside: string }
 
+type TooltipLine = string | TooltipAside | RichLine
+
 /** Lines shown in the tooltip; null ones are skipped. */
-export type TooltipHint = () => (string | TooltipAside | null)[]
+export type TooltipHint = () => (TooltipLine | null)[]
 
 /**
  * Svelte action: show a tooltip as soon as the pointer is over the element,
@@ -33,7 +36,7 @@ export function instantTooltip(el: HTMLElement, hint?: TooltipHint) {
 		if (text) el.setAttribute(LABEL, text)
 	}
 
-	const lines = (): (string | TooltipAside)[] => {
+	const lines = (): TooltipLine[] => {
 		const extra = (currentHint?.() ?? []).filter((line) => line !== null)
 		const showsText = Boolean(el.textContent?.trim())
 		const label = el.getAttribute(LABEL)
@@ -45,6 +48,7 @@ export function instantTooltip(el: HTMLElement, hint?: TooltipHint) {
 		const fragment = new DocumentFragment()
 		for (const line of shown) {
 			if (typeof line === 'string') fragment.createDiv({ text: line })
+			else if (Array.isArray(line)) appendRichLine(fragment.createDiv(), line)
 			else
 				fragment.createDiv({
 					text: line.aside,
@@ -84,5 +88,12 @@ export function instantTooltip(el: HTMLElement, hint?: TooltipHint) {
 			el.removeEventListener('pointerover', enter)
 			el.removeEventListener('pointerleave', leave)
 		},
+	}
+}
+
+function appendRichLine(parent: HTMLElement, line: RichLine) {
+	for (const run of line) {
+		if (run.strong) parent.createEl('strong', { text: run.text })
+		else parent.appendText(run.text)
 	}
 }

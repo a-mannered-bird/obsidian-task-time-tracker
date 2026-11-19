@@ -5,6 +5,12 @@
 	import { loadRangeStats, type LoadedRangeStats } from 'core/loadRangeStats'
 	import { shiftRange } from 'core/ranges'
 	import type { StatsBlockOptions } from 'core/statsOptions'
+	import {
+		buildStatsTable,
+		chartDay,
+		OTHER,
+		showsOverlap,
+	} from 'core/statsTable'
 	import { formatClockMinutes, formatHoursMinutes } from 'core/time'
 	import { icon } from 'ui/icon'
 	import KeyValueTable from './KeyValueTable.svelte'
@@ -35,25 +41,14 @@
 	const show = (metric: StatsBlockOptions['metrics'][number]) =>
 		options.metrics.includes(metric)
 
-	const OTHER = 'Other'
-
-	/** Totals with everything below the `top` biggest keys folded into Other. */
-	const byKey = $derived.by<[string, number][]>(() => {
-		if (!stats) return []
-		if (options.top === null || stats.byKey.length <= options.top) {
-			return stats.byKey
-		}
-		const kept = stats.byKey.slice(0, options.top)
-		const folded = stats.byKey
-			.slice(options.top)
-			.reduce((sum, [, minutes]) => sum + minutes, 0)
-		return [...kept, [OTHER, folded]]
-	})
-
-	const keptKeys = $derived(new Set(byKey.map(([key]) => key)))
+	const table = $derived(
+		stats ? buildStatsTable(stats, options.groupBy, options.top) : null
+	)
+	const keptKeys = $derived(new Set(table?.rows.map((row) => row.key)))
+	const hatched = $derived(stats ? showsOverlap(stats, options.groupBy) : false)
 
 	const series = $derived.by<ChartSeries[]>(() =>
-		byKey.map(([key], index) => ({
+		(table?.rows ?? []).map(({ key }, index) => ({
 			key,
 			color:
 				key === OTHER
@@ -64,22 +59,14 @@
 
 	const chartPoints = $derived.by<ChartPoint[]>(() => {
 		if (!stats) return []
-		return stats.perDay.map((point) => {
-			const minutes: Record<string, number> = {}
-			for (const [key, value] of Object.entries(point.minutes)) {
-				const slot = keptKeys.has(key) ? key : OTHER
-				minutes[slot] = (minutes[slot] ?? 0) + value
-			}
-			return {
-				label: shortDay(point.date),
-				// Full date, in the same format as the daily note names.
-				tooltipLabel: moment(point.date).format(
-					plugin.getDailyNotesConfig().format
-				),
-				minutes,
-				total: point.total,
-			}
-		})
+		return stats.perDay.map((point) => ({
+			label: shortDay(point.date),
+			// Full date, in the same format as the daily note names.
+			tooltipLabel: moment(point.date).format(
+				plugin.getDailyNotesConfig().format
+			),
+			...chartDay(point, keptKeys, hatched),
+		}))
 	})
 
 	function shortDay(date: Date) {
@@ -170,7 +157,14 @@
 	{#if show('total') || show('average')}
 		<div class="stats-summary">
 			{#if show('total')}
-				<div><b>⏱ Total</b> <span>{duration(stats.totalMinutes)}</span></div>
+				<div>
+					<b>⏱ Covered</b> <span>{duration(stats.coveredMinutes)}</span>
+					{#if stats.concurrentMinutes > 0}
+						<span class="muted"
+							>· +{duration(stats.concurrentMinutes)} concurrent</span
+						>
+					{/if}
+				</div>
 			{/if}
 			{#if show('average')}
 				<div>
@@ -181,25 +175,14 @@
 		</div>
 	{/if}
 
-	{#if show('total') && byKey.length}
+	{#if show('total') && table && table.rows.length}
 		<KeyValueTable
-			columns={[
-				{
-					label:
-						options.groupBy === 'tag'
-							? 'Tag'
-							: options.groupBy === 'filter'
-								? 'Task / tag'
-								: 'Task',
-				},
-				{ label: 'Time spent' },
-				{ label: 'Share' },
-			]}
-			rows={byKey.map(([key, minutes]) => [
-				key,
-				formatHoursMinutes(minutes),
-				`${Math.round((minutes / stats.totalMinutes) * 100)}%`,
-			])}
+			columns={table.columns}
+			rows={table.rows.map((row, i) => ({
+				cells: row.cells,
+				swatch: series[i]?.color,
+			}))}
+			footer={table.footer}
 		/>
 	{/if}
 
@@ -221,15 +204,17 @@
 	{/if}
 
 	{#if show('per-day')}
-		<StackedBarChart points={chartPoints} {series} />
+		<StackedBarChart points={chartPoints} {series} {hatched} />
 		<details>
 			<summary class="muted">Per-day table</summary>
 			<KeyValueTable
-				columns={[{ label: 'Day' }, { label: 'Logged' }]}
-				rows={stats.perDay.map((point) => [
-					formatDay(point.date),
-					formatHoursMinutes(point.total),
-				])}
+				columns={[{ label: 'Day' }, { label: 'Covered', numeric: true }]}
+				rows={stats.perDay.map((point) => ({
+					cells: [
+						{ text: formatDay(point.date) },
+						{ text: formatHoursMinutes(point.covered) },
+					],
+				}))}
 			/>
 		</details>
 	{/if}
