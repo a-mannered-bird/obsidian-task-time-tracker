@@ -33,8 +33,18 @@ export function readFrontmatterTime(value: unknown): Date | null {
 	return null
 }
 
+/**
+ * Whole minutes since the epoch. Durations count the minutes between the
+ * truncated ends rather than truncating the difference, so a clock lasts what
+ * its displayed `HH:mm` range says (14:47:43–15:00 is 13m, not 12m) and
+ * clocks that touch add up to their union, as the stats sweep requires.
+ */
+export function toEpochMinute(date: Date): number {
+	return Math.floor(date.valueOf() / 60000)
+}
+
 export function getMinutesBetween(from: Date, to: Date): number {
-	return Math.floor((to.valueOf() - from.valueOf()) / 60000)
+	return toEpochMinute(to) - toEpochMinute(from)
 }
 
 export function addMinutes(date: Date, minutes: number): Date {

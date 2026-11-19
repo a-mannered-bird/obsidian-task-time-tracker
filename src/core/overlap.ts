@@ -1,4 +1,5 @@
 import type { Interval, MinutesByKey } from 'types/tasks'
+import { toEpochMinute } from './time'
 
 /** A clock of a task, with the row keys (task, tags…) it counts towards. */
 export type TaskSpan = {
@@ -26,11 +27,6 @@ export type OverlapStats = {
 	byTask: Record<string, TaskOverlap>
 }
 
-const MINUTE = 60_000
-
-/** Whole minutes since the epoch: the stats count minutes, not seconds. */
-const toMinute = (date: Date) => Math.floor(date.valueOf() / MINUTE)
-
 type Boundary = { at: number; delta: 1 | -1; span: TaskSpan }
 
 /**
@@ -41,8 +37,8 @@ type Boundary = { at: number; delta: 1 | -1; span: TaskSpan }
 export function computeOverlap(spans: TaskSpan[]): OverlapStats {
 	const boundaries: Boundary[] = []
 	for (const span of spans) {
-		const start = toMinute(span.interval.start)
-		const end = toMinute(span.interval.end)
+		const start = toEpochMinute(span.interval.start)
+		const end = toEpochMinute(span.interval.end)
 		if (end <= start) continue
 		boundaries.push({ at: start, delta: 1, span }, { at: end, delta: -1, span })
 	}
