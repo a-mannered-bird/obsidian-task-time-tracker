@@ -289,7 +289,7 @@ describe('tracker tab', function () {
 		await press(alongside)
 		await expect(alongside).toHaveAttribute('aria-pressed', 'true')
 		await expect(switchButton).toHaveAttribute('aria-pressed', 'false')
-		await expect(bar).toHaveAttribute('placeholder', 'Are you multi-tasking?')
+		await expect(bar).toHaveAttribute('placeholder', 'Start alongside…')
 		await expect(list).toBeDisplayed()
 		assert.strictEqual(await obsidianPage.read(today.path), content)
 
@@ -304,10 +304,7 @@ describe('tracker tab', function () {
 
 		await press(switchButton)
 		await expect(switchButton).toHaveAttribute('aria-pressed', 'true')
-		await expect(bar).toHaveAttribute(
-			'placeholder',
-			'What task will you focus on?'
-		)
+		await expect(bar).toHaveAttribute('placeholder', 'Switch to…')
 		await expect(bar).toBeFocused()
 		await browser.keys([...'Run'])
 		await expect(bar).toHaveValue('Run')
@@ -356,10 +353,7 @@ describe('tracker tab', function () {
 		const plan = button('Plan task without starting timer')
 		await browser.execute((el) => el.click(), await plan.getElement())
 		await expect(plan).toHaveAttribute('aria-pressed', 'true')
-		await expect(bar).toHaveAttribute(
-			'placeholder',
-			"Add a task to today's plan"
-		)
+		await expect(bar).toHaveAttribute('placeholder', 'Plan a task…')
 		await expect(bar).toBeFocused()
 		await browser.keys([...'Call the bank'])
 		await expect(bar).toHaveValue('Call the bank')

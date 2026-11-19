@@ -32,23 +32,13 @@
 	type Props = {
 		plugin: TaskTimeTracker
 		tasks: Task[]
-		placeholder: string
-		/** Shown instead while picked tasks start alongside. */
-		alongsidePlaceholder: string
-		/** Shown instead while picked tasks are only added to the plan. */
-		planPlaceholder: string
+		/** Placeholder of the field for what picking a task does. */
+		placeholders: Record<BarAction, string>
 		/** Heading over the note's tasks: `Today`, or the note's day. */
 		noteHeading: string
 	}
 
-	const {
-		plugin,
-		tasks,
-		placeholder,
-		alongsidePlaceholder,
-		planPlaceholder,
-		noteHeading,
-	}: Props = $props()
+	const { plugin, tasks, placeholders, noteHeading }: Props = $props()
 
 	/** Other notes' tasks listed before anything is typed, or once typed. */
 	const OTHER_LIMIT = 8
@@ -184,11 +174,7 @@
 				aria-controls={LISTBOX_ID}
 				aria-autocomplete="list"
 				aria-activedescendant={current ? optionId(selected) : undefined}
-				placeholder={action === 'alongside'
-					? alongsidePlaceholder
-					: action === 'plan'
-						? planPlaceholder
-						: placeholder}
+				placeholder={placeholders[action]}
 				onfocus={onFocus}
 				onblur={() => (open = false)}
 				oninput={onInput}

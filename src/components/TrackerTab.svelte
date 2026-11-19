@@ -725,15 +725,19 @@
 		<TaskBar
 			{plugin}
 			{tasks}
-			placeholder={otherDay
-				? `Add a task to ${otherDay}`
-				: 'What task will you focus on?'}
-			planPlaceholder={otherDay
-				? `Plan a task for ${otherDay}`
-				: "Add a task to today's plan"}
-			alongsidePlaceholder={otherDay
-				? `Add a task running alongside to ${otherDay}`
-				: 'Are you multi-tasking?'}
+			placeholders={otherDay
+				? {
+						start: `Add a task to ${otherDay}`,
+						switch: `Add a task to ${otherDay}`,
+						alongside: `Add a task running alongside to ${otherDay}`,
+						plan: `Plan a task for ${otherDay}`,
+					}
+				: {
+						start: 'Start a task…',
+						switch: 'Switch to…',
+						alongside: 'Start alongside…',
+						plan: 'Plan a task…',
+					}}
 			noteHeading={noteDayHeading(log?.date ?? now, now)}
 		/>
 		<div class="buttons">
