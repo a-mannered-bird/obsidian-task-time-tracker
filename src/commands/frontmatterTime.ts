@@ -89,15 +89,13 @@ export async function promptDayMark(
 		mark === 'end' && target.file
 			? dayEndFloor((await readTaskNote(plugin, target.file)).tasks, dayStart)
 			: null
-	const now = new Date()
 	const time = await promptTime(app, {
 		title: COMMANDS[mark].name,
 		description:
 			mark === 'start' && dayEnd
 				? `No later than the end of day, ${formatTimeOfDay(dayEnd)}.`
 				: undefined,
-		reference: now,
-		parse: (text) =>
+		parse: (text, now) =>
 			mark === 'end'
 				? parseDayEnd(text, target.date, floor, now)
 				: parseDayStart(text, target.date, dayEnd, now),

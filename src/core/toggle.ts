@@ -70,16 +70,19 @@ export function taskChoice(task: Task): TaskChoice {
 }
 
 /**
- * A time to ask for, as minutes before `reference` or as a time of day;
- * `parse` reads either form.
+ * A time to ask for, as minutes before a reference or as a time of day;
+ * `parse` reads either form against that reference.
  */
 export type TimeRequest = {
 	title: string
 	description?: string
-	reference: Date
-	/** Names the minutes field when `reference` is not now. */
-	minutesLabel?: string
-	parse: (text: string) => TypedTime
+	/**
+	 * What the minutes count back from. Absent, it is now: the prompt keeps
+	 * its fields current while it stays open and parses at the moment of the
+	 * answer.
+	 */
+	reference?: Date
+	parse: (text: string, reference: Date) => TypedTime
 }
 
 /** User interaction the engine needs; the commands wire it to modals. */
@@ -329,8 +332,8 @@ async function resolveTime(
 		at = end
 	}
 	if (options.timeTravel) {
-		const reference = at
-		const day = options.fromLastTask ? reference : (context.day ?? now)
+		const reference = options.fromLastTask ? at : undefined
+		const day = reference ?? context.day ?? now
 		const after = latestClosedStart(note, selected, options)
 		const names = selected.map((task) => `"${task.name}"`).join(', ')
 		const started = after ? describeStart(after, now) : ''
@@ -343,10 +346,8 @@ async function resolveTime(
 				? started
 				: [`Toggles ${names}.`, started].filter(Boolean).join(' '),
 			reference,
-			minutesLabel: options.fromLastTask
-				? `Minutes before ${formatTimeOfDay(reference)}`
-				: undefined,
-			parse: (text) => parseToggleTime(text, reference, { day, after }),
+			parse: (text, reference) =>
+				parseToggleTime(text, reference, { day, after }),
 		})
 		if (!picked) return null
 		at = picked

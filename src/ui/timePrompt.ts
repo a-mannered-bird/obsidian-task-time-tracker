@@ -12,6 +12,9 @@ type Request = TimeRequest & { confirmText?: string }
 /** Shift-clicking a stepper moves by this many minutes. */
 const BIG_STEP = 5
 
+/** How often a prompt counting back from now checks that the minute turned. */
+const NOW_CHECK_MS = 1000
+
 /**
  * Ask for a time as minutes before the request's reference or as a time of
  * day: one choice shown as two fields kept in step. Null when dismissed.
@@ -24,8 +27,13 @@ export function promptTime(app: App, request: Request): Promise<Date | null> {
 
 class TimePromptModal extends Modal {
 	private submitted = false
-	/** The field typed in last: its value is the one submitted. */
+	/** The value of the field typed in last: the one submitted. */
 	private typed = '0'
+	/** The field typed in last; the other one follows it. */
+	private typedIn: 'minutes' | 'time' = 'minutes'
+	/** The minute of now the fields were last derived at. */
+	private shownMinute = ''
+	private nowTimer: number | null = null
 	private minutesEl: HTMLInputElement | null = null
 	private timeEl: HTMLInputElement | null = null
 	/** Under the fields: the day when it is not the reference's, or the error. */
@@ -77,15 +85,24 @@ class TimePromptModal extends Modal {
 
 		const minutes = this.minutesEl
 		window.setTimeout(() => minutes.select())
+
+		if (!request.reference) {
+			this.shownMinute = formatTimeOfDay(new Date())
+			this.nowTimer = window.setInterval(() => this.followNow(), NOW_CHECK_MS)
+		}
 	}
 
 	onClose(): void {
+		if (this.nowTimer !== null) window.clearInterval(this.nowTimer)
 		this.contentEl.empty()
 		if (!this.submitted) this.resolve(null)
 	}
 
 	private buildMinutes(option: HTMLElement): HTMLInputElement {
-		const label = this.request.minutesLabel ?? 'Minutes ago'
+		const { reference } = this.request
+		const label = reference
+			? `Minutes before ${formatTimeOfDay(reference)}`
+			: 'Minutes ago'
 		option.createSpan({ cls: 'task-time-tracker-time-label', text: label })
 		const stepper = option.createDiv({ cls: 'task-time-tracker-stepper' })
 		const less = stepper.createEl('button', {
@@ -127,26 +144,44 @@ class TimePromptModal extends Modal {
 			cls: 'task-time-tracker-time-input',
 			attr: { type: 'time', 'aria-label': 'Time' },
 		})
-		input.value = formatTimeOfDay(this.request.reference)
+		input.value = formatTimeOfDay(this.reference())
 		input.addEventListener('input', () => this.timeTyped(input.value))
 		this.submitOnEnter(input)
 		return input
 	}
 
+	/** The request's reference, else now. */
+	private reference(): Date {
+		return this.request.reference ?? new Date()
+	}
+
+	/**
+	 * Keep the fields true as time passes: the field typed in holds its
+	 * value, the other one is derived again from the new now.
+	 */
+	private followNow(): void {
+		const minute = formatTimeOfDay(new Date())
+		if (minute === this.shownMinute) return
+		this.shownMinute = minute
+		if (this.typedIn === 'minutes') this.minutesTyped(this.typed)
+		else this.timeTyped(this.typed)
+	}
+
 	private minutesTyped(value: string): void {
 		this.typed = value
-		const time = timeOfDayBefore(value, this.request.reference)
+		this.typedIn = 'minutes'
+		const time = timeOfDayBefore(value, this.reference())
 		if (this.timeEl && time !== null) this.timeEl.value = time
 		this.showStatus()
 	}
 
 	private timeTyped(value: string): void {
 		this.typed = value
-		const parsed = this.request.parse(value)
+		this.typedIn = 'time'
+		const reference = this.reference()
+		const parsed = this.request.parse(value, reference)
 		if (this.minutesEl && 'at' in parsed) {
-			this.minutesEl.value = String(
-				minutesBefore(parsed.at, this.request.reference)
-			)
+			this.minutesEl.value = String(minutesBefore(parsed.at, reference))
 		}
 		this.showStatus()
 	}
@@ -165,13 +200,10 @@ class TimePromptModal extends Modal {
 			this.setStatus('', false)
 			return
 		}
-		const parsed = this.request.parse(this.typed)
+		const reference = this.reference()
+		const parsed = this.request.parse(this.typed, reference)
 		if ('error' in parsed) this.setStatus(parsed.error, true)
-		else
-			this.setStatus(
-				describeTypedTime(parsed.at, this.request.reference),
-				false
-			)
+		else this.setStatus(describeTypedTime(parsed.at, reference), false)
 	}
 
 	private setStatus(text: string, isError: boolean): void {
@@ -180,7 +212,7 @@ class TimePromptModal extends Modal {
 	}
 
 	private submit(): void {
-		const parsed = this.request.parse(this.typed)
+		const parsed = this.request.parse(this.typed, this.reference())
 		if ('error' in parsed) {
 			this.setStatus(parsed.error, true)
 			return

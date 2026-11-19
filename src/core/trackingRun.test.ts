@@ -55,7 +55,10 @@ function fakeNote(lines: string[]) {
 			timeTitles.push(request.title)
 			duringTime?.()
 			const time = times.shift()
-			const parsed = time === undefined ? null : request.parse(time)
+			const parsed =
+				time === undefined
+					? null
+					: request.parse(time, request.reference ?? now)
 			return Promise.resolve(parsed && 'at' in parsed ? parsed.at : null)
 		},
 		notify: (message) => notices.push(plainNoticeText(message)),

@@ -92,8 +92,7 @@ async function changeHandOff(
 	handOff: HandOff,
 	message: string
 ): Promise<void> {
-	const now = new Date()
-	const at = await promptHandOffTime(plugin, handOff, message, now)
+	const at = await promptHandOffTime(plugin, handOff, message)
 	if (!at) return
 	const recorder = recordWrites(targetIo(plugin, target))
 	const outcome = await rewriteNote(recorder.io, (content) => {
@@ -119,12 +118,10 @@ async function changeHandOff(
 function promptHandOffTime(
 	plugin: TaskTimeTracker,
 	handOff: HandOff,
-	message: string,
-	now: Date
+	message: string
 ): Promise<Date | null> {
 	const request = {
 		title: 'Change the time',
-		reference: now,
 		confirmText: 'Change',
 	}
 	if (handOff.stopped.length > 0) {
@@ -133,8 +130,8 @@ function promptHandOffTime(
 		)
 		return promptTime(plugin.app, {
 			...request,
-			description: `${plainNoticeText(message)}. ${describeStart(latestStart, now)}`,
-			parse: (text) => parseEndTime(text, latestStart, now),
+			description: `${plainNoticeText(message)}. ${describeStart(latestStart, new Date())}`,
+			parse: (text, now) => parseEndTime(text, latestStart, now),
 		})
 	}
 	const [started] = handOff.started
@@ -142,7 +139,7 @@ function promptHandOffTime(
 	return promptTime(plugin.app, {
 		...request,
 		description: `${plainNoticeText(message)}.`,
-		parse: (text) => parseStartTime(text, started.start, now),
+		parse: (text, now) => parseStartTime(text, started.start, now),
 	})
 }
 

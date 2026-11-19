@@ -72,16 +72,14 @@ async function promptEnd(
 	file: TFile,
 	key: ClockKey
 ): Promise<void> {
-	const now = new Date()
 	const running = key.end === null
 	const confirmText = running ? 'Stop' : 'Change'
 	const at = await promptTime(plugin.app, {
 		title: running
 			? `Stop ${key.taskName}`
 			: `Change when ${key.taskName} stopped`,
-		description: describeStart(key.start, now),
-		reference: now,
-		parse: (text) => parseEndTime(text, key.start, now),
+		description: describeStart(key.start, new Date()),
+		parse: (text, now) => parseEndTime(text, key.start, now),
 		confirmText,
 	})
 	if (at) await endClockAt(plugin, file, key, at)

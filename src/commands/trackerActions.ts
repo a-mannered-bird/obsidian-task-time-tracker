@@ -208,12 +208,10 @@ export async function changeStart(
 	taskName: string,
 	start: Date
 ): Promise<void> {
-	const now = new Date()
 	const at = await promptTime(plugin.app, {
 		title: `Change when ${taskName} started`,
-		description: describeStart(start, now),
-		reference: now,
-		parse: (text) => parseStartTime(text, start, now),
+		description: describeStart(start, new Date()),
+		parse: (text, now) => parseStartTime(text, start, now),
 		confirmText: 'Change',
 	})
 	if (!at) return
@@ -232,12 +230,10 @@ export async function setStop(
 	taskName: string,
 	start: Date
 ): Promise<void> {
-	const now = new Date()
 	const at = await promptTime(plugin.app, {
 		title: `Set when ${taskName} stopped`,
-		description: describeStart(start, now),
-		reference: now,
-		parse: (text) => parseEndTime(text, start, now),
+		description: describeStart(start, new Date()),
+		parse: (text, now) => parseEndTime(text, start, now),
 		confirmText: 'Stop',
 	})
 	if (!at) return

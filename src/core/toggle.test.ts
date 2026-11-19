@@ -52,7 +52,8 @@ function scripted(script: Script = {}) {
 		promptTime: (request) => {
 			timeTitles.push(request.title)
 			const text = times.shift() ?? null
-			const parsed = text === null ? null : request.parse(text)
+			const parsed =
+				text === null ? null : request.parse(text, request.reference ?? now)
 			return Promise.resolve(parsed && 'at' in parsed ? parsed.at : null)
 		},
 		notify: (message) => notices.push(plainNoticeText(message)),

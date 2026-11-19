@@ -9,7 +9,6 @@ import {
 	type ToggleOptions,
 } from './toggle'
 import { NOTICE_ICON } from './noticeText'
-import { formatTimeOfDay } from './timeline'
 import { parseFirstDayStart } from './typedTime'
 
 /** How the runner reaches the note; the commands wire it to the vault. */
@@ -123,7 +122,6 @@ function dayStartRequest(firstClock: Date, day: Date): TimeRequest {
 		title: 'Start of day',
 		description: FIRST_TASK_TEXT,
 		reference: firstClock,
-		minutesLabel: `Minutes before ${formatTimeOfDay(firstClock)}`,
 		parse: (text) => parseFirstDayStart(text, day, firstClock),
 	}
 }
