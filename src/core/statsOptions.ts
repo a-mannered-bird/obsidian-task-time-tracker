@@ -4,6 +4,9 @@ import type { GroupBy } from './stats'
 export const METRICS = ['total', 'average', 'per-day', 'time-of-day'] as const
 export type Metric = (typeof METRICS)[number]
 
+export const COMPARE_MODES = ['both', 'previous', 'usual', 'none'] as const
+export type CompareMode = (typeof COMPARE_MODES)[number]
+
 /** Options of a `task-stats` code block, after validation and defaults. */
 export type StatsBlockOptions = {
 	range: string
@@ -13,6 +16,10 @@ export type StatsBlockOptions = {
 	skipEmptyDays: boolean
 	/** Keep only the N biggest keys and fold the rest into "Other"; null = all. */
 	top: number | null
+	/** Baselines the range is compared with: the previous period, the usual level. */
+	compare: CompareMode
+	/** Number of earlier periods with logged time the usual level averages. */
+	compareWith: number
 }
 
 export const DEFAULT_STATS_OPTIONS: StatsBlockOptions = {
@@ -22,6 +29,8 @@ export const DEFAULT_STATS_OPTIONS: StatsBlockOptions = {
 	metrics: [...METRICS],
 	skipEmptyDays: false,
 	top: null,
+	compare: 'both',
+	compareWith: 4,
 }
 
 export type NormalizedOptions =
@@ -84,6 +93,18 @@ export function normalizeStatsOptions(raw: unknown): NormalizedOptions {
 					options.top = value
 				else errors.push('top: expected a positive whole number.')
 				break
+			case 'compare':
+				if (isCompareMode(value)) options.compare = value
+				else
+					errors.push(
+						`compare: expected "both", "previous", "usual" or "none", got "${String(value)}".`
+					)
+				break
+			case 'compareWith':
+				if (typeof value === 'number' && Number.isInteger(value) && value > 0)
+					options.compareWith = value
+				else errors.push('compareWith: expected a positive whole number.')
+				break
 			default:
 				errors.push(`Unknown option "${key}".`)
 		}
@@ -107,6 +128,10 @@ function asStringList(value: unknown): string[] | null {
 		return value
 	}
 	return null
+}
+
+function isCompareMode(value: unknown): value is CompareMode {
+	return (COMPARE_MODES as readonly unknown[]).includes(value)
 }
 
 function isGroupBy(value: unknown): value is GroupBy {

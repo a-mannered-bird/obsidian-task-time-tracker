@@ -81,6 +81,8 @@ filter: ["#project"]    # only these task names / #tags
 metrics: [total, average, per-day, time-of-day]   # default: all
 skipEmptyDays: true     # average only over days where something was logged
 top: 5                  # keep the N biggest entries, fold the rest into "Other"
+compare: both           # both (default) | previous | usual | none
+compareWith: 4          # earlier periods with logged time averaged into the usual level
 ```
 ````
 
@@ -92,6 +94,8 @@ The metrics:
 - **time-of-day**: average off time, unlogged time (time within the day with no clock running, always computed from all tasks even with a `filter`), start and end of day.
 
 Weeks start on Monday. The `all` range starts at your oldest daily note. Everything refreshes live when a note changes.
+
+Each range is compared with the period right before it and with your usual level, the average of the last `compareWith` periods in which something was logged (periods without any clock are skipped). The comparison loads after the stats are drawn. The table gets a Trend column with each row's change against usual (hover it for this period, the previous one and usual), and covered time, off time and unlogged time show their change; start and end of day show how far they moved. Calendar ranges compare with the same calendar unit, and while one is still running (this month on the 19th) the earlier ones are cut to as many days; rolling windows and custom spans compare with the same number of days before. `all` has nothing to compare with.
 
 Arrows next to the rendered date range step to the previous or next period (a month for `this-month`, 7 days for `last-7-days`, …), never into the future. The navigation is view-only: the block's `range` is untouched and a re-render starts back at it.
 

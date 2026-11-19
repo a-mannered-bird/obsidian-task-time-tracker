@@ -1,5 +1,10 @@
 import type { MinutesByKey } from 'types/tasks'
 import type { TaskOverlap } from './overlap'
+import {
+	trendCell,
+	type PeriodValues,
+	type ReadyComparison,
+} from './progression'
 import { strong, type RichLine } from './richText'
 import type { DayPoint, GroupBy, RangeStats } from './stats'
 import { formatHoursMinutes } from './time'
@@ -58,11 +63,15 @@ const SHARE_EXCESS: Record<GroupBy, string> = {
 		'A task counts for each entry it matches, and tasks that ran at the same time each count their full time, so shares can add up to more than 100%.',
 }
 
-/** The main table of a `task-stats` block: one row per task, tag or entry. */
+/**
+ * The main table of a `task-stats` block: one row per task, tag or entry,
+ * with a Trend column once a comparison is ready.
+ */
 export function buildStatsTable(
 	stats: RangeStats,
 	groupBy: GroupBy,
-	top: number | null
+	top: number | null,
+	comparison: ReadyComparison | null = null
 ): StatsTable {
 	const rows = topRows(stats.byKey, top)
 	const withOverlap = showsOverlap(stats, groupBy)
@@ -95,6 +104,7 @@ export function buildStatsTable(
 			],
 		})
 	}
+	if (comparison) columns.push(trendColumn(comparison))
 
 	const tableRows = rows.map(([key, minutes]) => {
 		const cells: TableCell[] = [
@@ -109,14 +119,57 @@ export function buildStatsTable(
 					: (stats.byTask[key] ?? { minutes, shared: 0, partners: {} })
 			cells.push(overlapCell(key, overlap, kept))
 		}
+		if (comparison) {
+			cells.push(
+				trendCell(
+					key,
+					minutes,
+					(values) => baselineRowMinutes(values, key, kept),
+					comparison
+				)
+			)
+		}
 		return { key, cells }
 	})
 
+	const coveredTrend = comparison
+		? trendCell('Covered', covered, (values) => values.covered, comparison)
+		: null
 	return {
 		columns,
 		rows: tableRows,
-		footer: footerRows(stats, rows, columns.length),
+		footer: footerRows(stats, rows, columns.length, coveredTrend),
 	}
+}
+
+function trendColumn(comparison: ReadyComparison): TableColumn {
+	const against = comparison.usual
+		? `the usual level, the ${comparison.usual.label} with logged time`
+		: 'the previous period'
+	return {
+		label: 'Trend',
+		numeric: true,
+		tooltip: [
+			[{ text: `Change against ${against}.` }],
+			[
+				{
+					text: 'While a week, month or year is still running, earlier ones are cut to as many days.',
+				},
+			],
+		],
+	}
+}
+
+/** A row's minutes in a baseline; Other adds up every key not shown as a row. */
+function baselineRowMinutes(
+	values: PeriodValues,
+	key: string,
+	kept: Set<string>
+): number {
+	if (key !== OTHER) return values.byKey[key] ?? 0
+	return Object.entries(values.byKey)
+		.filter(([name]) => !kept.has(name))
+		.reduce((sum, [, minutes]) => sum + minutes, 0)
 }
 
 /** The tasks folded into Other, added up; their partners are not listed. */
@@ -179,7 +232,8 @@ export function foldPartners(
 function footerRows(
 	stats: RangeStats,
 	rows: [string, number][],
-	columnCount: number
+	columnCount: number,
+	coveredTrend: TableCell | null
 ): FooterRow[] {
 	const covered = stats.coveredMinutes
 	const rowsTotal = rows.reduce((sum, [, minutes]) => sum + minutes, 0)
@@ -187,14 +241,13 @@ function footerRows(
 		...cells,
 		...Array.from({ length: columnCount - cells.length }, () => ({ text: '' })),
 	]
-	const coveredRow: FooterRow = {
-		cells: pad([
-			{ text: 'Covered' },
-			{ text: formatHoursMinutes(covered) },
-			{ text: '100%' },
-		]),
-		emphasis: true,
-	}
+	const coveredCells = pad([
+		{ text: 'Covered' },
+		{ text: formatHoursMinutes(covered) },
+		{ text: '100%' },
+	])
+	if (coveredTrend) coveredCells[columnCount - 1] = coveredTrend
+	const coveredRow: FooterRow = { cells: coveredCells, emphasis: true }
 	if (rowsTotal === covered) return [coveredRow]
 
 	const rowsLine: FooterRow = {

@@ -289,11 +289,11 @@ Grilled on 2026-11-18; mockups and the reasoning behind each choice are on the d
 
 ## Phase 13: Progression
 
-- [ ] Core, tested: previous and usual periods for every range kind (presets, rolling windows, custom spans, `all`), usual over periods with data only, deltas, time-of-day shifts, direction from goals.
-- [ ] `compare` / `compareWith` options with validation messages.
-- [ ] Deferred loading of the comparison ranges with the "Comparing…" placeholder.
-- [ ] Trend column and its tooltip; deltas on the summary and the time-of-day line.
-- [ ] E2E on a fixture spanning several weeks.
+- [x] Core, tested: previous and usual periods for every range kind (presets, rolling windows, custom spans, `all`), usual over periods with data only, deltas, time-of-day shifts, direction from goals (`deltaTone`; reading the direction from goal lines, latest goal winning, is Phase 14).
+- [x] `compare` / `compareWith` options with validation messages.
+- [x] Deferred loading of the comparison ranges with the "Comparing…" placeholder.
+- [x] Trend column and its tooltip; deltas on the summary and the time-of-day line.
+- [x] E2E on a fixture spanning several weeks.
 
 ## Phase 14: Goals
 

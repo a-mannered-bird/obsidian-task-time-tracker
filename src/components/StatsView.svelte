@@ -2,7 +2,17 @@
 	import { moment } from 'obsidian'
 	import { onMount } from 'svelte'
 	import { resolveSeriesColor } from 'core/chartColors'
-	import { loadRangeStats, type LoadedRangeStats } from 'core/loadRangeStats'
+	import {
+		loadComparison,
+		loadRangeStats,
+		type LoadedRangeStats,
+	} from 'core/loadRangeStats'
+	import {
+		summaryDelta,
+		summaryShift,
+		type Comparison,
+		type PeriodValues,
+	} from 'core/progression'
 	import { shiftRange } from 'core/ranges'
 	import type { StatsBlockOptions } from 'core/statsOptions'
 	import {
@@ -36,13 +46,20 @@
 	let offset = $state(0)
 	let canGoPrevious = $state(false)
 	let canGoNext = $state(false)
+	/** Null until the earlier periods are loaded, and with `compare: none`. */
+	let comparison = $state<Comparison | null>(null)
+	let comparing = $state(false)
+	/** Bumped by every reload, so a slower earlier one cannot win. */
+	let generation = 0
 
 	const stats = $derived(loaded?.stats ?? null)
 	const show = (metric: StatsBlockOptions['metrics'][number]) =>
 		options.metrics.includes(metric)
 
+	const ready = $derived(comparison?.status === 'ready' ? comparison : null)
+
 	const table = $derived(
-		stats ? buildStatsTable(stats, options.groupBy, options.top) : null
+		stats ? buildStatsTable(stats, options.groupBy, options.top, ready) : null
 	)
 	const keptKeys = $derived(new Set(table?.rows.map((row) => row.key)))
 	const hatched = $derived(stats ? showsOverlap(stats, options.groupBy) : false)
@@ -92,6 +109,16 @@
 		return minutes === null ? 'n/a' : formatClockMinutes(minutes)
 	}
 
+	type Pick = (values: PeriodValues) => number | null
+
+	function delta(current: number | null, pick: Pick) {
+		return ready ? summaryDelta(current, pick, ready) : null
+	}
+
+	function shift(current: number | null, pick: Pick) {
+		return ready ? summaryShift(current, pick, ready) : null
+	}
+
 	function formatDay(date: Date) {
 		return date.toLocaleDateString(undefined, {
 			year: 'numeric',
@@ -101,15 +128,28 @@
 	}
 
 	async function reload() {
+		const run = ++generation
 		const now = new Date()
-		loaded = await loadRangeStats(plugin.dailyLogs, options, offset, now)
+		const main = await loadRangeStats(plugin.dailyLogs, options, offset, now)
+		if (run !== generation) return
+		loaded = main
 		canGoPrevious = shiftRange(options.range, offset - 1, now) !== null
 		canGoNext = shiftRange(options.range, offset + 1, now) !== null
 		loading = false
+		if (!main || options.compare === 'none') return
+
+		// Drawn first, compared after: earlier periods can span years.
+		comparing = true
+		const result = await loadComparison(plugin.dailyLogs, options, offset, now)
+		if (run !== generation) return
+		comparison = result
+		comparing = false
 	}
 
 	function navigate(step: number) {
 		offset += step
+		// The comparison of the range left behind must not show meanwhile.
+		comparison = null
 		void reload()
 	}
 
@@ -119,6 +159,12 @@
 		return unsubscribe
 	})
 </script>
+
+{#snippet change(text: string | null)}
+	{#if text}
+		<span class="muted">· {text}</span>
+	{/if}
+{/snippet}
 
 {#if loading}
 	<p>Loading…</p>
@@ -151,6 +197,11 @@
 		</span>
 		<span class="muted">
 			{stats.loggedDays} of {stats.days} days logged
+			{#if comparing && !comparison}
+				· Comparing…
+			{:else if comparison?.status === 'unavailable'}
+				· {comparison.message}
+			{/if}
 		</span>
 	</div>
 
@@ -164,6 +215,7 @@
 							>· +{duration(stats.concurrentMinutes)} concurrent</span
 						>
 					{/if}
+					{@render change(delta(stats.coveredMinutes, (v) => v.covered))}
 				</div>
 			{/if}
 			{#if show('average')}
@@ -190,15 +242,19 @@
 		<div class="stats-summary">
 			<div>
 				<b>⏸ Off time</b> <span>{duration(stats.timeOfDay.offTime)}</span>
+				{@render change(delta(stats.timeOfDay.offTime, (v) => v.offTime))}
 			</div>
 			<div>
 				<b>🍃 Unlogged</b> <span>{duration(stats.timeOfDay.unlogged)}</span>
+				{@render change(delta(stats.timeOfDay.unlogged, (v) => v.unlogged))}
 			</div>
 			<div>
 				<b>🌅 Start of day</b> <span>{clock(stats.timeOfDay.dayStart)}</span>
+				{@render change(shift(stats.timeOfDay.dayStart, (v) => v.dayStart))}
 			</div>
 			<div>
 				<b>🌇 End of day</b> <span>{clock(stats.timeOfDay.dayEnd)}</span>
+				{@render change(shift(stats.timeOfDay.dayEnd, (v) => v.dayEnd))}
 			</div>
 		</div>
 	{/if}

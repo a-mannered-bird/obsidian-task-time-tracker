@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { countDays, resolveRange, shiftRange, startOfWeek } from './ranges'
+import {
+	countDays,
+	earlierRange,
+	resolveRange,
+	shiftRange,
+	startOfWeek,
+} from './ranges'
 
 // Wednesday 2026-08-19, mid-afternoon: bounds must ignore the time of day.
 const today = new Date(2026, 7, 19, 15, 42, 0)
@@ -145,6 +151,64 @@ describe('shiftRange', () => {
 		expect(shiftRange('this-month', 1, today)).toBeNull()
 		expect(shiftRange('all', -1, today)).toBeNull()
 		expect(shiftRange('fortnight', -1, today)).toBeNull()
+	})
+})
+
+describe('earlierRange', () => {
+	it('cuts earlier periods to the days elapsed in a running one', () => {
+		// Wednesday: Monday to Wednesday of each earlier week.
+		expect(earlierRange('this-week', 0, 1, today)).toEqual({
+			start: d(2026, 8, 10),
+			end: d(2026, 8, 12),
+		})
+		expect(earlierRange('this-month', 0, 3, today)).toEqual({
+			start: d(2026, 5, 1),
+			end: d(2026, 5, 19),
+		})
+		expect(earlierRange('last-2-weeks', 0, 1, today)).toEqual({
+			start: d(2026, 7, 27),
+			end: d(2026, 8, 5),
+		})
+		// Navigated forward from last month back into the running one.
+		expect(earlierRange('last-month', 1, 1, today)).toEqual({
+			start: d(2026, 7, 1),
+			end: d(2026, 7, 19),
+		})
+	})
+
+	it('compares a finished period with whole earlier ones', () => {
+		// A 30-day month keeps the 31st of the month before it.
+		expect(earlierRange('this-month', -1, 1, today)).toEqual({
+			start: d(2026, 6, 1),
+			end: d(2026, 6, 30),
+		})
+		expect(earlierRange('last-month', 0, 1, today)).toEqual({
+			start: d(2026, 6, 1),
+			end: d(2026, 6, 30),
+		})
+		expect(earlierRange('this-week', 0, 1, d(2026, 8, 23))).toEqual({
+			start: d(2026, 8, 10),
+			end: d(2026, 8, 16),
+		})
+	})
+
+	it('takes the same number of days before windows and custom spans', () => {
+		expect(earlierRange('last-7-days', 0, 2, today)).toEqual({
+			start: d(2026, 7, 30),
+			end: d(2026, 8, 5),
+		})
+		expect(earlierRange('2026-08-03..2026-08-09', 0, 1, today)).toEqual({
+			start: d(2026, 7, 27),
+			end: d(2026, 8, 2),
+		})
+		expect(earlierRange('today', 0, 1, today)).toEqual({
+			start: d(2026, 8, 18),
+			end: d(2026, 8, 18),
+		})
+	})
+
+	it('has nothing before "all"', () => {
+		expect(earlierRange('all', 0, 1, today)).toBeNull()
 	})
 })
 

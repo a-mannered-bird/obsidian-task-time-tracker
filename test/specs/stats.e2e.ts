@@ -6,17 +6,19 @@ import { resetVault } from './support/vault'
 /** A note holding a `task-stats` block over the fixture's 2026-08-03. */
 const STATS_NOTE = 'Stats.md'
 
-// The heading keeps the cursor off the block, which Live Preview would
-// otherwise show as source.
-const NOTE = [
-	'# Stats',
-	'',
-	'```task-stats',
-	'range: 2026-08-03..2026-08-03',
-	'metrics: [total]',
-	'```',
-	'',
-].join('\n')
+/**
+ * A note with a `task-stats` block. The heading keeps the cursor off the
+ * block, which Live Preview would otherwise show as source.
+ */
+const statsNote = (options: string[]) =>
+	['# Stats', '', '```task-stats', ...options, '```', ''].join('\n')
+
+const clockedTaskA = (day: string, end: string) =>
+	[
+		'- [ ] Task A #project',
+		`      [clock::${day}T09:00:00--${day}T${end}:00]`,
+		'',
+	].join('\n')
 
 /** One `toHaveText` per cell: the name cell's swatch breaks the row's text. */
 async function expectRow(row: ChainablePromiseElement, cells: string[]) {
@@ -29,10 +31,17 @@ async function expectRow(row: ChainablePromiseElement, cells: string[]) {
 describe('task-stats block', function () {
 	beforeEach(async function () {
 		await resetVault()
-		await obsidianPage.write(STATS_NOTE, NOTE)
 	})
 
 	it('counts concurrent tasks once in the covered time and shows their overlap', async function () {
+		await obsidianPage.write(
+			STATS_NOTE,
+			statsNote([
+				'range: 2026-08-03..2026-08-03',
+				'metrics: [total]',
+				'compare: none',
+			])
+		)
 		await obsidianPage.openFile(STATS_NOTE)
 		const block = browser.$('.block-language-task-stats')
 		const table = block.$('table')
@@ -78,6 +87,64 @@ describe('task-stats block', function () {
 		await expect(tooltip).toBeDisplayed()
 		await expect(tooltip).toHaveText(
 			'Task A · 15m of 30m shared (50%)\nwith Task B · 15m'
+		)
+	})
+
+	it('compares the week with the previous one and the usual level of weeks with logged time', async function () {
+		// Weeks before the fixture's week of 2026-08-03 (Monday): the week of
+		// 07-27 holds the fixture's 08-01 and 08-02, 07-13's has a note but no
+		// clock, so the usual level skips it and reaches back to 06-29's.
+		await obsidianPage.write(
+			'2026-07-21.md',
+			clockedTaskA('2026-07-21', '10:00')
+		)
+		await obsidianPage.write('2026-07-14.md', '- [ ] Task A #project\n')
+		await obsidianPage.write(
+			'2026-07-07.md',
+			clockedTaskA('2026-07-07', '09:30')
+		)
+		await obsidianPage.write(
+			'2026-06-30.md',
+			clockedTaskA('2026-06-30', '10:00')
+		)
+		await obsidianPage.write(
+			STATS_NOTE,
+			statsNote(['range: 2026-08-03..2026-08-09', 'metrics: [total]'])
+		)
+		await obsidianPage.openFile(STATS_NOTE)
+		const block = browser.$('.block-language-task-stats')
+		const table = block.$('table')
+		await expect(table).toBeDisplayed()
+
+		// Covered per week, latest first: 4h 50m (08-01: 2h 45m, 08-02:
+		// 2h 05m), 1h, 30m, 1h: usual 1h 50m, so 45m is 1h 05m under it.
+		await expect(block.$('div*=Covered')).toHaveText(
+			'⏱ Covered 45m · +15m concurrent · ▼ 1h 05m vs usual'
+		)
+		await expect(table.$('thead tr')).toHaveChildren(5)
+		await expect(table.$('thead tr th:nth-child(5)')).toHaveText('Trend')
+		// Task A ran 30m, 1h, 30m and 1h in the four logged weeks: usual 45m.
+		await expectRow(table.$('tbody tr:nth-child(1)'), [
+			'Task A',
+			'30m',
+			'67%',
+			'50%',
+			'▼ 15m · −33%',
+		])
+		await expect(table.$('tfoot tr:nth-child(3)')).toHaveText(
+			'Covered 45m 100% ▼ 1h 05m · −59%'
+		)
+
+		await table.$('tbody tr:nth-child(1) td:nth-child(5) span').moveTo()
+		const tooltip = browser.$('.tooltip')
+		await expect(tooltip).toBeDisplayed()
+		await expect(tooltip).toHaveText(
+			[
+				'Task A',
+				'This period · 30m',
+				'Previous · 30m · No change',
+				'Usual · 45m · ▼ 15m · −33% (average of 4 periods of 7 days)',
+			].join('\n')
 		)
 	})
 })

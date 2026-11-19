@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { TFile } from 'obsidian'
 import type { DailyLog } from './dailyLogs'
 import { parseTasks } from './parser'
+import type { ReadyComparison } from './progression'
 import { plainLine } from './richText'
 import { computeRangeStats, type GroupBy } from './stats'
 import {
@@ -44,6 +45,34 @@ const texts = (table: StatsTable) => ({
 })
 
 describe('buildStatsTable', () => {
+	it('adds a Trend column against usual, Other folding the hidden keys of the baseline too', () => {
+		const comparison: ReadyComparison = {
+			status: 'ready',
+			previous: null,
+			usual: {
+				// Walk only ran before: it folds into Other with Music and Email.
+				values: {
+					covered: 300,
+					byKey: { 'Deep work': 180, Music: 60, Walk: 30 },
+					offTime: null,
+					unlogged: null,
+					dayStart: null,
+					dayEnd: null,
+				},
+				label: 'average of 4 days',
+			},
+		}
+		const table = buildStatsTable(statsOf(day), 'task', 1, comparison)
+		const { columns, rows, footer } = texts(table)
+		expect(columns.at(-1)).toBe('Trend')
+		expect(rows.map((row) => row.at(-1))).toEqual([
+			'▲ 1h 00m · +33%',
+			'▲ 30m · +33%',
+		])
+		// Covered 4h 30m against 5h.
+		expect(footer.at(-1)?.at(-1)).toBe('▼ 30m · −10%')
+	})
+
 	it('shares rows of the covered time and reconciles them in the footer', () => {
 		const table = buildStatsTable(statsOf(day), 'task', null)
 		// 4h + 1h + 1h = 6h counted over 4h 30m covered: 1h 30m concurrent.

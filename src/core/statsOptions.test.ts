@@ -18,6 +18,8 @@ describe('normalizeStatsOptions', () => {
 				metrics: ['total', 'per-day'],
 				skipEmptyDays: true,
 				top: 5,
+				compare: 'usual',
+				compareWith: 8,
 			})
 		).toEqual({
 			ok: true,
@@ -28,6 +30,8 @@ describe('normalizeStatsOptions', () => {
 				metrics: ['total', 'per-day'],
 				skipEmptyDays: true,
 				top: 5,
+				compare: 'usual',
+				compareWith: 8,
 			},
 		})
 	})
@@ -39,14 +43,22 @@ describe('normalizeStatsOptions', () => {
 			metrics: ['total', 'median'],
 			skipEmptyDays: 'yes',
 			top: 0,
+			compare: 'last-year',
+			compareWith: 2.5,
 			colour: 'red',
 		})
 		expect(result.ok).toBe(false)
 		if (result.ok) return
-		expect(result.errors).toHaveLength(6)
+		expect(result.errors).toHaveLength(8)
 		expect(result.errors[4]).toBe('top: expected a positive whole number.')
 		expect(result.errors[0]).toMatch(/^range: "fortnight"/)
-		expect(result.errors[5]).toBe('Unknown option "colour".')
+		expect(result.errors[5]).toBe(
+			'compare: expected "both", "previous", "usual" or "none", got "last-year".'
+		)
+		expect(result.errors[6]).toBe(
+			'compareWith: expected a positive whole number.'
+		)
+		expect(result.errors[7]).toBe('Unknown option "colour".')
 	})
 
 	it('accepts groupBy "filter" only together with a filter', () => {

@@ -26,7 +26,7 @@ export type DateRange = {
 const CUSTOM_RANGE = /^(\d{4}-\d{2}-\d{2})\.\.(\d{4}-\d{2}-\d{2})$/
 const LAST_X_RANGE = /^last-(\d+)-(day|week|month|year)s?$/
 
-type LastRange = {
+export type LastRange = {
 	count: number
 	unit: 'day' | 'week' | 'month' | 'year'
 }
@@ -179,8 +179,44 @@ export function shiftRange(
 	return { start, end: end < day ? end : day }
 }
 
+/**
+ * The period `back` steps before the range shown at `offset`, which a
+ * comparison measures against. While the shown period still runs (this
+ * month on the 19th), the earlier one is cut to as many days, so both cover
+ * the same part of their period. Null for `all` and unknown specs.
+ */
+export function earlierRange(
+	spec: string,
+	offset: number,
+	back: number,
+	today: Date
+): { start: Date; end: Date } | null {
+	const shown = shiftRange(spec, offset, today)
+	const earlier = shiftRange(spec, offset - back, today)
+	if (!shown?.start || !earlier?.start) return null
+	const range = { start: shown.start, end: shown.end }
+	if (!isRunning(spec, range)) return { start: earlier.start, end: earlier.end }
+	const end = addDays(earlier.start, countDays(range) - 1)
+	return { start: earlier.start, end: end < earlier.end ? end : earlier.end }
+}
+
+/** Whether a calendar range stops before the end of its last week, month or year. */
+function isRunning(spec: string, range: { start: Date; end: Date }): boolean {
+	const unit = rangePeriod(spec)?.unit
+	switch (unit) {
+		case 'week':
+			return addDays(startOfWeek(range.end), 6) > range.end
+		case 'month':
+			return addDays(addMonths(startOfMonth(range.end), 1), -1) > range.end
+		case 'year':
+			return new Date(range.end.getFullYear(), 11, 31) > range.end
+		default:
+			return false
+	}
+}
+
 /** Step unit and length of a spec; null for `all`, custom spans and unknowns. */
-function rangePeriod(spec: string): LastRange | null {
+export function rangePeriod(spec: string): LastRange | null {
 	const trimmed = spec.trim()
 	const last = parseLastRange(trimmed)
 	if (last) return last
