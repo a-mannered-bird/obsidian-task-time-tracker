@@ -409,3 +409,11 @@
 	font-size: 0.9em;
 	opacity: 0.85;
 }
+
+/* The daily view scrolls its tab panel, not the view: the bottom padding
+   Obsidian gives every view would stay an empty strip under it, so the
+   panel takes it over (see DailyView.svelte). */
+.workspace-leaf-content[data-type='task-time-tracker-daily-view']
+	> .view-content {
+	padding-bottom: 0;
+}

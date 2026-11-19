@@ -282,6 +282,9 @@
 	 * there, as the view's own did, rather than over the timeline toolbar.
 	 * It reaches into the left padding too, as scrolling clips what
 	 * overflows: the running rows' background extends past the column.
+	 * The view's bottom padding moves in here too (see styles.css), so the
+	 * content scrolls down to the view's edge and the padding only shows
+	 * at the end of the list, as in a view that scrolls as a whole.
 	 */
 	.tab-panel {
 		flex: 1;
@@ -289,6 +292,7 @@
 		overflow-y: auto;
 		margin-inline: calc(-1 * var(--size-4-3));
 		padding-inline: var(--size-4-3);
+		padding-bottom: max(var(--safe-area-inset-bottom), var(--size-4-8));
 	}
 
 	.note-nav {

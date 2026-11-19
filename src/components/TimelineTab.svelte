@@ -47,6 +47,7 @@
 	} from 'core/timeline'
 	import type { ClockKey, ClockTimes, FinishedClockTimes } from 'types/tasks'
 	import { icon } from 'ui/icon'
+	import { findScroller } from 'ui/scroller'
 	import type TaskTimeTracker from '../main'
 
 	type Props = {
@@ -595,14 +596,6 @@
 	}
 
 	// ----- zoom and scroll -----
-
-	function findScroller(element: HTMLElement): HTMLElement {
-		for (let node = element.parentElement; node; node = node.parentElement) {
-			const { overflowY } = getComputedStyle(node)
-			if (overflowY === 'auto' || overflowY === 'scroll') return node
-		}
-		return document.documentElement
-	}
 
 	function toolbarHeight() {
 		return toolbar?.offsetHeight ?? 0

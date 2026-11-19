@@ -26,6 +26,7 @@
 	} from 'core/tracker'
 	import type { Task } from 'types/tasks'
 	import { icon } from 'ui/icon'
+	import { fitInScroller } from 'ui/scroller'
 	import { instantTooltip } from 'ui/tooltip'
 	import type TaskTimeTracker from '../main'
 
@@ -190,6 +191,7 @@
 				role="listbox"
 				aria-label="Suggestions"
 				onmousedown={keepFocus}
+				use:fitInScroller
 			>
 				{#each options as option, index (index)}
 					{@const groupBreak = breaks.get(index)}
@@ -330,7 +332,7 @@
 		margin: 0;
 		padding: 0.3em;
 		list-style: none;
-		max-height: 22em;
+		max-height: min(22em, var(--fit-height, 22em));
 		overflow-y: auto;
 		background: var(--background-primary);
 		border: 1px solid var(--background-modifier-border);
