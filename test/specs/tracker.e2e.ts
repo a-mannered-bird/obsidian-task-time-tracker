@@ -177,9 +177,9 @@ describe('tracker tab', function () {
 		assert.deepStrictEqual(states(content, '- [ ] Chores'), ['running'])
 		await expect(button('Stop Chores')).toBeDisplayed()
 
-		// Now rows switch, or start alongside.
-		await expect(button('Start German podcast alongside')).toBeEnabled()
-		await button('Start German podcast alongside').click()
+		// Now rows switch; starting alongside is in their menu.
+		await expect(button('Switch to German podcast')).toBeEnabled()
+		await chooseFromRowMenu('German podcast', 'Start alongside')
 		content = await waitForChange(content)
 		assert.deepStrictEqual(states(content, '- [ ] Chores'), ['running'])
 		assert.deepStrictEqual(states(content, '- [ ] German podcast'), ['running'])
@@ -299,12 +299,14 @@ describe('tracker tab', function () {
 		content = await waitForChange(content)
 		assert.deepStrictEqual(states(content, '- [ ] Chores'), ['running'])
 		assert.deepStrictEqual(states(content, '- [ ] Email'), ['running'])
-		// The mode outlives the pick.
+		// The mode outlives the pick, and the rows follow it.
 		await expect(alongside).toHaveAttribute('aria-pressed', 'true')
+		await expect(button('Start Run alongside')).toBeDisplayed()
 
 		await press(switchButton)
 		await expect(switchButton).toHaveAttribute('aria-pressed', 'true')
 		await expect(bar).toHaveAttribute('placeholder', 'Switch to…')
+		await expect(button('Switch to Run')).toBeDisplayed()
 		await expect(bar).toBeFocused()
 		await browser.keys([...'Run'])
 		await expect(bar).toHaveValue('Run')
@@ -313,6 +315,40 @@ describe('tracker tab', function () {
 		assert.deepStrictEqual(states(content, '- [ ] Chores'), ['closed'])
 		assert.deepStrictEqual(states(content, '- [ ] Email'), ['closed'])
 		assert.deepStrictEqual(states(content, '- [ ] Run'), ['running'])
+	})
+
+	it('starts alongside again once something runs after nothing did', async function () {
+		let content = await writeToday([
+			'- [ ] Chores',
+			`      [clock::${today.date}T00:00:00]`,
+			'- [ ] Email',
+			'- [ ] Run',
+		])
+		await openTracker()
+		const alongside = button('Start alongside')
+		await browser.execute((el) => el.click(), await alongside.getElement())
+		await expect(alongside).toHaveAttribute('aria-pressed', 'true')
+		await browser.keys('Escape')
+
+		// Nothing runs: Start is the only way of starting left.
+		await button('Stop Chores').click()
+		content = await waitForChange(content)
+		await expect(button('Start')).toHaveAttribute('aria-pressed', 'true')
+
+		await button('Start Email').click()
+		content = await waitForChange(content)
+		assert.deepStrictEqual(states(content, '- [ ] Email'), ['running'])
+		await expect(button('Start alongside')).toHaveAttribute(
+			'aria-pressed',
+			'true'
+		)
+		await expect(button('Start Run alongside')).toBeDisplayed()
+
+		// The view outlives the vault reset: leave the bar switching.
+		const switchButton = button('Switch')
+		await browser.execute((el) => el.click(), await switchButton.getElement())
+		await expect(switchButton).toHaveAttribute('aria-pressed', 'true')
+		await browser.keys('Escape')
 	})
 
 	it('unfolds the done tasks when nothing else is left', async function () {
@@ -572,6 +608,29 @@ describe('tracker tab', function () {
 			{ start: `${today.date}T00:00:00`, end: `${today.date}T00:10:00` },
 		])
 		await expect(button('Start Chores')).toBeDisplayed()
+	})
+
+	it('switches to a task at a typed time from its row', async function () {
+		let content = await writeToday([
+			'- [ ] Chores',
+			`      [clock::${today.date}T00:00:00]`,
+			'- [ ] Email',
+		])
+		await openTracker()
+
+		await button('Switch to Email at…').click()
+		const modal = await modalTitled('When did it happen?')
+		await typeTime(modal, '00:10')
+		await modal.$('button=OK').click()
+
+		content = await waitForChange(content)
+		assert.deepStrictEqual(clocksOf(content, '- [ ] Chores'), [
+			{ start: `${today.date}T00:00:00`, end: `${today.date}T00:10:00` },
+		])
+		assert.deepStrictEqual(clocksOf(content, '- [ ] Email'), [
+			{ start: `${today.date}T00:10:00`, end: null },
+		])
+		await expect(button('Stop Email')).toBeDisplayed()
 	})
 
 	it('stops a running task when the last task ended', async function () {

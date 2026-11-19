@@ -19,9 +19,12 @@
 	} from 'core/taskPicker'
 	import {
 		barAction,
-		primaryStartIcon,
+		INITIAL_BAR_MODE,
+		pressBarButton,
 		startActions,
+		startIcon,
 		type BarAction,
+		type BarButton,
 		type BarMode,
 	} from 'core/tracker'
 	import type { Task } from 'types/tasks'
@@ -37,9 +40,17 @@
 		placeholders: Record<BarAction, string>
 		/** Heading over the note's tasks: `Today`, or the note's day. */
 		noteHeading: string
+		/** Set by the last pressed button; the tab's rows follow it too. */
+		mode?: BarMode
 	}
 
-	const { plugin, tasks, placeholders, noteHeading }: Props = $props()
+	let {
+		plugin,
+		tasks,
+		placeholders,
+		noteHeading,
+		mode = $bindable(INITIAL_BAR_MODE),
+	}: Props = $props()
 
 	/** Other notes' tasks listed before anything is typed, or once typed. */
 	const OTHER_LIMIT = 8
@@ -51,17 +62,11 @@
 	let selected = $state(0)
 	let vault = $state<VaultPickerEntries | null>(null)
 	let input = $state<HTMLInputElement | null>(null)
-	let mode = $state<BarMode>('primary')
 
 	const actions = $derived(startActions(tasks.filter(isRunning)))
 	const action = $derived(barAction(mode, actions))
 	const starting = $derived(action === 'start' || action === 'switch')
 
-	// Alongside of nothing means nothing: once no task runs, the next one
-	// running starts the bar back in its primary mode.
-	$effect(() => {
-		if (!actions.alongside && mode === 'alongside') mode = 'primary'
-	})
 	const options = $derived(
 		taskSuggestions({
 			query,
@@ -108,8 +113,8 @@
 	 * A button sets the mode; it also acts on the highlighted task when
 	 * something is typed, and otherwise opens the list to pick from.
 	 */
-	function press(next: BarMode) {
-		mode = next
+	function press(button: BarButton) {
+		mode = pressBarButton(mode, button, actions)
 		if (query.trim() === '') {
 			input?.focus()
 			open = true
@@ -230,7 +235,7 @@
 		aria-label={actions.primary === 'switch' ? 'Switch' : 'Start'}
 		aria-pressed={starting}
 		use:instantTooltip={() => [controlHint(plugin, actions.primary)]}
-		use:icon={primaryStartIcon(actions.primary)}
+		use:icon={startIcon(actions.primary)}
 		onmousedown={keepFocus}
 		onclick={() => press('primary')}
 	></button>
@@ -241,7 +246,7 @@
 			aria-label="Start alongside"
 			aria-pressed={action === 'alongside'}
 			use:instantTooltip={() => [controlHint(plugin, 'alongside')]}
-			use:icon={'plus'}
+			use:icon={startIcon('alongside')}
 			onmousedown={keepFocus}
 			onclick={() => press('alongside')}
 		></button>
@@ -321,6 +326,7 @@
 		justify-content: center;
 		height: auto;
 		padding: 0 var(--size-4-3);
+		cursor: pointer;
 	}
 
 	.options {

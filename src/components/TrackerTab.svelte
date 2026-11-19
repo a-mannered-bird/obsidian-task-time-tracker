@@ -16,6 +16,7 @@
 		setInterruptionStop,
 		setStop,
 		startTask,
+		startTaskAt,
 		stopFromLastEnd,
 		stopTasks,
 		toggleInterruption,
@@ -36,21 +37,25 @@
 	import { INTERRUPTION_TASK, taskChoice } from 'core/toggle'
 	import {
 		dropMove,
+		INITIAL_BAR_MODE,
 		dayButtons,
 		dropSlot,
 		pausedByInterruption,
-		primaryStartIcon,
 		rowActions,
 		rowClock,
+		rowStart,
 		startActions,
+		startIcon,
 		trackerLayout,
 		describeDuplicateTask,
 		findDuplicateTask,
+		type BarMode,
 		type RowAction,
+		type RowStart,
 		type TaskMove,
 	} from 'core/tracker'
 	import type { Task } from 'types/tasks'
-	import { STOP_AT_ICON } from 'ui/customIcons'
+	import { START_AT_ICON, STOP_AT_ICON } from 'ui/customIcons'
 	import { icon } from 'ui/icon'
 	import { openTaskManager } from 'ui/TaskManagerModal'
 	import { rowMotion } from 'ui/rowMotion'
@@ -91,7 +96,8 @@
 	const tasks = $derived(log?.tasks ?? [])
 	const duplicate = $derived(findDuplicateTask(tasks))
 	const layout = $derived(trackerLayout(tasks))
-	const actions = $derived(startActions(layout.running))
+	let barMode = $state<BarMode>(INITIAL_BAR_MODE)
+	const rowStarts = $derived(rowStart(barMode, startActions(layout.running)))
 	const paused = $derived(pausedByInterruption(tasks))
 	const interruptionActive = $derived(
 		layout.running.some((task) => task.name === INTERRUPTION_TASK)
@@ -186,6 +192,12 @@
 
 	function start(task: Task, mode: StartMode) {
 		void startTask(plugin, taskChoice(task), mode)
+	}
+
+	const START_LABELS: Record<RowStart, (name: string) => string> = {
+		start: (name) => `Start ${name}`,
+		switch: (name) => `Switch to ${name}`,
+		alongside: (name) => `Start ${name} alongside`,
 	}
 
 	function stop(names: string[], done: boolean) {
@@ -356,6 +368,18 @@
 		RowAction,
 		{ title: string; icon: string; group: MenuGroup; control?: ViewControl }
 	> = {
+		'switch-to': {
+			title: 'Switch to this task',
+			icon: startIcon('switch'),
+			group: 'track',
+			control: 'switch',
+		},
+		'start-alongside': {
+			title: 'Start alongside',
+			icon: startIcon('alongside'),
+			group: 'track',
+			control: 'alongside',
+		},
 		'stop-from-last-end': {
 			title: 'Stop from last task end',
 			icon: 'step-forward',
@@ -441,7 +465,7 @@
 	function openRowMenu(event: MouseEvent, task: Task) {
 		const menu = new Menu()
 		let group: MenuGroup | null = null
-		for (const action of rowActions(task, tasks)) {
+		for (const action of rowActions(task, tasks, rowStarts)) {
 			const item = ROW_ITEMS[action]
 			if (group && item.group !== group) menu.addSeparator()
 			group = item.group
@@ -467,6 +491,10 @@
 		const name = task.name
 		const clock = rowClock(task)
 		switch (action) {
+			case 'switch-to':
+				return start(task, 'switch')
+			case 'start-alongside':
+				return start(task, 'alongside')
 			case 'stop-from-last-end':
 				return void stopFromLastEnd(plugin, name)
 			case 'change-start':
@@ -632,22 +660,20 @@
 	<span class="row-actions">
 		<button
 			class="row-button"
-			use:instantTooltip={() => [controlHint(plugin, actions.primary)]}
-			aria-label={actions.primary === 'switch'
-				? `Switch to ${task.name}`
-				: `Start ${task.name}`}
-			use:icon={primaryStartIcon(actions.primary)}
-			onclick={() => start(task, actions.primary)}
+			use:instantTooltip={() => [controlHint(plugin, rowStarts)]}
+			aria-label={START_LABELS[rowStarts](task.name)}
+			use:icon={startIcon(rowStarts)}
+			onclick={() => start(task, rowStarts)}
 		></button>
-		{#if actions.alongside}
-			<button
-				class="row-button"
-				aria-label={`Start ${task.name} alongside`}
-				use:instantTooltip={() => [controlHint(plugin, 'alongside')]}
-				use:icon={'plus'}
-				onclick={() => start(task, 'alongside')}
-			></button>
-		{/if}
+		<button
+			class="row-button"
+			use:instantTooltip={() => [
+				controlHint(plugin, rowStarts === 'switch' ? 'switchAt' : 'startAt'),
+			]}
+			aria-label={`${START_LABELS[rowStarts](task.name)} at…`}
+			use:icon={START_AT_ICON}
+			onclick={() => void startTaskAt(plugin, taskChoice(task), rowStarts)}
+		></button>
 		{@render moreButton(task)}
 	</span>
 {/snippet}
@@ -725,6 +751,7 @@
 		<TaskBar
 			{plugin}
 			{tasks}
+			bind:mode={barMode}
 			placeholders={otherDay
 				? {
 						start: `Add a task to ${otherDay}`,

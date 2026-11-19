@@ -87,26 +87,70 @@ export function dayButtons(tasks: Task[], dayStart: Date | null): DayButtons {
 }
 
 /**
- * What the bar's last pressed button set: tasks picked from the bar then
- * start with the primary action, start alongside, or are only added to the
- * plan, until another of its buttons is pressed.
+ * What the bar's pressed buttons set: tasks picked from the bar then start
+ * with the primary action or alongside, or are only added to the plan.
+ * The way of starting outlives planning and the moments nothing runs (the
+ * bar then shows Start), so it comes back once something runs again.
  */
-export type BarMode = 'primary' | 'alongside' | 'plan'
+export type BarMode = { start: 'primary' | 'alongside'; planning: boolean }
+
+export const INITIAL_BAR_MODE: BarMode = { start: 'primary', planning: false }
+
+export type BarButton = 'primary' | 'alongside' | 'plan'
+
+/**
+ * The mode after pressing a bar button. Start, pressed while nothing runs,
+ * is the only way of starting there: it keeps the one chosen before.
+ */
+export function pressBarButton(
+	mode: BarMode,
+	button: BarButton,
+	actions: StartActions
+): BarMode {
+	switch (button) {
+		case 'plan':
+			return { ...mode, planning: true }
+		case 'alongside':
+			return { start: 'alongside', planning: false }
+		default:
+			return {
+				start: actions.alongside ? 'primary' : mode.start,
+				planning: false,
+			}
+	}
+}
 
 /** What picking a task from the bar does. */
 export type BarAction = 'start' | 'switch' | 'alongside' | 'plan'
 
-/** The bar's mode in effect: alongside only while something runs. */
-export function barAction(mode: BarMode, actions: StartActions): BarAction {
-	if (mode === 'plan') return 'plan'
-	return mode === 'alongside' && actions.alongside
+/**
+ * How a planned or done row's buttons start it: as the bar's way of
+ * starting says, so one pressed button there sets both, planning included
+ * (the rows' tasks are planned already).
+ */
+export type RowStart = Exclude<BarAction, 'plan'>
+
+export function rowStart(mode: BarMode, actions: StartActions): RowStart {
+	return mode.start === 'alongside' && actions.alongside
 		? 'alongside'
 		: actions.primary
 }
 
-/** Lucide icon of the primary start button, in the bar and on the rows. */
-export function primaryStartIcon(primary: StartActions['primary']): string {
-	return primary === 'switch' ? 'fast-forward' : 'play'
+/** The bar's mode in effect: alongside only while something runs. */
+export function barAction(mode: BarMode, actions: StartActions): BarAction {
+	return mode.planning ? 'plan' : rowStart(mode, actions)
+}
+
+/** Lucide icon of a start button, in the bar and on the rows. */
+export function startIcon(start: RowStart): string {
+	switch (start) {
+		case 'switch':
+			return 'fast-forward'
+		case 'alongside':
+			return 'plus'
+		default:
+			return 'play'
+	}
 }
 
 /**
@@ -123,6 +167,8 @@ export function pausedByInterruption(tasks: Task[]): Task[] {
 
 /** What the ⋯ menu of a row offers, in menu order. */
 export type RowAction =
+	| 'switch-to'
+	| 'start-alongside'
 	| 'stop-from-last-end'
 	| 'change-start'
 	| 'set-stop'
@@ -142,11 +188,17 @@ export type RowAction =
 	| 'delete-task'
 
 /**
- * The menu of a row of the note's `tasks`. Stopping at the last task end
- * is offered only when that end is after the running clock started; moves
- * only within the row's section (plan or Done), where they can be seen.
+ * The menu of a row of the note's `tasks`, whose buttons start it with
+ * `start`: the menu offers the other way of starting while something runs.
+ * Stopping at the last task end is offered only when that end is after the
+ * running clock started; moves only within the row's section (plan or
+ * Done), where they can be seen.
  */
-export function rowActions(task: Task, tasks: Task[]): RowAction[] {
+export function rowActions(
+	task: Task,
+	tasks: Task[],
+	start: RowStart
+): RowAction[] {
 	const lastEnd = lastTaskEnd(tasks)
 	const running = task.clocks.find((clock) => clock.end === null)
 	if (running) {
@@ -171,6 +223,8 @@ export function rowActions(task: Task, tasks: Task[]): RowAction[] {
 	const notLast = index >= 0 && index < section.length - 1
 	const clocked = task.clocks.length > 0
 	return [
+		...when(start === 'alongside', 'switch-to'),
+		...when(start === 'switch', 'start-alongside'),
 		...when(lastEnd !== null, 'start-from-last-end'),
 		...when(clocked, 'migrate-last-clock'),
 		...when(notFirst, 'move-up'),

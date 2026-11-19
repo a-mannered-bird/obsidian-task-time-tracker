@@ -10,12 +10,15 @@ import {
 	moveTaskLine,
 	pausedByInterruption,
 	barAction,
+	pressBarButton,
+	rowStart,
 	dayButtons,
 	findDuplicateTask,
 	removeTaskLine,
 	rowActions,
 	startActions,
 	trackerLayout,
+	type BarMode,
 } from './tracker'
 
 const names = (tasks: { name: string }[]) => tasks.map((task) => task.name)
@@ -133,24 +136,45 @@ describe('startActions', () => {
 	})
 })
 
-describe('barAction', () => {
+describe('bar mode', () => {
 	const idle = startActions([])
 	const busy = startActions(
 		parseTasks(['- [ ] Chores', '  [clock::2026-11-12T10:42:00]'])
 	)
+	const switching: BarMode = { start: 'primary', planning: false }
+	const alongside: BarMode = { start: 'alongside', planning: false }
+	const planning: BarMode = { start: 'alongside', planning: true }
 
 	it('starts alongside once chosen, while something runs', () => {
-		expect(barAction('alongside', busy)).toBe('alongside')
-		expect(barAction('primary', busy)).toBe('switch')
+		expect(barAction(alongside, busy)).toBe('alongside')
+		expect(barAction(switching, busy)).toBe('switch')
 	})
 
-	it('falls back to a plain start when nothing runs', () => {
-		expect(barAction('alongside', idle)).toBe('start')
+	it('starts alongside again once something runs after nothing did', () => {
+		expect(barAction(alongside, idle)).toBe('start')
+		// Start, the only way of starting while nothing runs, keeps the choice.
+		const started = pressBarButton(alongside, 'primary', idle)
+		expect(barAction(started, busy)).toBe('alongside')
 	})
 
-	it('plans whether or not something runs', () => {
-		expect(barAction('plan', idle)).toBe('plan')
-		expect(barAction('plan', busy)).toBe('plan')
+	it('switches once Switch is pressed while something runs', () => {
+		const pressed = pressBarButton(alongside, 'primary', busy)
+		expect(barAction(pressed, busy)).toBe('switch')
+		expect(barAction(pressed, idle)).toBe('start')
+	})
+
+	it('comes back from planning to the way of starting chosen before', () => {
+		expect(barAction(planning, busy)).toBe('plan')
+		expect(barAction(planning, idle)).toBe('plan')
+		const back = pressBarButton(planning, 'primary', idle)
+		expect(barAction(back, busy)).toBe('alongside')
+	})
+
+	it('leads the rows like the bar, planning included', () => {
+		expect(rowStart(alongside, busy)).toBe('alongside')
+		expect(rowStart(alongside, idle)).toBe('start')
+		expect(rowStart(planning, busy)).toBe('alongside')
+		expect(rowStart({ ...switching, planning: true }, busy)).toBe('switch')
 	})
 })
 
@@ -240,7 +264,7 @@ describe('rowActions', () => {
 		'- [x] Breakfast',
 	])
 	const actionsOf = (name: string) =>
-		rowActions(tasks.find((task) => task.name === name)!, tasks)
+		rowActions(tasks.find((task) => task.name === name)!, tasks, 'switch')
 
 	it('offers to stop at the last task end only when it is after the start', () => {
 		// Write blog post ended at 10:00: after Chores started, before Email.
@@ -260,6 +284,7 @@ describe('rowActions', () => {
 	it('offers clock actions on idle rows only when they have a clock', () => {
 		expect(actionsOf('Write blog post')).toContain('delete-last-clock')
 		expect(actionsOf('Plan trip')).toEqual([
+			'start-alongside',
 			'start-from-last-end',
 			'move-up',
 			'move-down',
@@ -282,7 +307,13 @@ describe('rowActions', () => {
 
 	it('does not offer to start from the last task end before any ended', () => {
 		const fresh = parseTasks(['- [ ] Email'])
-		expect(rowActions(fresh[0]!, fresh)[0]).toBe('show-task')
+		expect(rowActions(fresh[0]!, fresh, 'start')[0]).toBe('show-task')
+	})
+
+	it('offers the way of starting that the row buttons do not', () => {
+		const planTrip = tasks.find((task) => task.name === 'Plan trip')!
+		expect(rowActions(planTrip, tasks, 'alongside')[0]).toBe('switch-to')
+		expect(rowActions(planTrip, tasks, 'start')[0]).toBe('start-from-last-end')
 	})
 })
 

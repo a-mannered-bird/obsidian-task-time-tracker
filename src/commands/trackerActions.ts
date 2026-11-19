@@ -40,11 +40,22 @@ export function startTask(
 	choice: TaskChoice,
 	mode: StartMode
 ): Promise<void> {
-	const step: ToggleOptions =
-		mode === 'switch'
-			? { switch: true }
-			: { targetState: 'on', fromLastTask: mode === 'fromLastEnd' }
-	return runFromTab(plugin, [step], choice)
+	return runFromTab(plugin, [startStep(mode)], choice)
+}
+
+/** Start the chosen task like `startTask`, at a time asked first. */
+export function startTaskAt(
+	plugin: TaskTimeTracker,
+	choice: TaskChoice,
+	mode: Exclude<StartMode, 'fromLastEnd'>
+): Promise<void> {
+	return runFromTab(plugin, [askingTime(startStep(mode))], choice)
+}
+
+function startStep(mode: StartMode): ToggleOptions {
+	return mode === 'switch'
+		? { switch: true }
+		: { targetState: 'on', fromLastTask: mode === 'fromLastEnd' }
 }
 
 /** Stop running tasks at one time; `done` also ticks them. */
