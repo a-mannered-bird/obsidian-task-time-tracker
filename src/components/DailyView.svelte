@@ -252,7 +252,7 @@
 		{/each}
 	</div>
 
-	<div class="tab-panel" role="tabpanel">
+	<div class="tab-panel" role="tabpanel" aria-busy={loading}>
 		{#if active === 'tracker'}
 			<TrackerTab
 				bind:this={trackerTab}

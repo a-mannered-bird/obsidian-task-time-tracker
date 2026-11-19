@@ -16,20 +16,27 @@ export async function selectDailyViewTab(name: DailyViewTab) {
 }
 
 /**
- * The sidebar slides open with the view: pointing at a button before it
- * stops lands on whatever slid under the pointer meanwhile.
+ * The sidebar slides open with the view, and the note loads after it: rows
+ * can still come in or shift once the panel itself stands still. Pointing
+ * at a button before then lands on whatever moved under the pointer, which
+ * swallows the click, or closes its tooltip as the pointer leaves the
+ * button (seen on CI only).
  */
 async function waitForViewToSettle() {
 	let last = ''
 	await browser.waitUntil(
 		async () => {
-			const rect = await browser.execute(() =>
-				JSON.stringify(
-					document.querySelector('[role="tabpanel"]')?.getBoundingClientRect()
+			const layout = await browser.execute(() => {
+				const panel = document.querySelector('[role="tabpanel"]')
+				if (!panel || panel.getAttribute('aria-busy') !== 'false') return ''
+				const buttons = Array.from(panel.querySelectorAll('button'))
+				const rects = [panel, ...buttons].map((el) =>
+					el.getBoundingClientRect()
 				)
-			)
-			const settled = rect === last
-			last = rect
+				return JSON.stringify(rects)
+			})
+			const settled = layout !== '' && layout === last
+			last = layout
 			return settled
 		},
 		{ interval: 100, timeoutMsg: 'the daily view kept moving' }
