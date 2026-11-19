@@ -66,6 +66,13 @@ async function waitForChange(
 	return obsidianPage.read(path)
 }
 
+/** The line of the cursor in the active note's editor, or null. */
+function cursorLine(): Promise<number | null> {
+	return browser.executeObsidian(
+		({ app }) => app.workspace.activeEditor?.editor?.getCursor().line ?? null
+	)
+}
+
 const button = (label: string) => browser.$(`button[aria-label="${label}"]`)
 
 /** The modal on top of the stack, if any. */
@@ -1164,6 +1171,37 @@ describe('tracker tab', function () {
 			'false'
 		)
 		assert.strictEqual(await obsidianPage.read(today.path), content)
+	})
+
+	it('warns about a task listed twice and goes to the repeated line', async function () {
+		const content = await writeToday([
+			'- [ ] Email',
+			'- [ ] Chores',
+			'- [x] Email',
+		])
+		await openTracker()
+
+		// The rows are keyed by name: the tab shows the warning instead.
+		const warning = browser.$('[role="tabpanel"] [role="alert"]')
+		await expect(warning).toHaveText(
+			expect.stringContaining('Email is listed twice in this note')
+		)
+		const notice = noticeWith('is listed twice in this note')
+		await expect(notice).toHaveText(expect.stringContaining('Email'))
+
+		await clickNoticeButton(notice, 'Go to task')
+		await browser.waitUntil(async () => (await cursorLine()) === 2, {
+			timeoutMsg: 'the editor did not go to the repeated line',
+		})
+		assert.strictEqual(await cursorLine(), 2)
+
+		// Renamed, the line is a task of its own: the plan is back.
+		await obsidianPage.write(
+			today.path,
+			content.replace('- [x] Email', '- [x] Emails')
+		)
+		await expectPlan(['Email', 'Chores'])
+		await expect(browser.$('summary=Done (1)')).toBeDisplayed()
 	})
 
 	it('shows a task alone in the task manager from its menu', async function () {

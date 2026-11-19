@@ -1,6 +1,7 @@
 import type { Clock, Task } from 'types/tasks'
 import type { CompletionPlan } from './complete'
 import { getLastEnd, isRunning, TaskNote } from './note'
+import { NOTICE_ICON, noticeTask } from './noticeText'
 import { getLastEndedTasks, INTERRUPTION_TASK } from './toggle'
 
 /** The tracker tab's sections, each in the note's order. */
@@ -28,6 +29,24 @@ export function trackerLayout(tasks: Task[]): TrackerLayout {
 		done: idle.filter((task) => task.ticked),
 		doneUnfolded: running.length === 0 && open.length === 0,
 	}
+}
+
+/**
+ * The first task line repeating the name of a line above it, or null.
+ * Names identify tasks, so the tracker cannot list a note holding one
+ * twice: every action on that name would hit the first line only.
+ */
+export function findDuplicateTask(tasks: Task[]): Task | null {
+	const seen = new Set<string>()
+	for (const task of tasks) {
+		if (seen.has(task.name)) return task
+		seen.add(task.name)
+	}
+	return null
+}
+
+export function describeDuplicateTask(name: string): string {
+	return `${NOTICE_ICON.warning} ${noticeTask(name)} is listed twice in this note, so the tracker cannot show it. Merge the two lines or rename one.`
 }
 
 /**

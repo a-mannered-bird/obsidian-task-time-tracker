@@ -44,6 +44,8 @@
 		rowClock,
 		startActions,
 		trackerLayout,
+		describeDuplicateTask,
+		findDuplicateTask,
 		type RowAction,
 		type TaskMove,
 	} from 'core/tracker'
@@ -53,6 +55,7 @@
 	import { openTaskManager } from 'ui/TaskManagerModal'
 	import { rowMotion } from 'ui/rowMotion'
 	import { instantTooltip } from 'ui/tooltip'
+	import { showActionNotice } from 'ui/undoNotice'
 	import type TaskTimeTracker from '../main'
 	import TagEditor from './TagEditor.svelte'
 	import TaskBar from './TaskBar.svelte'
@@ -86,6 +89,7 @@
 	}
 
 	const tasks = $derived(log?.tasks ?? [])
+	const duplicate = $derived(findDuplicateTask(tasks))
 	const layout = $derived(trackerLayout(tasks))
 	const actions = $derived(startActions(layout.running))
 	const paused = $derived(pausedByInterruption(tasks))
@@ -109,6 +113,23 @@
 			controlHint(plugin, 'endDay'),
 		]
 	}
+
+	// Every note change reloads the log: warn once per duplicate line, not
+	// on each keystroke while the user is fixing it.
+	let warnedDuplicate: string | null = null
+	$effect(() => {
+		const key =
+			duplicate && log
+				? `${log.file.path}:${duplicate.lineIndex}:${duplicate.name}`
+				: null
+		if (key === warnedDuplicate) return
+		warnedDuplicate = key
+		if (!duplicate) return
+		const task = duplicate
+		showActionNotice(describeDuplicateTask(task.name), [
+			{ label: 'Go to task', run: () => reveal(task) },
+		])
+	})
 
 	function runningClockStart(task: Task): Date | null {
 		return task.clocks.find((clock) => clock.end === null)?.start ?? null
@@ -714,7 +735,16 @@
 		</div>
 	</div>
 
-	{#if layout.running.length > 0}
+	{#if duplicate}
+		{@const task = duplicate}
+		<div class="duplicate" role="alert">
+			<p>
+				<strong>{task.name}</strong> is listed twice in this note. Merge the two lines
+				or rename one to track it again.
+			</p>
+			<button class="mod-cta" onclick={() => reveal(task)}>Go to task</button>
+		</div>
+	{:else if layout.running.length > 0}
 		{@const several = layout.running.length > 1}
 		<section
 			class="section"
@@ -807,7 +837,9 @@
 		</section>
 	{/if}
 
-	{#if layout.open.length > 0 || layout.done.length > 0}
+	{#if duplicate}
+		<!-- The rows are keyed by name: listing a duplicate would crash. -->
+	{:else if layout.open.length > 0 || layout.done.length > 0}
 		<section
 			class="section"
 			aria-labelledby="plan-title"
@@ -1271,6 +1303,17 @@
 		cursor: pointer;
 		padding: 0.5em 0;
 		color: var(--text-muted);
+	}
+
+	.duplicate {
+		padding: 0.6em 0.75em;
+		border: 1px solid rgba(var(--color-red-rgb), 0.5);
+		border-radius: var(--radius-m);
+		background: rgba(var(--color-red-rgb), 0.1);
+	}
+
+	.duplicate p {
+		margin: 0 0 0.5em;
 	}
 
 	.empty {

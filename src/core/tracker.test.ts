@@ -11,6 +11,7 @@ import {
 	pausedByInterruption,
 	barAction,
 	dayButtons,
+	findDuplicateTask,
 	removeTaskLine,
 	rowActions,
 	startActions,
@@ -91,6 +92,27 @@ describe('trackerLayout', () => {
 		)
 		expect(names(running.running)).toEqual(['Interruption'])
 		expect(names(running.open)).toEqual(['Email'])
+	})
+})
+
+describe('findDuplicateTask', () => {
+	it('returns the second line bearing a name already listed', () => {
+		const duplicate = findDuplicateTask(
+			parseTasks([
+				'- [ ] Write blog post #writing',
+				'- [ ] Chores',
+				'- [x] Write blog post',
+				'      [clock::2026-11-12T09:00:00--2026-11-12T10:00:00]',
+			])
+		)
+		expect(duplicate).toMatchObject({ name: 'Write blog post', lineIndex: 2 })
+	})
+
+	it('tells names apart by case', () => {
+		const duplicate = findDuplicateTask(
+			parseTasks(['- [ ] Chores', '- [ ] chores'])
+		)
+		expect(duplicate).toBeNull()
 	})
 })
 
