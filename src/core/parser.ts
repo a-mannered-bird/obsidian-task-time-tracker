@@ -1,8 +1,10 @@
 import type { Clock, Task } from 'types/tasks'
+import { GOAL_KEY, parseGoal } from './goals'
 import { formatLocalDateTime, parseLocalDateTime } from './time'
 
 const TASK_LINE = /^(\s*)- \[([ xX])\] (.*)$/
 const CLOCK_LINE = /^(\s*)\[clock::(.+?)(?:--(.+?))?\]\s*$/
+const GOAL_LINE = new RegExp(String.raw`^\s*\[${GOAL_KEY}::(.*)\]\s*$`)
 /** A tag token anywhere in a line (global: reset lastIndex or use match). */
 export const TAG = /#[\p{L}\p{N}_/-]+/gu
 
@@ -28,9 +30,10 @@ export function parseTaskInput(text: string): { name: string; tags: string[] } {
 }
 
 /**
- * Parse every task of a note. Clock lines directly below a task belong to it;
- * clock lines anywhere else are ignored. Line indexes are kept so the model
- * can be written back by the note editor.
+ * Parse every task of a note. Clock and goal lines directly below a task, in
+ * any order, belong to it; anywhere else they are ignored. A goal line that
+ * does not read as a goal still belongs to the task, as a malformed one.
+ * Line indexes are kept so the model can be written back by the note editor.
  */
 export function parseTasks(lines: string[]): Task[] {
 	const tasks: Task[] = []
@@ -45,6 +48,8 @@ export function parseTasks(lines: string[]): Task[] {
 				ticked: taskMatch[2] !== ' ',
 				lineIndex,
 				clocks: [],
+				goals: [],
+				malformedGoals: [],
 			}
 			tasks.push(current)
 			return
@@ -53,6 +58,20 @@ export function parseTasks(lines: string[]): Task[] {
 		const clock = current ? parseClockLine(line, lineIndex) : null
 		if (clock && current) {
 			current.clocks.push(clock)
+			return
+		}
+
+		const goalText = current ? GOAL_LINE.exec(line)?.[1] : undefined
+		if (goalText !== undefined && current) {
+			const parsed = parseGoal(goalText)
+			if ('goal' in parsed) current.goals.push({ ...parsed.goal, lineIndex })
+			else {
+				current.malformedGoals.push({
+					lineIndex,
+					text: goalText,
+					problem: parsed.problem,
+				})
+			}
 			return
 		}
 
@@ -71,6 +90,25 @@ function parseClockLine(line: string, lineIndex: number): Clock | null {
 	// A closing timestamp that does not parse is treated as invalid line.
 	if (match[3] !== undefined && !end) return null
 	return { start, end, lineIndex }
+}
+
+/** Index of the first line after the task line and its clock and goal lines. */
+export function taskBlockEnd(task: Task): number {
+	return (
+		Math.max(
+			task.lineIndex,
+			...task.clocks.map((clock) => clock.lineIndex),
+			...task.goals.map((goal) => goal.lineIndex),
+			...task.malformedGoals.map((goal) => goal.lineIndex)
+		) + 1
+	)
+}
+
+/** Line indexes of the task's goal lines, malformed ones included, in order. */
+export function goalLineIndexes(task: Task): number[] {
+	return [...task.goals, ...task.malformedGoals]
+		.map((goal) => goal.lineIndex)
+		.sort((a, b) => a - b)
 }
 
 export function formatClockLine(

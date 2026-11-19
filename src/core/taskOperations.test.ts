@@ -18,16 +18,22 @@ const NOTES: Record<string, string> = {
 	].join('\n'),
 	'2026-08-02.md': [
 		'- [ ] Deep wok #project',
+		'      [goal::1h]',
 		'      [clock::2026-08-02T10:00:00--2026-08-02T10:20:00]',
 		'- [ ] Task A #project',
+		'      [goal::pages 3/10]',
 		'      [clock::2026-08-02T11:00:00--2026-08-02T11:30:00]',
 		'- [ ] Task B',
+		'      [goal::pages 2/5]',
 		'      [clock::2026-08-02T11:30:00--2026-08-02T12:00:00]',
 	].join('\n'),
 	'2026-08-03.md': [
 		'- [ ] Task A #project',
+		'      [goal::1h]',
 		'      [clock::2026-08-03T09:00:00--2026-08-03T09:30:00]',
 		'- [ ] Task B #project',
+		'      [goal::30m]',
+		'      [goal::calories 200 kcal]',
 		'      [clock::2026-08-03T09:15:00--2026-08-03T09:45:00]',
 		'- [ ] Email',
 	].join('\n'),
@@ -44,10 +50,14 @@ describe('previewConsolidation', () => {
 	it('replays the per-note union from the index without reading files', async () => {
 		const { index, getLoadCount } = await setup()
 		const loadsAfterBuild = getLoadCount()
+		// Pages on the 2nd and the time goals on the 3rd combine; calories
+		// is on one side only and moves over.
 		expect(previewConsolidation(index, ['Task B'], 'Task A')).toEqual({
 			notes: 2,
 			removedTaskLines: 2,
 			removedClockLines: 2,
+			combinedGoalLines: 4,
+			notesCombiningGoals: 2,
 		})
 		expect(getLoadCount()).toBe(loadsAfterBuild)
 	})
@@ -58,6 +68,8 @@ describe('previewConsolidation', () => {
 			notes: 2,
 			removedTaskLines: 0,
 			removedClockLines: 0,
+			combinedGoalLines: 0,
+			notesCombiningGoals: 0,
 		})
 	})
 })
@@ -89,14 +101,30 @@ describe('consolidateInVault', () => {
 			(sum, result) => sum + result.removedClockLines,
 			0
 		)
+		const combinedGoalLines = report.results.reduce(
+			(sum, result) => sum + result.combinedGoalLines,
+			0
+		)
 		expect({
 			notes: report.changedPaths.length,
 			removedTaskLines,
 			removedClockLines,
+			combinedGoalLines,
+			notesCombiningGoals: report.results.filter(
+				(result) => result.combinedGoalLines > 0
+			).length,
 		}).toEqual(preview)
 
+		expect(read('2026-08-02.md')?.split('\n').slice(3)).toEqual([
+			'- [ ] Task A #project',
+			'      [goal::pages 5/15]',
+			'      [clock::2026-08-02T11:00:00--2026-08-02T12:00:00]',
+		])
+		// Two minimum time goals add up: 1h + 30m.
 		expect(read('2026-08-03.md')?.split('\n')).toEqual([
 			'- [ ] Task A #project',
+			'      [goal::1h30m]',
+			'      [goal::calories 200 kcal]',
 			'      [clock::2026-08-03T09:00:00--2026-08-03T09:45:00]',
 			'- [ ] Email',
 		])
@@ -124,6 +152,8 @@ describe('previewDeletion / deleteInVault', () => {
 		expect(report.changedPaths).toEqual(['2026-08-02.md', '2026-08-03.md'])
 		expect(read('2026-08-03.md')?.split('\n')).toEqual([
 			'- [ ] Task B #project',
+			'      [goal::30m]',
+			'      [goal::calories 200 kcal]',
 			'      [clock::2026-08-03T09:15:00--2026-08-03T09:45:00]',
 			'- [ ] Email',
 		])
@@ -142,7 +172,10 @@ describe('previewRetag / retagInVault', () => {
 		})
 		const report = await retagInVault(vault, index, ['Task B'], change)
 		expect(report.changedPaths).toEqual(['2026-08-02.md'])
-		expect(read('2026-08-02.md')?.split('\n')[4]).toBe('- [ ] Task B #project')
+		expect(read('2026-08-02.md')?.split('\n').slice(6, 8)).toEqual([
+			'- [ ] Task B #project',
+			'      [goal::pages 2/5]',
+		])
 		expect(previewRetag(index, ['Task B'], change)).toEqual({
 			notes: 0,
 			taskLines: 0,

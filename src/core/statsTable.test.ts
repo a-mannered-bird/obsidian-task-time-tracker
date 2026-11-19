@@ -21,6 +21,7 @@ function statsOf(lines: string[], groupBy: GroupBy = 'task') {
 		date: d(16),
 		file: { path: 'Journal/2026-08-16.md' } as TFile,
 		tasks: parseTasks(lines),
+		tagGoals: [],
 		dayStart: null,
 		dayEnd: null,
 	}

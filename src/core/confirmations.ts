@@ -59,6 +59,11 @@ export function describeConsolidation(
 		)
 	}
 	if (effects.length > 0) paragraphs.push(`${capitalize(effects.join('; '))}.`)
+	if (preview.combinedGoalLines > 0) {
+		paragraphs.push(
+			`${plural(preview.combinedGoalLines, 'goal')} will be combined on ${plural(preview.notesCombiningGoals, 'day')}.`
+		)
+	}
 	return paragraphs
 }
 

@@ -206,16 +206,19 @@ describe('pausedByInterruption', () => {
 })
 
 describe('addTaskLine', () => {
+	const content = [
+		'- [ ] Email',
+		'      [goal::<30m]',
+		'      [clock::2026-11-12T09:00:00--2026-11-12T09:30:00]',
+		'',
+		'Notes below.',
+	].join('\n')
+
 	it('adds an unticked task line after the last task, without a clock', () => {
-		const content = [
-			'- [ ] Email',
-			'      [clock::2026-11-12T09:00:00--2026-11-12T09:30:00]',
-			'',
-			'Notes below.',
-		].join('\n')
 		expect(addTaskLine(content, 'Call the bank', ['#admin'])).toBe(
 			[
 				'- [ ] Email',
+				'      [goal::<30m]',
 				'      [clock::2026-11-12T09:00:00--2026-11-12T09:30:00]',
 				'- [ ] Call the bank #admin',
 				'',
@@ -224,9 +227,16 @@ describe('addTaskLine', () => {
 		)
 	})
 
+	it('gives the line the targets of the goals carried over', () => {
+		const [earlier] = parseTasks(['- [ ] Anki', '  [goal::cards 140/200]'])
+		expect(
+			addTaskLine(content, 'Anki', [], earlier!.goals).split('\n').slice(3, 5)
+		).toEqual(['- [ ] Anki', '      [goal::cards /200]'])
+	})
+
 	it('leaves the note as it is when the task is already there', () => {
-		const content = '- [ ] Email\n'
-		expect(addTaskLine(content, 'Email', [])).toBe(content)
+		const [earlier] = parseTasks(['- [ ] Email', '  [goal::1h]'])
+		expect(addTaskLine(content, 'Email', [], earlier!.goals)).toBe(content)
 	})
 })
 
@@ -240,6 +250,8 @@ describe('describeCompletion', () => {
 					'- [ ] Email',
 					'      [clock::2026-11-12T09:00:00--2026-11-12T09:30:00]',
 					'- [ ] Run',
+					'- [ ] Anki',
+					'      [goal::cards /200]',
 				].join('\n')
 			)
 		)
@@ -320,12 +332,14 @@ describe('rowActions', () => {
 describe('moveTaskLine', () => {
 	const content = [
 		'- [ ] Write blog post',
+		'      [goal::1h]',
 		'      [clock::2026-11-12T09:00:00--2026-11-12T10:00:00]',
 		'- [x] Breakfast',
 		'- [ ] Chores',
 		'      [clock::2026-11-12T10:42:00]',
 		'Some notes',
 		'- [ ] Email',
+		'      [goal::<30m]',
 		'- [ ] Plan trip',
 	].join('\n')
 
@@ -334,7 +348,9 @@ describe('moveTaskLine', () => {
 		// goes right above Write blog post.
 		expect(moveTaskLine(content, 'Email', 'up')?.split('\n')).toEqual([
 			'- [ ] Email',
+			'      [goal::<30m]',
 			'- [ ] Write blog post',
+			'      [goal::1h]',
 			'      [clock::2026-11-12T09:00:00--2026-11-12T10:00:00]',
 			'- [x] Breakfast',
 			'- [ ] Chores',
@@ -344,7 +360,7 @@ describe('moveTaskLine', () => {
 		])
 	})
 
-	it('moves a block with its clocks to the bottom, leaving other lines', () => {
+	it('moves a block with its goals and clocks to the bottom, leaving other lines', () => {
 		expect(
 			moveTaskLine(content, 'Write blog post', 'bottom')?.split('\n')
 		).toEqual([
@@ -353,8 +369,10 @@ describe('moveTaskLine', () => {
 			'      [clock::2026-11-12T10:42:00]',
 			'Some notes',
 			'- [ ] Email',
+			'      [goal::<30m]',
 			'- [ ] Plan trip',
 			'- [ ] Write blog post',
+			'      [goal::1h]',
 			'      [clock::2026-11-12T09:00:00--2026-11-12T10:00:00]',
 		])
 	})
@@ -372,6 +390,7 @@ describe('moveTaskLine', () => {
 			})?.split('\n')
 		).toEqual([
 			'- [ ] Write blog post',
+			'      [goal::1h]',
 			'      [clock::2026-11-12T09:00:00--2026-11-12T10:00:00]',
 			'- [x] Breakfast',
 			'- [ ] Chores',
@@ -379,6 +398,7 @@ describe('moveTaskLine', () => {
 			'Some notes',
 			'- [ ] Plan trip',
 			'- [ ] Email',
+			'      [goal::<30m]',
 		])
 	})
 
@@ -434,9 +454,10 @@ describe('dropMove', () => {
 })
 
 describe('removeTaskLine', () => {
-	it('removes the task line with its clocks only', () => {
+	it('removes the task line with its goals and clocks only', () => {
 		const content = [
 			'- [ ] Write blog post',
+			'      [goal::1h]',
 			'      [clock::2026-11-12T09:00:00--2026-11-12T10:00:00]',
 			'      [clock::2026-11-12T11:00:00--2026-11-12T11:30:00]',
 			'Some notes',

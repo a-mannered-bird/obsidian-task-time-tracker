@@ -1,6 +1,20 @@
+import type { Goal } from 'types/goals'
 import type { Clock, Interval, Task } from 'types/tasks'
+import {
+	defaultAggregationRuleOf,
+	formatGoalLine,
+	planGoalMerge,
+	type AggregationRuleOf,
+	type GoalMergeOutput,
+} from './goals'
 import { mergeIntervals } from './intervals'
-import { formatClockLine, getIndent, parseTasks } from './parser'
+import {
+	formatClockLine,
+	getIndent,
+	goalLineIndexes,
+	parseTasks,
+	taskBlockEnd,
+} from './parser'
 
 export type ConsolidateResult = {
 	content: string
@@ -9,6 +23,8 @@ export type ConsolidateResult = {
 	removedTaskLines: number
 	/** Clock lines removed by the union: overlaps, touches, empty clocks. */
 	removedClockLines: number
+	/** Goal lines combined with goal lines of another merged task line. */
+	combinedGoalLines: number
 }
 
 /**
@@ -18,13 +34,15 @@ export type ConsolidateResult = {
  *
  * The surviving line is the one already bearing the target name, otherwise
  * the first affected line rewritten in place; it keeps its position and its
- * own tags. Ticked when any merged line was. Clocks are unioned (see
- * unionClocks) and rewritten below the survivor, oldest first.
+ * own tags. Ticked when any merged line was. Goal lines come first below it,
+ * combined as planGoalMerge says (`ruleOf` gives each metric's rule); clocks
+ * are unioned (see unionClocks) and rewritten below them, oldest first.
  */
 export function consolidateTasks(
 	content: string,
 	sourceNames: string[],
-	targetName: string
+	targetName: string,
+	ruleOf: AggregationRuleOf = defaultAggregationRuleOf
 ): ConsolidateResult {
 	const lines = content.split('\n')
 	const tasks = parseTasks(lines)
@@ -37,6 +55,15 @@ export function consolidateTasks(
 
 	const survivor =
 		affected.find((task) => task.name === targetName) ?? affected[0]!
+	const goalPlan = planTaskGoalMerge(affected, survivor, ruleOf)
+	const goalLines = goalPlan.map((output) =>
+		output.kind === 'keep'
+			? lines[output.item.lineIndex]!
+			: formatGoalLine(
+					output.goal,
+					getIndent(lines[output.items[0]!.lineIndex]!)
+				)
+	)
 	const clocks = affected.flatMap((task) => task.clocks)
 	const merged = unionClocks(clocks)
 	const ticked = affected.some((task) => task.ticked)
@@ -46,15 +73,16 @@ export function consolidateTasks(
 		: undefined
 	const survivorBlock = [
 		survivorLine(lines[survivor.lineIndex]!, survivor, targetName, ticked),
+		...goalLines,
 		...merged.map((clock) =>
 			formatClockLine(clock.start, clock.end, clockIndent)
 		),
 	]
 
-	// Line ranges of every affected task block (task line + its clocks).
+	// Line ranges of every affected task block (task line + clocks + goals).
 	const skip = new Set<number>()
 	for (const task of affected) {
-		for (let index = task.lineIndex; index < blockEnd(task); index++) {
+		for (let index = task.lineIndex; index < taskBlockEnd(task); index++) {
 			skip.add(index)
 		}
 	}
@@ -72,7 +100,44 @@ export function consolidateTasks(
 		changed: true,
 		removedTaskLines: affected.length - 1,
 		removedClockLines: clocks.length - merged.length,
+		combinedGoalLines: countCombinedGoalLines(goalPlan),
 	}
+}
+
+/** A goal line of a task, malformed ones (no goal) included. */
+type GoalItem = { lineIndex: number; goal: Goal | null }
+
+/**
+ * The goal lines left when the tasks (in note order) merge into the
+ * survivor; shared by the rewrite and the preview built from the index.
+ */
+export function planTaskGoalMerge(
+	tasks: Task[],
+	survivor: Task,
+	ruleOf: AggregationRuleOf = defaultAggregationRuleOf
+): GoalMergeOutput<GoalItem>[] {
+	const groups = tasks.map((task) =>
+		goalLineIndexes(task).map((lineIndex) => ({
+			lineIndex,
+			goal: task.goals.find((goal) => goal.lineIndex === lineIndex) ?? null,
+		}))
+	)
+	return planGoalMerge(
+		groups,
+		tasks.indexOf(survivor),
+		(item) => item.goal,
+		ruleOf
+	)
+}
+
+export function countCombinedGoalLines(
+	plan: GoalMergeOutput<unknown>[]
+): number {
+	return plan.reduce(
+		(sum, output) =>
+			sum + (output.kind === 'combined' ? output.items.length : 0),
+		0
+	)
 }
 
 /**
@@ -131,21 +196,22 @@ function survivorLine(
 }
 
 /**
- * The task's lines in the note — each task line with its clock lines, in
+ * The task's lines in the note — each task line with its goal and clock lines, in
  * note order — e.g. to show what a rewrite does before and after.
  */
 export function extractTaskBlocks(content: string, name: string): string[] {
 	const lines = content.split('\n')
 	return parseTasks(lines)
 		.filter((task) => task.name === name)
-		.flatMap((task) => lines.slice(task.lineIndex, blockEnd(task)))
-}
-
-function blockEnd(task: Task): number {
-	const lastClock = task.clocks[task.clocks.length - 1]
-	return (lastClock ? lastClock.lineIndex : task.lineIndex) + 1
+		.flatMap((task) => lines.slice(task.lineIndex, taskBlockEnd(task)))
 }
 
 function unchanged(content: string): ConsolidateResult {
-	return { content, changed: false, removedTaskLines: 0, removedClockLines: 0 }
+	return {
+		content,
+		changed: false,
+		removedTaskLines: 0,
+		removedClockLines: 0,
+		combinedGoalLines: 0,
+	}
 }

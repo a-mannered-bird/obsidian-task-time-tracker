@@ -135,6 +135,30 @@ describe('moveHandOff', () => {
 		)
 	})
 
+	it('keeps the goal lines first, a hand-written one moving up', () => {
+		const withGoals = [
+			'- [ ] Chores',
+			'      [goal::<1h]',
+			'      [clock::2026-11-12T09:00:00--2026-11-12T09:30:00]',
+			'      [clock::2026-11-12T10:00:00--2026-11-12T10:42:00]',
+			'- [ ] Email',
+			'      [clock::2026-11-12T10:42:00]',
+			'      [goal::inbox 12/0]',
+		]
+		const handOff = clockChanges(parseTasks(running), parseTasks(switched))
+		expect(
+			moveHandOff(withGoals.join('\n'), handOff, at(10, 30))?.split('\n')
+		).toEqual([
+			'- [ ] Chores',
+			'      [goal::<1h]',
+			'      [clock::2026-11-12T09:00:00--2026-11-12T09:30:00]',
+			'      [clock::2026-11-12T10:00:00--2026-11-12T10:30:00]',
+			'- [ ] Email',
+			'      [goal::inbox 12/0]',
+			'      [clock::2026-11-12T10:30:00]',
+		])
+	})
+
 	it('refuses when the note no longer holds the clocks as left', () => {
 		const handOff = clockChanges(parseTasks(running), parseTasks(switched))
 		expect(moveHandOff(running.join('\n'), handOff, at(10, 30))).toBeNull()

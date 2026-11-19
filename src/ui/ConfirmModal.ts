@@ -9,20 +9,44 @@ type Options = {
 	confirmText?: string
 }
 
+/** A group of checkboxes below the items, every box off. */
+type Choices = {
+	heading: string
+	note: string
+	options: { value: string; label: string }[]
+}
+
 /** Resolves true when confirmed, false when cancelled or dismissed. */
 export function confirm(app: App, options: Options): Promise<boolean> {
 	return new Promise((resolve) => {
-		new ConfirmModal(app, options, resolve).open()
+		new ConfirmModal(app, options, null, (chosen) =>
+			resolve(chosen !== null)
+		).open()
+	})
+}
+
+/**
+ * Like confirm, with a group of checkboxes: resolves the values ticked when
+ * confirmed, null when cancelled or dismissed.
+ */
+export function confirmChoosing(
+	app: App,
+	options: Options & { choices: Choices }
+): Promise<string[] | null> {
+	return new Promise((resolve) => {
+		new ConfirmModal(app, options, options.choices, resolve).open()
 	})
 }
 
 class ConfirmModal extends Modal {
 	private confirmed = false
+	private chosen = new Set<string>()
 
 	constructor(
 		app: App,
 		private options: Options,
-		private resolve: (confirmed: boolean) => void
+		private choices: Choices | null,
+		private resolve: (chosen: string[] | null) => void
 	) {
 		super(app)
 	}
@@ -38,6 +62,7 @@ class ConfirmModal extends Modal {
 				list.createEl('li', { text: item })
 			}
 		}
+		if (this.choices?.options.length) this.renderChoices(this.choices)
 
 		new Setting(this.contentEl)
 			.addButton((button) =>
@@ -54,8 +79,25 @@ class ConfirmModal extends Modal {
 			)
 	}
 
+	private renderChoices(choices: Choices): void {
+		const group = this.contentEl.createEl('fieldset', {
+			cls: 'task-time-tracker-confirm-choices',
+		})
+		group.createEl('legend', { text: choices.heading })
+		group.createEl('p', { text: choices.note })
+		for (const option of choices.options) {
+			const label = group.createEl('label')
+			const box = label.createEl('input', { type: 'checkbox' })
+			box.addEventListener('change', () => {
+				if (box.checked) this.chosen.add(option.value)
+				else this.chosen.delete(option.value)
+			})
+			label.appendText(option.label)
+		}
+	}
+
 	onClose(): void {
 		this.contentEl.empty()
-		this.resolve(this.confirmed)
+		this.resolve(this.confirmed ? [...this.chosen] : null)
 	}
 }

@@ -149,9 +149,14 @@ export function suggestionMeta(row: TaskSuggestion<unknown>): string | null {
 export function suggestionChoice(row: TaskSuggestion<unknown>): TaskChoice {
 	if (row.kind === 'note') return taskChoice(row.task)
 	if (row.kind === 'vault') {
-		return { name: row.info.name, tags: row.info.tags, running: false }
+		return {
+			name: row.info.name,
+			tags: row.info.tags,
+			goals: row.info.goals,
+			running: false,
+		}
 	}
-	return { name: row.name, tags: row.tags, running: false }
+	return { name: row.name, tags: row.tags, goals: [], running: false }
 }
 
 export function suggestionGroup(row: TaskSuggestion<unknown>): RowGroup {

@@ -1,3 +1,5 @@
+import type { GoalLine, MalformedGoalLine } from './goals'
+
 /** A work session on a task. `end` is null while the clock is running. */
 export type Clock = {
 	start: Date
@@ -26,6 +28,9 @@ export type Task = {
 	ticked: boolean
 	lineIndex: number
 	clocks: Clock[]
+	/** Goal lines under the task, in note order; normally above the clocks. */
+	goals: GoalLine[]
+	malformedGoals: MalformedGoalLine[]
 }
 
 /** A closed time span, used for all interval arithmetic. */

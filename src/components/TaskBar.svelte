@@ -105,7 +105,7 @@
 		}
 		reset()
 		const choice = suggestionChoice(option)
-		if (as === 'plan') void addToPlan(plugin, choice.name, choice.tags)
+		if (as === 'plan') void addToPlan(plugin, choice)
 		else void startTask(plugin, choice, as)
 	}
 

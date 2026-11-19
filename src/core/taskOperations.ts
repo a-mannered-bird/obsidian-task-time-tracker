@@ -5,9 +5,12 @@ import {
 } from './bulkEdit'
 import {
 	consolidateTasks,
+	countCombinedGoalLines,
+	planTaskGoalMerge,
 	unionClocks,
 	type ConsolidateResult,
 } from './consolidate'
+import { defaultAggregationRuleOf, type AggregationRuleOf } from './goals'
 import {
 	deleteTaskLines,
 	retagTaskLines,
@@ -91,6 +94,9 @@ export type ConsolidationPreview = {
 	notes: number
 	removedTaskLines: number
 	removedClockLines: number
+	/** Goal lines combined with another line's, and the notes holding them. */
+	combinedGoalLines: number
+	notesCombiningGoals: number
 }
 
 /**
@@ -101,12 +107,15 @@ export type ConsolidationPreview = {
 export function previewConsolidation(
 	index: VaultTaskIndex,
 	sourceNames: string[],
-	targetName: string
+	targetName: string,
+	ruleOf: AggregationRuleOf = defaultAggregationRuleOf
 ): ConsolidationPreview {
 	const preview: ConsolidationPreview = {
 		notes: 0,
 		removedTaskLines: 0,
 		removedClockLines: 0,
+		combinedGoalLines: 0,
+		notesCombiningGoals: 0,
 	}
 	for (const occurrences of occurrencesByPath(index, [
 		...sourceNames,
@@ -116,6 +125,15 @@ export function previewConsolidation(
 		preview.notes++
 		preview.removedTaskLines += occurrences.length - 1
 		preview.removedClockLines += clocks.length - unionClocks(clocks).length
+		const tasks = occurrences
+			.map(({ task }) => task)
+			.sort((a, b) => a.lineIndex - b.lineIndex)
+		const survivor = tasks.find((task) => task.name === targetName) ?? tasks[0]!
+		const combined = countCombinedGoalLines(
+			planTaskGoalMerge(tasks, survivor, ruleOf)
+		)
+		preview.combinedGoalLines += combined
+		if (combined > 0) preview.notesCombiningGoals++
 	}
 	return preview
 }
@@ -126,13 +144,14 @@ export function consolidateInVault(
 	index: VaultTaskIndex,
 	sourceNames: string[],
 	targetName: string,
-	onProgress?: (done: number, total: number) => void
+	onProgress?: (done: number, total: number) => void,
+	ruleOf: AggregationRuleOf = defaultAggregationRuleOf
 ): Promise<BulkEditReport<ConsolidateResult>> {
 	const paths = affectedPaths(index, [...sourceNames, targetName])
 	return runBulkEdit(
 		vault,
 		paths,
-		(content) => consolidateTasks(content, sourceNames, targetName),
+		(content) => consolidateTasks(content, sourceNames, targetName, ruleOf),
 		onProgress
 	)
 }

@@ -204,6 +204,8 @@
 		'clock-overlap': 'layers',
 		'stale-clock': 'alarm-clock',
 		'outside-day': 'calendar-x',
+		'goal-syntax': 'target',
+		'unit-drift': 'ruler',
 	}
 
 	/** Remember not to show these warnings again, or a whole kind of them. */

@@ -36,6 +36,8 @@ describe('describeConsolidation', () => {
 				notes: 1,
 				removedTaskLines: 0,
 				removedClockLines: 0,
+				combinedGoalLines: 0,
+				notesCombiningGoals: 0,
 			})
 		).toEqual(['Rename "Deep wok" to "Deep work" across 1 daily note.'])
 	})
@@ -46,11 +48,27 @@ describe('describeConsolidation', () => {
 				notes: 12,
 				removedTaskLines: 12,
 				removedClockLines: 3,
+				combinedGoalLines: 0,
+				notesCombiningGoals: 0,
 			})
 		).toEqual([
 			'Merge "Task A", "Task B" into the surviving name across 12 daily notes.',
 			'12 task lines merged into a single line per note; 3 clock lines removed by joining overlapping, touching or empty clocks.',
 		])
+	})
+})
+
+describe('describeConsolidation: goals', () => {
+	it('says how many goals combine on how many days', () => {
+		expect(
+			describeConsolidation(['Jog'], 'Run', {
+				notes: 3,
+				removedTaskLines: 2,
+				removedClockLines: 0,
+				combinedGoalLines: 3,
+				notesCombiningGoals: 2,
+			}).at(-1)
+		).toBe('3 goals will be combined on 2 days.')
 	})
 })
 

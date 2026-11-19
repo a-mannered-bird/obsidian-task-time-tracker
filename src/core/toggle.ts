@@ -1,3 +1,4 @@
+import type { Goal } from 'types/goals'
 import type { Task } from 'types/tasks'
 import { getLastEnd, isRunning, type TaskNote } from './note'
 import { addMinutes } from './time'
@@ -61,12 +62,23 @@ export type PickTaskRequest = {
 /**
  * A picked task, by name: one of the note or one to add to it. `running` is
  * the state the user saw when picking, so a run redone on newer content can
- * tell whether the pick still means the same.
+ * tell whether the pick still means the same. `tags` and `goals` are what a
+ * line added for it gets, from its most recent occurrence.
  */
-export type TaskChoice = { name: string; tags: string[]; running: boolean }
+export type TaskChoice = {
+	name: string
+	tags: string[]
+	goals: Goal[]
+	running: boolean
+}
 
 export function taskChoice(task: Task): TaskChoice {
-	return { name: task.name, tags: task.tags, running: isRunning(task) }
+	return {
+		name: task.name,
+		tags: task.tags,
+		goals: task.goals,
+		running: isRunning(task),
+	}
 }
 
 /**
@@ -257,7 +269,10 @@ async function selectTasks(
 
 /** The note's task of that name, added to the note when it has none. */
 function resolveChoice(note: TaskNote, choice: TaskChoice): Task {
-	return note.findTask(choice.name) ?? note.insertTask(choice.name, choice.tags)
+	return (
+		note.findTask(choice.name) ??
+		note.insertTask(choice.name, choice.tags, choice.goals)
+	)
 }
 
 /** Non-running tasks sharing the most recent clock end, in note order. */

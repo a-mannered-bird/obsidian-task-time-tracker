@@ -417,3 +417,30 @@
 	> .view-content {
 	padding-bottom: 0;
 }
+
+.task-time-tracker-confirm-choices {
+	display: grid;
+	gap: var(--size-4-2);
+	margin: 0 0 var(--size-4-4);
+	padding: var(--size-4-2) var(--size-4-3);
+	border: var(--border-width) solid var(--background-modifier-border);
+	border-radius: var(--radius-m);
+}
+
+.task-time-tracker-confirm-choices legend {
+	padding: 0 var(--size-4-1);
+	font-weight: var(--font-semibold);
+}
+
+.task-time-tracker-confirm-choices p {
+	margin: 0;
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+}
+
+.task-time-tracker-confirm-choices label {
+	display: flex;
+	align-items: baseline;
+	gap: var(--size-4-2);
+	overflow-wrap: anywhere;
+}

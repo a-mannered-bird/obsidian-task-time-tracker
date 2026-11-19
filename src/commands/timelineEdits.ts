@@ -80,7 +80,7 @@ export async function addClockLine(
 		includeVault: true,
 	})
 	if (!picked) return false
-	const target: ClockTarget = { name: picked.name, tags: picked.tags }
+	const target: ClockTarget = picked
 	return writeNewClock(
 		plugin,
 		file,
@@ -107,7 +107,7 @@ export async function duplicateClockLine(
 		includeVault: true,
 	})
 	if (!picked) return false
-	const target: ClockTarget = { name: picked.name, tags: picked.tags }
+	const target: ClockTarget = picked
 	const times = { start: key.start, end: key.end }
 	return writeNewClock(
 		plugin,

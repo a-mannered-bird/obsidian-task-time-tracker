@@ -1,4 +1,5 @@
 import type { Task } from 'types/tasks'
+import { describeTaskGoals } from './goals'
 import { isRunning, type TaskNote } from './note'
 
 /** End-of-day cleanup, computed before asking the user to confirm it. */
@@ -7,25 +8,68 @@ export type CompletionPlan = {
 	toClose: Task[]
 	/** Clocked tasks not ticked yet. */
 	toTick: Task[]
-	/** Tasks without any clock; they get deleted. */
+	/** Tasks without any clock nor goal; they get deleted. */
 	toRemove: Task[]
+	/**
+	 * Tasks without any clock but with goal lines: often done without a
+	 * clock, so they are kept unless the user picks them (see withRemovals).
+	 */
+	withGoals: Task[]
 }
 
 export function planCompletion(note: TaskNote): CompletionPlan {
 	const tasks = note.tasks
+	const unclocked = tasks.filter((task) => task.clocks.length === 0)
 	return {
 		toClose: tasks.filter(isRunning),
 		toTick: tasks.filter((task) => task.clocks.length > 0 && !task.ticked),
-		toRemove: tasks.filter((task) => task.clocks.length === 0),
+		toRemove: unclocked.filter((task) => !hasGoalLines(task)),
+		withGoals: unclocked.filter(hasGoalLines),
 	}
+}
+
+function hasGoalLines(task: Task): boolean {
+	return task.goals.length > 0 || task.malformedGoals.length > 0
 }
 
 export function isEmptyPlan(plan: CompletionPlan): boolean {
 	return (
 		plan.toClose.length === 0 &&
 		plan.toTick.length === 0 &&
-		plan.toRemove.length === 0
+		plan.toRemove.length === 0 &&
+		plan.withGoals.length === 0
 	)
+}
+
+/** The "Has goals" group of End day's confirmation, every box off. */
+export const HAS_GOALS_HEADING = 'Has goals'
+export const HAS_GOALS_NOTE =
+	'Never clocked, but they have goals. They are kept unless ticked.'
+
+/** One choice per task with goals: its name, and the line showing its goals. */
+export function goalTaskChoices(
+	plan: CompletionPlan
+): { value: string; label: string }[] {
+	return plan.withGoals.map((task) => ({
+		value: task.name,
+		label: describeTaskGoals(task),
+	}))
+}
+
+/** The plan once the user picked which tasks with goals to delete as well. */
+export function withRemovals(
+	plan: CompletionPlan,
+	names: string[]
+): CompletionPlan {
+	const picked = new Set(names)
+	return {
+		...plan,
+		toRemove: [
+			...plan.toRemove,
+			...plan.withGoals.filter((task) => picked.has(task.name)),
+		],
+		withGoals: plan.withGoals.filter((task) => !picked.has(task.name)),
+	}
 }
 
 /** Apply the plan; running clocks are closed at `at` (typically the end of day). */

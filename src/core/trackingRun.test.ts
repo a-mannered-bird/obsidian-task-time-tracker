@@ -84,14 +84,18 @@ describe('applyTrackingSteps', () => {
 	it('writes the toggle when the note did not change meanwhile', async () => {
 		const note = fakeNote([
 			'- [ ] Emails',
+			'      [goal::<30m]',
 			'      [clock::2026-08-16T08:00:00--2026-08-16T08:30:00]',
 			'- [ ] Walk the dog',
+			'      [goal::distance /3 km]',
 		])
 		await note.run(note.picking('Walk the dog'))
 		expect(note.lines()).toEqual([
 			'- [ ] Emails',
+			'      [goal::<30m]',
 			'      [clock::2026-08-16T08:00:00--2026-08-16T08:30:00]',
 			'- [ ] Walk the dog',
+			'      [goal::distance /3 km]',
 			'      [clock::2026-08-16T12:00:00]',
 		])
 		expect(note.timeTitles).toEqual([])

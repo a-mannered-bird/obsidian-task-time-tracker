@@ -257,6 +257,7 @@ Grilled on 2026-11-18; mockups and the reasoning behind each choice are on the d
 ## Decisions (2026-11-18): progression
 
 - **Two baselines:** previous (the period of the same length right before) and usual (the average of the N previous periods that have data). Block options `compare: both | previous | usual | none` and `compareWith: 4`; the default is `both` for every range, year ranges included. Custom spans and rolling windows compare with the same number of days before. `all` shows "Nothing to compare all with", a first period "No earlier data".
+- **A period still running compares like for like** (confirmed 2026-11-19): this week on a Wednesday is compared with Monday to Wednesday of earlier weeks, this month on the 19th with the 1st to the 19th, so a fresh period never shows a large ▼ against full ones.
 - **Comparisons load after the main stats are drawn**, with a "Comparing…" placeholder.
 - **One Trend column** with the delta against usual (`▲ 3h 20m · +18%`); its tooltip gives this period, last period and usual, each with its delta. The summary shows `Covered 31h · ▲ 4h 10m vs usual`, `Start of day 07:10 · 18 min earlier`.
 - **Deltas are neutral** (muted, no color) unless a goal states a direction: an "at least" time goal makes ▲ green, an "at most" one makes ▼ green; if the direction changed within the range, the latest goal wins. No separate "less is better" flag.
@@ -276,6 +277,7 @@ Grilled on 2026-11-18; mockups and the reasoning behind each choice are on the d
 - **Commands:** Record goal result… (task → metric → number) and Set goal… (task → metric or new → target, unit if new).
 - **End day:** lists targets still missing a result ("No result for: Run · distance"), never blocks. Unclocked tasks with goal lines are never removed silently: End day and Complete journal list them apart under "Has goals", with their goals and a checkbox off by default, kept unless ticked.
 - **Rename and merge:** a metric on one side moves over; the same metric on both sides combines with its aggregation rule; mismatched units keep both lines (issue flag); two "at least" time goals add up, otherwise the surviving line's wins. The merge preview says "3 goals will be combined on 2 days".
+- **Settled 2026-11-19:** merging the same metric with targets in opposite directions ("at least" and "at most") keeps the surviving line's target. The `tag_goals` property name is fixed, like `day_start`; no setting. End day opens its confirmation whenever an unclocked task has goals, even when nothing else would be deleted.
 - **Issues** (task manager warning column): malformed goal lines, a bare number as a time goal, unit drift for a metric.
 - **Stats:** a `goals` metric renders a Goals table (Goal left-aligned, other columns centered): achieved / target combined with the metric's rule over the days that had a target, %, days met, and a streak (one dot per day: met, missed, no goal; a weekly summary on year ranges). Time-goal rows of the main table show `22h 00m · ⏱ 96%` with a tooltip. Goal deltas join from Phase 13, colored by direction.
 
@@ -299,7 +301,7 @@ Grilled on 2026-11-18; mockups and the reasoning behind each choice are on the d
 
 Five slices, each usable and reviewed on its own; every slice is checked at mobile width and in the sidebar before it is ticked.
 
-- [ ] Syntax and note edits: parser for goal lines and `tag_goals`, `TaskNote` edits keeping and placing goal lines, carry-over on insertion, consolidation rules, End day's "Has goals" group, issue detectors; unit tests with goal lines in every edit's fixtures, E2E for merge and End day.
+- [x] Syntax and note edits: parser for goal lines and `tag_goals`, `TaskNote` edits keeping and placing goal lines, carry-over on insertion, consolidation rules, End day's "Has goals" group, issue detectors; unit tests with goal lines in every edit's fixtures, E2E for merge and End day.
 - [ ] Goals tab: cards with rings, steppers and inputs, ⋯ menu, Add goal card, suggested cards, Record goal result… and Set goal… commands, End day's missing-result list.
 - [ ] Tracker bars with hover and quick edit; per-metric settings (color, emoji, aggregation rule) and the done badge settings.
 - [ ] Tag goals: `tag_goals` editing from the Goals tab, covered time per tag, carry-over on the first write.

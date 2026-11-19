@@ -1,11 +1,19 @@
-import { applyCompletion, isEmptyPlan, planCompletion } from 'core/complete'
+import {
+	applyCompletion,
+	goalTaskChoices,
+	HAS_GOALS_HEADING,
+	HAS_GOALS_NOTE,
+	isEmptyPlan,
+	planCompletion,
+	withRemovals,
+} from 'core/complete'
 import { clockChanges, describeStops } from 'core/handOff'
 import { TaskNote } from 'core/note'
 import { recordWrites, rewriteNote } from 'core/noteRewrite'
 import { NOTICE_ICON } from 'core/noticeText'
 import { BUSY_NOTICE } from 'core/trackingRun'
 import { describeCompletion } from 'core/tracker'
-import { confirm } from 'ui/ConfirmModal'
+import { confirmChoosing } from 'ui/ConfirmModal'
 import { showNotice } from 'ui/notice'
 import { showUndoNotice } from 'ui/undoNotice'
 import type TaskTimeTracker from '../main'
@@ -35,7 +43,7 @@ export function registerCompleteJournalCommand(plugin: TaskTimeTracker) {
 /**
  * End-of-day cleanup: ask for the end of day, even when the note has one,
  * then close running clocks at it, tick every clocked task and delete the
- * tasks that were never clocked.
+ * tasks that were never clocked, except those with goals unless picked.
  */
 export async function endDay(plugin: TaskTimeTracker) {
 	const { app } = plugin
@@ -51,15 +59,21 @@ export async function endDay(plugin: TaskTimeTracker) {
 	// Read after the end of day was written, or writing the note would undo it.
 	const content = await readNoteContent(plugin, file)
 	const note = new TaskNote(content)
-	const plan = planCompletion(note)
-	if (plan.toRemove.length > 0) {
-		const confirmed = await confirm(app, {
+	let plan = planCompletion(note)
+	if (plan.toRemove.length > 0 || plan.withGoals.length > 0) {
+		const picked = await confirmChoosing(app, {
 			title: 'End day',
 			message: describeCompletion(plan),
 			items: plan.toRemove.map((task) => task.name),
 			confirmText: 'End day',
+			choices: {
+				heading: HAS_GOALS_HEADING,
+				note: HAS_GOALS_NOTE,
+				options: goalTaskChoices(plan),
+			},
 		})
-		if (!confirmed) return
+		if (!picked) return
+		plan = withRemovals(plan, picked)
 	}
 
 	applyCompletion(note, plan, at)

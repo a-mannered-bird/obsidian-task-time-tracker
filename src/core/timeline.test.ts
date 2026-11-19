@@ -32,8 +32,10 @@ const now = at(14)
 
 const note = [
 	'- [ ] Deep work #project',
+	'      [goal::4h]',
 	'      [clock::2026-08-03T09:00:00--2026-08-03T10:30:00]',
 	'- [ ] Email',
+	'      [goal::<30m]',
 	'      [clock::2026-08-03T10:00:00--2026-08-03T10:20:00]',
 	'      [clock::2026-08-03T13:00:00]',
 	'- [ ] Deep work #focus',
@@ -417,7 +419,7 @@ describe('retimeClock', () => {
 			{ taskName: 'Email', start: at(13), end: null },
 			{ start: at(12, 45), end: null }
 		)
-		expect(result?.split('\n')[4]).toBe('      [clock::2026-08-03T12:45:00]')
+		expect(result?.split('\n')[6]).toBe('      [clock::2026-08-03T12:45:00]')
 	})
 
 	it('finds nothing when the clock changed elsewhere', () => {
@@ -485,8 +487,10 @@ describe('addClock', () => {
 		expect(addClock(note, { name: 'Email', tags: [] }, times)).toBe(
 			[
 				'- [ ] Deep work #project',
+				'      [goal::4h]',
 				'      [clock::2026-08-03T09:00:00--2026-08-03T10:30:00]',
 				'- [ ] Email',
+				'      [goal::<30m]',
 				'      [clock::2026-08-03T10:00:00--2026-08-03T10:20:00]',
 				'      [clock::2026-08-03T11:00:00--2026-08-03T11:30:00]',
 				'      [clock::2026-08-03T13:00:00]',
@@ -496,9 +500,16 @@ describe('addClock', () => {
 		)
 	})
 
-	it('adds a missing task after the last one, with its tags', () => {
-		expect(addClock(note, { name: 'Review', tags: ['#team'] }, times)).toBe(
-			`${note}\n- [ ] Review #team\n      [clock::2026-08-03T11:00:00--2026-08-03T11:30:00]`
+	it('adds a missing task after the last one, with its tags and goal targets', () => {
+		const [earlier] = parseTasks(['- [ ] Review', '  [goal::PRs 2/3]'])
+		expect(
+			addClock(
+				note,
+				{ name: 'Review', tags: ['#team'], goals: earlier!.goals },
+				times
+			)
+		).toBe(
+			`${note}\n- [ ] Review #team\n      [goal::PRs /3]\n      [clock::2026-08-03T11:00:00--2026-08-03T11:30:00]`
 		)
 	})
 })
@@ -519,8 +530,9 @@ describe('removeClock', () => {
 		)
 	})
 
-	it('undoes adding a clock to a new task, task line included', () => {
-		const target = { name: 'Review', tags: ['#team'] }
+	it('undoes adding a clock to a new task, task and goal lines included', () => {
+		const [earlier] = parseTasks(['- [ ] Review', '  [goal::PRs 2/3]'])
+		const target = { name: 'Review', tags: ['#team'], goals: earlier!.goals }
 		const times = { start: at(11), end: at(11, 30) }
 		const added = addClock(note, target, times)
 		expect(removeClock(added, { taskName: 'Review', ...times }, true)).toBe(

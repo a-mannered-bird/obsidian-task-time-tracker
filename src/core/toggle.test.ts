@@ -16,8 +16,10 @@ const at = (h: number, m = 0) =>
 
 const content = [
 	'- [ ] Write plugin #project',
+	'      [goal::2h]',
 	'      [clock::2026-08-16T09:00:00--2026-08-16T10:00:00]',
 	'- [ ] Walk the dog #routine',
+	'      [goal::distance /3 km]',
 	'- [ ] Emails',
 	'      [clock::2026-08-16T11:00:00]',
 	'- [ ] Interruption',
@@ -85,13 +87,33 @@ describe('toggleTasks', () => {
 	it('starts a picked task that is off, and stops a picked task that is on', async () => {
 		const on = await run({}, { pick: ['Walk the dog'] })
 		expect(on.changed).toBe(true)
-		expect(on.lines[3]).toBe(`      [clock::${at(12)}]`)
+		expect(on.lines.slice(3, 6)).toEqual([
+			'- [ ] Walk the dog #routine',
+			'      [goal::distance /3 km]',
+			`      [clock::${at(12)}]`,
+		])
 
 		const off = await run({}, { pick: ['Emails'] })
-		expect(off.lines[4]).toBe(`      [clock::${at(11)}--${at(12)}]`)
+		expect(off.lines[6]).toBe(`      [clock::${at(11)}--${at(12)}]`)
 		// The clock ran 11:00–12:00, the only time on Emails today.
 		expect(off.notices).toEqual([
 			'⏹️ Stopped "Emails" (1h 00m of 1h 00m today) at 12:00.',
+		])
+	})
+
+	it("starts another note's task on a line given its tags and goal targets", async () => {
+		const note = new TaskNote(content)
+		const [earlier] = new TaskNote(
+			['- [ ] Run #sport', '  [goal::distance 8/10 km]'].join('\n')
+		).tasks
+		const { prompts } = scripted()
+		prompts.pickTask = () =>
+			Promise.resolve({ ...taskChoice(earlier!), running: false })
+		expect(await toggleTasks(note, {}, { prompts, now })).toBe(true)
+		expect(note.toString().split('\n').slice(8)).toEqual([
+			'- [ ] Run #sport',
+			'      [goal::distance /10 km]',
+			`      [clock::${at(12)}]`,
 		])
 	})
 
@@ -103,7 +125,7 @@ describe('toggleTasks', () => {
 
 	it('ticks the toggled task', async () => {
 		const result = await run({ tick: true }, { pick: ['Walk the dog'] })
-		expect(result.lines[2]).toBe('- [x] Walk the dog #routine')
+		expect(result.lines[3]).toBe('- [x] Walk the dog #routine')
 	})
 
 	it('time travel toggles in the past, from last task toggles at the last end', async () => {
@@ -111,25 +133,25 @@ describe('toggleTasks', () => {
 			{ timeTravel: true },
 			{ pick: ['Walk the dog'], times: ['15'] }
 		)
-		expect(past.lines[3]).toBe(`      [clock::${at(11, 45)}]`)
+		expect(past.lines[5]).toBe(`      [clock::${at(11, 45)}]`)
 
 		const atTime = await run(
 			{ timeTravel: true },
 			{ pick: ['Walk the dog'], times: ['11:20'] }
 		)
-		expect(atTime.lines[3]).toBe(`      [clock::${at(11, 20)}]`)
+		expect(atTime.lines[5]).toBe(`      [clock::${at(11, 20)}]`)
 
 		const ahead = await run(
 			{ timeTravel: true },
 			{ pick: ['Walk the dog'], times: ['-10'] }
 		)
-		expect(ahead.lines[3]).toBe(`      [clock::${at(12, 10)}]`)
+		expect(ahead.lines[5]).toBe(`      [clock::${at(12, 10)}]`)
 
 		const fromLast = await run(
 			{ fromLastTask: true },
 			{ pick: ['Walk the dog'] }
 		)
-		expect(fromLast.lines[3]).toBe(`      [clock::${at(10)}]`)
+		expect(fromLast.lines[5]).toBe(`      [clock::${at(10)}]`)
 	})
 
 	it('switch closes running tasks, offers only off tasks, and ticks only the closed ones', async () => {
@@ -144,8 +166,10 @@ describe('toggleTasks', () => {
 		])
 		expect(result.lines).toEqual([
 			'- [ ] Write plugin #project',
+			'      [goal::2h]',
 			'      [clock::2026-08-16T09:00:00--2026-08-16T10:00:00]',
 			'- [ ] Walk the dog #routine',
+			'      [goal::distance /3 km]',
 			`      [clock::${at(12)}]`,
 			'- [x] Emails',
 			`      [clock::${at(11)}--${at(12)}]`,
@@ -161,8 +185,8 @@ describe('toggleTasks', () => {
 
 	it('switch to previous restarts the last ended task(s) and closes the running ones', async () => {
 		const result = await run({ switch: true, previous: true })
-		expect(result.lines[2]).toBe(`      [clock::${at(12)}]`)
-		expect(result.lines[5]).toBe(`      [clock::${at(11)}--${at(12)}]`)
+		expect(result.lines[3]).toBe(`      [clock::${at(12)}]`)
+		expect(result.lines[7]).toBe(`      [clock::${at(11)}--${at(12)}]`)
 	})
 
 	it('targetState only acts when the state differs', async () => {
@@ -186,7 +210,7 @@ describe('toggleTasks', () => {
 			{ pick: ['Emails'], minutes: [25] }
 		)
 		expect(result.offered[0]).toEqual(['Emails'])
-		expect(result.lines[4]).toBe(`      [clock::${at(11)}--${at(11, 25)}]`)
+		expect(result.lines[6]).toBe(`      [clock::${at(11)}--${at(11, 25)}]`)
 	})
 
 	it('migrates the running clock to another task', async () => {
@@ -196,11 +220,13 @@ describe('toggleTasks', () => {
 			'Walk the dog',
 			'Interruption',
 		])
-		expect(result.lines.slice(0, 5)).toEqual([
+		expect(result.lines.slice(0, 7)).toEqual([
 			'- [ ] Write plugin #project',
+			'      [goal::2h]',
 			'      [clock::2026-08-16T09:00:00--2026-08-16T10:00:00]',
 			`      [clock::${at(11)}]`,
 			'- [ ] Walk the dog #routine',
+			'      [goal::distance /3 km]',
 			'- [ ] Emails',
 		])
 	})
@@ -256,9 +282,11 @@ describe('toggleTasks', () => {
 		)
 		// Running tasks are not offered, the named one neither.
 		expect(result.offered[0]).toEqual(['Walk the dog', 'Interruption'])
-		expect(result.lines.slice(0, 3)).toEqual([
+		expect(result.lines.slice(0, 5)).toEqual([
 			'- [ ] Write plugin #project',
+			'      [goal::2h]',
 			'- [ ] Walk the dog #routine',
+			'      [goal::distance /3 km]',
 			'      [clock::2026-08-16T09:00:00--2026-08-16T10:00:00]',
 		])
 	})
@@ -275,8 +303,8 @@ describe('toggleTasks', () => {
 	it('quick interruption starts Interruption, then ends it, returns to previous and reassigns', async () => {
 		// Start: Interruption is off, Emails is running → switch to Interruption.
 		const start = await run({ interruption: true, switch: true })
-		expect(start.lines[4]).toBe(`      [clock::${at(11)}--${at(12)}]`)
-		expect(start.lines[6]).toBe(`      [clock::${at(12)}]`)
+		expect(start.lines[6]).toBe(`      [clock::${at(11)}--${at(12)}]`)
+		expect(start.lines[8]).toBe(`      [clock::${at(12)}]`)
 
 		// End: Interruption is running → back to Emails, interruption was the dog walk.
 		const note = new TaskNote(start.lines.join('\n'))
@@ -290,8 +318,10 @@ describe('toggleTasks', () => {
 		expect(offered[0]).toEqual(['Write plugin', 'Walk the dog'])
 		expect(note.toString().split('\n')).toEqual([
 			'- [ ] Write plugin #project',
+			'      [goal::2h]',
 			'      [clock::2026-08-16T09:00:00--2026-08-16T10:00:00]',
 			'- [ ] Walk the dog #routine',
+			'      [goal::distance /3 km]',
 			`      [clock::${at(12)}--${at(12, 10)}]`,
 			'- [ ] Emails',
 			`      [clock::${at(11)}--${at(12)}]`,

@@ -122,6 +122,7 @@ describe('hasLoggedTime', () => {
 		date: d(day),
 		file: { path: `2026-08-${day}.md` } as TFile,
 		tasks: parseTasks(lines),
+		tagGoals: [],
 		dayStart: null,
 		dayEnd: null,
 	})

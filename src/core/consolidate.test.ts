@@ -4,27 +4,33 @@ import { consolidateTasks, extractTaskBlocks, unionClocks } from './consolidate'
 const at = (day: number, h: number, m = 0) => new Date(2026, 7, day, h, m, 0)
 
 describe('consolidateTasks: rename (single source)', () => {
-	it('rewrites the line in place, keeping tags, checkbox and clocks', () => {
+	it('rewrites the line in place, keeping tags, checkbox, goals and clocks', () => {
 		const content = [
 			'# Monday',
 			'- [ ] Deep wok #project #focus',
+			'  [goal::1.5h]',
 			'      [clock::2026-08-02T09:00:00--2026-08-02T10:00:00]',
 			'- [ ] Email',
+			'      [goal::<30m]',
 		].join('\n')
 		const result = consolidateTasks(content, ['Deep wok'], 'Deep work')
 		expect(result.changed).toBe(true)
+		// The goal line moves over as written.
 		expect(result.content.split('\n')).toEqual([
 			'# Monday',
 			'- [ ] Deep work #project #focus',
+			'  [goal::1.5h]',
 			'      [clock::2026-08-02T09:00:00--2026-08-02T10:00:00]',
 			'- [ ] Email',
+			'      [goal::<30m]',
 		])
 		expect(result.removedTaskLines).toBe(0)
 		expect(result.removedClockLines).toBe(0)
+		expect(result.combinedGoalLines).toBe(0)
 	})
 
 	it('leaves notes without the task untouched', () => {
-		const content = '- [ ] Email\n'
+		const content = '- [ ] Email\n      [goal::<30m]\n'
 		const result = consolidateTasks(content, ['Deep wok'], 'Deep work')
 		expect(result.changed).toBe(false)
 		expect(result.content).toBe(content)
@@ -36,13 +42,15 @@ describe('consolidateTasks: rename (single source)', () => {
 			'      [clock::2026-08-02T09:00:00--2026-08-02T10:00:00]',
 			'- [ ] Email',
 			'- [x] Deep wok #project',
+			'      [goal::2h]',
 			'      [clock::2026-08-02T11:00:00--2026-08-02T11:30:00]',
 		].join('\n')
 		const result = consolidateTasks(content, ['Deep wok'], 'Deep work')
 		// Survivor keeps its position and tags; ticked because a source was;
-		// clocks joined below it; the source block is gone.
+		// goals and clocks joined below it; the source block is gone.
 		expect(result.content.split('\n')).toEqual([
 			'- [x] Deep work #focus',
+			'      [goal::2h]',
 			'      [clock::2026-08-02T09:00:00--2026-08-02T10:00:00]',
 			'      [clock::2026-08-02T11:00:00--2026-08-02T11:30:00]',
 			'- [ ] Email',
@@ -56,18 +64,22 @@ describe('consolidateTasks: merge (several sources)', () => {
 	it('collects all sources under the first affected line when the target is absent', () => {
 		const content = [
 			'- [ ] Task A #project',
+			'      [goal::pages 4/10]',
 			'      [clock::2026-08-03T09:00:00--2026-08-03T09:30:00]',
 			'- [ ] Notes in between',
 			'- [ ] Task B',
 			'      [clock::2026-08-03T10:00:00--2026-08-03T10:15:00]',
+			'      [goal::pages 2/10]',
 		].join('\n')
 		const result = consolidateTasks(content, ['Task A', 'Task B'], 'Task AB')
 		expect(result.content.split('\n')).toEqual([
 			'- [ ] Task AB #project',
+			'      [goal::pages 6/20]',
 			'      [clock::2026-08-03T09:00:00--2026-08-03T09:30:00]',
 			'      [clock::2026-08-03T10:00:00--2026-08-03T10:15:00]',
 			'- [ ] Notes in between',
 		])
+		expect(result.combinedGoalLines).toBe(2)
 		expect(result.removedTaskLines).toBe(1)
 	})
 
@@ -85,6 +97,51 @@ describe('consolidateTasks: merge (several sources)', () => {
 			'      [clock::2026-08-02T10:00:00--2026-08-02T10:30:00]',
 		])
 		expect(result.removedTaskLines).toBe(1)
+	})
+})
+
+describe('consolidateTasks: goals', () => {
+	const content = [
+		'- [ ] Run #sport',
+		'      [clock::2026-08-03T07:00:00--2026-08-03T07:30:00]',
+		'      [goal::speed 10/12 km/h]',
+		'      [goal::1h]',
+		'- [ ] Jog',
+		'      [goal::<45m]',
+		'      [goal::speed 12/12 km/h]',
+		'      [goal::distance 3 mi]',
+		'      [goal::90]',
+		'      [goal::weight 81.4/<80 kg]',
+		'      [clock::2026-08-03T18:00:00--2026-08-03T18:30:00]',
+		'- [ ] Run #sport',
+		'      [goal::distance 5/10 km]',
+	].join('\n')
+
+	it("follows each metric's rule, keeps other units and malformed lines", () => {
+		const result = consolidateTasks(content, ['Jog'], 'Run', (metric) =>
+			metric === 'speed' ? 'average' : 'sum'
+		)
+		// Speed averages (10 + 12) / 2; the limit on Jog's time keeps the
+		// survivor's 1h; distance in mi stays apart from km. The survivor's
+		// goals come first, then the other lines' in note order.
+		expect(result.content.split('\n')).toEqual([
+			'- [ ] Run #sport',
+			'      [goal::speed 11/12 km/h]',
+			'      [goal::1h]',
+			'      [goal::distance 3 mi]',
+			'      [goal::90]',
+			'      [goal::weight 81.4/<80 kg]',
+			'      [goal::distance 5/10 km]',
+			'      [clock::2026-08-03T07:00:00--2026-08-03T07:30:00]',
+			'      [clock::2026-08-03T18:00:00--2026-08-03T18:30:00]',
+		])
+		expect(result.combinedGoalLines).toBe(4)
+	})
+
+	it('lists every goal line of the task in its blocks', () => {
+		expect(extractTaskBlocks(content, 'Jog')).toEqual(
+			content.split('\n').slice(4, 11)
+		)
 	})
 })
 

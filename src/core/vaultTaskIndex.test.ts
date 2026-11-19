@@ -11,12 +11,16 @@ const NOTES: Record<string, string> = {
 	].join('\n'),
 	'Journal/2026-08-02.md': [
 		'- [ ] Deep work #focus',
+		'      [goal::4h]',
 		'      [clock::2026-08-02T09:00:00--2026-08-02T09:45:00]',
 		'- [ ] Workout #routine',
+		'      [goal::push-ups 30/50]',
 	].join('\n'),
 	'Journal/2026-08-03.md': [
 		'- [ ] Deep work #focus',
+		'      [goal::3h]',
 		'- [ ] Deep work #dup',
+		'      [goal::5h]',
 		'      [clock::2026-08-03T09:00:00--2026-08-03T09:10:00]',
 		'- [ ] Workout #routine',
 	].join('\n'),
@@ -30,7 +34,7 @@ async function makeBuiltIndex(notes: Record<string, string>) {
 }
 
 describe('VaultTaskIndex.snapshot', () => {
-	it('aggregates note count, minutes, last-used date and tags', async () => {
+	it('aggregates note count, minutes, last-used date, tags and goals', async () => {
 		const { index } = await makeBuiltIndex(NOTES)
 		const byName = new Map(index.snapshot().map((info) => [info.name, info]))
 
@@ -39,13 +43,16 @@ describe('VaultTaskIndex.snapshot', () => {
 		expect(deepWork.noteCount).toBe(3)
 		expect(deepWork.totalMinutes).toBe(60 + 45 + 10)
 		expect(deepWork.lastUsed).toEqual(new Date('2026-08-03T00:00:00'))
-		// Tags come from the first matching line of the most recent note.
+		// Tags and goals come from the first matching line of the most
+		// recent note, even when it has no goal any more.
 		expect(deepWork.tags).toEqual(['#focus'])
+		expect(deepWork.goals).toMatchObject([{ kind: 'time', minutes: 180 }])
 
 		expect(byName.get('Workout')).toMatchObject({
 			noteCount: 2,
 			totalMinutes: 0,
 			tags: ['#routine'],
+			goals: [],
 		})
 	})
 

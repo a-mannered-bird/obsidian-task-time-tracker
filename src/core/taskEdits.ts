@@ -1,5 +1,4 @@
-import type { Task } from 'types/tasks'
-import { parseTaskInput, parseTasks, TAG } from './parser'
+import { parseTaskInput, parseTasks, TAG, taskBlockEnd } from './parser'
 
 export type DeleteResult = {
 	content: string
@@ -8,7 +7,7 @@ export type DeleteResult = {
 	removedClockLines: number
 }
 
-/** Remove every line of the tasks, clocks included. */
+/** Remove every line of the tasks, clocks and goals included. */
 export function deleteTaskLines(
 	content: string,
 	names: string[]
@@ -26,7 +25,7 @@ export function deleteTaskLines(
 	}
 	const skip = new Set<number>()
 	for (const task of affected) {
-		for (let index = task.lineIndex; index < blockEnd(task); index++) {
+		for (let index = task.lineIndex; index < taskBlockEnd(task); index++) {
 			skip.add(index)
 		}
 	}
@@ -136,9 +135,4 @@ function retagLine(line: string, change: TagChange): string {
 		text = `${text.trimEnd()} ${missing.join(' ')}`
 	}
 	return `${prefix}${text}`
-}
-
-function blockEnd(task: Task): number {
-	const lastClock = task.clocks[task.clocks.length - 1]
-	return (lastClock ? lastClock.lineIndex : task.lineIndex) + 1
 }

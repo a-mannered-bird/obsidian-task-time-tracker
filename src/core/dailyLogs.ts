@@ -5,6 +5,7 @@ import {
 	type CachedMetadata,
 	type Plugin,
 } from 'obsidian'
+import type { TagGoal } from 'types/goals'
 import type { Task } from 'types/tasks'
 import {
 	addDays,
@@ -14,6 +15,7 @@ import {
 	type DailyNotesConfig,
 } from './dailyNotes'
 import { parseTasks } from './parser'
+import { readTagGoals, TAG_GOALS_PROPERTY } from './tagGoals'
 import {
 	DAY_END_PROPERTY,
 	readFrontmatterTime,
@@ -26,6 +28,7 @@ export type DailyLog = {
 	tasks: Task[]
 	dayStart: Date | null
 	dayEnd: Date | null
+	tagGoals: TagGoal[]
 }
 
 type CacheEntry = { mtime: number; log: DailyLog }
@@ -162,6 +165,7 @@ export class DailyLogStore {
 			tasks: parseTasks(content.split('\n')),
 			dayStart: readFrontmatterTime(frontmatter[DAY_START_PROPERTY]),
 			dayEnd: readFrontmatterTime(frontmatter[DAY_END_PROPERTY]),
+			tagGoals: readTagGoals(frontmatter[TAG_GOALS_PROPERTY]),
 		}
 	}
 

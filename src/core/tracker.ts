@@ -1,3 +1,4 @@
+import type { Goal } from 'types/goals'
 import type { Clock, Task } from 'types/tasks'
 import type { CompletionPlan } from './complete'
 import { getLastEnd, isRunning, TaskNote } from './note'
@@ -354,15 +355,19 @@ export function removeTaskLine(content: string, name: string): string | null {
 	return note.toString()
 }
 
-/** The note with a new unticked task line, or unchanged when it has one. */
+/**
+ * The note with a new unticked task line, with the targets of `goals`, or
+ * unchanged when it has one.
+ */
 export function addTaskLine(
 	content: string,
 	name: string,
-	tags: string[]
+	tags: string[],
+	goals: Goal[] = []
 ): string {
 	const note = new TaskNote(content)
 	if (note.findTask(name)) return content
-	note.insertTask(name, tags)
+	note.insertTask(name, tags, goals)
 	return note.toString()
 }
 

@@ -18,6 +18,7 @@ function log(
 		tasks: parseTasks(lines),
 		dayStart: times.start ?? null,
 		dayEnd: times.end ?? null,
+		tagGoals: [],
 	}
 }
 

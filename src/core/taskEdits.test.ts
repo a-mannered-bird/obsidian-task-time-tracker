@@ -11,19 +11,23 @@ import {
 const content = [
 	'# Monday',
 	'- [ ] Deep work #project #focus',
+	'      [goal::2h]',
 	'      [clock::2026-08-02T09:00:00--2026-08-02T10:00:00]',
 	'      [clock::2026-08-02T11:00:00--2026-08-02T11:30:00]',
 	'- [x] Email #projects',
+	'      [goal::<30m]',
 	'- [ ] Deep work',
 	'      [clock::2026-08-02T14:00:00--2026-08-02T14:30:00]',
+	'      [goal::pages /10]',
 ].join('\n')
 
 describe('deleteTaskLines', () => {
-	it('removes every line of the task with its clocks and counts them', () => {
+	it('removes every line of the task with its goals and clocks and counts them', () => {
 		const result = deleteTaskLines(content, ['Deep work'])
 		expect(result.content.split('\n')).toEqual([
 			'# Monday',
 			'- [x] Email #projects',
+			'      [goal::<30m]',
 		])
 		expect(result).toMatchObject({
 			changed: true,
@@ -53,9 +57,14 @@ describe('retagTaskLines', () => {
 		})
 		const lines = result.content.split('\n')
 		expect(lines[1]).toBe('- [ ] Deep work #focus #deep')
-		expect(lines[5]).toBe('- [ ] Deep work #focus #deep')
+		expect(lines[7]).toBe('- [ ] Deep work #focus #deep')
 		// "#projects" on another task is a different tag (and another task).
-		expect(lines[4]).toBe('- [x] Email #projects')
+		expect(lines[5]).toBe('- [x] Email #projects')
+		expect([lines[2], lines[6], lines[9]]).toEqual([
+			'      [goal::2h]',
+			'      [goal::<30m]',
+			'      [goal::pages /10]',
+		])
 		expect(result.changedTaskLines).toBe(2)
 	})
 
@@ -67,7 +76,7 @@ describe('retagTaskLines', () => {
 		expect(result.content.split('\n')[1]).toBe(
 			'- [ ] Deep work #project #focus'
 		)
-		expect(result.content.split('\n')[5]).toBe('- [ ] Deep work #focus')
+		expect(result.content.split('\n')[7]).toBe('- [ ] Deep work #focus')
 		expect(result.changedTaskLines).toBe(1)
 	})
 

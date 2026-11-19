@@ -430,6 +430,55 @@ describe('tracker tab', function () {
 		)
 	})
 
+	it('keeps the unclocked tasks with goals at the end of the day, unless ticked', async function () {
+		await writeToday([
+			'---',
+			`day_start: ${today.date}T08:00:00`,
+			'---',
+			'- [ ] Write',
+			`      [clock::${today.date}T09:00:00--${today.date}T10:00:00]`,
+			'- [ ] Anki',
+			'      [goal::cards 140/200]',
+			'- [ ] Stretch',
+			'      [goal::15m]',
+			'- [ ] Call the bank',
+		])
+		await openTracker()
+
+		await browser.$('button=End day').click()
+		const setEnd = await modalTitled('Set end of day')
+		await typeTime(setEnd, '22:00')
+		await setEnd.$('button=OK').click()
+
+		// Call the bank goes without asking; the tasks with goals are listed
+		// apart, each with its goals, and kept unless ticked.
+		const modal = await modalTitled('End day')
+		await expect(modal.$('li=Call the bank')).toBeDisplayed()
+		await expect(modal.$('legend=Has goals')).toBeDisplayed()
+		const anki = modal.$('label=Anki · cards 140/200').$('input')
+		const stretch = modal.$('label=Stretch · 15m').$('input')
+		assert.strictEqual(await anki.isSelected(), false)
+		assert.strictEqual(await stretch.isSelected(), false)
+		await stretch.click()
+		await expect(stretch).toBeSelected()
+		await modal.$('button=End day').click()
+
+		await browser.waitUntil(
+			async () =>
+				!(await obsidianPage.read(today.path)).includes('- [ ] Stretch'),
+			{ timeoutMsg: 'the day was not ended' }
+		)
+		const content = await obsidianPage.read(today.path)
+		assert.match(content, new RegExp(`\\nday_end: ${today.date}T22:00:00\\n`))
+		assert.deepStrictEqual(content.slice(content.indexOf('- [')).split('\n'), [
+			'- [x] Write',
+			`      [clock::${today.date}T09:00:00--${today.date}T10:00:00]`,
+			'- [ ] Anki',
+			'      [goal::cards 140/200]',
+			'',
+		])
+	})
+
 	it('asks for the end of day again when the note already has one', async function () {
 		await writeToday([
 			'---',

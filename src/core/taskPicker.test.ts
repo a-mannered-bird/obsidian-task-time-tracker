@@ -7,6 +7,7 @@ import {
 	prepareWordSearch,
 	resurfacedEntry,
 	sortForPicker,
+	suggestionChoice,
 	tagEmoji,
 	taskSuggestions,
 	type TaskSuggestion,
@@ -96,6 +97,7 @@ describe('tagEmoji', () => {
 const info = (name: string, tags: string[] = []): VaultTaskInfo => ({
 	name,
 	tags,
+	goals: [],
 	noteCount: 1,
 	lastUsed: new Date(2026, 7, 15),
 	totalMinutes: 0,
@@ -317,5 +319,24 @@ describe('groupBreaks', () => {
 
 	it('leaves a lone create row without a separator', () => {
 		expect(groupBreaks(['create'], 'Today')).toEqual(new Map())
+	})
+})
+
+describe('suggestionChoice', () => {
+	it("gives another note's task the tags and goals of its latest occurrence", () => {
+		const [latest] = parseTasks(['- [ ] Run #sport', '  [goal::1h]'])
+		const choice = suggestionChoice({
+			kind: 'vault',
+			info: { ...info('Run', latest!.tags), goals: latest!.goals },
+			match: null,
+		})
+		expect(choice).toMatchObject({ name: 'Run', tags: ['#sport'] })
+		expect(choice.goals).toMatchObject([{ kind: 'time', minutes: 60 }])
+	})
+
+	it('gives a new task no goal', () => {
+		expect(
+			suggestionChoice({ kind: 'create', name: 'Swim', tags: [] }).goals
+		).toEqual([])
 	})
 })

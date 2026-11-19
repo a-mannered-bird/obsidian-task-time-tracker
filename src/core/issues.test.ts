@@ -300,6 +300,58 @@ describe('detectIssues: clocks outside the day window', () => {
 	})
 })
 
+describe('detectIssues: goals', () => {
+	const notes = {
+		'2026-08-01.md': [
+			'- [ ] Run #sport',
+			'      [goal::90]',
+			'      [goal::distance 5/10 km]',
+			'- [ ] Walk',
+			'      [goal::distance 2 km]',
+		].join('\n'),
+		'2026-08-02.md': [
+			'- [ ] Run #sport',
+			'      [goal::distance 3/6 mi]',
+			'      [goal::speed /12 km/h]',
+			'      [goal::1h]',
+		].join('\n'),
+	}
+
+	it('flags goal lines that do not read as goals, with the fix', async () => {
+		expect(ofKind(await issuesOf(notes), 'goal-syntax')).toEqual([
+			{
+				kind: 'goal-syntax',
+				name: 'Run',
+				path: '2026-08-01.md',
+				lineIndex: 1,
+				text: '90',
+				problem: 'Add h or m, or a metric name',
+			},
+		])
+	})
+
+	it("flags every task using a metric written in several units, at the task's latest line of it", async () => {
+		expect(ofKind(await issuesOf(notes), 'unit-drift')).toEqual([
+			{
+				kind: 'unit-drift',
+				name: 'Run',
+				metric: 'distance',
+				units: ['km', 'mi'],
+				path: '2026-08-02.md',
+				lineIndex: 1,
+			},
+			{
+				kind: 'unit-drift',
+				name: 'Walk',
+				metric: 'distance',
+				units: ['km', 'mi'],
+				path: '2026-08-01.md',
+				lineIndex: 4,
+			},
+		])
+	})
+})
+
 describe('describeIssue', () => {
 	it('phrases the note-free kinds and both sides of the day window', () => {
 		expect(
@@ -362,6 +414,29 @@ describe('describeIssue', () => {
 				start: new Date(2026, 7, 4, 9, 0, 0),
 			})
 		).toBe('Still running since 2026-08-04 09:00:00 in 2026-08-04')
+	})
+
+	it('quotes a goal line not understood and lists the units of a drifting metric', () => {
+		expect(
+			describeIssue({
+				kind: 'goal-syntax',
+				name: 'Run',
+				path: 'Journal/2026-08-01.md',
+				lineIndex: 1,
+				text: '90',
+				problem: 'Add h or m, or a metric name',
+			})
+		).toBe('Goal "90" in 2026-08-01: Add h or m, or a metric name')
+		expect(
+			describeIssue({
+				kind: 'unit-drift',
+				name: 'Run',
+				metric: 'distance',
+				units: ['', 'km'],
+				path: '2026-08-02.md',
+				lineIndex: 1,
+			})
+		).toBe('"distance" written in no unit, km')
 	})
 })
 

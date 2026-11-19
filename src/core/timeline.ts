@@ -1,3 +1,4 @@
+import type { Goal } from 'types/goals'
 import type {
 	ClockKey,
 	ClockTimes,
@@ -495,8 +496,11 @@ export function drawnTimes(
 	return { start: new Date(start), end: new Date(end) }
 }
 
-/** A task to give a new clock: found by name, or added with these tags. */
-export type ClockTarget = { name: string; tags: string[] }
+/**
+ * A task to give a new clock: found by name, or added with these tags and
+ * the targets of these goals.
+ */
+export type ClockTarget = { name: string; tags: string[]; goals?: Goal[] }
 
 /**
  * The note with a finished clock for the task, placed among its clocks in
@@ -509,7 +513,8 @@ export function addClock(
 ): string {
 	const note = new TaskNote(content)
 	const task =
-		note.findTask(target.name) ?? note.insertTask(target.name, target.tags)
+		note.findTask(target.name) ??
+		note.insertTask(target.name, target.tags, target.goals)
 	note.insertClock(task, times.start, times.end)
 	return note.toString()
 }

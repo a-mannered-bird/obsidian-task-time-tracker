@@ -1,4 +1,5 @@
 import type { TFile } from 'obsidian'
+import type { Goal } from 'types/goals'
 import type { Task } from 'types/tasks'
 import { taskMinutes } from './aggregate'
 import type { DailyLog } from './dailyLogs'
@@ -25,6 +26,8 @@ export type VaultTaskInfo = {
 	lastUsed: Date
 	/** Tags of the task's occurrence in that most recent note. */
 	tags: string[]
+	/** Goals of that same occurrence, carried over to a line added for it. */
+	goals: Goal[]
 	/** Minutes over all occurrences; running clocks count up to `now`. */
 	totalMinutes: number
 }
@@ -84,6 +87,7 @@ export class VaultTaskIndex {
 						noteCount: 0,
 						lastUsed: entry.date,
 						tags: task.tags,
+						goals: task.goals,
 						totalMinutes: 0,
 					}
 					infos.set(task.name, info)
@@ -93,10 +97,11 @@ export class VaultTaskIndex {
 					info.noteCount++
 				}
 				// Strictly newer only: within a note (equal dates) the first
-				// line keeps providing the tags, whatever the note order.
+				// line keeps providing the tags and goals, whatever the note order.
 				if (entry.date > info.lastUsed) {
 					info.lastUsed = entry.date
 					info.tags = task.tags
+					info.goals = task.goals
 				}
 				info.totalMinutes += taskMinutes(task, now)
 			}

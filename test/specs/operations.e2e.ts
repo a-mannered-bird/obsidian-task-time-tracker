@@ -1,3 +1,4 @@
+import assert from 'node:assert'
 import { browser, expect } from '@wdio/globals'
 import type { ChainablePromiseElement } from 'webdriverio'
 import { obsidianPage } from 'wdio-obsidian-service'
@@ -190,6 +191,100 @@ describe('bulk operations', function () {
 		expect(await obsidianPage.read('2026-08-03.md')).toBe(
 			[
 				'- [ ] Task A #project',
+				'      [clock::2026-08-03T09:00:00--2026-08-03T09:45:00]',
+				'- [ ] Email',
+				'',
+			].join('\n')
+		)
+	})
+
+	it('merges tasks with goals, combining the same metric and the time goals', async function () {
+		await obsidianPage.write(
+			'2026-08-02.md',
+			[
+				'- [ ] Deep work #focus',
+				'      [clock::2026-08-02T09:00:00--2026-08-02T09:45:00]',
+				'- [ ] Deep wok #project',
+				'      [clock::2026-08-02T10:00:00--2026-08-02T10:20:00]',
+				'- [ ] Task A #project',
+				'      [goal::pages 3/10]',
+				'      [clock::2026-08-02T11:00:00--2026-08-02T11:30:00]',
+				'- [ ] Task B',
+				'      [goal::pages 2/5]',
+				'      [clock::2026-08-02T11:30:00--2026-08-02T12:00:00]',
+				'',
+			].join('\n')
+		)
+		const before = [
+			'- [ ] Task A #project',
+			'      [goal::1h]',
+			'      [clock::2026-08-03T09:00:00--2026-08-03T09:30:00]',
+			'- [ ] Task B #project',
+			'      [goal::30m]',
+			'      [goal::calories 200 kcal]',
+			'      [clock::2026-08-03T09:15:00--2026-08-03T09:45:00]',
+			'- [ ] Email',
+			'',
+		].join('\n')
+		await obsidianPage.write('2026-08-03.md', before)
+		// The preview reads the index: wait for it to hold the goals written.
+		await browser.waitUntil(
+			() =>
+				browser.executeObsidian(
+					({ plugins }) =>
+						plugins.obsidianTaskTimeTracker.vaultTasks
+							.occurrences('Task B')
+							.reduce((sum, { task }) => sum + task.goals.length, 0) === 3
+				),
+			{ timeoutMsg: 'the index did not pick the goals up' }
+		)
+
+		const manager = await openManager()
+		await browser.$('input[aria-label="Select Task A"]').click()
+		await browser.$('input[aria-label="Select Task B"]').click()
+		await expect(manager).toHaveText(expect.stringContaining('2 selected'))
+		await clickButton(manager, 'Merge…')
+
+		const confirm = await expectModal('Merge 2 tasks')
+		// Pages on the 2nd and the time goals on the 3rd: two lines each.
+		await expect(confirm).toHaveText(
+			expect.stringContaining('4 goals will be combined on 2 days.')
+		)
+		const mergeButton = confirm.$('button=Merge')
+		await expect(mergeButton).toBeDisabled()
+		await confirm.$('select').selectByVisibleText('Task A')
+		await confirm.$('input[type="text"]').setValue('Task A')
+		await expect(mergeButton).toBeEnabled()
+		await mergeButton.click()
+		await waitForChange('2026-08-03.md', before)
+		await expectTaskNames(manager, [
+			'Email',
+			'Task A',
+			'Deep work',
+			'Deep wok',
+			'Workout',
+		])
+
+		// Pages add up (3 + 2 of 10 + 5); calories, on Task B only, moves over.
+		assert.strictEqual(
+			(await obsidianPage.read('2026-08-02.md'))
+				.split('\n')
+				.slice(4)
+				.join('\n'),
+			[
+				'- [ ] Task A #project',
+				'      [goal::pages 5/15]',
+				'      [clock::2026-08-02T11:00:00--2026-08-02T12:00:00]',
+				'',
+			].join('\n')
+		)
+		// Two "at least" time goals add up: 1h + 30m.
+		assert.strictEqual(
+			await obsidianPage.read('2026-08-03.md'),
+			[
+				'- [ ] Task A #project',
+				'      [goal::1h30m]',
+				'      [goal::calories 200 kcal]',
 				'      [clock::2026-08-03T09:00:00--2026-08-03T09:45:00]',
 				'- [ ] Email',
 				'',

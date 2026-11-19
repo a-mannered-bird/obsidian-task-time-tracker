@@ -11,6 +11,9 @@ import { NOTICE_ICON, noticeTask } from './noticeText'
 /** A clock line to jump to; `start` identifies the clock across edits. */
 type ClockRef = { path: string; lineIndex: number; start: Date }
 
+/** A goal line to jump to. */
+type LineRef = { path: string; lineIndex: number }
+
 export type TaskIssue =
 	/** Two names a typo apart — the accident the panel exists to catch. */
 	| { kind: 'similar-name'; name: string; other: string }
@@ -32,6 +35,24 @@ export type TaskIssue =
 			/** The start or end of day the clock falls outside of. */
 			boundary: Date
 	  } & ClockRef)
+	/** A goal line that does not read as a goal, e.g. a bare number. */
+	| ({
+			kind: 'goal-syntax'
+			name: string
+			/** What the line holds between `[goal::` and `]`. */
+			text: string
+			problem: string
+	  } & LineRef)
+	/**
+	 * A metric written with several units across the vault; points at the
+	 * task's most recent line of it.
+	 */
+	| ({
+			kind: 'unit-drift'
+			name: string
+			metric: string
+			units: string[]
+	  } & LineRef)
 
 export type IssueKind = TaskIssue['kind']
 
@@ -43,6 +64,8 @@ export const ISSUE_KINDS: IssueKind[] = [
 	'clock-overlap',
 	'stale-clock',
 	'outside-day',
+	'goal-syntax',
+	'unit-drift',
 ]
 
 export const ISSUE_TITLES: Record<IssueKind, string> = {
@@ -52,6 +75,8 @@ export const ISSUE_TITLES: Record<IssueKind, string> = {
 	'clock-overlap': 'Overlapping clocks',
 	'stale-clock': 'Clock still running in a past note',
 	'outside-day': 'Clock outside the start and end of day',
+	'goal-syntax': 'Goal line not understood',
+	'unit-drift': 'Metric written with several units',
 }
 
 /** What the user chose not to see again (see visibleIssues). */
@@ -78,6 +103,15 @@ export function issueKey(issue: TaskIssue): string {
 					.map((tags) => tags.join(' '))
 					.sort()
 					.join('|'),
+			])
+		case 'goal-syntax':
+			return JSON.stringify([issue.kind, issue.name, issue.path, issue.text])
+		case 'unit-drift':
+			return JSON.stringify([
+				issue.kind,
+				issue.name,
+				issue.metric,
+				issue.units.join('|'),
 			])
 		default:
 			return JSON.stringify([
@@ -157,16 +191,20 @@ export const OUTLIER_MEDIAN_FACTOR = 5
 export function detectIssues(index: VaultTaskIndex, now: Date): TaskIssue[] {
 	const names = index.snapshot(now).map((info) => info.name)
 	const issues: TaskIssue[] = [...similarNames(names)]
-	for (const name of names) {
-		const occurrences = index.occurrences(name)
+	const occurrencesByName = new Map(
+		names.map((name) => [name, index.occurrences(name)])
+	)
+	for (const [name, occurrences] of occurrencesByName) {
 		issues.push(
 			...longSessions(name, occurrences),
 			...tagDrift(name, occurrences),
 			...clockOverlaps(name, occurrences),
 			...staleClocks(name, occurrences, now),
-			...outsideDay(name, occurrences)
+			...outsideDay(name, occurrences),
+			...goalSyntax(name, occurrences)
 		)
 	}
+	issues.push(...unitDrift(occurrencesByName))
 	return issues
 }
 
@@ -187,6 +225,10 @@ export function describeIssue(issue: TaskIssue): string {
 			return `Still running since ${formatLocalDateTime(issue.start).replace('T', ' ')} in ${noteName(issue.path)}`
 		case 'outside-day':
 			return `${issue.side === 'before-start' ? 'Before the start of day' : 'After the end of day'} in ${noteName(issue.path)}`
+		case 'goal-syntax':
+			return `Goal "${issue.text}" in ${noteName(issue.path)}: ${issue.problem}`
+		case 'unit-drift':
+			return `"${issue.metric}" written in ${issue.units.map((unit) => (unit ? unit : 'no unit')).join(', ')}`
 	}
 }
 
@@ -423,6 +465,69 @@ function outsideDay(
 					...ref,
 				})
 			}
+		}
+	}
+	return issues
+}
+
+// ----- goals -----
+
+function goalSyntax(
+	name: string,
+	occurrences: VaultTaskOccurrence[]
+): TaskIssue[] {
+	return occurrences.flatMap(({ path, task }) =>
+		task.malformedGoals.map(
+			(line): TaskIssue => ({
+				kind: 'goal-syntax',
+				name,
+				path,
+				lineIndex: line.lineIndex,
+				text: line.text,
+				problem: line.problem,
+			})
+		)
+	)
+}
+
+/**
+ * Metrics are shared by every task, so their units are compared vault-wide;
+ * each task using a drifting metric gets the warning, pointing at its most
+ * recent line of it.
+ */
+function unitDrift(
+	occurrencesByName: Map<string, VaultTaskOccurrence[]>
+): TaskIssue[] {
+	const units = new Map<string, Set<string>>()
+	for (const occurrences of occurrencesByName.values()) {
+		for (const { task } of occurrences) {
+			for (const goal of task.goals) {
+				if (goal.kind !== 'metric') continue
+				const set = units.get(goal.metric) ?? new Set<string>()
+				set.add(goal.unit)
+				units.set(goal.metric, set)
+			}
+		}
+	}
+	const issues: TaskIssue[] = []
+	for (const [name, occurrences] of occurrencesByName) {
+		const latest = new Map<string, LineRef>()
+		// Occurrences come oldest first, so the last line seen is the latest.
+		for (const { path, task } of occurrences) {
+			for (const goal of task.goals) {
+				if (goal.kind !== 'metric') continue
+				if ((units.get(goal.metric)?.size ?? 0) < 2) continue
+				latest.set(goal.metric, { path, lineIndex: goal.lineIndex })
+			}
+		}
+		for (const [metric, ref] of latest) {
+			issues.push({
+				kind: 'unit-drift',
+				name,
+				metric,
+				units: [...(units.get(metric) ?? [])].sort(),
+				...ref,
+			})
 		}
 	}
 	return issues

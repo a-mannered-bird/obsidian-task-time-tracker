@@ -8,6 +8,7 @@ const info = (
 ): VaultTaskInfo => ({
 	name,
 	tags: [],
+	goals: [],
 	noteCount: 1,
 	lastUsed: new Date(2026, 7, 1),
 	totalMinutes: 0,

@@ -1,5 +1,6 @@
 import { rewriteNote } from 'core/noteRewrite'
 import { noteDayHeading } from 'core/overnight'
+import type { TaskChoice } from 'core/toggle'
 import { addTaskLine } from 'core/tracker'
 import { BUSY_NOTICE } from 'core/trackingRun'
 import { pickTask } from 'ui/TaskSuggestModal'
@@ -11,12 +12,11 @@ import { loadVaultEntries } from './tracking'
 /** Add a task to the note's plan without starting it. */
 export async function addToPlan(
 	plugin: TaskTimeTracker,
-	name: string,
-	tags: string[]
+	{ name, tags, goals }: TaskChoice
 ): Promise<void> {
 	const outcome = await rewriteNote(
 		targetIo(plugin, currentTarget(plugin)),
-		(content) => addTaskLine(content, name, tags)
+		(content) => addTaskLine(content, name, tags, goals)
 	)
 	if (outcome === 'busy') showNotice(BUSY_NOTICE)
 }
@@ -35,7 +35,7 @@ async function planTask(plugin: TaskTimeTracker): Promise<void> {
 		vaultEntries: loadVaultEntries(plugin),
 		noteHeading: noteDayHeading(target.date, new Date()),
 	})
-	if (picked) await addToPlan(plugin, picked.name, picked.tags)
+	if (picked) await addToPlan(plugin, picked)
 }
 
 export function registerPlanCommand(plugin: TaskTimeTracker) {
