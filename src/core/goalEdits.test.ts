@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import type { MetricGoal } from 'types/goals'
 import {
+	formatAchievedField,
 	formatTargetField,
+	goalFieldInput,
 	goalStep,
 	parseTypedNumber,
 	parseTypedTarget,
@@ -147,6 +149,23 @@ describe('typed values', () => {
 		expect(formatTargetField({ kind: 'time', minutes: 30, atMost: true })).toBe(
 			'<30m'
 		)
+	})
+})
+
+describe('card fields', () => {
+	it('shows 0 until a result is recorded', () => {
+		expect(formatAchievedField(metric('cards /200'))).toBe('0')
+		expect(formatAchievedField(metric('weight 81,4/<80 kg'))).toBe('81,4')
+	})
+
+	it('edits plain numbers in number inputs, with a dot', () => {
+		expect(goalFieldInput('81,4')).toEqual({ type: 'number', value: '81.4' })
+		expect(goalFieldInput('')).toEqual({ type: 'number', value: '' })
+	})
+
+	it('edits at-most targets and durations as text', () => {
+		expect(goalFieldInput('<80')).toEqual({ type: 'text', value: '<80' })
+		expect(goalFieldInput('1h30m')).toEqual({ type: 'text', value: '1h30m' })
 	})
 })
 

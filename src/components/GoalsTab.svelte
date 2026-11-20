@@ -26,7 +26,11 @@
 		type GoalCard,
 		type GoalSuggestion,
 	} from 'core/goalCards'
-	import { formatGoalNumber, formatTargetField } from 'core/goalEdits'
+	import {
+		formatAchievedField,
+		formatTargetField,
+		goalFieldInput,
+	} from 'core/goalEdits'
 	import { formatGoalMinutes } from 'core/goals'
 	import { formatLocalDate } from 'core/time'
 	import { icon } from 'ui/icon'
@@ -99,12 +103,6 @@
 		if (card.state === 'done') return `${share}, done`
 		if (card.state === 'over') return 'Over the limit'
 		return share
-	}
-
-	function achievedField(card: GoalCard): string {
-		return card.goal.kind === 'metric'
-			? formatGoalNumber(card.goal.achieved, card.goal.decimalComma)
-			: ''
 	}
 
 	/** Commit a field on change (blur or Enter), unless left as it was. */
@@ -197,144 +195,161 @@
 		</div>
 	{/if}
 
-	{#each groups as group (group.taskName ?? '')}
-		{#if group.taskName}
-			<h3 class="group-title">{group.taskName}</h3>
-		{/if}
-		<div class="cards" role="list" aria-label={group.taskName ?? 'Goals'}>
-			{#each group.cards as card (card.id)}
-				{@const shownAchieved = achievedField(card)}
-				{@const shownTarget = formatTargetField(card.goal)}
-				<div
-					class="card"
-					class:is-done={card.state === 'done'}
-					class:is-over={card.state === 'over'}
-					role="listitem"
-					aria-label={card.title}
-					style:--goal-color={defaultGoalColor(card.goal)}
-					style:--progress={card.state === 'done' ? 1 : card.progress}
-				>
-					<span class="title"
-						>{group.taskName ? goalLabel(card.goal) : card.title}</span
+	<!-- One grid for every list, so the suggestions fill the row after the goals. -->
+	<div class="cards">
+		{#each groups as group (group.taskName ?? '')}
+			{#if group.taskName}
+				<h3 class="group-title">{group.taskName}</h3>
+			{/if}
+			<div class="card-list" role="list" aria-label={group.taskName ?? 'Goals'}>
+				{#each group.cards as card (card.id)}
+					{@const achieved =
+						card.goal.kind === 'metric'
+							? goalFieldInput(formatAchievedField(card.goal))
+							: null}
+					{@const target = goalFieldInput(formatTargetField(card.goal))}
+					<div
+						class="goal-card"
+						class:is-done={card.state === 'done'}
+						class:is-over={card.state === 'over'}
+						role="listitem"
+						aria-label={card.title}
+						style:--goal-color={defaultGoalColor(card.goal)}
+						style:--progress={card.state === 'done' ? 1 : card.progress}
 					>
-					<button
-						class="menu-button"
-						aria-label="Actions for {card.title}"
-						use:icon={'more-horizontal'}
-						onclick={(event) => openMenu(event, card)}
-					></button>
-					<div class="ring-row">
-						{#if card.goal.kind === 'metric'}
-							<button
-								class="step"
-								aria-label="Decrease {card.title}"
-								disabled={!log}
-								onclick={() =>
-									log && void stepGoal(plugin, log.file, card.key, -1)}
-								>−</button
-							>
-						{/if}
-						<div
-							class="ring"
-							class:pops={popped.has(card.id)}
-							role="img"
-							aria-label={ringLabel(card)}
+						<span class="title"
+							>{group.taskName ? goalLabel(card.goal) : card.title}</span
 						>
-							<span>{emoji(card)}</span>
+						<button
+							class="menu-button"
+							aria-label="Actions for {card.title}"
+							use:icon={'more-horizontal'}
+							onclick={(event) => openMenu(event, card)}
+						></button>
+						<div class="ring-row">
+							{#if card.goal.kind === 'metric'}
+								<button
+									class="step"
+									aria-label="Decrease {card.title}"
+									disabled={!log}
+									onclick={() =>
+										log && void stepGoal(plugin, log.file, card.key, -1)}
+									>−</button
+								>
+							{/if}
+							<div
+								class="ring"
+								class:pops={popped.has(card.id)}
+								role="img"
+								aria-label={ringLabel(card)}
+							>
+								<span>{emoji(card)}</span>
+							</div>
+							{#if card.goal.kind === 'metric'}
+								<button
+									class="step"
+									aria-label="Increase {card.title}"
+									disabled={!log}
+									onclick={() =>
+										log && void stepGoal(plugin, log.file, card.key, 1)}
+									>+</button
+								>
+							{/if}
 						</div>
-						{#if card.goal.kind === 'metric'}
-							<button
-								class="step"
-								aria-label="Increase {card.title}"
-								disabled={!log}
-								onclick={() =>
-									log && void stepGoal(plugin, log.file, card.key, 1)}>+</button
-							>
-						{/if}
-					</div>
-					<div class="values">
-						{#if card.goal.kind === 'time'}
-							<span
-								class="field is-readonly"
-								aria-label="Time spent on {card.title}"
-								use:instantTooltip={() => ['From the clocks']}
-								>{formatGoalMinutes(card.achieved ?? 0)}</span
-							>
-						{:else}
+						<div class="values">
+							{#if achieved}
+								<input
+									class="field"
+									aria-label="Result of {card.title}"
+									type={achieved.type}
+									step="any"
+									min="0"
+									inputmode="decimal"
+									value={achieved.value}
+									size={size(achieved.value)}
+									onchange={(event) =>
+										commit(event, achieved.value, (file, value) =>
+											setGoalAchieved(plugin, file, card.key, value)
+										)}
+									onkeydown={(event) => fieldKeys(event, achieved.value)}
+								/>
+							{:else}
+								<span
+									class="field is-readonly"
+									aria-label="Time spent on {card.title}"
+									use:instantTooltip={() => [
+										'Value collected from your trackers',
+									]}>{formatGoalMinutes(card.achieved ?? 0)}</span
+								>
+							{/if}
+							<span aria-hidden="true">/</span>
 							<input
 								class="field"
-								aria-label="Result of {card.title}"
-								inputmode="decimal"
-								value={shownAchieved}
-								size={size(shownAchieved)}
+								aria-label="Target of {card.title}"
+								type={target.type}
+								step="any"
+								min="0"
+								value={target.value}
+								size={size(target.value)}
 								onchange={(event) =>
-									commit(event, shownAchieved, (file, value) =>
-										setGoalAchieved(plugin, file, card.key, value)
+									commit(event, target.value, (file, value) =>
+										setGoalTarget(plugin, file, card.key, value)
 									)}
-								onkeydown={(event) => fieldKeys(event, shownAchieved)}
+								onkeydown={(event) => fieldKeys(event, target.value)}
 							/>
-						{/if}
-						<span aria-hidden="true">/</span>
-						<input
-							class="field"
-							aria-label="Target of {card.title}"
-							value={shownTarget}
-							size={size(shownTarget)}
-							onchange={(event) =>
-								commit(event, shownTarget, (file, value) =>
-									setGoalTarget(plugin, file, card.key, value)
-								)}
-							onkeydown={(event) => fieldKeys(event, shownTarget)}
-						/>
-						{#if card.goal.kind === 'metric' && card.goal.unit}
-							<span class="unit">{card.goal.unit}</span>
-						{/if}
+							{#if card.goal.kind === 'metric' && card.goal.unit}
+								<span class="unit">{card.goal.unit}</span>
+							{/if}
+						</div>
 					</div>
-				</div>
-			{/each}
-		</div>
-	{/each}
-
-	<div class="cards" role="list" aria-label="Suggestions and new goals">
-		{#each suggestions as suggestion (suggestion.id)}
-			<div
-				class="card is-suggested"
-				role="listitem"
-				aria-label="Suggested {suggestion.title}"
-			>
-				<span class="title">{suggestion.title}</span>
-				<button
-					class="menu-button"
-					aria-label="Dismiss {suggestion.title} for this day"
-					use:icon={'x'}
-					onclick={() => void dismiss(suggestion)}
-				></button>
-				<div class="ring is-ghost" aria-hidden="true">
-					<span>
-						{suggestion.goal.kind === 'time'
-							? TIME_GOAL_EMOJI
-							: METRIC_GOAL_EMOJI}
-					</span>
-				</div>
-				<span class="suggested-target">
-					{describeSuggestedTarget(suggestion.goal)}
-				</span>
-				<span class="suggested-from">
-					Suggested · from {suggestedFrom(suggestion)}
-				</span>
-				<button
-					class="mod-cta add-suggestion"
-					onclick={() => addSuggestions([suggestion])}
-				>
-					{isToday ? 'Add to today' : 'Add to this day'}
-				</button>
+				{/each}
 			</div>
 		{/each}
-		<div class="new-slot" role="listitem">
-			<button class="card is-new" onclick={() => void setGoalFlow(plugin)}>
-				<span class="plus" use:icon={'plus'}></span>
-				<span>Add goal</span>
-			</button>
+
+		<div class="card-list" role="list" aria-label="Suggestions and new goals">
+			{#each suggestions as suggestion (suggestion.id)}
+				<div
+					class="goal-card is-suggested"
+					role="listitem"
+					aria-label="Suggested {suggestion.title}"
+				>
+					<span class="title">{suggestion.title}</span>
+					<button
+						class="menu-button"
+						aria-label="Dismiss {suggestion.title} for this day"
+						use:icon={'x'}
+						onclick={() => void dismiss(suggestion)}
+					></button>
+					<div class="ring is-ghost" aria-hidden="true">
+						<span>
+							{suggestion.goal.kind === 'time'
+								? TIME_GOAL_EMOJI
+								: METRIC_GOAL_EMOJI}
+						</span>
+					</div>
+					<span class="suggested-target">
+						{describeSuggestedTarget(suggestion.goal)}
+					</span>
+					<span class="suggested-from">
+						Suggested · from {suggestedFrom(suggestion)}
+					</span>
+					<button
+						class="mod-cta add-suggestion"
+						onclick={() => addSuggestions([suggestion])}
+					>
+						{isToday ? 'Add to today' : 'Add to this day'}
+					</button>
+				</div>
+			{/each}
+			<div class="new-slot" role="listitem">
+				<button
+					class="goal-card is-new"
+					onclick={() => void setGoalFlow(plugin)}
+				>
+					<span class="plus" use:icon={'plus'}></span>
+					<span>Add goal</span>
+				</button>
+			</div>
 		</div>
 	</div>
 </div>
@@ -350,34 +365,41 @@
 		justify-content: flex-end;
 	}
 
+	/* Two columns in the sidebar, more in a wide pane, one below 310px. */
+	.cards {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(min(150px, 100%), 1fr));
+		gap: 10px;
+	}
+
+	.card-list {
+		display: contents;
+	}
+
 	.group-title {
+		grid-column: 1 / -1;
 		margin: var(--size-4-2) 0 0;
 		color: var(--text-muted);
 		font-size: var(--font-ui-small);
 		font-weight: var(--font-semibold);
 	}
 
-	.cards {
-		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(8em, 1fr));
-		gap: var(--size-4-2);
-	}
-
-	.card {
+	.goal-card {
 		position: relative;
 		display: grid;
 		justify-items: center;
 		align-content: start;
-		gap: var(--size-4-2);
-		padding: var(--size-4-2) var(--size-4-2) var(--size-4-3);
+		gap: 8px;
+		min-width: 0;
+		padding: 10px 10px 12px;
 		border: 1px solid var(--background-modifier-border);
-		border-radius: var(--radius-l);
+		border-radius: 10px;
 		background: var(--background-primary);
 		text-align: center;
 		font-variant-numeric: tabular-nums;
 	}
 
-	.card.is-done {
+	.goal-card.is-done {
 		border-color: var(--color-green);
 		background: color-mix(
 			in srgb,
@@ -388,7 +410,7 @@
 			color-mix(in srgb, var(--color-green) 14%, transparent);
 	}
 
-	.card.is-over {
+	.goal-card.is-over {
 		border-color: var(--color-red);
 		background: color-mix(
 			in srgb,
@@ -397,18 +419,22 @@
 		);
 	}
 
+	/* Clear of the corner button on both sides, so the text stays centered. */
 	.title {
-		padding: 0 2em;
+		max-width: 100%;
+		padding: 2px 26px 0;
 		color: var(--text-muted);
 		font-size: var(--font-ui-smaller);
-		overflow-wrap: anywhere;
+		line-height: 1.35;
+		text-wrap: balance;
+		overflow-wrap: break-word;
 	}
 
 	.menu-button {
 		all: unset;
 		position: absolute;
-		top: var(--size-4-2);
-		right: var(--size-4-2);
+		top: 10px;
+		right: 10px;
 		display: inline-flex;
 		cursor: pointer;
 		color: var(--text-faint);
@@ -419,6 +445,11 @@
 		color: var(--text-normal);
 	}
 
+	.menu-button:focus-visible {
+		outline: 2px solid var(--interactive-accent);
+		outline-offset: 2px;
+	}
+
 	.menu-button :global(svg) {
 		width: var(--icon-s);
 		height: var(--icon-s);
@@ -427,37 +458,50 @@
 	.ring-row {
 		display: flex;
 		align-items: center;
-		gap: var(--size-4-1);
+		gap: 10px;
 	}
 
+	/*
+	 * `--task-time-tracker-ring` is a registered number (styles.css), so it
+	 * transitions: the ring fills or empties itself when the value changes,
+	 * and fills up from empty when the card appears.
+	 */
 	.ring {
+		--task-time-tracker-ring: var(--progress);
 		display: grid;
 		place-items: center;
 		flex-shrink: 0;
-		width: 3.2em;
-		height: 3.2em;
+		width: 54px;
+		height: 54px;
 		border-radius: 50%;
 		background: conic-gradient(
-			var(--goal-color) calc(var(--progress) * 1turn),
+			var(--goal-color) calc(var(--task-time-tracker-ring) * 1turn),
 			var(--background-modifier-border) 0
 		);
+		transition: --task-time-tracker-ring 700ms cubic-bezier(0.2, 0.8, 0.2, 1);
 	}
 
-	.card.is-over .ring {
+	@starting-style {
+		.ring {
+			--task-time-tracker-ring: 0;
+		}
+	}
+
+	.goal-card.is-over .ring {
 		background: var(--color-red);
 	}
 
 	.ring > span {
 		display: grid;
 		place-items: center;
-		width: 2.45em;
-		height: 2.45em;
+		width: 42px;
+		height: 42px;
 		border-radius: 50%;
 		background: var(--background-primary);
-		font-size: 1.05em;
+		font-size: 0.95rem;
 	}
 
-	.card.is-done .ring > span {
+	.goal-card.is-done .ring > span {
 		background: color-mix(
 			in srgb,
 			var(--color-green) 9%,
@@ -476,6 +520,10 @@
 	}
 
 	@media (prefers-reduced-motion: reduce) {
+		.ring {
+			transition: none;
+		}
+
 		.ring.pops {
 			animation: none;
 		}
@@ -486,6 +534,7 @@
 			var(--background-modifier-border) 0 15deg,
 			transparent 15deg 30deg
 		);
+		transition: none;
 	}
 
 	.ring.is-ghost > span {
@@ -496,12 +545,21 @@
 		display: grid;
 		place-items: center;
 		flex-shrink: 0;
-		width: 1.6em;
-		height: 1.6em;
+		width: 24px;
+		height: 24px;
 		padding: 0;
+		border: 1px solid var(--background-modifier-border);
 		border-radius: 50%;
-		font-size: var(--font-ui-medium);
+		background: var(--background-primary);
+		box-shadow: none;
+		color: var(--text-muted);
+		font-size: 0.95rem;
 		line-height: 1;
+	}
+
+	.step:hover:enabled {
+		background: var(--background-modifier-hover);
+		color: var(--text-normal);
 	}
 
 	.values {
@@ -509,7 +567,7 @@
 		flex-wrap: wrap;
 		justify-content: center;
 		align-items: center;
-		gap: 0.25em;
+		gap: 4px;
 		font-size: var(--font-ui-small);
 	}
 
@@ -517,16 +575,27 @@
 		field-sizing: content;
 		min-width: 2ch;
 		height: auto;
-		padding: 0 0.3em;
+		padding: 0 4px;
+		border-radius: 5px;
 		font-size: var(--font-ui-small);
 		line-height: 1.5;
 		text-align: center;
 		font-variant-numeric: tabular-nums;
 	}
 
+	/* The − / + buttons step the result; no spinner inside the field. */
+	.field[type='number'] {
+		appearance: textfield;
+	}
+
+	.field[type='number']::-webkit-inner-spin-button,
+	.field[type='number']::-webkit-outer-spin-button {
+		appearance: none;
+		margin: 0;
+	}
+
 	.field.is-readonly {
 		border: 1px dashed var(--background-modifier-border);
-		border-radius: var(--input-radius);
 		color: var(--text-muted);
 	}
 
@@ -534,7 +603,7 @@
 		color: var(--text-muted);
 	}
 
-	.card.is-suggested {
+	.goal-card.is-suggested {
 		border: 1.5px dashed var(--interactive-accent);
 		background: color-mix(
 			in srgb,
@@ -554,36 +623,39 @@
 	}
 
 	.add-suggestion {
-		font-size: var(--font-ui-smaller);
+		height: auto;
+		padding: 2px 12px;
 		border-radius: 999px;
+		font-size: var(--font-ui-smaller);
+		font-weight: var(--font-semibold);
 	}
 
 	.new-slot {
 		display: grid;
 	}
 
-	.card.is-new {
+	.goal-card.is-new {
 		all: unset;
 		box-sizing: border-box;
 		display: grid;
 		justify-items: center;
 		align-content: center;
-		gap: var(--size-4-2);
-		min-height: 9em;
-		padding: var(--size-4-2);
+		gap: 8px;
+		min-height: 150px;
+		padding: 10px;
 		border: 1.5px dashed var(--text-faint);
-		border-radius: var(--radius-l);
+		border-radius: 10px;
 		color: var(--text-muted);
 		font-size: var(--font-ui-small);
 		cursor: pointer;
 	}
 
-	.card.is-new:hover {
+	.goal-card.is-new:hover {
 		color: var(--text-normal);
 		border-color: var(--text-muted);
 	}
 
-	.card.is-new:focus-visible {
+	.goal-card.is-new:focus-visible {
 		outline: 2px solid var(--interactive-accent);
 		outline-offset: 2px;
 	}
@@ -591,9 +663,10 @@
 	.plus {
 		display: grid;
 		place-items: center;
-		width: 3.4em;
-		height: 3.4em;
+		width: 54px;
+		height: 54px;
 		border: 1.5px dashed var(--text-faint);
 		border-radius: 50%;
+		color: var(--text-faint);
 	}
 </style>

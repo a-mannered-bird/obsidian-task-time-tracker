@@ -191,6 +191,24 @@ export function formatGoalNumber(
 	return decimalComma ? text.replace('.', ',') : text
 }
 
+/** An achieved value as its field shows it: 0 until a result is recorded. */
+export function formatAchievedField(goal: MetricGoal): string {
+	return formatGoalNumber(goal.achieved ?? 0, goal.decimalComma)
+}
+
+/**
+ * The input a card field gets: a number input for a plain number (or an
+ * empty field), which only takes `.` as its decimal separator; a text
+ * input for anything else (`<80`, `1h30m`).
+ */
+export type GoalFieldInput = { type: 'number' | 'text'; value: string }
+
+export function goalFieldInput(text: string): GoalFieldInput {
+	return text === '' || NUMBER.test(text)
+		? { type: 'number', value: text.replace(',', '.') }
+		: { type: 'text', value: text }
+}
+
 /** A target as its field shows it: `10`, `<80`, `1h30m`, `<30m`. */
 export function formatTargetField(goal: Goal): string {
 	if (goal.kind === 'time') {

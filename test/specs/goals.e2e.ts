@@ -110,11 +110,17 @@ describe('goals tab', function () {
 			'100% of the target, done'
 		)
 
-		await typeInto(field('Target of Run · speed'), '<14')
+		// Plain numbers are edited in number inputs, durations as text.
+		await expect(field('Target of Run · speed')).toHaveAttribute(
+			'type',
+			'number'
+		)
+		await typeInto(field('Target of Run · speed'), '14')
 		content = await waitForChange(content)
-		assert.strictEqual(goalLines(content)[2], '      [goal::speed /<14 km/h]')
-		await expect(field('Target of Run · speed')).toHaveValue('<14')
+		assert.strictEqual(goalLines(content)[2], '      [goal::speed /14 km/h]')
+		await expect(field('Target of Run · speed')).toHaveValue('14')
 
+		await expect(field('Target of Run · time')).toHaveAttribute('type', 'text')
 		await typeInto(field('Target of Run · time'), '90')
 		content = await waitForChange(content)
 		assert.strictEqual(goalLines(content)[0], '      [goal::1h30m]')
@@ -192,7 +198,7 @@ describe('goals tab', function () {
 			'      [goal::45m]',
 			'',
 		])
-		await expect(field('Result of Anki · cards')).toHaveValue('')
+		await expect(field('Result of Anki · cards')).toHaveValue('0')
 		await expect(browser.$('[role="list"][aria-label="Goals"]')).toHaveChildren(
 			2
 		)
@@ -252,7 +258,7 @@ describe('goals tab', function () {
 			`      [clock::${today.date}T07:00:00--${today.date}T07:50:00]`,
 		])
 		await openGoals()
-		await expect(field('Result of Run · distance')).toHaveValue('')
+		await expect(field('Result of Run · distance')).toHaveValue('0')
 
 		await browser.executeObsidianCommand(
 			'obsidian-task-time-tracker:complete-journal-entry'

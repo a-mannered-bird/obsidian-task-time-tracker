@@ -450,3 +450,13 @@
 	color: var(--text-muted);
 	font-size: var(--font-ui-smaller);
 }
+
+/*
+ * The goal rings' progress (GoalsTab.svelte), registered as a number so it
+ * can transition: an unregistered custom property only swaps values.
+ */
+@property --task-time-tracker-ring {
+	syntax: '<number>';
+	inherits: false;
+	initial-value: 0;
+}
