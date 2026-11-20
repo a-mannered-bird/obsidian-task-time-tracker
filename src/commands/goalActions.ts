@@ -277,8 +277,9 @@ async function promptGoal(
 	if (metric.kind === 'time') {
 		const typed = await promptText(app, {
 			title: `Time goal for ${taskName}`,
+			description: 'Type a duration. Put < in front for at most, like <30m.',
 			label: 'Target',
-			placeholder: '1h30m, or <30m for at most',
+			placeholder: '1h30m',
 			validate: (text) => errorOf(parseTypedTimeTarget(text)),
 		})
 		const time = typed === null ? null : parseTypedTimeTarget(typed)
@@ -287,8 +288,10 @@ async function promptGoal(
 	if (metric.unit === null) {
 		const typed = await promptText(app, {
 			title: `${metric.metric} goal for ${taskName}`,
+			description:
+				'Type the target and its unit. Put < in front for at most, like <3 cups.',
 			label: 'Target and unit',
-			placeholder: '10 km, or <80 kg for at most',
+			placeholder: '10 km',
 			validate: (text) => errorOf(parseTypedTargetUnit(text)),
 		})
 		if (typed === null) return null
@@ -303,9 +306,14 @@ async function promptGoal(
 	const unit = metric.unit
 	const typed = await promptText(app, {
 		title: `${metric.metric} goal for ${taskName}`,
-		description: unit ? `In ${unit}.` : undefined,
+		description: [
+			unit ? `In ${unit}.` : null,
+			'Put < in front for at most, like <80.',
+		]
+			.filter(Boolean)
+			.join(' '),
 		label: 'Target',
-		placeholder: '10, or <80 for at most',
+		placeholder: '10',
 		validate: (text) => {
 			const parsed = parseTypedTarget(text)
 			if ('error' in parsed) return parsed.error

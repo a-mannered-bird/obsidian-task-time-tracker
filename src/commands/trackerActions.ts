@@ -222,6 +222,7 @@ export async function changeStart(
 	const at = await promptTime(plugin.app, {
 		title: `Change when ${taskName} started`,
 		description: describeStart(start, new Date()),
+		verb: 'Starts',
 		parse: (text, now) => parseStartTime(text, start, now),
 		confirmText: 'Change',
 	})
@@ -242,8 +243,9 @@ export async function setStop(
 	start: Date
 ): Promise<void> {
 	const at = await promptTime(plugin.app, {
-		title: `Set when ${taskName} stopped`,
+		title: `When does "${taskName}" stop?`,
 		description: describeStart(start, new Date()),
+		verb: 'Stops',
 		parse: (text, now) => parseEndTime(text, start, now),
 		confirmText: 'Stop',
 	})

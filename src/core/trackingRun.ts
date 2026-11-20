@@ -121,6 +121,7 @@ function dayStartRequest(firstClock: Date, day: Date): TimeRequest {
 	return {
 		title: 'Start of day',
 		description: FIRST_TASK_TEXT,
+		verb: 'Set',
 		reference: firstClock,
 		parse: (text) => parseFirstDayStart(text, day, firstClock),
 	}

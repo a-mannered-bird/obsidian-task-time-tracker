@@ -293,15 +293,16 @@ describe('minutesBefore', () => {
 })
 
 describe('describeTypedTime', () => {
-	it('gives the full date, the year only when it differs', () => {
-		expect(describeTypedTime(new Date(2026, 10, 12, 23, 59), now)).toBe(
-			'Thursday, November 12 at 23:59'
+	it('gives the full date after the verb, the year only when it differs', () => {
+		const at = (date: Date) => describeTypedTime(date, now, 'Stops')
+		expect(at(new Date(2026, 10, 12, 23, 59))).toBe(
+			'Stops on Thursday, November 12 at 23:59'
 		)
-		expect(describeTypedTime(new Date(2026, 10, 13, 0, 30), now)).toBe(
-			'Friday, November 13 at 00:30'
+		expect(at(new Date(2026, 10, 13, 0, 30))).toBe(
+			'Stops on Friday, November 13 at 00:30'
 		)
-		expect(describeTypedTime(new Date(2027, 0, 2, 9, 0), now)).toBe(
-			'Saturday, January 2, 2027 at 09:00'
+		expect(at(new Date(2027, 0, 2, 9, 0))).toBe(
+			'Stops on Saturday, January 2, 2027 at 09:00'
 		)
 	})
 })

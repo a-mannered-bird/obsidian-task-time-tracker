@@ -5,6 +5,7 @@
 	import { controlHint } from 'commands/shortcuts'
 	import { startTask } from 'commands/trackerActions'
 	import { isRunning } from 'core/note'
+	import { strong } from 'core/richText'
 	import {
 		groupBreaks,
 		prepareWordSearch,
@@ -56,6 +57,15 @@
 	const OTHER_LIMIT = 8
 
 	const LISTBOX_ID = 'task-time-tracker-bar-options'
+
+	const SWITCH_MODE = 'Switch mode'
+	const TOGGLE_MODE = 'Toggle mode'
+	const PLAN_MODE = 'Plan mode'
+	const SWITCH_MODE_HINT = 'Start the task you pick and stop the running ones'
+	const TOGGLE_MODE_HINT =
+		'Start the task you pick alongside the running ones, which keep running'
+	const PLAN_MODE_HINT =
+		'Add a task to your day without starting or stopping any timer.'
 
 	let query = $state('')
 	let open = $state(false)
@@ -232,9 +242,14 @@
 	<button
 		class="start-button"
 		class:mod-cta={starting}
-		aria-label={actions.primary === 'switch' ? 'Switch' : 'Start'}
+		aria-label={actions.primary === 'switch' ? SWITCH_MODE : 'Start'}
 		aria-pressed={starting}
-		use:instantTooltip={() => [controlHint(plugin, actions.primary)]}
+		use:instantTooltip={() => [
+			...(actions.primary === 'switch'
+				? [[strong(SWITCH_MODE)], SWITCH_MODE_HINT]
+				: []),
+			controlHint(plugin, actions.primary),
+		]}
 		use:icon={startIcon(actions.primary)}
 		onmousedown={keepFocus}
 		onclick={() => press('primary')}
@@ -243,9 +258,13 @@
 		<button
 			class="alongside-button"
 			class:mod-cta={action === 'alongside'}
-			aria-label="Start alongside"
+			aria-label={TOGGLE_MODE}
 			aria-pressed={action === 'alongside'}
-			use:instantTooltip={() => [controlHint(plugin, 'alongside')]}
+			use:instantTooltip={() => [
+				[strong(TOGGLE_MODE)],
+				TOGGLE_MODE_HINT,
+				controlHint(plugin, 'alongside'),
+			]}
 			use:icon={startIcon('alongside')}
 			onmousedown={keepFocus}
 			onclick={() => press('alongside')}
@@ -254,9 +273,13 @@
 	<button
 		class="plan-button"
 		class:mod-cta={action === 'plan'}
-		aria-label="Plan task without starting timer"
+		aria-label={PLAN_MODE}
 		aria-pressed={action === 'plan'}
-		use:instantTooltip={() => [controlHint(plugin, 'plan')]}
+		use:instantTooltip={() => [
+			[strong(PLAN_MODE)],
+			PLAN_MODE_HINT,
+			controlHint(plugin, 'plan'),
+		]}
 		use:icon={'list-plus'}
 		onmousedown={keepFocus}
 		onclick={() => press('plan')}

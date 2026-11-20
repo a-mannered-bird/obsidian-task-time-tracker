@@ -5,7 +5,12 @@ import { addMinutes } from './time'
 import { describeStoppedClock } from './handOff'
 import { NOTICE_ICON, noticeTask } from './noticeText'
 import { formatTimeOfDay } from './timeline'
-import { describeStart, parseToggleTime, type TypedTime } from './typedTime'
+import {
+	atTime,
+	describeStart,
+	parseToggleTime,
+	type TypedTime,
+} from './typedTime'
 
 /**
  * What a tracking command does. Every command of the plugin is one fixed
@@ -88,6 +93,8 @@ export function taskChoice(task: Task): TaskChoice {
 export type TimeRequest = {
 	title: string
 	description?: string
+	/** What happens at the time, opening the full date shown under the fields: `Stops`. */
+	verb: string
 	/**
 	 * What the minutes count back from. Absent, it is now: the prompt keeps
 	 * its fields current while it stays open and parses at the moment of the
@@ -325,10 +332,7 @@ async function resolveTime(
 			return null
 		}
 		const minutes = await prompts.promptMinutes({
-			title:
-				timed.name === INTERRUPTION_TASK
-					? 'How long did the interruption last?'
-					: 'How long did the task last?',
+			...durationQuestion(timed.name, running.start, now),
 			defaultValue: 5,
 		})
 		return minutes === null ? null : addMinutes(running.start, minutes)
@@ -350,16 +354,9 @@ async function resolveTime(
 		const reference = options.fromLastTask ? at : undefined
 		const day = reference ?? context.day ?? now
 		const after = latestClosedStart(note, selected, options)
-		const names = selected.map((task) => `"${task.name}"`).join(', ')
-		const started = after ? describeStart(after, now) : ''
-		// Ending an interruption selects the paused tasks: naming them would
-		// say they toggle, while they resume.
-		const ending = Boolean(options.interruption && options.previous)
+		const started = after ? describeStart(after, now) : undefined
 		const picked = await prompts.promptTime({
-			title: ending ? 'When did the interruption end?' : 'When did it happen?',
-			description: ending
-				? started
-				: [`Toggles ${names}.`, started].filter(Boolean).join(' '),
+			...timeQuestion(selected, options, started),
 			reference,
 			parse: (text, reference) =>
 				parseToggleTime(text, reference, { day, after }),
@@ -368,6 +365,85 @@ async function resolveTime(
 		at = picked
 	}
 	return at
+}
+
+/**
+ * The duration is not a correction of the time shown: it stops the clock at
+ * its start plus the minutes typed, so the description says so.
+ */
+function durationQuestion(
+	name: string,
+	start: Date,
+	now: Date
+): { title: string; description: string } {
+	const started = atTime(start, now)
+	return name === INTERRUPTION_TASK
+		? {
+				title: 'How long did the interruption last?',
+				description: `Ends the interruption this many minutes after it started ${started}, and resumes the paused tasks.`,
+			}
+		: {
+				title: 'How long did the task last?',
+				description: `Stops "${name}" this many minutes after its clock started ${started}.`,
+			}
+}
+
+/**
+ * How a toggle asks its time: by what it does to the selected tasks when
+ * that is fixed, else as a toggle naming them. `started` says when the
+ * clock it closes started.
+ */
+function timeQuestion(
+	selected: Task[],
+	options: ToggleOptions,
+	started: string | undefined
+): { title: string; description?: string; verb: string } {
+	const names = selected.map((task) => `"${task.name}"`).join(', ')
+	if (options.interruption) {
+		// Ending an interruption selects the paused tasks: naming them would
+		// say they toggle, while they resume.
+		return options.previous
+			? {
+					title: 'When did the interruption end?',
+					description: started,
+					verb: 'Ends',
+				}
+			: {
+					title: 'When did the interruption start?',
+					description: started,
+					verb: 'Starts',
+				}
+	}
+	if (options.switch) {
+		return { title: `When to switch to ${names}?`, verb: 'Switches' }
+	}
+	if (options.targetState === 'on') {
+		return selected.length > 1
+			? {
+					title: `When do ${names} start?`,
+					description: started,
+					verb: 'Start',
+				}
+			: {
+					title: `When does ${names} start?`,
+					description: started,
+					verb: 'Starts',
+				}
+	}
+	if (options.targetState === 'off') {
+		return selected.length > 1
+			? { title: `When do ${names} stop?`, description: started, verb: 'Stop' }
+			: {
+					title: `When does ${names} stop?`,
+					description: started,
+					verb: 'Stops',
+				}
+	}
+	return {
+		title: 'When did it happen?',
+		description: [`Toggles ${names}.`, started].filter(Boolean).join(' '),
+		verb: 'Toggles',
+	}
 }
 
 /**

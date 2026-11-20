@@ -138,7 +138,7 @@ export function parseTypedTimeTarget(text: string): TypedTimeTarget {
 	return { error: 'Type a time, like 1h30m, 45m or <30m' }
 }
 
-/** A new metric's target and unit typed together: `10 km`, `<80 kg`. */
+/** A new metric's target and unit typed together: `10 km`, `<3 cups`. */
 export type TypedTargetUnit =
 	| { target: number; atMost: boolean; unit: string }
 	| { error: string }
@@ -146,7 +146,7 @@ export type TypedTargetUnit =
 export function parseTypedTargetUnit(text: string): TypedTargetUnit {
 	const match = /^(<)?\s*(\d+(?:[.,]\d+)?)\s*(.*)$/.exec(text.trim())
 	if (!match || /^[\d/<]/.test(match[3]!)) {
-		return { error: 'Type a target and a unit, like 10 km or <80 kg' }
+		return { error: 'Type a target and a unit, like 10 km or <3 cups' }
 	}
 	return {
 		target: Number(match[2]!.replace(',', '.')),

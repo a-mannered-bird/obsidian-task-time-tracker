@@ -258,7 +258,9 @@ describe('goals tab', function () {
 			'obsidian-task-time-tracker:complete-journal-entry'
 		)
 		const setEnd = await topModal()
-		await expect(setEnd.$('.modal-title')).toHaveText('Set end of day')
+		await expect(setEnd.$('.modal-title')).toHaveText(
+			'When does the tracking period end?'
+		)
 		await typeTime(setEnd, '22:00')
 		await setEnd.$('button=OK').click()
 

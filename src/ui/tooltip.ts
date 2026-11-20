@@ -1,5 +1,5 @@
 import { displayTooltip } from 'obsidian'
-import type { RichLine } from 'core/richText'
+import { plainLine, type RichLine } from 'core/richText'
 
 const LABEL = 'aria-label'
 
@@ -17,8 +17,9 @@ export type TooltipHint = () => (TooltipLine | null)[]
  *
  * A button showing text shows the hint alone, its text already saying what
  * it is; an icon-only button shows its aria-label above the hint, being
- * otherwise unnamed on screen. The lines are read when the pointer enters,
- * so they are current.
+ * otherwise unnamed on screen, unless the hint starts with that label
+ * itself (to show it bold). The lines are read when the pointer enters, so
+ * they are current.
  *
  * Obsidian's own tooltip shows the aria-label as plain text; this one is
  * built as a fragment, so an aside line can be styled. The element opts
@@ -40,7 +41,9 @@ export function instantTooltip(el: HTMLElement, hint?: TooltipHint) {
 		const extra = (currentHint?.() ?? []).filter((line) => line !== null)
 		const showsText = Boolean(el.textContent?.trim())
 		const label = el.getAttribute(LABEL)
-		return showsText || !label ? extra : [label, ...extra]
+		const [first] = extra
+		const startsWithLabel = Array.isArray(first) && plainLine(first) === label
+		return showsText || !label || startsWithLabel ? extra : [label, ...extra]
 	}
 	const show = () => {
 		const shown = lines()

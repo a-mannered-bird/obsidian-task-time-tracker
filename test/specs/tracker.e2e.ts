@@ -273,8 +273,8 @@ describe('tracker tab', function () {
 		await openTracker()
 		const bar = browser.$('input[aria-label="Task to start"]')
 		const list = browser.$('[role="listbox"]')
-		const switchButton = button('Switch')
-		const alongside = button('Start alongside')
+		const switchButton = button('Switch mode')
+		const alongside = button('Toggle mode')
 		// Pressed through the DOM: notices of earlier steps can cover the bar.
 		const press = async (target: typeof alongside) =>
 			browser.execute((el) => el.click(), await target.getElement())
@@ -325,7 +325,7 @@ describe('tracker tab', function () {
 			'- [ ] Run',
 		])
 		await openTracker()
-		const alongside = button('Start alongside')
+		const alongside = button('Toggle mode')
 		await browser.execute((el) => el.click(), await alongside.getElement())
 		await expect(alongside).toHaveAttribute('aria-pressed', 'true')
 		await browser.keys('Escape')
@@ -338,14 +338,11 @@ describe('tracker tab', function () {
 		await button('Start Email').click()
 		content = await waitForChange(content)
 		assert.deepStrictEqual(states(content, '- [ ] Email'), ['running'])
-		await expect(button('Start alongside')).toHaveAttribute(
-			'aria-pressed',
-			'true'
-		)
+		await expect(button('Toggle mode')).toHaveAttribute('aria-pressed', 'true')
 		await expect(button('Start Run alongside')).toBeDisplayed()
 
 		// The view outlives the vault reset: leave the bar switching.
-		const switchButton = button('Switch')
+		const switchButton = button('Switch mode')
 		await browser.execute((el) => el.click(), await switchButton.getElement())
 		await expect(switchButton).toHaveAttribute('aria-pressed', 'true')
 		await browser.keys('Escape')
@@ -386,7 +383,7 @@ describe('tracker tab', function () {
 		const bar = browser.$('input[aria-label="Task to start"]')
 		// Pressed through the DOM: the notice of the previous step can still
 		// cover the bar.
-		const plan = button('Plan task without starting timer')
+		const plan = button('Plan mode')
 		await browser.execute((el) => el.click(), await plan.getElement())
 		await expect(plan).toHaveAttribute('aria-pressed', 'true')
 		await expect(bar).toHaveAttribute('placeholder', 'Plan a task…')
@@ -408,7 +405,7 @@ describe('tracker tab', function () {
 		// No end of day yet: End day asks for it, then confirms the deletion
 		// of the two tasks never clocked.
 		await browser.$('button=End day').click()
-		const setEnd = await modalTitled('Set end of day')
+		const setEnd = await modalTitled('When does the tracking period end?')
 		// It opens on now, which OK takes as it is.
 		const endMinutes = minutesField(setEnd)
 		await expect(endMinutes).toBeFocused()
@@ -446,7 +443,7 @@ describe('tracker tab', function () {
 		await openTracker()
 
 		await browser.$('button=End day').click()
-		const setEnd = await modalTitled('Set end of day')
+		const setEnd = await modalTitled('When does the tracking period end?')
 		await typeTime(setEnd, '22:00')
 		await setEnd.$('button=OK').click()
 
@@ -494,7 +491,7 @@ describe('tracker tab', function () {
 		).toBeDisplayed()
 
 		await browser.$('button=End day').click()
-		const setEnd = await modalTitled('Set end of day')
+		const setEnd = await modalTitled('When does the tracking period end?')
 		await typeTime(setEnd, '23:15')
 		await setEnd.$('button=OK').click()
 
@@ -528,13 +525,13 @@ describe('tracker tab', function () {
 			.$('button[aria-label="Set end of day"]')
 			.getElement()
 		await browser.execute((el) => el.click(), setEnd)
-		const modal = await modalTitled('Set end of day')
+		const modal = await modalTitled('When does the tracking period end?')
 		await expect(minutesField(modal)).toHaveValue('0')
 		// After the 08:00 start of day but before the clock ended at 22:30:
 		// the day can only end then on the next day.
 		await typeTime(modal, '22:00')
 		// The line under the fields gives the date, not "tomorrow".
-		await expect(modal.$(`p=${promptDay(1)} at 22:00`)).toBeDisplayed()
+		await expect(modal.$(`p=Set on ${promptDay(1)} at 22:00`)).toBeDisplayed()
 		await modal.$('button=OK').click()
 
 		const ended = await waitForChange(content)
@@ -648,7 +645,7 @@ describe('tracker tab', function () {
 		await openTracker()
 
 		await button('Stop Chores at…').click()
-		const modal = await modalTitled('Set when Chores stopped')
+		const modal = await modalTitled('When does "Chores" stop?')
 		await typeTime(modal, '00:10')
 		await modal.$('button=Stop').click()
 
@@ -668,7 +665,7 @@ describe('tracker tab', function () {
 		await openTracker()
 
 		await button('Switch to Email at…').click()
-		const modal = await modalTitled('When did it happen?')
+		const modal = await modalTitled('When to switch to "Email"?')
 		await typeTime(modal, '00:10')
 		await modal.$('button=OK').click()
 
@@ -897,7 +894,9 @@ describe('tracker tab', function () {
 		const modal = await modalTitled('When did it happen?')
 		await typeTime(modal, '00:05')
 		// Today too, the line under the fields gives the full date.
-		await expect(modal.$(`p=${promptDay(0)} at 00:05`)).toBeDisplayed()
+		await expect(
+			modal.$(`p=Toggles on ${promptDay(0)} at 00:05`)
+		).toBeDisplayed()
 		await modal.$('button=OK').click()
 		await answerStartOfDay()
 
@@ -914,8 +913,8 @@ describe('tracker tab', function () {
 		await expect(browser.$("span*=You're viewing")).toBeDisplayed()
 
 		/** Answer the time prompt the start or stop opened. */
-		async function answerTime(time: string) {
-			const modal = await modalTitled('When did it happen?')
+		async function answerTime(title: string, time: string) {
+			const modal = await modalTitled(title)
 			await typeTime(modal, time)
 			// Not today: the line under the fields names the note's day.
 			await expect(modal.$(`p*= at ${time}`)).toBeDisplayed()
@@ -924,7 +923,7 @@ describe('tracker tab', function () {
 
 		// A time of day lands on the note's day, not today.
 		await button('Start Chores').click()
-		await answerTime('09:00')
+		await answerTime('When does "Chores" start?', '09:00')
 		// The first task of the note asks when its day started, on its day too.
 		await answerStartOfDay('08:30')
 		content = await waitForChange(content, pastNote.path)
@@ -938,7 +937,7 @@ describe('tracker tab', function () {
 		await expect(button('Stop Chores')).toBeDisplayed()
 
 		await button('Switch to Email').click()
-		await answerTime('10:30')
+		await answerTime('When to switch to "Email"?', '10:30')
 		content = await waitForChange(content, pastNote.path)
 		assert.deepStrictEqual(clocksOf(content, '- [ ] Chores'), [
 			{ start: `${pastNote.date}T09:00:00`, end: `${pastNote.date}T10:30:00` },
@@ -947,7 +946,7 @@ describe('tracker tab', function () {
 
 		// Before Email's start (10:30), a time of day means past midnight.
 		await button('Stop Email').click()
-		await answerTime('00:15')
+		await answerTime('When does "Email" stop?', '00:15')
 		content = await waitForChange(content, pastNote.path)
 		assert.deepStrictEqual(clocksOf(content, '- [ ] Email'), [
 			{ start: `${pastNote.date}T10:30:00`, end: '2026-08-03T00:15:00' },
@@ -1035,6 +1034,34 @@ describe('tracker tab', function () {
 		await expect(browser.$('.tooltip')).toHaveText(
 			expect.stringMatching(
 				/^Set the end of day, stop the running clocks at it, tick the tasks with time and remove the ones without\n/
+			)
+		)
+	})
+
+	it('explains the switch, toggle and plan modes in their tooltips', async function () {
+		await writeToday(['- [ ] Chores', `      [clock::${today.date}T00:00:00]`])
+		await openTracker()
+		const tooltip = browser.$('.tooltip')
+
+		await button('Switch mode').moveTo()
+		await expect(tooltip.$('strong')).toHaveText('Switch mode')
+		await expect(tooltip).toHaveText(
+			expect.stringMatching(
+				/^Switch mode\nStart the task you pick and stop the running ones\n/
+			)
+		)
+		await button('Toggle mode').moveTo()
+		await expect(tooltip.$('strong')).toHaveText('Toggle mode')
+		await expect(tooltip).toHaveText(
+			expect.stringMatching(
+				/^Toggle mode\nStart the task you pick alongside the running ones, which keep running\n/
+			)
+		)
+		await button('Plan mode').moveTo()
+		await expect(tooltip.$('strong')).toHaveText('Plan mode')
+		await expect(tooltip).toHaveText(
+			expect.stringMatching(
+				/^Plan mode\nAdd a task to your day without starting or stopping any timer\.\n/
 			)
 		)
 	})

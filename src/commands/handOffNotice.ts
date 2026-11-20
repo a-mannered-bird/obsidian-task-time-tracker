@@ -131,6 +131,7 @@ function promptHandOffTime(
 		return promptTime(plugin.app, {
 			...request,
 			description: `${plainNoticeText(message)}. ${describeStart(latestStart, new Date())}`,
+			verb: handOff.started.length > 0 ? 'Switches' : 'Stops',
 			parse: (text, now) => parseEndTime(text, latestStart, now),
 		})
 	}
@@ -139,6 +140,7 @@ function promptHandOffTime(
 	return promptTime(plugin.app, {
 		...request,
 		description: `${plainNoticeText(message)}.`,
+		verb: 'Starts',
 		parse: (text, now) => parseStartTime(text, started.start, now),
 	})
 }

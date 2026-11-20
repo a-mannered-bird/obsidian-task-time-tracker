@@ -203,7 +203,11 @@ class TimePromptModal extends Modal {
 		const reference = this.reference()
 		const parsed = this.request.parse(this.typed, reference)
 		if ('error' in parsed) this.setStatus(parsed.error, true)
-		else this.setStatus(describeTypedTime(parsed.at, reference), false)
+		else
+			this.setStatus(
+				describeTypedTime(parsed.at, reference, this.request.verb),
+				false
+			)
 	}
 
 	private setStatus(text: string, isError: boolean): void {

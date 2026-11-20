@@ -79,6 +79,7 @@ async function promptEnd(
 			? `Stop ${key.taskName}`
 			: `Change when ${key.taskName} stopped`,
 		description: describeStart(key.start, new Date()),
+		verb: 'Stops',
 		parse: (text, now) => parseEndTime(text, key.start, now),
 		confirmText,
 	})

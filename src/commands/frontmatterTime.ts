@@ -47,9 +47,9 @@ export const DAY_END_COMMAND: TimeCommand = {
 
 export const TIME_COMMANDS: TimeCommand[] = [DAY_START_COMMAND, DAY_END_COMMAND]
 
-const COMMANDS: Record<DayMark, TimeCommand> = {
-	start: DAY_START_COMMAND,
-	end: DAY_END_COMMAND,
+const DAY_MARK_QUESTIONS: Record<DayMark, string> = {
+	start: 'When does the tracking period start?',
+	end: 'When does the tracking period end?',
 }
 
 export function registerFrontmatterTimeCommands(plugin: TaskTimeTracker) {
@@ -90,11 +90,12 @@ export async function promptDayMark(
 			? dayEndFloor((await readTaskNote(plugin, target.file)).tasks, dayStart)
 			: null
 	const time = await promptTime(app, {
-		title: COMMANDS[mark].name,
+		title: DAY_MARK_QUESTIONS[mark],
 		description:
 			mark === 'start' && dayEnd
 				? `No later than the end of day, ${formatTimeOfDay(dayEnd)}.`
 				: undefined,
+		verb: 'Set',
 		parse: (text, now) =>
 			mark === 'end'
 				? parseDayEnd(text, target.date, floor, now)

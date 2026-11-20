@@ -39,6 +39,7 @@ function scripted(script: Script = {}) {
 	const times = [...(script.times ?? [])]
 	const notices: string[] = []
 	const timeTitles: string[] = []
+	const minutesDescriptions: (string | undefined)[] = []
 	const offered: string[][] = []
 	const vaultFlags: boolean[] = []
 	const prompts: Prompts = {
@@ -50,7 +51,10 @@ function scripted(script: Script = {}) {
 			const task = tasks.find((t) => t.name === name)
 			return Promise.resolve(task ? taskChoice(task) : null)
 		},
-		promptMinutes: () => Promise.resolve(minutes.shift() ?? null),
+		promptMinutes: (request) => {
+			minutesDescriptions.push(request.description)
+			return Promise.resolve(minutes.shift() ?? null)
+		},
 		promptTime: (request) => {
 			timeTitles.push(request.title)
 			const text = times.shift() ?? null
@@ -60,7 +64,14 @@ function scripted(script: Script = {}) {
 		},
 		notify: (message) => notices.push(plainNoticeText(message)),
 	}
-	return { prompts, notices, offered, vaultFlags, timeTitles }
+	return {
+		prompts,
+		notices,
+		offered,
+		vaultFlags,
+		timeTitles,
+		minutesDescriptions,
+	}
 }
 
 async function run(
@@ -68,7 +79,14 @@ async function run(
 	script?: Script
 ) {
 	const note = new TaskNote(content)
-	const { prompts, notices, offered, vaultFlags } = scripted(script)
+	const {
+		prompts,
+		notices,
+		offered,
+		vaultFlags,
+		timeTitles,
+		minutesDescriptions,
+	} = scripted(script)
 	const changed = await toggleTasks(note, options, {
 		prompts,
 		now,
@@ -79,6 +97,8 @@ async function run(
 		notices,
 		offered,
 		vaultFlags,
+		timeTitles,
+		minutesDescriptions,
 		note,
 	}
 }
@@ -126,6 +146,21 @@ describe('toggleTasks', () => {
 	it('ticks the toggled task', async () => {
 		const result = await run({ tick: true }, { pick: ['Walk the dog'] })
 		expect(result.lines[3]).toBe('- [x] Walk the dog #routine')
+	})
+
+	it('asks the time by what the toggle does when that is fixed', async () => {
+		const asked = async (options: Parameters<typeof run>[0], pick: string) =>
+			(await run({ ...options, timeTravel: true }, { pick: [pick] })).timeTitles
+		expect(await asked({ switch: true }, 'Walk the dog')).toEqual([
+			'When to switch to "Walk the dog"?',
+		])
+		expect(await asked({ targetState: 'on' }, 'Walk the dog')).toEqual([
+			'When does "Walk the dog" start?',
+		])
+		expect(await asked({ targetState: 'off' }, 'Emails')).toEqual([
+			'When does "Emails" stop?',
+		])
+		expect(await asked({}, 'Emails')).toEqual(['When did it happen?'])
 	})
 
 	it('time travel toggles in the past, from last task toggles at the last end', async () => {
@@ -210,6 +245,9 @@ describe('toggleTasks', () => {
 			{ pick: ['Emails'], minutes: [25] }
 		)
 		expect(result.offered[0]).toEqual(['Emails'])
+		expect(result.minutesDescriptions).toEqual([
+			'Stops "Emails" this many minutes after its clock started at 11:00.',
+		])
 		expect(result.lines[6]).toBe(`      [clock::${at(11)}--${at(11, 25)}]`)
 	})
 

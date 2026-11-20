@@ -170,7 +170,9 @@ describe('daily target', function () {
 
 		// A time of day carries the minutes along; the line names its day.
 		await typeTime(modal, '23:30')
-		await expect(modal.$(`p=${promptDay(-1)} at 23:30`)).toBeDisplayed()
+		await expect(
+			modal.$(`p=Stops on ${promptDay(-1)} at 23:30`)
+		).toBeDisplayed()
 		const minutesAgo = Number(await minutes.getValue())
 		assert.ok(minutesAgo > 0, `minutes field shows ${minutesAgo}`)
 		await modal.$('button=Stop').click()
@@ -203,7 +205,9 @@ describe('daily target', function () {
 			'Change when Write blog post stopped'
 		)
 		await typeTime(change, '23:50')
-		await expect(change.$(`p=${promptDay(-1)} at 23:50`)).toBeDisplayed()
+		await expect(
+			change.$(`p=Stops on ${promptDay(-1)} at 23:50`)
+		).toBeDisplayed()
 		await change.$('button=Change').click()
 		await expect(
 			browser.$('.notice*=End of day set to yesterday at 23:50.')
