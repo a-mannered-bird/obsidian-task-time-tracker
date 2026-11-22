@@ -10,11 +10,12 @@
 		setGoalFlow,
 		setGoalTarget,
 		stepGoal,
+		streakSkipsMissingDays,
+		toggleStreakSkip,
 	} from 'commands/goalActions'
 	import type { DailyLog } from 'core/dailyLogs'
 	import { isSameDay, startOfDay } from 'core/dailyNotes'
 	import {
-		defaultGoalColor,
 		describeRing,
 		describeSuggestedTarget,
 		goalLabel,
@@ -22,8 +23,7 @@
 		goalCards,
 		goalSuggestions,
 		groupGoalCards,
-		METRIC_GOAL_EMOJI,
-		TIME_GOAL_EMOJI,
+		isDayOver,
 		type GoalCard,
 		type GoalSuggestion,
 	} from 'core/goalCards'
@@ -34,6 +34,7 @@
 		type GoalField,
 	} from 'core/goalEdits'
 	import { formatGoalMinutes } from 'core/goals'
+	import { goalColor, goalEmoji, goalStreak, stampText } from 'core/goalStyle'
 	import { formatLocalDate } from 'core/time'
 	import { icon } from 'ui/icon'
 	import { suggestionFlight } from 'ui/suggestionFlight'
@@ -46,9 +47,50 @@
 		/** Null until the note's first write creates it. */
 		log: DailyLog | null
 		loading: boolean
+		/** A goal (by id) to edit as the tab opens, from a tracker bar. */
+		focusGoal?: string | null
+		onfocused?: () => void
 	}
 
-	const { plugin, log, loading }: Props = $props()
+	const { plugin, log, loading, focusGoal = null, onfocused }: Props = $props()
+
+	// svelte-ignore state_referenced_locally -- settings apply on a view reload
+	const { metricSettings, doneBadge, stampTexts } = plugin.settings
+
+	/** The card elements by goal id, to focus one asked for. */
+	const cardElements = new Map<string, HTMLElement>()
+	function registerCard(node: HTMLElement, id: string) {
+		cardElements.set(id, node)
+		return {
+			destroy() {
+				if (cardElements.get(id) === node) cardElements.delete(id)
+			},
+		}
+	}
+
+	$effect(() => {
+		if (!focusGoal || loading) return
+		const card = cardElements.get(focusGoal)
+		if (!card) return
+		card.scrollIntoView({ block: 'nearest' })
+		card.querySelector('input')?.focus()
+		onfocused?.()
+	})
+
+	/** Bumped when a goal's streak setting changes: settings are not reactive. */
+	let streakSettings = $state(0)
+
+	/** The days in a row the goal was met, for the streak flame. */
+	function streak(card: GoalCard): number {
+		void streakSettings
+		if (!log || !indexReady) return 0
+		return goalStreak(
+			plugin.vaultTasks.occurrences(card.key.taskName),
+			card.key,
+			log.date,
+			streakSkipsMissingDays(plugin, card.key)
+		)
+	}
 
 	let now = $state(new Date())
 
@@ -59,10 +101,7 @@
 	/** Bumped when a suggestion is dismissed: the settings are not reactive. */
 	let dismissals = $state(0)
 
-	const dayOver = $derived(
-		log !== null &&
-			(log.dayEnd !== null || startOfDay(log.date) < startOfDay(now))
-	)
+	const dayOver = $derived(log !== null && isDayOver(log, now))
 	const cards = $derived(goalCards(log?.tasks ?? [], now, dayOver))
 	const suggestions = $derived.by(() => {
 		void dismissals
@@ -109,7 +148,7 @@
 	})
 
 	function emoji(card: GoalCard): string {
-		return card.goal.kind === 'time' ? TIME_GOAL_EMOJI : METRIC_GOAL_EMOJI
+		return goalEmoji(card.goal, metricSettings)
 	}
 
 	/** Commit a field on change (blur or Enter), unless left as it was. */
@@ -151,6 +190,16 @@
 					.onClick(() => void editGoalUnit(plugin, file, card.key))
 			)
 		}
+		menu.addItem((item) =>
+			item
+				.setTitle('Skip days without it in streaks')
+				.setIcon('flame')
+				.setChecked(streakSkipsMissingDays(plugin, card.key))
+				.onClick(async () => {
+					await toggleStreakSkip(plugin, card.key)
+					streakSettings++
+				})
+		)
 		menu.addItem((item) =>
 			item
 				.setTitle('Delete goal')
@@ -219,7 +268,8 @@
 						role="listitem"
 						aria-label={card.title}
 						use:flight.arrive={card.id}
-						style:--goal-color={defaultGoalColor(card.goal)}
+						use:registerCard={card.id}
+						style:--goal-color={goalColor(card.goal, metricSettings)}
 						style:--progress={card.progress}
 					>
 						<span class="title">{goalLabel(card.goal)}</span>
@@ -327,6 +377,24 @@
 								<span class="unit">{card.goal.unit}</span>
 							{/if}
 						</div>
+						{#if card.state === 'done' && doneBadge !== 'none'}
+							{@const days = doneBadge === 'flame' ? streak(card) : 0}
+							{@const stamp =
+								doneBadge === 'stamp' && log
+									? stampText(stampTexts, formatLocalDate(log.date), card.id)
+									: null}
+							<span
+								class="badge is-{doneBadge}"
+								class:stamps={popped.has(card.id)}
+								role="img"
+								aria-label={doneBadge === 'flame'
+									? `Met ${days} day${days === 1 ? '' : 's'} in a row`
+									: (stamp ?? 'Done')}
+							>
+								{#if doneBadge === 'tick'}✓{:else if doneBadge === 'trophy'}🏆{:else if doneBadge === 'flame'}🔥
+									{days}{:else if doneBadge === 'stamp'}{stamp}{/if}
+							</span>
+						{/if}
 					</div>
 				{/each}
 				{#each group.suggestions as suggestion (suggestion.id)}
@@ -425,6 +493,146 @@
 		background: var(--background-primary);
 		text-align: center;
 		font-variant-numeric: tabular-nums;
+	}
+
+	/* Done badges, on the card's top-left corner. */
+	.badge {
+		position: absolute;
+		/* Within the panel's 12px inline padding, which clips what passes it. */
+		top: -8px;
+		left: -8px;
+		z-index: 1;
+		display: grid;
+		place-items: center;
+		line-height: 1;
+		pointer-events: none;
+		rotate: -10deg;
+	}
+
+	.badge.stamps {
+		animation: goal-badge-stamp 500ms cubic-bezier(0.2, 0.9, 0.3, 1.3) both;
+	}
+
+	@keyframes goal-badge-stamp {
+		0% {
+			scale: 1.8;
+			opacity: 0;
+		}
+		60% {
+			scale: 0.92;
+			opacity: 1;
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.badge.stamps {
+			animation: none;
+		}
+	}
+
+	.badge.is-tick {
+		width: 26px;
+		height: 26px;
+		border: 2px solid var(--background-primary);
+		border-radius: 50%;
+		background: var(--color-green);
+		color: var(--background-primary);
+		font-size: 0.85em;
+		font-weight: 800;
+	}
+
+	.badge.is-star {
+		top: -10px;
+		left: -8px;
+		width: 34px;
+		height: 34px;
+		background: linear-gradient(135deg, #ffe58a, var(--color-yellow) 70%);
+		clip-path: polygon(
+			50% 0%,
+			61% 35%,
+			98% 35%,
+			68% 57%,
+			79% 91%,
+			50% 70%,
+			21% 91%,
+			32% 57%,
+			2% 35%,
+			39% 35%
+		);
+	}
+
+	.badge.is-rosette {
+		width: 30px;
+		height: 30px;
+		border-radius: 50%;
+		background:
+			radial-gradient(circle, var(--color-yellow) 0 52%, transparent 53%),
+			repeating-conic-gradient(var(--color-yellow) 0 12deg, #f7dc7c 12deg 24deg);
+	}
+
+	.badge.is-rosette::before,
+	.badge.is-rosette::after {
+		content: '';
+		position: absolute;
+		top: 22px;
+		z-index: -1;
+		width: 10px;
+		height: 15px;
+		background: var(--color-red);
+		clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 72%, 0 100%);
+	}
+
+	.badge.is-rosette::before {
+		left: 4px;
+		transform: rotate(18deg);
+	}
+
+	.badge.is-rosette::after {
+		left: 16px;
+		transform: rotate(-18deg);
+	}
+
+	.badge.is-stamp {
+		top: -8px;
+		left: -6px;
+		padding: 2px 7px;
+		border: 2px solid var(--color-red);
+		border-radius: var(--radius-s);
+		outline: 1px solid var(--color-red);
+		outline-offset: 2px;
+		background: var(--background-primary);
+		color: var(--color-red);
+		font-size: 0.62rem;
+		font-weight: 800;
+		letter-spacing: 0.12em;
+		text-transform: uppercase;
+		rotate: -14deg;
+		white-space: nowrap;
+	}
+
+	.badge.is-trophy {
+		width: 32px;
+		height: 32px;
+		border: 2px solid var(--background-primary);
+		border-radius: 50%;
+		background: radial-gradient(
+			circle at 35% 30%,
+			#fff3c2,
+			var(--color-yellow) 75%
+		);
+		font-size: 1em;
+	}
+
+	.badge.is-flame {
+		padding: 3px 8px 3px 6px;
+		border: 2px solid var(--background-primary);
+		border-radius: 999px;
+		background: linear-gradient(135deg, var(--color-orange), var(--color-red));
+		color: #fff;
+		font-size: var(--font-ui-smaller);
+		font-weight: 700;
+		white-space: nowrap;
+		rotate: -6deg;
 	}
 
 	.goal-card.is-done {

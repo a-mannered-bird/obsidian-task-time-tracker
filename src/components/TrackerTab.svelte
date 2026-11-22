@@ -30,6 +30,7 @@
 		noteDayHeading,
 		type OvernightNote,
 	} from 'core/overnight'
+	import { goalCards, isDayOver } from 'core/goalCards'
 	import { tagSlot } from 'core/rowTags'
 	import type { ViewControl } from 'core/shortcuts'
 	import { formatTimeOfDay } from 'core/timeline'
@@ -62,6 +63,7 @@
 	import { instantTooltip } from 'ui/tooltip'
 	import { showActionNotice } from 'ui/undoNotice'
 	import type TaskTimeTracker from '../main'
+	import GoalBars from './GoalBars.svelte'
 	import TagEditor from './TagEditor.svelte'
 	import TaskBar from './TaskBar.svelte'
 
@@ -73,9 +75,12 @@
 		/** How the note's day is called when it is not today, else null. */
 		otherDay: string | null
 		loading: boolean
+		/** Edit a goal (by id) in the Goals tab, from its bar. */
+		oneditgoal: (goalId: string) => void
 	}
 
-	const { plugin, log, overnight, otherDay, loading }: Props = $props()
+	const { plugin, log, overnight, otherDay, loading, oneditgoal }: Props =
+		$props()
 
 	let now = $state(new Date())
 
@@ -608,6 +613,16 @@
 	</button>
 {/snippet}
 
+{#snippet bars(task: Task)}
+	{#if task.goals.length > 0 && log}
+		<GoalBars
+			cards={goalCards([task], now, isDayOver(log, now))}
+			metricSettings={plugin.settings.metricSettings}
+			onedit={oneditgoal}
+		/>
+	{/if}
+{/snippet}
+
 {#snippet tagEditor(task: Task)}
 	{#if log && editingTags === task.name}
 		<TagEditor
@@ -885,6 +900,7 @@
 								{@render moreButton(task)}
 							</span>
 							{@render tagEditor(task)}
+							{@render bars(task)}
 						{/if}
 					</li>
 				{/each}
@@ -927,6 +943,7 @@
 						{/if}
 						{@render idleActions(task)}
 						{@render tagEditor(task)}
+						{@render bars(task)}
 					</li>
 				{/each}
 			</ul>
@@ -954,6 +971,7 @@
 								{/if}
 								{@render idleActions(task)}
 								{@render tagEditor(task)}
+								{@render bars(task)}
 							</li>
 						{/each}
 					</ul>
@@ -1157,8 +1175,9 @@
 
 	.row {
 		display: flex;
+		flex-wrap: wrap;
 		align-items: center;
-		gap: 0.6em;
+		gap: 0 0.6em;
 		/* Dense with a mouse; finger-sized on mobile, below. */
 		min-height: 32px;
 	}

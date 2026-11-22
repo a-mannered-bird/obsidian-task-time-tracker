@@ -1,6 +1,7 @@
 import type { Goal } from 'types/goals'
 import type { Task } from 'types/tasks'
 import { taskMinutes } from './aggregate'
+import { startOfDay } from './dailyNotes'
 import { CHART_COLORS } from './chartColors'
 import { formatGoal, targetOnly } from './goals'
 import { NOTICE_ICON, noticeTask } from './noticeText'
@@ -264,4 +265,15 @@ export function describeGoalDeleted(taskName: string, goal: Goal): string {
 
 export function describeGoalsAdded(count: number): string {
 	return `${NOTICE_ICON.goal} ${count} goal${count === 1 ? '' : 's'} added to this day.`
+}
+
+/**
+ * Whether "at most" goals can be judged: the note's day has an end of day,
+ * or is before today.
+ */
+export function isDayOver(
+	day: { date: Date; dayEnd: Date | null },
+	now: Date
+): boolean {
+	return day.dayEnd !== null || startOfDay(day.date) < startOfDay(now)
 }

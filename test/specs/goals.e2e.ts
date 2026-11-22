@@ -354,4 +354,183 @@ describe('goals tab', function () {
 		await waitForChange(content)
 		await expect(noticeWith('No result for: Run · distance.')).toBeDisplayed()
 	})
+
+	it('shows goal bars on tracker rows, opening the goal from a bar', async function () {
+		await writeNote(today.path, [
+			'- [ ] Run #sport',
+			'      [goal::1h]',
+			'      [goal::distance 8/10 km]',
+			'      [goal::speed /12 km/h]',
+			'      [goal::cadence /170 spm]',
+			`      [clock::${today.date}T07:00:00--${today.date}T07:50:00]`,
+			'- [ ] Email',
+		])
+		await obsidianPage.openFile(today.path)
+		await openDailyView('Tracker')
+
+		// Three bars, the fourth goal folded; Email has none.
+		const bars = browser.$('ul[aria-label="Goals"]')
+		await expect(bars).toHaveChildren(4)
+		await expect(
+			bars.$('button[aria-label="🎯 distance · 8 / 10 km · 80%"]')
+		).toBeDisplayed()
+		await expect(bars.$('button=+1')).toBeDisplayed()
+
+		await bars.$('button[aria-label="🎯 distance · 8 / 10 km · 80%"]').click()
+		await expect(browser.$('button[role="tab"]=Goals')).toHaveAttribute(
+			'aria-selected',
+			'true'
+		)
+		await expect(field('Result of Run · distance')).toBeFocused()
+	})
+
+	it('styles goals from the metric settings and stamps a streak on done cards', async function () {
+		const saved = await browser.executeObsidian(({ plugins }) => {
+			const { settings } = plugins.obsidianTaskTimeTracker
+			return {
+				doneBadge: settings.doneBadge,
+				metricSettings: settings.metricSettings,
+			}
+		})
+		// The views read these settings when they mount: reload them.
+		await browser.executeObsidian(async ({ plugins }) => {
+			const plugin = plugins.obsidianTaskTimeTracker
+			plugin.settings.doneBadge = 'flame'
+			plugin.settings.metricSettings = { cards: { emoji: '🃏' } }
+			await plugin.refreshViews()
+		})
+		try {
+			await writeNote(dayNote(-2).path, [
+				'- [x] Anki',
+				'      [goal::cards 210/200]',
+			])
+			await writeNote(yesterday.path, [
+				'- [x] Anki',
+				'      [goal::cards 200/200]',
+			])
+			await writeNote(today.path, ['- [ ] Anki', '      [goal::cards 230/200]'])
+			await openGoals()
+
+			const cards = card('Anki · cards')
+			await expect(cards.$('[role="img"]=🃏')).toBeDisplayed()
+			// Met today, yesterday and the day before.
+			await expect(
+				cards.$('[role="img"][aria-label="Met 3 days in a row"]')
+			).toHaveText('🔥 3')
+		} finally {
+			await browser.executeObsidian(async ({ plugins }, values) => {
+				const plugin = plugins.obsidianTaskTimeTracker
+				Object.assign(plugin.settings, values)
+				await plugin.refreshViews()
+			}, saved)
+		}
+	})
+
+	it("lets a goal's streak skip the days without it", async function () {
+		const saved = await browser.executeObsidian(({ plugins }) => {
+			const { settings } = plugins.obsidianTaskTimeTracker
+			return {
+				doneBadge: settings.doneBadge,
+				streakSkipsMissingDays: settings.streakSkipsMissingDays,
+			}
+		})
+		await browser.executeObsidian(async ({ plugins }) => {
+			const plugin = plugins.obsidianTaskTimeTracker
+			plugin.settings.doneBadge = 'flame'
+			plugin.settings.streakSkipsMissingDays = []
+			await plugin.refreshViews()
+		})
+		try {
+			await writeNote(dayNote(-3).path, [
+				'- [x] Anki',
+				'      [goal::cards 200/200]',
+			])
+			await writeNote(dayNote(-2).path, ['- [x] Email'])
+			await writeNote(yesterday.path, [
+				'- [x] Anki',
+				'      [goal::cards 200/200]',
+			])
+			await writeNote(today.path, ['- [ ] Anki', '      [goal::cards 230/200]'])
+			await openGoals()
+
+			// The day before yesterday has no Anki: the streak stops there.
+			const flame = card('Anki · cards').$('[aria-label$="days in a row"]')
+			await expect(flame).toHaveText('🔥 2')
+
+			await card('Anki · cards')
+				.$('button[aria-label="Actions for Anki · cards"]')
+				.click()
+			const skip = browser.$('.menu-item-title=Skip days without it in streaks')
+			await expect(skip).toBeDisplayed()
+			await skip.click()
+			// Skipping that day, the streak reaches back three days earlier.
+			await expect(flame).toHaveText('🔥 3')
+			await expect(flame).toHaveAttribute('aria-label', 'Met 3 days in a row')
+		} finally {
+			await browser.executeObsidian(async ({ plugins }, values) => {
+				const plugin = plugins.obsidianTaskTimeTracker
+				Object.assign(plugin.settings, values)
+				await plugin.saveSettings()
+				await plugin.refreshViews()
+			}, saved)
+		}
+	})
+
+	it('warns about the settings of a metric no note uses, and forgets them', async function () {
+		const saved = await browser.executeObsidian(
+			({ plugins }) => plugins.obsidianTaskTimeTracker.settings.metricSettings
+		)
+		await browser.executeObsidian(async ({ plugins }) => {
+			const plugin = plugins.obsidianTaskTimeTracker
+			plugin.settings.metricSettings = { steps: { emoji: '👟' } }
+			await plugin.vaultTasks.ensureBuilt()
+		})
+		const main = await browser.getWindowHandle()
+		try {
+			// This Obsidian opens the settings in their own window.
+			await browser.executeObsidian(({ app }) => {
+				const setting = (
+					app as unknown as {
+						setting: { open(): void; openTabById(id: string): void }
+					}
+				).setting
+				setting.open()
+				setting.openTabById('obsidian-task-time-tracker')
+			})
+			await browser.waitUntil(
+				async () => (await browser.getWindowHandles()).length > 1,
+				{ timeoutMsg: 'the settings window did not open' }
+			)
+			const handles = await browser.getWindowHandles()
+			const settingsWindow = handles.find((handle) => handle !== main)
+			assert.ok(settingsWindow)
+			await browser.switchToWindow(settingsWindow)
+
+			const warning = browser.$(
+				'.setting-item-description=No goal line uses this metric any more. Its settings stay until you forget them.'
+			)
+			await expect(warning).toBeDisplayed()
+			const row = warning.$('../..')
+			await expect(row.$('.setting-item-name')).toHaveText('steps')
+			await row.$('[aria-label="Forget the settings of steps"]').click()
+			// The tab redraws without the row.
+			await expect(browser.$('.setting-item-name=Time goals')).toBeDisplayed()
+			await browser.switchToWindow(main)
+			assert.deepStrictEqual(
+				await browser.executeObsidian(
+					({ plugins }) =>
+						plugins.obsidianTaskTimeTracker.settings.metricSettings
+				),
+				{}
+			)
+		} finally {
+			await browser.switchToWindow(main)
+			await browser.executeObsidian(async ({ app, plugins }, values) => {
+				;(app as unknown as { setting: { close(): void } }).setting.close()
+				const plugin = plugins.obsidianTaskTimeTracker
+				plugin.settings.metricSettings = values
+				await plugin.saveSettings()
+			}, saved)
+		}
+	})
 })

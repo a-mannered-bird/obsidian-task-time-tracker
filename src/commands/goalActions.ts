@@ -13,6 +13,7 @@ import {
 import {
 	achievedField,
 	findGoal,
+	goalKeyId,
 	formatGoalNumber,
 	metricNameProblem,
 	parseTypedNumber,
@@ -195,6 +196,30 @@ async function editGoal(
 			updateGoal(content, key, update)
 		)
 	)
+}
+
+/** Whether the goal's streak skips the days without it. */
+export function streakSkipsMissingDays(
+	plugin: TaskTimeTracker,
+	key: GoalKey
+): boolean {
+	return plugin.settings.streakSkipsMissingDays.some(
+		(entry) => goalKeyId(entry) === goalKeyId(key)
+	)
+}
+
+/** Switch whether the goal's streak skips the days without it. */
+export async function toggleStreakSkip(
+	plugin: TaskTimeTracker,
+	key: GoalKey
+): Promise<void> {
+	const { settings } = plugin
+	settings.streakSkipsMissingDays = streakSkipsMissingDays(plugin, key)
+		? settings.streakSkipsMissingDays.filter(
+				(entry) => goalKeyId(entry) !== goalKeyId(key)
+			)
+		: [...settings.streakSkipsMissingDays, key]
+	await plugin.saveSettings()
 }
 
 /** What the metric picker returns: the time goal, a known metric or a new one. */

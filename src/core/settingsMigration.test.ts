@@ -12,6 +12,10 @@ const settings = {
 		{ day: '2026-08-03', taskName: 'Deep wok', metric: null, unit: '' },
 		{ day: '2026-08-03', taskName: 'Task A', metric: 'pages', unit: '' },
 	],
+	streakSkipsMissingDays: [
+		{ taskName: 'Deep wok', metric: 'pages', unit: '' },
+		{ taskName: 'Task A', metric: 'pages', unit: '' },
+	],
 }
 
 describe('migrateTaskNames', () => {
@@ -45,6 +49,10 @@ describe('migrateTaskNames', () => {
 			'Task A',
 			true
 		)
+		// Both had the setting for pages: the target keeps one.
+		expect(migrated.streakSkipsMissingDays).toEqual([
+			{ taskName: 'Task A', metric: 'pages', unit: '' },
+		])
 		expect(migrated.taskColors).toEqual({ 'Task A': 'var(--color-blue)' })
 		// Task A was visible; the hidden sources do not hide it.
 		expect(migrated.hiddenTasks).toEqual([])
@@ -81,6 +89,9 @@ describe('forgetTaskName', () => {
 		])
 		expect(forgotten.dismissedGoalSuggestions).toEqual([
 			{ day: '2026-08-03', taskName: 'Task A', metric: 'pages', unit: '' },
+		])
+		expect(forgotten.streakSkipsMissingDays).toEqual([
+			{ taskName: 'Task A', metric: 'pages', unit: '' },
 		])
 	})
 })

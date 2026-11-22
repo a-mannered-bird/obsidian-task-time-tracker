@@ -6,7 +6,27 @@ import type TaskTimeTracker from './main'
 import { showNotice } from './ui/notice'
 import { openTaskManager } from './ui/TaskManagerModal'
 import type { TagMapping } from './types/tags'
-import type { GoalSuggestionDismissal } from './core/goalCards'
+import {
+	AGGREGATION_RULE_NAMES,
+	AGGREGATION_RULES,
+	DEFAULT_STAMP_TEXTS,
+	DONE_BADGE_NAMES,
+	DONE_BADGES,
+	isAggregationRule,
+	isDoneBadge,
+	parseStampTexts,
+	type DoneBadge,
+	type MetricSetting,
+	type MetricSettings,
+} from './core/goalStyle'
+import {
+	METRIC_GOAL_EMOJI,
+	TIME_GOAL_EMOJI,
+	TIME_GOAL_LABEL,
+	type GoalSuggestionDismissal,
+} from './core/goalCards'
+import type { GoalKey } from './core/goalEdits'
+import { openColorMenu } from './ui/colorMenu'
 
 export interface TaskTimeTrackerSettings {
 	/**
@@ -31,6 +51,14 @@ export interface TaskTimeTrackerSettings {
 	 * off, it opens at `timelineZoom`.
 	 */
 	timelineFitOnOpen: boolean
+	/** Color, emoji and aggregation rule per metric name (see goalStyle). */
+	metricSettings: MetricSettings
+	/** The badge a goal card gets once done. */
+	doneBadge: DoneBadge
+	/** The rubber stamp badge's texts, one picked per card and day. */
+	stampTexts: string[]
+	/** Goals whose streak skips the days without them (see goalStreak). */
+	streakSkipsMissingDays: GoalKey[]
 	/** Goal suggestions dismissed for a day (see pruneDismissals). */
 	dismissedGoalSuggestions: GoalSuggestionDismissal[]
 	/** UI state, not shown in the settings tab. */
@@ -53,6 +81,10 @@ export const DEFAULT_SETTINGS: TaskTimeTrackerSettings = {
 	ignoredIssueKinds: [],
 	dismissedIssues: [],
 	dismissedGoalSuggestions: [],
+	metricSettings: {},
+	streakSkipsMissingDays: [],
+	doneBadge: 'tick',
+	stampTexts: DEFAULT_STAMP_TEXTS,
 	timelineFitOnOpen: true,
 	lastDailyViewTab: 'tracker',
 	timelineZoom: ZOOM_DEFAULT,
@@ -76,6 +108,9 @@ export const DEFAULT_SETTINGS: TaskTimeTrackerSettings = {
 	],
 }
 
+export const UNUSED_METRIC_WARNING =
+	'No goal line uses this metric any more. Its settings stay until you forget them.'
+
 function emptyMapping(): TagMapping {
 	return { tag: '', emoji: '' }
 }
@@ -93,6 +128,7 @@ export class TaskTimeTrackerSettingTab extends PluginSettingTab {
 		containerEl.empty()
 
 		this.displayTimelineSection(containerEl)
+		this.displayGoalsSection(containerEl)
 		this.displayTaskManagementSection(containerEl)
 		this.displayWarningsSection(containerEl)
 		this.displayTagMappingsSection(containerEl)
@@ -129,6 +165,162 @@ export class TaskTimeTrackerSettingTab extends PluginSettingTab {
 						await this.plugin.saveSettings()
 					})
 			)
+	}
+
+	private displayGoalsSection(containerEl: HTMLElement) {
+		const { settings } = this.plugin
+		new Setting(containerEl).setName('Goals').setHeading()
+
+		new Setting(containerEl)
+			.setName('Done badge')
+			.setDesc(
+				'What a goal card shows on its corner once the goal is reached. Streak flame counts the days in a row it was.'
+			)
+			.addDropdown((dropdown) => {
+				for (const badge of DONE_BADGES) {
+					dropdown.addOption(badge, DONE_BADGE_NAMES[badge])
+				}
+				dropdown.setValue(settings.doneBadge).onChange(async (value) => {
+					if (!isDoneBadge(value)) return
+					settings.doneBadge = value
+					await this.plugin.saveSettings()
+					this.display()
+				})
+			})
+
+		if (settings.doneBadge === 'stamp') {
+			new Setting(containerEl)
+				.setName('Stamp texts')
+				.setDesc('One per line; each card gets one of them for the day.')
+				.addTextArea((text) =>
+					text
+						.setValue(settings.stampTexts.join('\n'))
+						.onChange(async (value) => {
+							settings.stampTexts = parseStampTexts(value)
+							await this.plugin.saveSettings()
+						})
+				)
+		}
+
+		const index = this.plugin.vaultTasks
+		if (!index.isReady) {
+			void index.ensureBuilt().then(() => this.display())
+		}
+		const used = new Set(index.metrics().map(({ metric }) => metric))
+		const metrics = [
+			TIME_GOAL_LABEL,
+			...new Set([
+				...used,
+				...Object.keys(settings.metricSettings).filter(
+					(name) => name !== TIME_GOAL_LABEL
+				),
+			]),
+		]
+		new Setting(containerEl)
+			.setName('Metrics')
+			.setDesc(
+				'Color and emoji of each metric in the goal cards and the tracker bars, and how its values add up when tasks merge or a range is summed. Rates (a unit with /) average by default, the others add up.'
+			)
+		for (const metric of metrics) {
+			const unused =
+				index.isReady && metric !== TIME_GOAL_LABEL && !used.has(metric)
+			this.displayMetricSetting(containerEl, metric, unused)
+		}
+	}
+
+	/** `unused`: set here, but in no goal line of any note any more. */
+	private displayMetricSetting(
+		containerEl: HTMLElement,
+		metric: string,
+		unused: boolean
+	) {
+		const { settings } = this.plugin
+		const current = (): MetricSetting => settings.metricSettings[metric] ?? {}
+		const update = async (change: MetricSetting) => {
+			const next = Object.fromEntries(
+				Object.entries({ ...current(), ...change }).filter(
+					([, value]) => value !== undefined && value !== ''
+				)
+			)
+			const all = { ...settings.metricSettings }
+			if (Object.keys(next).length) all[metric] = next
+			else delete all[metric]
+			settings.metricSettings = all
+			await this.plugin.saveSettings()
+		}
+		const isTime = metric === TIME_GOAL_LABEL
+		const setting = new Setting(containerEl)
+			.setName(isTime ? 'Time goals' : metric)
+			.setClass('task-time-tracker-metric-setting')
+		if (unused) {
+			setting.setDesc(UNUSED_METRIC_WARNING)
+			setting.descEl.addClass('mod-warning')
+		}
+
+		// Not a <button>: Obsidian's mobile styles stretch those full width.
+		const swatch = setting.controlEl.createSpan({
+			cls: 'task-time-tracker-swatch-button',
+			attr: {
+				role: 'button',
+				tabindex: '0',
+				'aria-label': `Color of ${metric}`,
+			},
+		})
+		const paint = () => {
+			swatch.style.setProperty(
+				'--swatch-color',
+				current().color ?? 'transparent'
+			)
+			swatch.toggleClass('has-color', Boolean(current().color))
+		}
+		const pick = (event: MouseEvent) =>
+			openColorMenu(event, current().color, (color) => {
+				void update({ color: color ?? undefined }).then(paint)
+			})
+		swatch.addEventListener('click', pick)
+		swatch.addEventListener('keydown', (event) => {
+			if (event.key !== 'Enter' && event.key !== ' ') return
+			event.preventDefault()
+			const rect = swatch.getBoundingClientRect()
+			pick(
+				new MouseEvent('click', { clientX: rect.left, clientY: rect.bottom })
+			)
+		})
+		paint()
+		setting.addText((text) => {
+			text.inputEl.addClass('task-time-tracker-emoji-input')
+			text.inputEl.setAttribute('aria-label', `Emoji of ${metric}`)
+			text
+				.setPlaceholder(isTime ? TIME_GOAL_EMOJI : METRIC_GOAL_EMOJI)
+				.setValue(current().emoji ?? '')
+				.onChange((value) => void update({ emoji: value.trim() || undefined }))
+		})
+		if (!isTime) {
+			setting.addDropdown((dropdown) => {
+				dropdown.selectEl.setAttribute('aria-label', `How ${metric} adds up`)
+				dropdown.addOption('', 'Default')
+				for (const rule of AGGREGATION_RULES) {
+					dropdown.addOption(rule, AGGREGATION_RULE_NAMES[rule])
+				}
+				dropdown.setValue(current().rule ?? '').onChange((value) => {
+					void update({ rule: isAggregationRule(value) ? value : undefined })
+				})
+			})
+		}
+		if (unused) {
+			setting.addExtraButton((button) =>
+				button
+					.setIcon('trash')
+					.setTooltip(`Forget the settings of ${metric}`)
+					.onClick(async () => {
+						const all = { ...settings.metricSettings }
+						delete all[metric]
+						settings.metricSettings = all
+						await this.plugin.saveSettings()
+						this.display()
+					})
+			)
+		}
 	}
 
 	private displayTaskManagementSection(containerEl: HTMLElement) {

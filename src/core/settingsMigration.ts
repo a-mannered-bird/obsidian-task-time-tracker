@@ -1,4 +1,5 @@
 import type { GoalSuggestionDismissal } from './goalCards'
+import { goalKeyId, type GoalKey } from './goalEdits'
 import { issueKeyNames } from './issues'
 
 /** The settings keyed by task name. */
@@ -9,6 +10,8 @@ export type NameKeyedSettings = {
 	dismissedIssues: string[]
 	/** Goal suggestions dismissed for a day; they follow their task. */
 	dismissedGoalSuggestions: GoalSuggestionDismissal[]
+	/** Goals whose streak skips missing days; they follow their task. */
+	streakSkipsMissingDays: GoalKey[]
 }
 
 /**
@@ -18,7 +21,8 @@ export type NameKeyedSettings = {
  * Colors: the target's own wins, else the first source with one transfers.
  * Hidden: the target's own flag when it already existed as a task, else
  * hidden only when every source was. Source entries are dropped.
- * Dismissed goal suggestions move to the target.
+ * Dismissed goal suggestions and per-goal streak settings move to the
+ * target.
  */
 export function migrateTaskNames(
 	settings: NameKeyedSettings,
@@ -57,7 +61,16 @@ export function migrateTaskNames(
 		dismissedGoalSuggestions: settings.dismissedGoalSuggestions.map((entry) =>
 			isSource(entry.taskName) ? { ...entry, taskName: targetName } : entry
 		),
+		streakSkipsMissingDays: uniqueKeys(
+			settings.streakSkipsMissingDays.map((key) =>
+				isSource(key.taskName) ? { ...key, taskName: targetName } : key
+			)
+		),
 	}
+}
+
+function uniqueKeys(keys: GoalKey[]): GoalKey[] {
+	return [...new Map(keys.map((key) => [goalKeyId(key), key])).values()]
 }
 
 /**
@@ -79,6 +92,9 @@ export function forgetTaskName(
 		),
 		dismissedGoalSuggestions: settings.dismissedGoalSuggestions.filter(
 			(entry) => entry.taskName !== name
+		),
+		streakSkipsMissingDays: settings.streakSkipsMissingDays.filter(
+			(key) => key.taskName !== name
 		),
 	}
 }

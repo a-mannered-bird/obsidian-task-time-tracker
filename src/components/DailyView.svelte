@@ -56,6 +56,14 @@
 
 	let trackerTab = $state<TrackerTab | null>(null)
 
+	/** A goal picked from a tracker bar, focused once the Goals tab shows it. */
+	let goalToEdit = $state<string | null>(null)
+
+	function editGoal(goalId: string) {
+		goalToEdit = goalId
+		select('goals')
+	}
+
 	function select(tab: DailyViewTab) {
 		if (tab !== active) trackerTab?.leave()
 		active = tab
@@ -263,9 +271,16 @@
 				{overnight}
 				{otherDay}
 				{loading}
+				oneditgoal={editGoal}
 			/>
 		{:else if active === 'goals'}
-			<GoalsTab {plugin} {log} {loading} />
+			<GoalsTab
+				{plugin}
+				{log}
+				{loading}
+				focusGoal={goalToEdit}
+				onfocused={() => (goalToEdit = null)}
+			/>
 		{:else}
 			<TimelineTab {plugin} {log} {loading} />
 		{/if}

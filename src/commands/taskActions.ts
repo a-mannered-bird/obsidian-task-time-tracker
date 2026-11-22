@@ -10,6 +10,7 @@ import {
 } from 'core/confirmations'
 import { NOTICE_ICON, noticeTask } from 'core/noticeText'
 import { parseTaskInput } from 'core/parser'
+import { metricRuleOf } from 'core/goalStyle'
 import { forgetTaskName, migrateTaskNames } from 'core/settingsMigration'
 import {
 	consolidateInVault,
@@ -58,7 +59,12 @@ export async function renameTask(
 	})
 	if (target === null) return false
 
-	const preview = previewConsolidation(plugin.vaultTasks, [name], target)
+	const preview = previewConsolidation(
+		plugin.vaultTasks,
+		[name],
+		target,
+		metricRuleOf(plugin.settings.metricSettings)
+	)
 	const confirmed = await confirmAction(plugin.app, {
 		title: `Rename "${name}"`,
 		message: describeConsolidation([name], target, preview),
@@ -93,7 +99,12 @@ export async function mergeTasks(
 			...describeConsolidation(
 				names,
 				null,
-				previewConsolidation(plugin.vaultTasks, names, survivorDefault)
+				previewConsolidation(
+					plugin.vaultTasks,
+					names,
+					survivorDefault,
+					metricRuleOf(plugin.settings.metricSettings)
+				)
 			),
 			IRREVERSIBLE_NOTE,
 		],
@@ -123,7 +134,8 @@ async function consolidate(
 			plugin.vaultTasks,
 			sourceNames,
 			targetName,
-			onProgress
+			onProgress,
+			metricRuleOf(plugin.settings.metricSettings)
 		)
 	)
 

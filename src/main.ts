@@ -9,6 +9,7 @@ import { registerUserEditLog, type UserEdit } from './commands/userEdits'
 import { getCoreDailyNotesConfig } from './core/coreDailyNotes'
 import { DailyLogStore } from './core/dailyLogs'
 import { isDailyNote, type DailyNotesConfig } from './core/dailyNotes'
+import { isDoneBadge } from './core/goalStyle'
 import { VaultTaskIndex } from './core/vaultTaskIndex'
 import {
 	DEFAULT_SETTINGS,
@@ -113,6 +114,8 @@ export default class TaskTimeTracker extends Plugin {
 		// The stats tab was dropped; a view last left on it opens the tracker.
 		if (!isDailyViewTab(this.settings.lastDailyViewTab))
 			this.settings.lastDailyViewTab = DEFAULT_SETTINGS.lastDailyViewTab
+		if (!isDoneBadge(this.settings.doneBadge))
+			this.settings.doneBadge = DEFAULT_SETTINGS.doneBadge
 		// Drops the bold / italic / underline flags of older mappings.
 		this.settings.tagMappings = this.settings.tagMappings.map(
 			({ tag, emoji }) => ({ tag, emoji })

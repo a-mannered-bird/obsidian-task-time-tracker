@@ -460,3 +460,24 @@
 	inherits: false;
 	initial-value: 0;
 }
+
+/* A metric's color in the settings: dashed while it keeps its default. */
+.task-time-tracker-swatch-button {
+	flex: none;
+	width: 1.6em;
+	height: 1.6em;
+	cursor: pointer;
+	border-radius: 50%;
+	border: 1.5px dashed var(--text-faint);
+	background: var(--swatch-color);
+}
+
+.task-time-tracker-swatch-button:focus-visible {
+	outline: 2px solid var(--interactive-accent);
+	outline-offset: 2px;
+}
+
+.task-time-tracker-swatch-button.has-color {
+	border-style: solid;
+	border-color: var(--background-modifier-border);
+}
