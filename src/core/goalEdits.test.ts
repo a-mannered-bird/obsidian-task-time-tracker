@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import type { MetricGoal } from 'types/goals'
 import {
-	formatAchievedField,
+	achievedField,
 	formatTargetField,
-	goalFieldInput,
+	targetField,
+	typedFieldValue,
 	goalStep,
 	parseTypedNumber,
 	parseTypedTarget,
@@ -153,19 +154,24 @@ describe('typed values', () => {
 })
 
 describe('card fields', () => {
-	it('shows 0 until a result is recorded', () => {
-		expect(formatAchievedField(metric('cards /200'))).toBe('0')
-		expect(formatAchievedField(metric('weight 81,4/<80 kg'))).toBe('81,4')
+	it('edits a result as a number, 0 until one is recorded', () => {
+		expect(achievedField(metric('cards /200')).value).toBe('0')
+		expect(achievedField(metric('weight 81,4/<80 kg')).value).toBe('81.4')
 	})
 
-	it('edits plain numbers in number inputs, with a dot', () => {
-		expect(goalFieldInput('81,4')).toEqual({ type: 'number', value: '81.4' })
-		expect(goalFieldInput('')).toEqual({ type: 'number', value: '' })
+	it('edits a metric target as a number, keeping it at most', () => {
+		const field = targetField(metric('weight 81,4/<80,5 kg'))
+		expect(field).toEqual({ type: 'number', value: '80.5', atMost: true })
+		expect(typedFieldValue(field, '79')).toBe('<79')
+		expect(typedFieldValue(field, '')).toBe('')
 	})
 
-	it('edits at-most targets and durations as text', () => {
-		expect(goalFieldInput('<80')).toEqual({ type: 'text', value: '<80' })
-		expect(goalFieldInput('1h30m')).toEqual({ type: 'text', value: '1h30m' })
+	it('edits a time target as text', () => {
+		const parsed = parseGoal('<1h30m')
+		if (!('goal' in parsed)) throw new Error('<1h30m')
+		const field = targetField(parsed.goal)
+		expect(field).toEqual({ type: 'text', value: '<1h30m' })
+		expect(typedFieldValue(field, ' 90 ')).toBe('90')
 	})
 })
 

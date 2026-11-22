@@ -4,7 +4,7 @@
 	import {
 		addSuggestedGoals,
 		deleteGoal,
-		dismissGoalSuggestion,
+		dismissGoalSuggestions,
 		editGoalUnit,
 		setGoalAchieved,
 		setGoalFlow,
@@ -15,6 +15,7 @@
 	import { isSameDay, startOfDay } from 'core/dailyNotes'
 	import {
 		defaultGoalColor,
+		describeRing,
 		describeSuggestedTarget,
 		goalLabel,
 		dismissedOn,
@@ -27,13 +28,15 @@
 		type GoalSuggestion,
 	} from 'core/goalCards'
 	import {
-		formatAchievedField,
-		formatTargetField,
-		goalFieldInput,
+		achievedField,
+		targetField,
+		typedFieldValue,
+		type GoalField,
 	} from 'core/goalEdits'
 	import { formatGoalMinutes } from 'core/goals'
 	import { formatLocalDate } from 'core/time'
 	import { icon } from 'ui/icon'
+	import { selectOnFocus } from 'ui/selectOnFocus'
 	import { instantTooltip } from 'ui/tooltip'
 	import type TaskTimeTracker from '../main'
 
@@ -98,22 +101,15 @@
 		return card.goal.kind === 'time' ? TIME_GOAL_EMOJI : METRIC_GOAL_EMOJI
 	}
 
-	function ringLabel(card: GoalCard): string {
-		const share = `${Math.round(card.progress * 100)}% of the target`
-		if (card.state === 'done') return `${share}, done`
-		if (card.state === 'over') return 'Over the limit'
-		return share
-	}
-
 	/** Commit a field on change (blur or Enter), unless left as it was. */
 	function commit(
 		event: Event & { currentTarget: HTMLInputElement },
-		shown: string,
+		field: GoalField,
 		write: (file: TFile, value: string) => Promise<void>
 	) {
 		const value = event.currentTarget.value
-		if (value.trim() === shown || !log) return
-		void write(log.file, value)
+		if (value.trim() === field.value || !log) return
+		void write(log.file, typedFieldValue(field, value))
 	}
 
 	function fieldKeys(
@@ -169,9 +165,13 @@
 		if (log) void addSuggestedGoals(plugin, log.file, list)
 	}
 
-	async function dismiss(suggestion: GoalSuggestion) {
+	async function dismiss(list: GoalSuggestion[]) {
 		if (!log) return
-		await dismissGoalSuggestion(plugin, log.date, suggestion.key)
+		await dismissGoalSuggestions(
+			plugin,
+			log.date,
+			list.map((suggestion) => suggestion.key)
+		)
 		dismissals++
 	}
 
@@ -189,7 +189,12 @@
 <div class="goals-tab" aria-busy={loading}>
 	{#if suggestions.length > 1}
 		<div class="goals-toolbar">
-			<button onclick={() => addSuggestions(suggestions)}>
+			<button onclick={() => void dismiss(suggestions)}>
+				<span class="button-icon" use:icon={'x'}></span>
+				Reject all suggestions
+			</button>
+			<button class="mod-cta" onclick={() => addSuggestions(suggestions)}>
+				<span class="button-icon" use:icon={'list-plus'}></span>
 				Add all suggestions
 			</button>
 		</div>
@@ -204,14 +209,13 @@
 			<div class="card-list" role="list" aria-label={group.taskName ?? 'Goals'}>
 				{#each group.cards as card (card.id)}
 					{@const achieved =
-						card.goal.kind === 'metric'
-							? goalFieldInput(formatAchievedField(card.goal))
-							: null}
-					{@const target = goalFieldInput(formatTargetField(card.goal))}
+						card.goal.kind === 'metric' ? achievedField(card.goal) : null}
+					{@const target = targetField(card.goal)}
 					<div
 						class="goal-card"
 						class:is-done={card.state === 'done'}
 						class:is-over={card.state === 'over'}
+						class:is-at-most={card.goal.atMost}
 						role="listitem"
 						aria-label={card.title}
 						style:--goal-color={defaultGoalColor(card.goal)}
@@ -241,7 +245,7 @@
 								class="ring"
 								class:pops={popped.has(card.id)}
 								role="img"
-								aria-label={ringLabel(card)}
+								aria-label={describeRing(card)}
 							>
 								<span>{emoji(card)}</span>
 							</div>
@@ -261,14 +265,15 @@
 								<input
 									class="field"
 									aria-label="Result of {card.title}"
-									type={achieved.type}
+									type="number"
 									step="any"
 									min="0"
 									inputmode="decimal"
 									value={achieved.value}
 									size={size(achieved.value)}
+									use:selectOnFocus
 									onchange={(event) =>
-										commit(event, achieved.value, (file, value) =>
+										commit(event, achieved, (file, value) =>
 											setGoalAchieved(plugin, file, card.key, value)
 										)}
 									onkeydown={(event) => fieldKeys(event, achieved.value)}
@@ -283,20 +288,42 @@
 								>
 							{/if}
 							<span aria-hidden="true">/</span>
-							<input
-								class="field"
-								aria-label="Target of {card.title}"
-								type={target.type}
-								step="any"
-								min="0"
-								value={target.value}
-								size={size(target.value)}
-								onchange={(event) =>
-									commit(event, target.value, (file, value) =>
-										setGoalTarget(plugin, file, card.key, value)
-									)}
-								onkeydown={(event) => fieldKeys(event, target.value)}
-							/>
+							{#if target.type === 'number'}
+								{#if target.atMost}
+									<span class="at-most" use:instantTooltip={() => ['At most']}
+										>&lt;</span
+									>
+								{/if}
+								<input
+									class="field"
+									aria-label="Target of {card.title}"
+									type="number"
+									step="any"
+									min="0"
+									inputmode="decimal"
+									value={target.value}
+									size={size(target.value)}
+									use:selectOnFocus
+									onchange={(event) =>
+										commit(event, target, (file, value) =>
+											setGoalTarget(plugin, file, card.key, value)
+										)}
+									onkeydown={(event) => fieldKeys(event, target.value)}
+								/>
+							{:else}
+								<input
+									class="field"
+									aria-label="Target of {card.title}"
+									type="text"
+									value={target.value}
+									size={size(target.value)}
+									onchange={(event) =>
+										commit(event, target, (file, value) =>
+											setGoalTarget(plugin, file, card.key, value)
+										)}
+									onkeydown={(event) => fieldKeys(event, target.value)}
+								/>
+							{/if}
 							{#if card.goal.kind === 'metric' && card.goal.unit}
 								<span class="unit">{card.goal.unit}</span>
 							{/if}
@@ -318,7 +345,7 @@
 						class="menu-button"
 						aria-label="Dismiss {suggestion.title} for this day"
 						use:icon={'x'}
-						onclick={() => void dismiss(suggestion)}
+						onclick={() => void dismiss([suggestion])}
 					></button>
 					<div class="ring is-ghost" aria-hidden="true">
 						<span>
@@ -362,7 +389,22 @@
 
 	.goals-toolbar {
 		display: flex;
+		flex-wrap: wrap;
 		justify-content: flex-end;
+		gap: var(--size-4-2);
+	}
+
+	.goals-toolbar button {
+		gap: var(--size-4-1);
+	}
+
+	.button-icon {
+		display: inline-flex;
+	}
+
+	.button-icon :global(svg) {
+		width: var(--icon-s);
+		height: var(--icon-s);
 	}
 
 	/* Two columns in the sidebar, more in a wide pane, one below 310px. */
@@ -481,9 +523,14 @@
 		transition: --task-time-tracker-ring 700ms cubic-bezier(0.2, 0.8, 0.2, 1);
 	}
 
+	/* An "at most" ring shows the limit left: it starts full and empties. */
 	@starting-style {
 		.ring {
 			--task-time-tracker-ring: 0;
+		}
+
+		.goal-card.is-at-most .ring {
+			--task-time-tracker-ring: 1;
 		}
 	}
 
@@ -599,7 +646,8 @@
 		color: var(--text-muted);
 	}
 
-	.unit {
+	.unit,
+	.at-most {
 		color: var(--text-muted);
 	}
 

@@ -27,7 +27,10 @@ export type GoalCard = {
 	/** Minutes for a time goal (from the clocks), else the recorded value. */
 	achieved: number | null
 	target: number | null
-	/** Share of the target reached, 0 to 1, for the ring. */
+	/**
+	 * How full the ring is, 0 to 1: the share of the target reached, or for
+	 * an "at most" goal the share of the limit still left.
+	 */
 	progress: number
 	state: GoalCardState
 }
@@ -64,12 +67,35 @@ export function goalCards(
 				goal,
 				achieved,
 				target,
-				progress:
-					target && achieved !== null ? Math.min(1, achieved / target) : 0,
+				progress: ringProgress(achieved, target, goal.atMost),
 				state: cardState(achieved, target, goal.atMost, dayOver),
 			}
 		})
 	)
+}
+
+function ringProgress(
+	achieved: number | null,
+	target: number | null,
+	atMost: boolean
+): number {
+	if (!target) return 0
+	const used = Math.min(1, (achieved ?? 0) / target)
+	return atMost ? 1 - used : used
+}
+
+/** What the ring shows, for screen readers. */
+export function describeRing(card: GoalCard): string {
+	const share = Math.round(card.progress * 100)
+	if (card.state === 'over') return 'Over the limit'
+	if (card.goal.atMost) {
+		return card.state === 'done'
+			? 'Stayed within the limit, done'
+			: `${share}% of the limit left`
+	}
+	return card.state === 'done'
+		? `${share}% of the target, done`
+		: `${share}% of the target`
 }
 
 function cardState(

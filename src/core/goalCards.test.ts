@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
 	describeMissingResults,
+	describeRing,
 	describeSuggestedTarget,
 	dismissedOn,
 	goalCards,
@@ -59,12 +60,39 @@ describe('goalCards', () => {
 		})
 	})
 
+	it('empties the ring of an "at most" goal as its limit is used', () => {
+		// 20 of 30 minutes used: a third of the limit is left.
+		expect(byTitle.get('Social media · time')?.progress).toBeCloseTo(1 / 3)
+		expect(byTitle.get('Snacks · cookies')?.progress).toBe(0)
+	})
+
 	it('judges an "at most" goal over at once, done only once the day is over', () => {
 		expect(byTitle.get('Snacks · cookies')?.state).toBe('over')
 		expect(byTitle.get('Social media · time')?.state).toBe('open')
 		const ended = goalCards(tasks, now, true)
 		expect(ended.find((c) => c.title === 'Social media · time')?.state).toBe(
 			'done'
+		)
+	})
+})
+
+describe('describeRing', () => {
+	const ringLabels = (dayOver: boolean) =>
+		new Map(
+			goalCards(tasks, now, dayOver).map((card) => [
+				card.title,
+				describeRing(card),
+			])
+		)
+
+	it('tells the share reached, or the share of the limit left', () => {
+		const open = ringLabels(false)
+		expect(open.get('Run · distance')).toBe('80% of the target')
+		expect(open.get('Anki · cards')).toBe('100% of the target, done')
+		expect(open.get('Social media · time')).toBe('33% of the limit left')
+		expect(open.get('Snacks · cookies')).toBe('Over the limit')
+		expect(ringLabels(true).get('Social media · time')).toBe(
+			'Stayed within the limit, done'
 		)
 	})
 })

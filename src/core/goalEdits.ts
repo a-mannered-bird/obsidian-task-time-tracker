@@ -191,22 +191,37 @@ export function formatGoalNumber(
 	return decimalComma ? text.replace('.', ',') : text
 }
 
-/** An achieved value as its field shows it: 0 until a result is recorded. */
-export function formatAchievedField(goal: MetricGoal): string {
-	return formatGoalNumber(goal.achieved ?? 0, goal.decimalComma)
+/**
+ * A card field: a number input for a metric's result or target, with the
+ * at-most `<` shown in front of it rather than typed (number inputs only
+ * take digits and `.`); a text input for a time target (`1h30m`, `<30m`).
+ */
+export type GoalField =
+	| { type: 'number'; value: string; atMost: boolean }
+	| { type: 'text'; value: string }
+
+/** A result field: 0 until a result is recorded. */
+export function achievedField(goal: MetricGoal): GoalField {
+	return { type: 'number', value: String(goal.achieved ?? 0), atMost: false }
 }
 
-/**
- * The input a card field gets: a number input for a plain number (or an
- * empty field), which only takes `.` as its decimal separator; a text
- * input for anything else (`<80`, `1h30m`).
- */
-export type GoalFieldInput = { type: 'number' | 'text'; value: string }
+export function targetField(goal: Goal): GoalField {
+	if (goal.kind === 'time') {
+		return { type: 'text', value: formatTargetField(goal) }
+	}
+	return {
+		type: 'number',
+		value: goal.target === null ? '' : String(goal.target),
+		atMost: goal.atMost,
+	}
+}
 
-export function goalFieldInput(text: string): GoalFieldInput {
-	return text === '' || NUMBER.test(text)
-		? { type: 'number', value: text.replace(',', '.') }
-		: { type: 'text', value: text }
+/** What a field's value means when typed, `<` put back for at most. */
+export function typedFieldValue(field: GoalField, value: string): string {
+	const trimmed = value.trim()
+	return field.type === 'number' && field.atMost && trimmed !== ''
+		? `<${trimmed}`
+		: trimmed
 }
 
 /** A target as its field shows it: `10`, `<80`, `1h30m`, `<30m`. */

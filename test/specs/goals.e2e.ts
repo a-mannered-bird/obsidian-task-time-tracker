@@ -127,6 +127,36 @@ describe('goals tab', function () {
 		await expect(field('Target of Run · time')).toHaveValue('1h30m')
 	})
 
+	it('edits an "at most" goal in number fields, its ring emptying', async function () {
+		let content = await writeNote(today.path, [
+			'- [ ] Snacks',
+			'      [goal::cookies 1/<4]',
+		])
+		await openGoals()
+
+		const ring = card('Snacks · cookies').$('[role="img"]')
+		// 1 cookie of at most 4: three quarters of the limit are left.
+		await expect(ring).toHaveAttribute('aria-label', '75% of the limit left')
+		await expect(field('Target of Snacks · cookies')).toHaveAttribute(
+			'type',
+			'number'
+		)
+		await expect(field('Target of Snacks · cookies')).toHaveValue('4')
+
+		// Focusing a field selects its value, so typing replaces it.
+		await field('Result of Snacks · cookies').click()
+		await browser.keys(['2', 'Enter'])
+		content = await waitForChange(content)
+		assert.deepStrictEqual(goalLines(content), ['      [goal::cookies 2/<4]'])
+		await expect(ring).toHaveAttribute('aria-label', '50% of the limit left')
+
+		await field('Target of Snacks · cookies').click()
+		await browser.keys(['3', 'Enter'])
+		content = await waitForChange(content)
+		assert.deepStrictEqual(goalLines(content), ['      [goal::cookies 2/<3]'])
+		await expect(ring).toHaveAttribute('aria-label', '33% of the limit left')
+	})
+
 	it('deletes a goal from its menu, with Undo', async function () {
 		const content = await writeNote(today.path, [
 			'- [ ] Run',
@@ -205,6 +235,33 @@ describe('goals tab', function () {
 		await expect(
 			browser.$('[role="list"][aria-label="Suggestions and new goals"]')
 		).toHaveChildren(2)
+	})
+
+	it('rejects all suggestions for the day', async function () {
+		await writeNote(yesterday.path, [
+			'- [x] Anki',
+			'      [goal::cards 140/200]',
+			'- [x] Run',
+			'      [goal::distance 8/10 km]',
+		])
+		const content = await writeNote(today.path, ['- [ ] Anki', '- [ ] Run'])
+		await openGoals()
+
+		const suggestions = browser.$(
+			'[role="list"][aria-label="Suggestions and new goals"]'
+		)
+		await expect(suggestions).toHaveChildren(3)
+		await browser.$('button=Reject all suggestions').click()
+
+		// Only the Add goal card is left, and the note is untouched.
+		await expect(suggestions).toHaveChildren(1)
+		assert.strictEqual(await obsidianPage.read(today.path), content)
+
+		// Leave the sandbox settings as found for the other tests.
+		await browser.executeObsidian(async ({ plugins }) => {
+			plugins.obsidianTaskTimeTracker.settings.dismissedGoalSuggestions = []
+			await plugins.obsidianTaskTimeTracker.saveSettings()
+		})
 	})
 
 	it('sets a goal of a new metric from the Add goal card', async function () {

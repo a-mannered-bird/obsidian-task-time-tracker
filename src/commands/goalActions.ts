@@ -165,17 +165,18 @@ export async function addSuggestedGoals(
 	)
 }
 
-/** Hide a suggestion for the note's day; kept a week in the plugin data. */
-export async function dismissGoalSuggestion(
+/** Hide suggestions for the note's day; kept a week in the plugin data. */
+export async function dismissGoalSuggestions(
 	plugin: TaskTimeTracker,
 	date: Date,
-	key: GoalKey
+	keys: GoalKey[]
 ): Promise<void> {
 	const { settings } = plugin
+	const day = formatLocalDate(date)
 	settings.dismissedGoalSuggestions = pruneDismissals(
 		[
 			...settings.dismissedGoalSuggestions,
-			{ ...key, day: formatLocalDate(date) },
+			...keys.map((key) => ({ ...key, day })),
 		],
 		formatLocalDate(new Date())
 	)
