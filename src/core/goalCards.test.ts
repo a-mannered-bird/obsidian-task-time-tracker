@@ -98,17 +98,26 @@ describe('describeRing', () => {
 })
 
 describe('groupGoalCards', () => {
-	it('keeps few cards together and groups many by task', () => {
-		const few = goalCards(tasks.slice(0, 1), now, false)
-		expect(groupGoalCards(few).map((g) => g.taskName)).toEqual([null])
-		const many = goalCards(tasks, now, false)
+	it('groups cards and suggestions by task, in note order', () => {
+		const cards = goalCards(tasks, now, false)
+		const suggestions = goalSuggestions(
+			parseTasks(['- [ ] Email']),
+			() => ({ date: now, goals: tasks[0]!.goals }),
+			new Set()
+		)
+		const names = tasks.map((task) => task.name)
 		expect(
-			groupGoalCards(many).map((g) => [g.taskName, g.cards.length])
+			groupGoalCards(names, cards, suggestions).map((g) => [
+				g.taskName,
+				g.cards.length,
+				g.suggestions.length,
+			])
 		).toEqual([
-			['Run', 3],
-			['Anki', 1],
-			['Social media', 1],
-			['Snacks', 1],
+			['Run', 3, 0],
+			['Anki', 1, 0],
+			['Social media', 1, 0],
+			['Snacks', 1, 0],
+			['Email', 0, 3],
 		])
 	})
 })
@@ -156,7 +165,6 @@ describe('goalSuggestions', () => {
 			'/ 200',
 			'/ 50',
 		])
-		expect(suggestions[1]?.from).toEqual(new Date(2026, 7, 14))
 	})
 
 	it('leaves out the dismissed ones', () => {

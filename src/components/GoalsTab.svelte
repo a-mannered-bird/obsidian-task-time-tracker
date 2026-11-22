@@ -36,6 +36,7 @@
 	import { formatGoalMinutes } from 'core/goals'
 	import { formatLocalDate } from 'core/time'
 	import { icon } from 'ui/icon'
+	import { suggestionFlight } from 'ui/suggestionFlight'
 	import { selectOnFocus } from 'ui/selectOnFocus'
 	import { instantTooltip } from 'ui/tooltip'
 	import type TaskTimeTracker from '../main'
@@ -50,6 +51,9 @@
 	const { plugin, log, loading }: Props = $props()
 
 	let now = $state(new Date())
+
+	// A suggestion and the goal card it becomes share their id (the goal key).
+	const flight = suggestionFlight()
 	// svelte-ignore state_referenced_locally -- the plugin never changes
 	let indexReady = $state(plugin.vaultTasks.isReady)
 	/** Bumped when a suggestion is dismissed: the settings are not reactive. */
@@ -60,7 +64,6 @@
 			(log.dayEnd !== null || startOfDay(log.date) < startOfDay(now))
 	)
 	const cards = $derived(goalCards(log?.tasks ?? [], now, dayOver))
-	const groups = $derived(groupGoalCards(cards))
 	const suggestions = $derived.by(() => {
 		void dismissals
 		if (!log || !indexReady) return []
@@ -74,6 +77,14 @@
 			)
 		)
 	})
+
+	const groups = $derived(
+		groupGoalCards(
+			(log?.tasks ?? []).map((task) => task.name),
+			cards,
+			suggestions
+		)
+	)
 
 	/*
 	 * The ring pops once when a goal is reached while the tab is open; the
@@ -150,19 +161,10 @@
 		menu.showAtMouseEvent(event)
 	}
 
-	function suggestedFrom(suggestion: GoalSuggestion): string {
-		if (!log) return ''
-		const sameWeek =
-			startOfDay(log.date).valueOf() - startOfDay(suggestion.from).valueOf() <
-			7 * 24 * 3600 * 1000
-		return suggestion.from.toLocaleDateString(
-			'en-US',
-			sameWeek ? { weekday: 'long' } : { month: 'long', day: 'numeric' }
-		)
-	}
-
 	function addSuggestions(list: GoalSuggestion[]) {
-		if (log) void addSuggestedGoals(plugin, log.file, list)
+		if (!log) return
+		flight.depart(list.map((suggestion) => suggestion.id))
+		void addSuggestedGoals(plugin, log.file, list)
 	}
 
 	async function dismiss(list: GoalSuggestion[]) {
@@ -189,24 +191,22 @@
 <div class="goals-tab" aria-busy={loading}>
 	{#if suggestions.length > 1}
 		<div class="goals-toolbar">
-			<button onclick={() => void dismiss(suggestions)}>
-				<span class="button-icon" use:icon={'x'}></span>
-				Reject all suggestions
-			</button>
 			<button class="mod-cta" onclick={() => addSuggestions(suggestions)}>
 				<span class="button-icon" use:icon={'list-plus'}></span>
 				Add all suggestions
 			</button>
+			<button onclick={() => void dismiss(suggestions)}>
+				<span class="button-icon" use:icon={'x'}></span>
+				Reject all suggestions
+			</button>
 		</div>
 	{/if}
 
-	<!-- One grid for every list, so the suggestions fill the row after the goals. -->
-	<div class="cards">
-		{#each groups as group (group.taskName ?? '')}
-			{#if group.taskName}
-				<h3 class="group-title">{group.taskName}</h3>
-			{/if}
-			<div class="card-list" role="list" aria-label={group.taskName ?? 'Goals'}>
+	<!-- One grid for every list, so each task's cards fill the row after the last. -->
+	<section class="cards" aria-label="Goals">
+		{#each groups as group (group.taskName)}
+			<h3 class="group-title">{group.taskName}</h3>
+			<div class="card-list" role="list" aria-label={group.taskName}>
 				{#each group.cards as card (card.id)}
 					{@const achieved =
 						card.goal.kind === 'metric' ? achievedField(card.goal) : null}
@@ -218,12 +218,11 @@
 						class:is-at-most={card.goal.atMost}
 						role="listitem"
 						aria-label={card.title}
+						use:flight.arrive={card.id}
 						style:--goal-color={defaultGoalColor(card.goal)}
-						style:--progress={card.state === 'done' ? 1 : card.progress}
+						style:--progress={card.progress}
 					>
-						<span class="title"
-							>{group.taskName ? goalLabel(card.goal) : card.title}</span
-						>
+						<span class="title">{goalLabel(card.goal)}</span>
 						<button
 							class="menu-button"
 							aria-label="Actions for {card.title}"
@@ -236,10 +235,10 @@
 									class="step"
 									aria-label="Decrease {card.title}"
 									disabled={!log}
+									use:icon={'minus'}
 									onclick={() =>
 										log && void stepGoal(plugin, log.file, card.key, -1)}
-									>−</button
-								>
+								></button>
 							{/if}
 							<div
 								class="ring"
@@ -254,10 +253,10 @@
 									class="step"
 									aria-label="Increase {card.title}"
 									disabled={!log}
+									use:icon={'plus'}
 									onclick={() =>
 										log && void stepGoal(plugin, log.file, card.key, 1)}
-									>+</button
-								>
+								></button>
 							{/if}
 						</div>
 						<div class="values">
@@ -330,55 +329,43 @@
 						</div>
 					</div>
 				{/each}
+				{#each group.suggestions as suggestion (suggestion.id)}
+					<div
+						class="goal-card is-suggested"
+						role="listitem"
+						aria-label="Suggested {suggestion.title}"
+						use:flight.suggestion={suggestion.id}
+					>
+						<span class="title">{goalLabel(suggestion.goal)}</span>
+						<button
+							class="menu-button"
+							aria-label="Dismiss {suggestion.title} for this day"
+							use:icon={'x'}
+							onclick={() => void dismiss([suggestion])}
+						></button>
+						<button
+							class="add-suggestion"
+							aria-label="Add {suggestion.title} to {isToday
+								? 'today'
+								: 'this day'}"
+							use:icon={'plus'}
+							onclick={() => addSuggestions([suggestion])}
+						></button>
+						<span class="suggested-target">
+							{describeSuggestedTarget(suggestion.goal)}
+						</span>
+					</div>
+				{/each}
 			</div>
 		{/each}
 
-		<div class="card-list" role="list" aria-label="Suggestions and new goals">
-			{#each suggestions as suggestion (suggestion.id)}
-				<div
-					class="goal-card is-suggested"
-					role="listitem"
-					aria-label="Suggested {suggestion.title}"
-				>
-					<span class="title">{suggestion.title}</span>
-					<button
-						class="menu-button"
-						aria-label="Dismiss {suggestion.title} for this day"
-						use:icon={'x'}
-						onclick={() => void dismiss([suggestion])}
-					></button>
-					<div class="ring is-ghost" aria-hidden="true">
-						<span>
-							{suggestion.goal.kind === 'time'
-								? TIME_GOAL_EMOJI
-								: METRIC_GOAL_EMOJI}
-						</span>
-					</div>
-					<span class="suggested-target">
-						{describeSuggestedTarget(suggestion.goal)}
-					</span>
-					<span class="suggested-from">
-						Suggested · from {suggestedFrom(suggestion)}
-					</span>
-					<button
-						class="mod-cta add-suggestion"
-						onclick={() => addSuggestions([suggestion])}
-					>
-						{isToday ? 'Add to today' : 'Add to this day'}
-					</button>
-				</div>
-			{/each}
-			<div class="new-slot" role="listitem">
-				<button
-					class="goal-card is-new"
-					onclick={() => void setGoalFlow(plugin)}
-				>
-					<span class="plus" use:icon={'plus'}></span>
-					<span>Add goal</span>
-				</button>
-			</div>
+		<div class="new-slot">
+			<button class="goal-card is-new" onclick={() => void setGoalFlow(plugin)}>
+				<span class="plus" use:icon={'plus'}></span>
+				<span>Add goal</span>
+			</button>
 		</div>
-	</div>
+	</section>
 </div>
 
 <style>
@@ -390,7 +377,6 @@
 	.goals-toolbar {
 		display: flex;
 		flex-wrap: wrap;
-		justify-content: flex-end;
 		gap: var(--size-4-2);
 	}
 
@@ -576,35 +562,40 @@
 		}
 	}
 
-	.ring.is-ghost {
-		background: repeating-conic-gradient(
-			var(--background-modifier-border) 0 15deg,
-			transparent 15deg 30deg
-		);
-		transition: none;
-	}
-
-	.ring.is-ghost > span {
-		opacity: 0.7;
-	}
-
-	.step {
+	/*
+	 * Themes restyle every button (radius, height, padding), some with
+	 * selectors like `.theme-dark button:not(.mod-cta):not(.clickable-icon)`:
+	 * the long selector outranks them and the pinned box keeps these round.
+	 * Obsidian also gives buttons `corner-shape: var(--button-corner-shape)`,
+	 * a squircle that squares off even a 50% radius: its variable is reset.
+	 */
+	.goal-card .ring-row button.step {
 		display: grid;
 		place-items: center;
 		flex-shrink: 0;
+		box-sizing: border-box;
 		width: 24px;
+		min-width: 24px;
+		max-width: 24px;
 		height: 24px;
+		min-height: 24px;
+		max-height: 24px;
+		aspect-ratio: 1;
 		padding: 0;
 		border: 1px solid var(--background-modifier-border);
 		border-radius: 50%;
+		--button-corner-shape: round;
 		background: var(--background-primary);
 		box-shadow: none;
 		color: var(--text-muted);
-		font-size: 0.95rem;
-		line-height: 1;
 	}
 
-	.step:hover:enabled {
+	.goal-card .ring-row button.step :global(svg) {
+		width: 14px;
+		height: 14px;
+	}
+
+	.goal-card .ring-row button.step:hover:enabled {
 		background: var(--background-modifier-hover);
 		color: var(--text-normal);
 	}
@@ -665,17 +656,47 @@
 		font-size: var(--font-ui-small);
 	}
 
-	.suggested-from {
-		color: var(--text-accent);
-		font-size: var(--font-ui-smaller);
+	/* Unset: Obsidian's button styles (size, squircle corners) do not apply. */
+	.add-suggestion {
+		all: unset;
+		box-sizing: border-box;
+		display: grid;
+		place-items: center;
+		width: 54px;
+		height: 54px;
+		border: 1.5px dashed var(--interactive-accent);
+		border-radius: 50%;
+		color: var(--interactive-accent);
+		cursor: pointer;
+		transition:
+			background-color 150ms ease,
+			border-color 150ms ease,
+			transform 100ms ease;
 	}
 
-	.add-suggestion {
-		height: auto;
-		padding: 2px 12px;
-		border-radius: 999px;
-		font-size: var(--font-ui-smaller);
-		font-weight: var(--font-semibold);
+	.add-suggestion:hover {
+		border-style: solid;
+		background: color-mix(in srgb, var(--interactive-accent) 14%, transparent);
+	}
+
+	.add-suggestion:active {
+		background: color-mix(in srgb, var(--interactive-accent) 26%, transparent);
+		transform: scale(0.94);
+	}
+
+	.add-suggestion:focus-visible {
+		outline: 2px solid var(--interactive-accent);
+		outline-offset: 2px;
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.add-suggestion {
+			transition: none;
+		}
+
+		.add-suggestion:active {
+			transform: none;
+		}
 	}
 
 	.new-slot {

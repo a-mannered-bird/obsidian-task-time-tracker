@@ -112,21 +112,29 @@ function cardState(
 	return achieved !== null && achieved >= target ? 'done' : 'open'
 }
 
-/** Past this many cards, from several tasks, cards go under task headers. */
-export const GROUP_CARDS_FROM = 5
+export type GoalCardGroup = {
+	taskName: string
+	cards: GoalCard[]
+	suggestions: GoalSuggestion[]
+}
 
-export type GoalCardGroup = { taskName: string | null; cards: GoalCard[] }
-
-/** The cards as one headerless group, or one group per task when many. */
-export function groupGoalCards(cards: GoalCard[]): GoalCardGroup[] {
-	const tasks = [...new Set(cards.map((card) => card.key.taskName))]
-	if (cards.length < GROUP_CARDS_FROM || tasks.length < 2) {
-		return [{ taskName: null, cards }]
-	}
-	return tasks.map((taskName) => ({
-		taskName,
-		cards: cards.filter((card) => card.key.taskName === taskName),
-	}))
+/**
+ * The cards and suggestions under their task, tasks in note order
+ * (`taskNames`); a task with neither has no group.
+ */
+export function groupGoalCards(
+	taskNames: string[],
+	cards: GoalCard[],
+	suggestions: GoalSuggestion[]
+): GoalCardGroup[] {
+	return [...new Set(taskNames)].flatMap((taskName) => {
+		const group = {
+			taskName,
+			cards: cards.filter((card) => card.key.taskName === taskName),
+			suggestions: suggestions.filter((s) => s.key.taskName === taskName),
+		}
+		return group.cards.length || group.suggestions.length ? [group] : []
+	})
 }
 
 /**
@@ -147,8 +155,6 @@ export type GoalSuggestion = {
 	title: string
 	/** Targets only. */
 	goal: Goal
-	/** The day the goal was last set. */
-	from: Date
 }
 
 /** The goals a task last had before a day, and that day. */
@@ -183,7 +189,6 @@ export function goalSuggestions(
 					key,
 					title: `${name} · ${goalLabel(goal)}`,
 					goal: targetOnly(goal),
-					from: recent.date,
 				},
 			]
 		})

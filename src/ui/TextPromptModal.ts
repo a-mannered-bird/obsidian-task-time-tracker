@@ -7,6 +7,8 @@ type Options = {
 	initialValue?: string
 	placeholder?: string
 	confirmText?: string
+	/** A number input takes digits and `.` only, with the numeric keyboard. */
+	inputType?: 'text' | 'number'
 	/** Error shown under the input for an unacceptable value; null = fine. */
 	validate?: (value: string) => string | null
 	/** What the value means, shown under the input as it is typed. */
@@ -45,6 +47,12 @@ class TextPromptModal extends Modal {
 		}
 
 		new Setting(this.contentEl).setName(this.options.label).addText((text) => {
+			if (this.options.inputType === 'number') {
+				text.inputEl.type = 'number'
+				text.inputEl.step = 'any'
+				text.inputEl.min = '0'
+				text.inputEl.inputMode = 'decimal'
+			}
 			text
 				.setPlaceholder(this.options.placeholder ?? '')
 				.setValue(this.value)

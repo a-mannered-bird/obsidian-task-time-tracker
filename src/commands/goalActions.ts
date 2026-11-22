@@ -11,6 +11,7 @@ import {
 	type GoalSuggestion,
 } from 'core/goalCards'
 import {
+	achievedField,
 	findGoal,
 	formatGoalNumber,
 	metricNameProblem,
@@ -395,7 +396,8 @@ export async function recordGoalResultFlow(
 				? undefined
 				: `Target: ${goal.atMost ? 'at most ' : ''}${formatGoalNumber(goal.target, goal.decimalComma)} ${goal.unit}`.trim(),
 		label: goal.unit ? `Result (${goal.unit})` : 'Result',
-		initialValue: formatGoalNumber(goal.achieved, goal.decimalComma),
+		initialValue: achievedField(goal).value,
+		inputType: 'number',
 		validate: (text) => errorOf(parseTypedNumber(text)),
 	})
 	if (typed === null) return

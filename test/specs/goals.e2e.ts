@@ -78,9 +78,7 @@ describe('goals tab', function () {
 		])
 		await openGoals()
 
-		await expect(browser.$('[role="list"][aria-label="Goals"]')).toHaveChildren(
-			3
-		)
+		await expect(browser.$('[role="list"][aria-label="Run"]')).toHaveChildren(3)
 		// The time goal counts the clocks: 50m of 1h, read-only.
 		await expect(
 			browser.$('[aria-label="Time spent on Run · time"]')
@@ -175,18 +173,14 @@ describe('goals tab', function () {
 		assert.deepStrictEqual(goalLines(deleted), [
 			'      [goal::distance 8/10 km]',
 		])
-		await expect(browser.$('[role="list"][aria-label="Goals"]')).toHaveChildren(
-			1
-		)
+		await expect(browser.$('[role="list"][aria-label="Run"]')).toHaveChildren(1)
 
 		await clickNoticeButton(noticeWith('Deleted the goal'), 'Undo')
 		await browser.waitUntil(
 			async () => (await obsidianPage.read(today.path)) === content,
 			{ timeoutMsg: 'the goal did not come back' }
 		)
-		await expect(browser.$('[role="list"][aria-label="Goals"]')).toHaveChildren(
-			2
-		)
+		await expect(browser.$('[role="list"][aria-label="Run"]')).toHaveChildren(2)
 	})
 
 	it("suggests a task's last goals the note lacks and adds them", async function () {
@@ -205,19 +199,22 @@ describe('goals tab', function () {
 		])
 		await openGoals()
 
-		// Run has a time goal already: only its distance is offered, next to
-		// Anki's cards and the Add goal card.
+		// Suggestions sit under their task: Anki's cards alone, and Run's
+		// distance next to its time goal (only the distance is missing).
+		await expect(browser.$('[role="list"][aria-label="Anki"]')).toHaveChildren(
+			1
+		)
+		await expect(browser.$('[role="list"][aria-label="Run"]')).toHaveChildren(2)
 		await expect(
-			browser.$('[role="list"][aria-label="Suggestions and new goals"]')
-		).toHaveChildren(3)
-		await expect(
-			browser.$('[role="listitem"][aria-label="Suggested Run · distance"]')
+			browser
+				.$('[role="list"][aria-label="Run"]')
+				.$('[role="listitem"][aria-label="Suggested Run · distance"]')
 		).toBeDisplayed()
 		const suggested = browser.$(
 			'[role="listitem"][aria-label="Suggested Anki · cards"]'
 		)
 		await expect(suggested).toHaveText(expect.stringContaining('/ 200'))
-		await suggested.$('button=Add to today').click()
+		await suggested.$('button[aria-label="Add Anki · cards to today"]').click()
 
 		const added = await waitForChange(content)
 		assert.deepStrictEqual(added.split('\n'), [
@@ -229,12 +226,11 @@ describe('goals tab', function () {
 			'',
 		])
 		await expect(field('Result of Anki · cards')).toHaveValue('0')
-		await expect(browser.$('[role="list"][aria-label="Goals"]')).toHaveChildren(
-			2
+		// Anki's suggestion became its goal card; Run still offers its distance.
+		await expect(browser.$('[role="list"][aria-label="Anki"]')).toHaveChildren(
+			1
 		)
-		await expect(
-			browser.$('[role="list"][aria-label="Suggestions and new goals"]')
-		).toHaveChildren(2)
+		await expect(browser.$('[role="list"][aria-label="Run"]')).toHaveChildren(2)
 	})
 
 	it('rejects all suggestions for the day', async function () {
@@ -247,14 +243,13 @@ describe('goals tab', function () {
 		const content = await writeNote(today.path, ['- [ ] Anki', '- [ ] Run'])
 		await openGoals()
 
-		const suggestions = browser.$(
-			'[role="list"][aria-label="Suggestions and new goals"]'
-		)
-		await expect(suggestions).toHaveChildren(3)
+		// A heading and a list per task, then the Add goal card.
+		const goals = browser.$('section[aria-label="Goals"]')
+		await expect(goals).toHaveChildren(5)
 		await browser.$('button=Reject all suggestions').click()
 
 		// Only the Add goal card is left, and the note is untouched.
-		await expect(suggestions).toHaveChildren(1)
+		await expect(goals).toHaveChildren(1)
 		assert.strictEqual(await obsidianPage.read(today.path), content)
 
 		// Leave the sandbox settings as found for the other tests.
@@ -303,6 +298,34 @@ describe('goals tab', function () {
 			'',
 		])
 		await expect(field('Target of Read · pages')).toHaveValue('20')
+	})
+
+	it('records a result in the number field of the command prompt', async function () {
+		const content = await writeNote(today.path, [
+			'- [ ] Weight',
+			'      [goal::weight 81,4/<80 kg]',
+		])
+		await obsidianPage.openFile(today.path)
+		await browser.executeObsidianCommand(
+			'obsidian-task-time-tracker:record-goal-result'
+		)
+		const taskPicker = browser.$('.prompt')
+		await expect(taskPicker.$('.suggestion-item')).toHaveText('Weight')
+		await browser.keys('Enter')
+
+		const prompt = await topModal()
+		await expect(prompt.$('.modal-title')).toHaveText('Weight · weight')
+		const input = prompt.$('input')
+		await expect(input).toHaveAttribute('type', 'number')
+		// A number input only takes a dot: the note's comma is shown as one.
+		await expect(input).toHaveValue('81.4')
+
+		// The value is selected on opening, so typing replaces it.
+		await browser.keys([...'80.9', 'Enter'])
+		const recorded = await waitForChange(content)
+		assert.deepStrictEqual(goalLines(recorded), [
+			'      [goal::weight 80,9/<80 kg]',
+		])
 	})
 
 	it('reminds of the targets without a result when the day ends', async function () {
