@@ -280,19 +280,18 @@ describe('tracker tab', function () {
 			browser.execute((el) => el.click(), await target.getElement())
 		await expect(switchButton).toHaveAttribute('aria-pressed', 'true')
 
-		// With nothing typed, a button only opens the list to pick from.
-		await press(switchButton)
-		await expect(bar).toBeFocused()
-		await expect(list).toBeDisplayed()
-		assert.strictEqual(await obsidianPage.read(today.path), content)
-
+		// With nothing typed, a start button only sets the mode, without
+		// taking the focus.
 		await press(alongside)
 		await expect(alongside).toHaveAttribute('aria-pressed', 'true')
 		await expect(switchButton).toHaveAttribute('aria-pressed', 'false')
 		await expect(bar).toHaveAttribute('placeholder', 'Start alongside…')
-		await expect(list).toBeDisplayed()
+		await expect(bar).toHaveAttribute('aria-expanded', 'false')
 		assert.strictEqual(await obsidianPage.read(today.path), content)
 
+		await browser.execute((el) => el.focus(), await bar.getElement())
+		await expect(bar).toBeFocused()
+		await expect(list).toBeDisplayed()
 		await browser.keys([...'Email'])
 		await expect(bar).toHaveValue('Email')
 		await browser.keys('Enter')
@@ -307,6 +306,7 @@ describe('tracker tab', function () {
 		await expect(switchButton).toHaveAttribute('aria-pressed', 'true')
 		await expect(bar).toHaveAttribute('placeholder', 'Switch to…')
 		await expect(button('Switch to Run')).toBeDisplayed()
+		await browser.execute((el) => el.focus(), await bar.getElement())
 		await expect(bar).toBeFocused()
 		await browser.keys([...'Run'])
 		await expect(bar).toHaveValue('Run')
@@ -346,6 +346,36 @@ describe('tracker tab', function () {
 		await browser.execute((el) => el.click(), await switchButton.getElement())
 		await expect(switchButton).toHaveAttribute('aria-pressed', 'true')
 		await browser.keys('Escape')
+	})
+
+	it('swaps switching and toggling while Alt is held', async function () {
+		await writeToday([
+			'- [ ] Chores',
+			`      [clock::${today.date}T00:00:00]`,
+			'- [ ] Run',
+		])
+		await openTracker()
+		const bar = browser.$('input[aria-label="Task to start"]')
+		const switchButton = button('Switch mode')
+		const alongside = button('Toggle mode')
+		await expect(switchButton).toHaveAttribute('aria-pressed', 'true')
+
+		await browser.action('key').down('\uE00A').perform(true)
+		await expect(alongside).toHaveAttribute('aria-pressed', 'true')
+		await expect(button('Start Run alongside')).toBeDisplayed()
+		await browser.action('key').up('\uE00A').perform()
+		await expect(switchButton).toHaveAttribute('aria-pressed', 'true')
+
+		// Clicking the field with Alt down keeps the swap until it blurs.
+		await browser.action('key').down('\uE00A').perform(true)
+		await expect(alongside).toHaveAttribute('aria-pressed', 'true')
+		await bar.click()
+		await browser.action('key').up('\uE00A').perform()
+		await expect(bar).toBeFocused()
+		await expect(alongside).toHaveAttribute('aria-pressed', 'true')
+		await expect(bar).toHaveAttribute('placeholder', 'Start alongside…')
+		await browser.execute((el) => el.blur(), await bar.getElement())
+		await expect(switchButton).toHaveAttribute('aria-pressed', 'true')
 	})
 
 	it('unfolds the done tasks when nothing else is left', async function () {

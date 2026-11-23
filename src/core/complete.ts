@@ -44,7 +44,7 @@ export function isEmptyPlan(plan: CompletionPlan): boolean {
 /** The "Has goals" group of End day's confirmation, every box off. */
 export const HAS_GOALS_HEADING = 'Has goals'
 export const HAS_GOALS_NOTE =
-	'Never clocked, but they have goals. They are kept unless ticked.'
+	'Never clocked, but they have goals. They are kept unless ticked. You might want to keep them around for your statistics.'
 
 /** One choice per task with goals: its name, and the line showing its goals. */
 export function goalTaskChoices(

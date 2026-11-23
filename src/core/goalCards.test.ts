@@ -3,12 +3,14 @@ import {
 	describeMissingResults,
 	describeRing,
 	describeSuggestedTarget,
+	daySuggestions,
 	dismissedOn,
 	goalCards,
 	goalSuggestions,
 	groupGoalCards,
 	missingResults,
 	pruneDismissals,
+	restoreDismissals,
 } from './goalCards'
 import { goalKeyId } from './goalEdits'
 import { parseTasks } from './parser'
@@ -100,11 +102,10 @@ describe('describeRing', () => {
 describe('groupGoalCards', () => {
 	it('groups cards and suggestions by task, in note order', () => {
 		const cards = goalCards(tasks, now, false)
-		const suggestions = goalSuggestions(
-			parseTasks(['- [ ] Email']),
-			() => ({ date: now, goals: tasks[0]!.goals }),
-			new Set()
-		)
+		const suggestions = goalSuggestions(parseTasks(['- [ ] Email']), () => ({
+			date: now,
+			goals: tasks[0]!.goals,
+		}))
 		const names = tasks.map((task) => task.name)
 		expect(
 			groupGoalCards(names, cards, suggestions).map((g) => [
@@ -153,7 +154,7 @@ describe('goalSuggestions', () => {
 				: null
 
 	it("offers each task's latest goals the note lacks, targets only", () => {
-		const suggestions = goalSuggestions(note, recent, new Set())
+		const suggestions = goalSuggestions(note, recent)
 		// Run already has a time goal and a distance (in another unit).
 		expect(suggestions.map((s) => s.title)).toEqual([
 			'Run · speed',
@@ -167,13 +168,22 @@ describe('goalSuggestions', () => {
 		])
 	})
 
-	it('leaves out the dismissed ones', () => {
-		const dismissed = new Set([
-			goalKeyId({ taskName: 'Anki', metric: 'cards', unit: '' }),
+	it("sets apart the ones rejected for the note's day", () => {
+		const dismissals = [
+			{ day: '2026-08-16', taskName: 'Anki', metric: 'cards', unit: '' },
+			{ day: '2026-08-15', taskName: 'Run', metric: 'speed', unit: 'km/h' },
+		]
+		const { offered, rejected } = daySuggestions(
+			note,
+			recent,
+			dismissals,
+			'2026-08-16'
+		)
+		expect(offered.map((s) => s.title)).toEqual([
+			'Run · speed',
+			'Anki · reviews',
 		])
-		expect(
-			goalSuggestions(note, recent, dismissed).map((s) => s.title)
-		).toEqual(['Run · speed', 'Anki · reviews'])
+		expect(rejected.map((s) => s.title)).toEqual(['Anki · cards'])
 	})
 })
 
@@ -188,6 +198,12 @@ describe('dismissals', () => {
 		expect([...dismissedOn(dismissals, '2026-08-16')]).toEqual([
 			goalKeyId({ taskName: 'Anki', metric: 'cards', unit: '' }),
 		])
+	})
+
+	it("brings back the day's rejections only", () => {
+		expect(
+			restoreDismissals(dismissals, '2026-08-16').map((d) => d.day)
+		).toEqual(['2026-08-08', '2026-08-09'])
 	})
 
 	it('keeps them a week', () => {

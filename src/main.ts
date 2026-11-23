@@ -44,6 +44,22 @@ export default class TaskTimeTracker extends Plugin {
 	/** Command names by id within the plugin, for the shortcut tooltips. */
 	readonly commandNames = new Map<string, string>()
 
+	private readonly dismissalListeners = new Set<() => void>()
+
+	/**
+	 * Told when goal suggestions are rejected or brought back, which a
+	 * command can do while the Goals tab shows them: settings are not
+	 * reactive. Returns the unsubscribe.
+	 */
+	onGoalDismissals(listener: () => void): () => void {
+		this.dismissalListeners.add(listener)
+		return () => this.dismissalListeners.delete(listener)
+	}
+
+	notifyGoalDismissals() {
+		for (const listener of this.dismissalListeners) listener()
+	}
+
 	addCommand(command: Command): Command {
 		// Before registering: Obsidian prefixes the id with the plugin's.
 		this.commandNames.set(command.id, command.name)

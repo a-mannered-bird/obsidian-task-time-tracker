@@ -10,7 +10,10 @@ import {
 	moveTaskLine,
 	pausedByInterruption,
 	barAction,
+	holdAlt,
+	keepFlip,
 	pressBarButton,
+	releaseFlip,
 	rowStart,
 	dayButtons,
 	findDuplicateTask,
@@ -141,9 +144,13 @@ describe('bar mode', () => {
 	const busy = startActions(
 		parseTasks(['- [ ] Chores', '  [clock::2026-11-12T10:42:00]'])
 	)
-	const switching: BarMode = { start: 'primary', planning: false }
-	const alongside: BarMode = { start: 'alongside', planning: false }
-	const planning: BarMode = { start: 'alongside', planning: true }
+	const switching: BarMode = { start: 'primary', planning: false, flip: 'off' }
+	const alongside: BarMode = {
+		start: 'alongside',
+		planning: false,
+		flip: 'off',
+	}
+	const planning: BarMode = { start: 'alongside', planning: true, flip: 'off' }
 
 	it('starts alongside once chosen, while something runs', () => {
 		expect(barAction(alongside, busy)).toBe('alongside')
@@ -175,6 +182,36 @@ describe('bar mode', () => {
 		expect(rowStart(alongside, idle)).toBe('start')
 		expect(rowStart(planning, busy)).toBe('alongside')
 		expect(rowStart({ ...switching, planning: true }, busy)).toBe('switch')
+	})
+
+	it('swaps switching and toggling while Alt is held', () => {
+		const held = holdAlt(switching, true, busy)
+		expect(barAction(held, busy)).toBe('alongside')
+		expect(rowStart(held, busy)).toBe('alongside')
+		expect(barAction(holdAlt(alongside, true, busy), busy)).toBe('switch')
+		expect(barAction(holdAlt(held, false, busy), busy)).toBe('switch')
+	})
+
+	it('keeps the swap once the field is clicked, until it loses the focus', () => {
+		const kept = keepFlip(holdAlt(switching, true, busy))
+		expect(barAction(holdAlt(kept, false, busy), busy)).toBe('alongside')
+		expect(barAction(releaseFlip(kept), busy)).toBe('switch')
+	})
+
+	it('keeps nothing when the field is clicked without Alt', () => {
+		expect(barAction(releaseFlip(keepFlip(switching)), busy)).toBe('switch')
+	})
+
+	it('swaps nothing while planning or while nothing runs', () => {
+		expect(barAction(holdAlt(planning, true, busy), busy)).toBe('plan')
+		expect(barAction(holdAlt(switching, true, idle), busy)).toBe('switch')
+	})
+
+	it('ends the swap when a button is pressed', () => {
+		const kept = keepFlip(holdAlt(switching, true, busy))
+		expect(barAction(pressBarButton(kept, 'primary', busy), busy)).toBe(
+			'switch'
+		)
 	})
 })
 

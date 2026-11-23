@@ -92,16 +92,30 @@ export function dayButtons(tasks: Task[], dayStart: Date | null): DayButtons {
  * with the primary action or alongside, or are only added to the plan.
  * The way of starting outlives planning and the moments nothing runs (the
  * bar then shows Start), so it comes back once something runs again.
+ *
+ * Holding Alt swaps switching and toggling (`held`); clicking the field
+ * meanwhile keeps the swap until the field loses the focus (`kept`).
  */
-export type BarMode = { start: 'primary' | 'alongside'; planning: boolean }
+export type BarFlip = 'off' | 'held' | 'kept'
 
-export const INITIAL_BAR_MODE: BarMode = { start: 'primary', planning: false }
+export type BarMode = {
+	start: 'primary' | 'alongside'
+	planning: boolean
+	flip: BarFlip
+}
+
+export const INITIAL_BAR_MODE: BarMode = {
+	start: 'primary',
+	planning: false,
+	flip: 'off',
+}
 
 export type BarButton = 'primary' | 'alongside' | 'plan'
 
 /**
  * The mode after pressing a bar button. Start, pressed while nothing runs,
- * is the only way of starting there: it keeps the one chosen before.
+ * is the only way of starting there: it keeps the one chosen before. A
+ * pressed button says the way of starting outright, so it ends any swap.
  */
 export function pressBarButton(
 	mode: BarMode,
@@ -110,15 +124,48 @@ export function pressBarButton(
 ): BarMode {
 	switch (button) {
 		case 'plan':
-			return { ...mode, planning: true }
+			return { ...mode, planning: true, flip: 'off' }
 		case 'alongside':
-			return { start: 'alongside', planning: false }
+			return { start: 'alongside', planning: false, flip: 'off' }
 		default:
 			return {
 				start: actions.alongside ? 'primary' : mode.start,
 				planning: false,
+				flip: 'off',
 			}
 	}
+}
+
+/**
+ * The mode once Alt goes down or up. The swap only exists between
+ * switching and toggling, so it needs something running and no planning;
+ * a kept swap outlives the key.
+ */
+export function holdAlt(
+	mode: BarMode,
+	down: boolean,
+	actions: StartActions
+): BarMode {
+	if (down && mode.flip === 'off' && !mode.planning && actions.alongside) {
+		return { ...mode, flip: 'held' }
+	}
+	if (!down && mode.flip === 'held') return { ...mode, flip: 'off' }
+	return mode
+}
+
+/** The mode once the field is clicked: a held swap is kept. */
+export function keepFlip(mode: BarMode): BarMode {
+	return mode.flip === 'held' ? { ...mode, flip: 'kept' } : mode
+}
+
+/** The mode once the field loses the focus: a kept swap ends. */
+export function releaseFlip(mode: BarMode): BarMode {
+	return mode.flip === 'kept' ? { ...mode, flip: 'off' } : mode
+}
+
+function effectiveStart(mode: BarMode): BarMode['start'] {
+	if (mode.flip === 'off') return mode.start
+	return mode.start === 'alongside' ? 'primary' : 'alongside'
 }
 
 /** What picking a task from the bar does. */
@@ -132,7 +179,7 @@ export type BarAction = 'start' | 'switch' | 'alongside' | 'plan'
 export type RowStart = Exclude<BarAction, 'plan'>
 
 export function rowStart(mode: BarMode, actions: StartActions): RowStart {
-	return mode.start === 'alongside' && actions.alongside
+	return effectiveStart(mode) === 'alongside' && actions.alongside
 		? 'alongside'
 		: actions.primary
 }

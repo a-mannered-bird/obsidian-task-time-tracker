@@ -61,11 +61,13 @@ export async function endDay(plugin: TaskTimeTracker) {
 	const content = await readNoteContent(plugin, file)
 	const note = new TaskNote(content)
 	let plan = planCompletion(note)
-	if (plan.toRemove.length > 0 || plan.withGoals.length > 0) {
+	const missing = describeMissingResults(missingResults(note.tasks))
+	if (plan.toRemove.length > 0 || plan.withGoals.length > 0 || missing) {
 		const picked = await confirmChoosing(app, {
 			title: 'End day',
 			message: describeCompletion(plan),
 			items: plan.toRemove.map((task) => task.name),
+			warning: missing,
 			confirmText: 'End day',
 			choices: {
 				heading: HAS_GOALS_HEADING,
@@ -95,9 +97,8 @@ export async function endDay(plugin: TaskTimeTracker) {
 		clockChanges(new TaskNote(write.before).tasks, after).stopped,
 		stopContext(plugin, file.path, write.after)
 	)
-	const missing = describeMissingResults(missingResults(after))
 	showUndoNotice(
-		[summary, stops ? `${stops}.` : null, missing]
+		[summary, stops ? `${stops}.` : null]
 			.filter((line) => line !== null)
 			.join('\n'),
 		undoNoteWrite(io, write)

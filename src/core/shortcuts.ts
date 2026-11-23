@@ -21,6 +21,9 @@ export const CONTROL_COMMANDS = {
 	dayEnd: 'set-day-end',
 	endDay: 'complete-journal-entry',
 	manageTasks: 'manage-tasks',
+	acceptSuggestions: 'accept-goal-suggestions',
+	rejectSuggestions: 'reject-goal-suggestions',
+	resetSuggestions: 'reset-goal-suggestions',
 } as const
 
 export type ViewControl = keyof typeof CONTROL_COMMANDS

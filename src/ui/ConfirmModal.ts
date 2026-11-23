@@ -6,6 +6,8 @@ type Options = {
 	message: string[]
 	/** Items listed as bullets (e.g. what will be deleted). */
 	items?: string[]
+	/** Shown in warning colors above the buttons. */
+	warning?: string | null
 	confirmText?: string
 }
 
@@ -63,6 +65,12 @@ class ConfirmModal extends Modal {
 			}
 		}
 		if (this.choices?.options.length) this.renderChoices(this.choices)
+		if (this.options.warning) {
+			this.contentEl.createEl('p', {
+				text: this.options.warning,
+				cls: 'mod-warning',
+			})
+		}
 
 		new Setting(this.contentEl)
 			.addButton((button) =>

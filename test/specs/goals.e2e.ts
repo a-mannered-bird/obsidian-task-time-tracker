@@ -233,7 +233,7 @@ describe('goals tab', function () {
 		await expect(browser.$('[role="list"][aria-label="Run"]')).toHaveChildren(2)
 	})
 
-	it('rejects all suggestions for the day', async function () {
+	it('rejects, brings back and accepts all suggestions from the toolbar and the commands', async function () {
 		await writeNote(yesterday.path, [
 			'- [x] Anki',
 			'      [goal::cards 140/200]',
@@ -243,14 +243,54 @@ describe('goals tab', function () {
 		const content = await writeNote(today.path, ['- [ ] Anki', '- [ ] Run'])
 		await openGoals()
 
-		// A heading and a list per task, then the Add goal card.
+		// The Add goal card, then a heading and a list per task.
 		const goals = browser.$('section[aria-label="Goals"]')
 		await expect(goals).toHaveChildren(5)
-		await browser.$('button=Reject all suggestions').click()
+		const toolbar = browser.$('[role="toolbar"][aria-label="Goal suggestions"]')
+		const accept = toolbar.$('button=Accept all')
+		const reject = toolbar.$('button=Reject all')
+		const reset = toolbar.$('button=Reset')
+		await expect(accept).toBeEnabled()
+		await expect(reject).toBeEnabled()
+		// Nothing rejected yet: Reset shows, disabled, and still teaches its
+		// command.
+		await expect(reset).toBeDisabled()
+		await reset.moveTo()
+		const tooltip = browser.$('.tooltip')
+		await expect(tooltip).toHaveText(
+			'Bring back the suggestions rejected for this day\nNo shortcut yet: set one for "Reset rejected goal suggestions" in Settings → Hotkeys'
+		)
 
+		await reject.click()
+		await expect(noticeWith('2 goal suggestions rejected')).toBeDisplayed()
 		// Only the Add goal card is left, and the note is untouched.
 		await expect(goals).toHaveChildren(1)
+		await expect(accept).toBeDisabled()
+		await expect(reject).toBeDisabled()
+		await expect(reset).toBeEnabled()
 		assert.strictEqual(await obsidianPage.read(today.path), content)
+
+		// The command brings them back in the open tab.
+		await browser.executeObsidianCommand(
+			'obsidian-task-time-tracker:reset-goal-suggestions'
+		)
+		await expect(noticeWith('2 goal suggestions brought back')).toBeDisplayed()
+		await expect(goals).toHaveChildren(5)
+		await expect(reset).toBeDisabled()
+
+		await browser.executeObsidianCommand(
+			'obsidian-task-time-tracker:accept-goal-suggestions'
+		)
+		const added = await waitForChange(content)
+		assert.deepStrictEqual(added.split('\n'), [
+			'- [ ] Anki',
+			'      [goal::cards /200]',
+			'- [ ] Run',
+			'      [goal::distance /10 km]',
+			'',
+		])
+		await expect(field('Result of Anki · cards')).toHaveValue('0')
+		await expect(field('Result of Run · distance')).toHaveValue('0')
 
 		// Leave the sandbox settings as found for the other tests.
 		await browser.executeObsidian(async ({ plugins }) => {
@@ -350,9 +390,16 @@ describe('goals tab', function () {
 		await typeTime(setEnd, '22:00')
 		await setEnd.$('button=OK').click()
 
-		// Nothing to delete: no confirmation, the day ends with a reminder.
+		// Nothing to delete, but the confirmation opens to warn of the
+		// missing result before the day ends.
+		const confirmation = await topModal()
+		await expect(confirmation.$('.modal-title')).toHaveText('End day')
+		await expect(
+			confirmation.$('p=No result for: Run · distance.')
+		).toBeDisplayed()
+		await confirmation.$('button=End day').click()
 		await waitForChange(content)
-		await expect(noticeWith('No result for: Run · distance.')).toBeDisplayed()
+		await expect(noticeWith('Day ended')).toBeDisplayed()
 	})
 
 	it('shows goal bars on tracker rows, opening the goal from a bar', async function () {

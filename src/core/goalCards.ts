@@ -163,13 +163,11 @@ export type RecentGoals = (name: string) => { date: Date; goals: Goal[] } | null
 
 /**
  * For every task of the note, the targets of its most recent goals whose
- * metric (or time goal) none of its lines in the note has yet, minus the
- * dismissed ones (by id).
+ * metric (or time goal) none of its lines in the note has yet.
  */
 export function goalSuggestions(
 	tasks: Task[],
-	recentGoals: RecentGoals,
-	dismissed: ReadonlySet<string>
+	recentGoals: RecentGoals
 ): GoalSuggestion[] {
 	const names = [...new Set(tasks.map((task) => task.name))]
 	return names.flatMap((name) => {
@@ -181,12 +179,11 @@ export function goalSuggestions(
 				.flatMap((task) => task.goals.map(goalLabel))
 		)
 		return recent.goals.flatMap((goal) => {
+			if (present.has(goalLabel(goal))) return []
 			const key = goalKey(name, goal)
-			const id = goalKeyId(key)
-			if (present.has(goalLabel(goal)) || dismissed.has(id)) return []
 			return [
 				{
-					id,
+					id: goalKeyId(key),
 					key,
 					title: `${name} · ${goalLabel(goal)}`,
 					goal: targetOnly(goal),
@@ -194,6 +191,26 @@ export function goalSuggestions(
 			]
 		})
 	})
+}
+
+/** A note's suggestions: still offered, or rejected for its day. */
+export type DaySuggestions = {
+	offered: GoalSuggestion[]
+	rejected: GoalSuggestion[]
+}
+
+export function daySuggestions(
+	tasks: Task[],
+	recentGoals: RecentGoals,
+	dismissals: GoalSuggestionDismissal[],
+	day: string
+): DaySuggestions {
+	const dismissed = dismissedOn(dismissals, day)
+	const all = goalSuggestions(tasks, recentGoals)
+	return {
+		offered: all.filter((s) => !dismissed.has(s.id)),
+		rejected: all.filter((s) => dismissed.has(s.id)),
+	}
 }
 
 /** A dismissed suggestion: for one note's day (`YYYY-MM-DD`), kept a week. */
@@ -219,6 +236,14 @@ export function pruneDismissals(
 	return dismissals.filter(
 		(entry) => new Date(`${entry.day}T00:00:00`) >= limit
 	)
+}
+
+/** The dismissals without those of the day (`YYYY-MM-DD`). */
+export function restoreDismissals(
+	dismissals: GoalSuggestionDismissal[],
+	day: string
+): GoalSuggestionDismissal[] {
+	return dismissals.filter((entry) => entry.day !== day)
 }
 
 /** The metric targets of the note still without a result. */
@@ -266,6 +291,22 @@ export function describeGoalDeleted(taskName: string, goal: Goal): string {
 export function describeGoalsAdded(count: number): string {
 	return `${NOTICE_ICON.goal} ${count} goal${count === 1 ? '' : 's'} added to this day.`
 }
+
+function suggestions(count: number): string {
+	return `${count} goal suggestion${count === 1 ? '' : 's'}`
+}
+
+export function describeSuggestionsRejected(count: number): string {
+	return `${NOTICE_ICON.remove} ${suggestions(count)} rejected for this day.`
+}
+
+export function describeSuggestionsReset(count: number): string {
+	return `${NOTICE_ICON.undone} ${suggestions(count)} brought back for this day.`
+}
+
+export const NO_SUGGESTION_TO_ACCEPT = `${NOTICE_ICON.info} No goal suggestion to accept for this day.`
+export const NO_SUGGESTION_TO_REJECT = `${NOTICE_ICON.info} No goal suggestion to reject for this day.`
+export const NO_SUGGESTION_TO_RESET = `${NOTICE_ICON.info} No rejected goal suggestion for this day.`
 
 /**
  * Whether "at most" goals can be judged: the note's day has an end of day,

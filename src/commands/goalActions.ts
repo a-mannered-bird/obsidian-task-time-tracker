@@ -1,12 +1,21 @@
 import type { TFile } from 'obsidian'
 import type { Goal, MetricGoal } from 'types/goals'
+import type { Task } from 'types/tasks'
 import {
 	describeGoalDeleted,
 	describeGoalRecorded,
 	describeGoalSet,
 	describeGoalsAdded,
+	describeSuggestionsRejected,
+	describeSuggestionsReset,
+	daySuggestions,
 	goalLabel,
+	NO_SUGGESTION_TO_ACCEPT,
+	NO_SUGGESTION_TO_REJECT,
+	NO_SUGGESTION_TO_RESET,
 	pruneDismissals,
+	restoreDismissals,
+	type DaySuggestions,
 	TIME_GOAL_EMOJI,
 	type GoalSuggestion,
 } from 'core/goalCards'
@@ -26,6 +35,7 @@ import {
 	updateGoal,
 	type GoalKey,
 } from 'core/goalEdits'
+import { startOfDay } from 'core/dailyNotes'
 import { TaskNote } from 'core/note'
 import { recordWrites, rewriteNote } from 'core/noteRewrite'
 import { NOTICE_ICON } from 'core/noticeText'
@@ -183,6 +193,89 @@ export async function dismissGoalSuggestions(
 		formatLocalDate(new Date())
 	)
 	await plugin.saveSettings()
+	plugin.notifyGoalDismissals()
+}
+
+export async function rejectGoalSuggestions(
+	plugin: TaskTimeTracker,
+	date: Date,
+	suggestions: GoalSuggestion[]
+): Promise<void> {
+	await dismissGoalSuggestions(
+		plugin,
+		date,
+		suggestions.map((suggestion) => suggestion.key)
+	)
+	showNotice(describeSuggestionsRejected(suggestions.length))
+}
+
+/** Bring back every suggestion rejected for the note's day. */
+export async function resetGoalSuggestions(
+	plugin: TaskTimeTracker,
+	date: Date,
+	count: number
+): Promise<void> {
+	const { settings } = plugin
+	settings.dismissedGoalSuggestions = restoreDismissals(
+		settings.dismissedGoalSuggestions,
+		formatLocalDate(date)
+	)
+	await plugin.saveSettings()
+	plugin.notifyGoalDismissals()
+	showNotice(describeSuggestionsReset(count))
+}
+
+/** The suggestions of a note's day; none until the vault index is built. */
+export function suggestionsOf(
+	plugin: TaskTimeTracker,
+	tasks: Task[],
+	date: Date
+): DaySuggestions {
+	return daySuggestions(
+		tasks,
+		(name) => plugin.vaultTasks.recentGoals(name, startOfDay(date)),
+		plugin.settings.dismissedGoalSuggestions,
+		formatLocalDate(date)
+	)
+}
+
+/** The command target's note and its suggestions. */
+async function targetSuggestions(plugin: TaskTimeTracker) {
+	const { file, date } = currentTarget(plugin)
+	const note = file ? await readTaskNote(plugin, file) : null
+	await plugin.vaultTasks.ensureBuilt()
+	return {
+		file,
+		date,
+		suggestions: suggestionsOf(plugin, note?.tasks ?? [], date),
+	}
+}
+
+async function acceptSuggestionsCommand(plugin: TaskTimeTracker) {
+	const { file, suggestions } = await targetSuggestions(plugin)
+	if (!file || suggestions.offered.length === 0) {
+		showNotice(NO_SUGGESTION_TO_ACCEPT)
+		return
+	}
+	await addSuggestedGoals(plugin, file, suggestions.offered)
+}
+
+async function rejectSuggestionsCommand(plugin: TaskTimeTracker) {
+	const { date, suggestions } = await targetSuggestions(plugin)
+	if (suggestions.offered.length === 0) {
+		showNotice(NO_SUGGESTION_TO_REJECT)
+		return
+	}
+	await rejectGoalSuggestions(plugin, date, suggestions.offered)
+}
+
+async function resetSuggestionsCommand(plugin: TaskTimeTracker) {
+	const { date, suggestions } = await targetSuggestions(plugin)
+	if (suggestions.rejected.length === 0) {
+		showNotice(NO_SUGGESTION_TO_RESET)
+		return
+	}
+	await resetGoalSuggestions(plugin, date, suggestions.rejected.length)
 }
 
 async function editGoal(
@@ -459,5 +552,23 @@ export function registerGoalCommands(plugin: TaskTimeTracker) {
 		name: 'Record goal result…',
 		icon: 'list-checks',
 		callback: () => void recordGoalResultFlow(plugin),
+	})
+	plugin.addCommand({
+		id: 'accept-goal-suggestions',
+		name: 'Accept all goal suggestions',
+		icon: 'list-plus',
+		callback: () => void acceptSuggestionsCommand(plugin),
+	})
+	plugin.addCommand({
+		id: 'reject-goal-suggestions',
+		name: 'Reject all goal suggestions',
+		icon: 'x',
+		callback: () => void rejectSuggestionsCommand(plugin),
+	})
+	plugin.addCommand({
+		id: 'reset-goal-suggestions',
+		name: 'Reset rejected goal suggestions',
+		icon: 'rotate-ccw',
+		callback: () => void resetSuggestionsCommand(plugin),
 	})
 }

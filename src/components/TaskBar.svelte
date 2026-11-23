@@ -20,8 +20,11 @@
 	} from 'core/taskPicker'
 	import {
 		barAction,
+		holdAlt,
 		INITIAL_BAR_MODE,
+		keepFlip,
 		pressBarButton,
+		releaseFlip,
 		startActions,
 		startIcon,
 		type BarAction,
@@ -121,17 +124,37 @@
 
 	/**
 	 * A button sets the mode; it also acts on the highlighted task when
-	 * something is typed, and otherwise opens the list to pick from.
+	 * something is typed. Otherwise only Plan opens the list to pick from:
+	 * the start buttons set the way of starting for the rows too.
 	 */
 	function press(button: BarButton) {
 		mode = pressBarButton(mode, button, actions)
-		if (query.trim() === '') {
+		if (query.trim() !== '') run(options[selected] ?? null, action)
+		else if (button === 'plan') {
 			input?.focus()
 			open = true
-			return
 		}
-		run(options[selected] ?? null, action)
 	}
+
+	// On the field's own window: Obsidian can show the view in a popout.
+	$effect(() => {
+		const win = input?.ownerDocument.defaultView
+		if (!win) return
+		const onAlt = (event: KeyboardEvent) => {
+			if (event.key !== 'Alt') return
+			mode = holdAlt(mode, event.type === 'keydown', actions)
+		}
+		// The keyup is lost when the window loses the focus with Alt down.
+		const onWindowBlur = () => (mode = holdAlt(mode, false, actions))
+		win.addEventListener('keydown', onAlt)
+		win.addEventListener('keyup', onAlt)
+		win.addEventListener('blur', onWindowBlur)
+		return () => {
+			win.removeEventListener('keydown', onAlt)
+			win.removeEventListener('keyup', onAlt)
+			win.removeEventListener('blur', onWindowBlur)
+		}
+	})
 
 	function onFocus() {
 		open = true
@@ -192,7 +215,11 @@
 				aria-activedescendant={current ? optionId(selected) : undefined}
 				placeholder={placeholders[action]}
 				onfocus={onFocus}
-				onblur={() => (open = false)}
+				onmousedown={() => (mode = keepFlip(mode))}
+				onblur={() => {
+					open = false
+					mode = releaseFlip(mode)
+				}}
 				oninput={onInput}
 				onkeydown={onKeydown}
 			/>

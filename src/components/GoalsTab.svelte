@@ -6,22 +6,24 @@
 		deleteGoal,
 		dismissGoalSuggestions,
 		editGoalUnit,
+		rejectGoalSuggestions,
+		resetGoalSuggestions,
 		setGoalAchieved,
 		setGoalFlow,
 		setGoalTarget,
 		stepGoal,
 		streakSkipsMissingDays,
+		suggestionsOf,
 		toggleStreakSkip,
 	} from 'commands/goalActions'
+	import { controlHint } from 'commands/shortcuts'
 	import type { DailyLog } from 'core/dailyLogs'
-	import { isSameDay, startOfDay } from 'core/dailyNotes'
+	import { isSameDay } from 'core/dailyNotes'
 	import {
 		describeRing,
 		describeSuggestedTarget,
 		goalLabel,
-		dismissedOn,
 		goalCards,
-		goalSuggestions,
 		groupGoalCards,
 		isDayOver,
 		type GoalCard,
@@ -98,24 +100,17 @@
 	const flight = suggestionFlight()
 	// svelte-ignore state_referenced_locally -- the plugin never changes
 	let indexReady = $state(plugin.vaultTasks.isReady)
-	/** Bumped when a suggestion is dismissed: the settings are not reactive. */
+	/** Bumped when suggestions are rejected or brought back. */
 	let dismissals = $state(0)
 
 	const dayOver = $derived(log !== null && isDayOver(log, now))
 	const cards = $derived(goalCards(log?.tasks ?? [], now, dayOver))
-	const suggestions = $derived.by(() => {
+	const daySuggestions = $derived.by(() => {
 		void dismissals
-		if (!log || !indexReady) return []
-		const day = startOfDay(log.date)
-		return goalSuggestions(
-			log.tasks,
-			(name) => plugin.vaultTasks.recentGoals(name, day),
-			dismissedOn(
-				plugin.settings.dismissedGoalSuggestions,
-				formatLocalDate(log.date)
-			)
-		)
+		if (!log || !indexReady) return { offered: [], rejected: [] }
+		return suggestionsOf(plugin, log.tasks, log.date)
 	})
+	const suggestions = $derived(daySuggestions.offered)
 
 	const groups = $derived(
 		groupGoalCards(
@@ -216,43 +211,81 @@
 		void addSuggestedGoals(plugin, log.file, list)
 	}
 
-	async function dismiss(list: GoalSuggestion[]) {
-		if (!log) return
-		await dismissGoalSuggestions(
-			plugin,
-			log.date,
-			list.map((suggestion) => suggestion.key)
-		)
-		dismissals++
+	function dismiss(suggestion: GoalSuggestion) {
+		if (log) void dismissGoalSuggestions(plugin, log.date, [suggestion.key])
 	}
 
 	onMount(() => {
+		const unsubscribe = plugin.onGoalDismissals(() => dismissals++)
 		if (!indexReady) {
 			void plugin.vaultTasks.ensureBuilt().then(() => (indexReady = true))
 		}
 		const tick = window.setInterval(() => (now = new Date()), 60 * 1000)
-		return () => window.clearInterval(tick)
+		return () => {
+			window.clearInterval(tick)
+			unsubscribe()
+		}
 	})
 
 	const isToday = $derived(log ? isSameDay(log.date, now) : true)
 </script>
 
 <div class="goals-tab" aria-busy={loading}>
-	{#if suggestions.length > 1}
-		<div class="goals-toolbar">
-			<button class="mod-cta" onclick={() => addSuggestions(suggestions)}>
+	{#if log && (suggestions.length || daySuggestions.rejected.length)}
+		{@const date = log.date}
+		<div class="goals-toolbar" role="toolbar" aria-label="Goal suggestions">
+			<span class="toolbar-label">Suggestion:</span>
+			<button
+				class:mod-cta={suggestions.length > 0}
+				disabled={suggestions.length === 0}
+				use:instantTooltip={() => [
+					"Add every suggested goal to this day's note, targets only",
+					controlHint(plugin, 'acceptSuggestions'),
+				]}
+				onclick={() => addSuggestions(suggestions)}
+			>
 				<span class="button-icon" use:icon={'list-plus'}></span>
-				Add all suggestions
+				Accept all
 			</button>
-			<button onclick={() => void dismiss(suggestions)}>
+			<button
+				disabled={suggestions.length === 0}
+				use:instantTooltip={() => [
+					'Hide every suggestion for this day; Reset brings them back',
+					controlHint(plugin, 'rejectSuggestions'),
+				]}
+				onclick={() => void rejectGoalSuggestions(plugin, date, suggestions)}
+			>
 				<span class="button-icon" use:icon={'x'}></span>
-				Reject all suggestions
+				Reject all
+			</button>
+			<button
+				disabled={daySuggestions.rejected.length === 0}
+				use:instantTooltip={() => [
+					'Bring back the suggestions rejected for this day',
+					controlHint(plugin, 'resetSuggestions'),
+				]}
+				onclick={() =>
+					void resetGoalSuggestions(
+						plugin,
+						date,
+						daySuggestions.rejected.length
+					)}
+			>
+				<span class="button-icon" use:icon={'rotate-ccw'}></span>
+				Reset
 			</button>
 		</div>
 	{/if}
 
 	<!-- One grid for every list, so each task's cards fill the row after the last. -->
 	<section class="cards" aria-label="Goals">
+		<div class="new-slot">
+			<button class="goal-card is-new" onclick={() => void setGoalFlow(plugin)}>
+				<span class="plus" use:icon={'plus'}></span>
+				<span>Add goal</span>
+			</button>
+		</div>
+
 		{#each groups as group (group.taskName)}
 			<h3 class="group-title">{group.taskName}</h3>
 			<div class="card-list" role="list" aria-label={group.taskName}>
@@ -409,7 +442,7 @@
 							class="menu-button"
 							aria-label="Dismiss {suggestion.title} for this day"
 							use:icon={'x'}
-							onclick={() => void dismiss([suggestion])}
+							onclick={() => dismiss(suggestion)}
 						></button>
 						<button
 							class="add-suggestion"
@@ -426,13 +459,6 @@
 				{/each}
 			</div>
 		{/each}
-
-		<div class="new-slot">
-			<button class="goal-card is-new" onclick={() => void setGoalFlow(plugin)}>
-				<span class="plus" use:icon={'plus'}></span>
-				<span>Add goal</span>
-			</button>
-		</div>
 	</section>
 </div>
 
@@ -445,7 +471,14 @@
 	.goals-toolbar {
 		display: flex;
 		flex-wrap: wrap;
+		align-items: center;
 		gap: var(--size-4-2);
+	}
+
+	.toolbar-label {
+		color: var(--text-muted);
+		font-size: var(--font-ui-small);
+		margin-inline-end: var(--size-4-1);
 	}
 
 	.goals-toolbar button {
