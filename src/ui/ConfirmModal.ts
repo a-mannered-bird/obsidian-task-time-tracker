@@ -6,8 +6,8 @@ type Options = {
 	message: string[]
 	/** Items listed as bullets (e.g. what will be deleted). */
 	items?: string[]
-	/** Shown in warning colors above the buttons. */
-	warning?: string | null
+	/** Shown in warning colors above the buttons, its items as bullets. */
+	warning?: { message: string; items: string[] } | null
 	confirmText?: string
 }
 
@@ -65,11 +65,14 @@ class ConfirmModal extends Modal {
 			}
 		}
 		if (this.choices?.options.length) this.renderChoices(this.choices)
-		if (this.options.warning) {
+		const { warning } = this.options
+		if (warning) {
 			this.contentEl.createEl('p', {
-				text: this.options.warning,
-				cls: 'mod-warning',
+				text: warning.message,
+				cls: 'task-time-tracker-warning',
 			})
+			const list = this.contentEl.createEl('ul')
+			for (const item of warning.items) list.createEl('li', { text: item })
 		}
 
 		new Setting(this.contentEl)

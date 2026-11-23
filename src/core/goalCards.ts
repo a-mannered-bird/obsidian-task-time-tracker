@@ -260,10 +260,9 @@ export function missingResults(tasks: Task[]): string[] {
 	)
 }
 
-/** End day's reminder of the targets without a result; null when none. */
-export function describeMissingResults(missing: string[]): string | null {
-	return missing.length ? `No result for: ${missing.join(', ')}.` : null
-}
+/** End day's warning above the targets without a result. */
+export const MISSING_RESULTS_MESSAGE =
+	'No results entered for the following goals:'
 
 /** A suggestion's line under the ring: `/ 50 reviews`, `1h`. */
 export function describeSuggestedTarget(goal: Goal): string {

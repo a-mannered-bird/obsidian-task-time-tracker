@@ -7,7 +7,7 @@ import {
 	planCompletion,
 	withRemovals,
 } from 'core/complete'
-import { describeMissingResults, missingResults } from 'core/goalCards'
+import { MISSING_RESULTS_MESSAGE, missingResults } from 'core/goalCards'
 import { clockChanges, describeStops } from 'core/handOff'
 import { TaskNote } from 'core/note'
 import { recordWrites, rewriteNote } from 'core/noteRewrite'
@@ -61,13 +61,19 @@ export async function endDay(plugin: TaskTimeTracker) {
 	const content = await readNoteContent(plugin, file)
 	const note = new TaskNote(content)
 	let plan = planCompletion(note)
-	const missing = describeMissingResults(missingResults(note.tasks))
-	if (plan.toRemove.length > 0 || plan.withGoals.length > 0 || missing) {
+	const missing = missingResults(note.tasks)
+	if (
+		plan.toRemove.length > 0 ||
+		plan.withGoals.length > 0 ||
+		missing.length > 0
+	) {
 		const picked = await confirmChoosing(app, {
 			title: 'End day',
 			message: describeCompletion(plan),
 			items: plan.toRemove.map((task) => task.name),
-			warning: missing,
+			warning: missing.length
+				? { message: MISSING_RESULTS_MESSAGE, items: missing }
+				: null,
 			confirmText: 'End day',
 			choices: {
 				heading: HAS_GOALS_HEADING,

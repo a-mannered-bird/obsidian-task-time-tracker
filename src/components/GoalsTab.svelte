@@ -234,7 +234,7 @@
 	{#if log && (suggestions.length || daySuggestions.rejected.length)}
 		{@const date = log.date}
 		<div class="goals-toolbar" role="toolbar" aria-label="Goal suggestions">
-			<span class="toolbar-label">Suggestion:</span>
+			<span class="toolbar-label">Suggestions:</span>
 			<button
 				class:mod-cta={suggestions.length > 0}
 				disabled={suggestions.length === 0}
@@ -244,7 +244,6 @@
 				]}
 				onclick={() => addSuggestions(suggestions)}
 			>
-				<span class="button-icon" use:icon={'list-plus'}></span>
 				Accept all
 			</button>
 			<button
@@ -255,7 +254,6 @@
 				]}
 				onclick={() => void rejectGoalSuggestions(plugin, date, suggestions)}
 			>
-				<span class="button-icon" use:icon={'x'}></span>
 				Reject all
 			</button>
 			<button
@@ -271,7 +269,6 @@
 						daySuggestions.rejected.length
 					)}
 			>
-				<span class="button-icon" use:icon={'rotate-ccw'}></span>
 				Reset
 			</button>
 		</div>
@@ -475,23 +472,14 @@
 		gap: var(--size-4-2);
 	}
 
+	.goals-toolbar button:enabled {
+		cursor: pointer;
+	}
+
 	.toolbar-label {
 		color: var(--text-muted);
 		font-size: var(--font-ui-small);
 		margin-inline-end: var(--size-4-1);
-	}
-
-	.goals-toolbar button {
-		gap: var(--size-4-1);
-	}
-
-	.button-icon {
-		display: inline-flex;
-	}
-
-	.button-icon :global(svg) {
-		width: var(--icon-s);
-		height: var(--icon-s);
 	}
 
 	/* Two columns in the sidebar, more in a wide pane, one below 310px. */

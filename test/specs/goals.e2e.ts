@@ -395,15 +395,16 @@ describe('goals tab', function () {
 		const confirmation = await topModal()
 		await expect(confirmation.$('.modal-title')).toHaveText('End day')
 		await expect(
-			confirmation.$('p=No result for: Run · distance.')
+			confirmation.$('p=No results entered for the following goals:')
 		).toBeDisplayed()
+		await expect(confirmation.$('li=Run · distance')).toBeDisplayed()
 		await confirmation.$('button=End day').click()
 		await waitForChange(content)
 		await expect(noticeWith('Day ended')).toBeDisplayed()
 	})
 
-	it('shows goal bars on tracker rows, opening the goal from a bar', async function () {
-		await writeNote(today.path, [
+	it('shows goal bars on tracker rows, recording a result from a bar', async function () {
+		const content = await writeNote(today.path, [
 			'- [ ] Run #sport',
 			'      [goal::1h]',
 			'      [goal::distance 8/10 km]',
@@ -423,12 +424,26 @@ describe('goals tab', function () {
 		).toBeDisplayed()
 		await expect(bars.$('button=+1')).toBeDisplayed()
 
+		// A metric bar opens the result prompt; the result is written.
 		await bars.$('button[aria-label="🎯 distance · 8 / 10 km · 80%"]').click()
+		const prompt = await topModal()
+		await expect(prompt.$('.modal-title')).toHaveText('Run · distance')
+		await expect(prompt.$('input')).toHaveValue('8')
+		await browser.keys([...'9', 'Enter'])
+		const recorded = await waitForChange(content)
+		assert.deepStrictEqual(goalLines(recorded), [
+			'      [goal::1h]',
+			'      [goal::distance 9/10 km]',
+			'      [goal::speed /12 km/h]',
+			'      [goal::cadence /170 spm]',
+		])
+
+		// A time goal has no result to type: its bar opens the Goals tab.
+		await bars.$('button[aria-label^="⏱"]').click()
 		await expect(browser.$('button[role="tab"]=Goals')).toHaveAttribute(
 			'aria-selected',
 			'true'
 		)
-		await expect(field('Result of Run · distance')).toBeFocused()
 	})
 
 	it('styles goals from the metric settings and stamps a streak on done cards', async function () {

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { GoalCard } from 'core/goalCards'
+	import type { MetricGoal } from 'types/goals'
 	import {
 		describeGoalBar,
 		goalBars,
@@ -13,11 +14,13 @@
 		/** The task's goals, in note order. */
 		cards: GoalCard[]
 		metricSettings: MetricSettings
-		/** Edit the goal (by id) in the Goals tab. */
+		/** A metric goal's bar records its result. */
+		onrecord: (taskName: string, goal: MetricGoal) => void
+		/** A time goal's bar, and the folded ones, open the Goals tab. */
 		onedit: (goalId: string) => void
 	}
 
-	const { cards, metricSettings, onedit }: Props = $props()
+	const { cards, metricSettings, onrecord, onedit }: Props = $props()
 
 	const bars = $derived(goalBars(cards))
 </script>
@@ -32,10 +35,18 @@
 				class:is-done={card.state === 'done'}
 				class:is-over={card.state === 'over'}
 				aria-label={description}
-				use:instantTooltip={() => [description, 'Click to record the result']}
+				use:instantTooltip={() => [
+					description,
+					card.goal.kind === 'metric'
+						? 'Click to record the result'
+						: 'Click to open it in the Goals tab',
+				]}
 				style:--goal-color={goalColor(card.goal, metricSettings)}
 				style:--progress={card.progress}
-				onclick={() => onedit(card.id)}
+				onclick={() =>
+					card.goal.kind === 'metric'
+						? onrecord(card.key.taskName, card.goal)
+						: onedit(card.id)}
 			>
 				<span class="track"><span class="fill"></span></span>
 				<span class="emoji" aria-hidden="true">{emoji}</span>
@@ -56,13 +67,13 @@
 </ul>
 
 <style>
-	/* Under the row's name, past the checkbox. */
+	/* Under the whole row, the checkbox included. */
 	.goal-bars {
 		flex-basis: 100%;
 		display: grid;
 		gap: 3px;
 		margin: -4px 0 6px;
-		padding: 0 0 0 calc(var(--checkbox-size, 15px) + 0.6em);
+		padding: 0;
 		list-style: none;
 	}
 

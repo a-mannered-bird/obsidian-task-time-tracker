@@ -507,8 +507,18 @@ export async function recordGoalResultFlow(
 					})),
 				})
 	if (!goal) return
+	await recordGoalResult(plugin, file, task.name, goal)
+}
+
+/** Ask for a metric goal's result and write it, with Undo. */
+export async function recordGoalResult(
+	plugin: TaskTimeTracker,
+	file: TFile,
+	taskName: string,
+	goal: MetricGoal
+): Promise<void> {
 	const typed = await promptText(plugin.app, {
-		title: `${task.name} · ${goal.metric}`,
+		title: `${taskName} · ${goal.metric}`,
 		description:
 			goal.target === null
 				? undefined
@@ -521,7 +531,7 @@ export async function recordGoalResultFlow(
 	if (typed === null) return
 	const number = parseTypedNumber(typed)
 	if ('error' in number) return
-	const key = { taskName: task.name, metric: goal.metric, unit: goal.unit }
+	const key = { taskName, metric: goal.metric, unit: goal.unit }
 	const recorded: MetricGoal = { ...goal, achieved: number.value }
 	const io = noteIo(plugin, file)
 	const recorder = recordWrites(io)
@@ -535,7 +545,7 @@ export async function recordGoalResultFlow(
 	const write = recorder.written()
 	if (!wrote(outcome) || !write) return
 	showUndoNotice(
-		describeGoalRecorded(task.name, recorded),
+		describeGoalRecorded(taskName, recorded),
 		undoNoteWrite(io, write)
 	)
 }

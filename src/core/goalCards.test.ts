@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
 import {
-	describeMissingResults,
 	describeRing,
 	describeSuggestedTarget,
 	daySuggestions,
@@ -217,7 +216,5 @@ describe('missingResults', () => {
 	it('lists the metric targets without a result', () => {
 		const missing = missingResults(tasks)
 		expect(missing).toEqual(['Run · speed'])
-		expect(describeMissingResults(missing)).toBe('No result for: Run · speed.')
-		expect(describeMissingResults([])).toBeNull()
 	})
 })

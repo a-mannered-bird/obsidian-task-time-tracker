@@ -2,6 +2,7 @@
 	import { Menu } from 'obsidian'
 	import { onMount } from 'svelte'
 	import { endDay } from 'commands/completeJournal'
+	import { recordGoalResult } from 'commands/goalActions'
 	import { promptOvernightStop, stopOvernightClock } from 'commands/overnight'
 	import { controlHint, titleWithShortcut } from 'commands/shortcuts'
 	import { openNoteAtLine } from 'commands/taskActions'
@@ -618,6 +619,8 @@
 		<GoalBars
 			cards={goalCards([task], now, isDayOver(log, now))}
 			metricSettings={plugin.settings.metricSettings}
+			onrecord={(taskName, goal) =>
+				void recordGoalResult(plugin, log.file, taskName, goal)}
 			onedit={oneditgoal}
 		/>
 	{/if}
