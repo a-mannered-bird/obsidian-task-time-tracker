@@ -780,4 +780,48 @@ describe('goals tab', function () {
 			'---',
 		])
 	})
+
+	it("colors a tag's goals, and its tasks without a color, from the tag mapping", async function () {
+		const saved = await browser.executeObsidian(
+			({ plugins }) => plugins.obsidianTaskTimeTracker.settings.tagMappings
+		)
+		await browser.executeObsidian(async ({ plugins }) => {
+			const plugin = plugins.obsidianTaskTimeTracker
+			plugin.settings.tagMappings = [
+				{ tag: '#work', emoji: '💼', color: 'rgb(18, 52, 86)' },
+			]
+			await plugin.refreshViews()
+		})
+		try {
+			await writeNote(today.path, [
+				'---',
+				'tag_goals:',
+				'  - "#work 6h"',
+				'---',
+				'- [ ] Write #work',
+				`      [clock::${today.date}T08:00:00--${today.date}T09:00:00]`,
+			])
+			await openGoals()
+			const work = card('#work')
+			await expect(work).toHaveAttribute(
+				'style',
+				expect.stringContaining('--goal-color: rgb(18, 52, 86)')
+			)
+			await expect(work.$('[role="img"]=💼')).toBeDisplayed()
+
+			await openDailyView('Tracker')
+			await expect(
+				browser.$('input[type="checkbox"][aria-label="Mark Write done"]')
+			).toHaveAttribute(
+				'style',
+				expect.stringContaining('--task-color: rgb(18, 52, 86)')
+			)
+		} finally {
+			await browser.executeObsidian(async ({ plugins }, values) => {
+				const plugin = plugins.obsidianTaskTimeTracker
+				plugin.settings.tagMappings = values
+				await plugin.refreshViews()
+			}, saved)
+		}
+	})
 })

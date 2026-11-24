@@ -1,5 +1,5 @@
 import { addDays } from './dailyNotes'
-import type { DailyLogStore } from './dailyLogs'
+import type { DailyLog, DailyLogStore } from './dailyLogs'
 import {
 	buildComparison,
 	describePeriods,
@@ -17,6 +17,8 @@ import type { StatsBlockOptions } from './statsOptions'
 export type LoadedRangeStats = {
 	range: { start: Date; end: Date }
 	stats: RangeStats
+	/** Each task's tags on its latest line in the range, for its color. */
+	taskTags: Record<string, string[]>
 }
 
 /**
@@ -46,7 +48,21 @@ export async function loadRangeStats(
 		filter: options.filter,
 		now,
 	})
-	return { range, stats }
+	return { range, stats, taskTags: latestTaskTags(logs) }
+}
+
+/**
+ * Each task's tags on its latest note, from its first line there (as the
+ * vault index takes them).
+ */
+export function latestTaskTags(logs: DailyLog[]): Record<string, string[]> {
+	const tags: Record<string, string[]> = {}
+	for (const log of [...logs].sort(
+		(a, b) => a.date.valueOf() - b.date.valueOf()
+	)) {
+		for (const task of [...log.tasks].reverse()) tags[task.name] = task.tags
+	}
+	return tags
 }
 
 /**

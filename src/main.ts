@@ -139,7 +139,8 @@ export default class TaskTimeTracker extends Plugin {
 			this.settings.goalGrouping = DEFAULT_SETTINGS.goalGrouping
 		// Drops the bold / italic / underline flags of older mappings.
 		this.settings.tagMappings = this.settings.tagMappings.map(
-			({ tag, emoji }) => ({ tag, emoji })
+			({ tag, emoji, color }) =>
+				color ? { tag, emoji, color } : { tag, emoji }
 		)
 	}
 

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { taskColor } from 'core/chartColors'
 	import { Menu } from 'obsidian'
 	import { onMount, tick } from 'svelte'
 	import {
@@ -169,7 +170,12 @@
 	// Only colors chosen in settings: the stats cycle assigns colors by rank of
 	// time worked, so a block would change color while its clock is dragged.
 	function blockColor(taskName: string): string {
-		return plugin.settings.taskColors[taskName] ?? 'var(--interactive-accent)'
+		const tags = log?.tasks.find((task) => task.name === taskName)?.tags ?? []
+		const { taskColors, tagMappings } = plugin.settings
+		return (
+			taskColor(taskName, tags, taskColors, tagMappings) ??
+			'var(--interactive-accent)'
+		)
 	}
 
 	function shownMark(mark: DayMark, recorded: Date | null): Date | null {

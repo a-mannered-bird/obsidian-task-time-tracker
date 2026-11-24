@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { taskColor } from 'core/chartColors'
 	import { Menu } from 'obsidian'
 	import { onMount } from 'svelte'
 	import { endDay } from 'commands/completeJournal'
@@ -698,7 +699,12 @@
 
 <!-- A running task's checkbox stops it as it ticks it (Done). -->
 {#snippet checkbox(task: Task, running = false)}
-	{@const color = plugin.settings.taskColors[task.name]}
+	{@const color = taskColor(
+		task.name,
+		task.tags,
+		plugin.settings.taskColors,
+		plugin.settings.tagMappings
+	)}
 	<input
 		type="checkbox"
 		class="task-list-item-checkbox"

@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { defaultGoalColor, goalCards } from './goalCards'
 import {
+	cardColor,
+	cardEmoji,
 	describeGoalBar,
 	goalBars,
 	goalColor,
@@ -150,5 +152,27 @@ describe('tagGoalStreak', () => {
 		const day = new Date(2026, 7, 15)
 		expect(tagGoalStreak(notes, '#work', day)).toBe(1)
 		expect(tagGoalStreak(notes, '#work', day, true)).toBe(2)
+	})
+})
+
+describe('tag goal cards', () => {
+	const mappings = [{ tag: '#work', emoji: '💼', color: '#123456' }]
+	const time = { kind: 'time' as const, minutes: 60, atMost: false }
+
+	it("take their tag's color and emoji, else the time goal's", () => {
+		expect(cardColor({ goal: time, tag: '#work' }, {}, mappings)).toBe(
+			'#123456'
+		)
+		expect(cardEmoji({ goal: time, tag: '#work' }, {}, mappings)).toBe('💼')
+		expect(cardColor({ goal: time, tag: '#home' }, {}, mappings)).toBe(
+			defaultGoalColor(time)
+		)
+		expect(cardEmoji({ goal: time, tag: '#home' }, {}, mappings)).toBe('⏱')
+	})
+
+	it("leave a task's goals to their metric settings", () => {
+		expect(
+			cardColor({ goal: time, tag: null }, { time: { color: 'red' } }, mappings)
+		).toBe('red')
 	})
 })

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { moment } from 'obsidian'
 	import { onMount } from 'svelte'
-	import { resolveSeriesColor } from 'core/chartColors'
+	import { resolveSeriesColor, tagColor, taskColor } from 'core/chartColors'
 	import {
 		loadComparison,
 		loadRangeStats,
@@ -64,13 +64,21 @@
 	const keptKeys = $derived(new Set(table?.rows.map((row) => row.key)))
 	const hatched = $derived(stats ? showsOverlap(stats, options.groupBy) : false)
 
+	/** A row's own color: its task's, or its tag's; none for a filter. */
+	function ownColor(key: string): string | undefined {
+		const { taskColors, tagMappings } = plugin.settings
+		if (options.groupBy === 'tag') return tagColor(key, tagMappings)
+		if (options.groupBy === 'filter') return undefined
+		return taskColor(key, loaded?.taskTags[key] ?? [], taskColors, tagMappings)
+	}
+
 	const series = $derived.by<ChartSeries[]>(() =>
 		(table?.rows ?? []).map(({ key }, index) => ({
 			key,
 			color:
 				key === OTHER
 					? 'var(--text-faint)'
-					: resolveSeriesColor(key, index, plugin.settings.taskColors),
+					: resolveSeriesColor(ownColor(key), index),
 		}))
 	)
 

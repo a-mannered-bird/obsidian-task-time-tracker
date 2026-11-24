@@ -115,6 +115,41 @@ export const DEFAULT_SETTINGS: TaskTimeTrackerSettings = {
 export const UNUSED_METRIC_WARNING =
 	'No goal line uses this metric any more. Its settings stay until you forget them.'
 
+/**
+ * A round color swatch at the end of the setting's controls, opening the
+ * color menu. Not a <button>: Obsidian's mobile styles stretch those full
+ * width. Dashed while no color is set.
+ */
+function addColorSwatch(
+	setting: Setting,
+	label: string,
+	color: {
+		get: () => string | undefined
+		set: (color: string | undefined) => Promise<void>
+	}
+) {
+	const swatch = setting.controlEl.createSpan({
+		cls: 'task-time-tracker-swatch-button',
+		attr: { role: 'button', tabindex: '0', 'aria-label': label },
+	})
+	const paint = () => {
+		swatch.style.setProperty('--swatch-color', color.get() ?? 'transparent')
+		swatch.toggleClass('has-color', Boolean(color.get()))
+	}
+	const pick = (event: MouseEvent) =>
+		openColorMenu(event, color.get(), (picked) => {
+			void color.set(picked ?? undefined).then(paint)
+		})
+	swatch.addEventListener('click', pick)
+	swatch.addEventListener('keydown', (event) => {
+		if (event.key !== 'Enter' && event.key !== ' ') return
+		event.preventDefault()
+		const rect = swatch.getBoundingClientRect()
+		pick(new MouseEvent('click', { clientX: rect.left, clientY: rect.bottom }))
+	})
+	paint()
+}
+
 function emptyMapping(): TagMapping {
 	return { tag: '', emoji: '' }
 }
@@ -261,36 +296,10 @@ export class TaskTimeTrackerSettingTab extends PluginSettingTab {
 			setting.descEl.addClass('mod-warning')
 		}
 
-		// Not a <button>: Obsidian's mobile styles stretch those full width.
-		const swatch = setting.controlEl.createSpan({
-			cls: 'task-time-tracker-swatch-button',
-			attr: {
-				role: 'button',
-				tabindex: '0',
-				'aria-label': `Color of ${metric}`,
-			},
+		addColorSwatch(setting, `Color of ${metric}`, {
+			get: () => current().color,
+			set: (color) => update({ color }),
 		})
-		const paint = () => {
-			swatch.style.setProperty(
-				'--swatch-color',
-				current().color ?? 'transparent'
-			)
-			swatch.toggleClass('has-color', Boolean(current().color))
-		}
-		const pick = (event: MouseEvent) =>
-			openColorMenu(event, current().color, (color) => {
-				void update({ color: color ?? undefined }).then(paint)
-			})
-		swatch.addEventListener('click', pick)
-		swatch.addEventListener('keydown', (event) => {
-			if (event.key !== 'Enter' && event.key !== ' ') return
-			event.preventDefault()
-			const rect = swatch.getBoundingClientRect()
-			pick(
-				new MouseEvent('click', { clientX: rect.left, clientY: rect.bottom })
-			)
-		})
-		paint()
 		setting.addText((text) => {
 			text.inputEl.addClass('task-time-tracker-emoji-input')
 			text.inputEl.setAttribute('aria-label', `Emoji of ${metric}`)
@@ -394,7 +403,9 @@ export class TaskTimeTrackerSettingTab extends PluginSettingTab {
 	private displayTagMappingsSection(containerEl: HTMLElement) {
 		new Setting(containerEl)
 			.setName('Tag mappings')
-			.setDesc('For each tag: an emoji shown in task pickers.')
+			.setDesc(
+				'For each tag: an emoji shown in task pickers and on its tag goals, and a color for its tag goals. A task without a color of its own takes the color of its first tag that has one.'
+			)
 			.setHeading()
 			.addButton((button) =>
 				button
@@ -431,6 +442,14 @@ export class TaskTimeTrackerSettingTab extends PluginSettingTab {
 							await this.plugin.saveSettings()
 						})
 				})
+			addColorSwatch(setting, 'Color of the tag', {
+				get: () => mapping.color,
+				set: async (color) => {
+					if (color) mapping.color = color
+					else delete mapping.color
+					await this.plugin.saveSettings()
+				},
+			})
 
 			setting.addExtraButton((button) =>
 				button

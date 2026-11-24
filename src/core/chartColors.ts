@@ -1,3 +1,5 @@
+import type { TagMapping } from 'types/tags'
+
 /**
  * Fixed assignment order, validated for color-vision separation on the
  * default themes (see PLAN); the user's theme provides the actual colors.
@@ -41,14 +43,36 @@ export function seriesColor(index: number): string {
 }
 
 /**
- * Color of a chart series: the task's custom color when the key is a task
- * name with one, otherwise the rank-based cycle. Tag keys simply never match
- * the map. Custom colors may collide with cycled ones; accepted for now.
+ * Color of a chart series: its own color (see taskColor, tagColor) when it
+ * has one, otherwise the rank-based cycle. Own colors may collide with
+ * cycled ones; accepted for now.
  */
 export function resolveSeriesColor(
-	key: string,
-	index: number,
-	taskColors: Record<string, string>
+	color: string | undefined,
+	index: number
 ): string {
-	return taskColors[key] ?? seriesColor(index)
+	return color ?? seriesColor(index)
+}
+
+/** The tag's color set in its tag mapping, if any. */
+export function tagColor(
+	tag: string,
+	mappings: TagMapping[]
+): string | undefined {
+	return mappings.find((mapping) => mapping.tag === tag)?.color || undefined
+}
+
+/**
+ * A task's color: its own (set in the task manager), else that of its first
+ * tag, in line order, that has one.
+ */
+export function taskColor(
+	name: string,
+	tags: string[],
+	taskColors: Record<string, string>,
+	mappings: TagMapping[]
+): string | undefined {
+	return (
+		taskColors[name] ?? tags.map((tag) => tagColor(tag, mappings)).find(Boolean)
+	)
 }

@@ -1,5 +1,7 @@
 import type { AggregationRule, Goal, TagGoal } from 'types/goals'
+import type { TagMapping } from 'types/tags'
 import type { Task } from 'types/tasks'
+import { tagColor } from './chartColors'
 import { addDays, startOfDay } from './dailyNotes'
 import {
 	defaultGoalColor,
@@ -64,6 +66,34 @@ export function goalEmoji(goal: Goal, settings: MetricSettings): string {
 		settings[goalLabel(goal)]?.emoji ??
 		(goal.kind === 'time' ? TIME_GOAL_EMOJI : METRIC_GOAL_EMOJI)
 	)
+}
+
+/**
+ * A card's color: a tag goal's is its tag's (from the tag mappings), a
+ * task goal's its metric's; the metric default otherwise.
+ */
+export function cardColor(
+	card: Pick<GoalCard, 'goal' | 'tag'>,
+	settings: MetricSettings,
+	mappings: TagMapping[]
+): string {
+	return (
+		(card.tag === null ? undefined : tagColor(card.tag, mappings)) ??
+		goalColor(card.goal, settings)
+	)
+}
+
+/** A card's emoji: a tag goal's is its tag's, if mapped; else its metric's. */
+export function cardEmoji(
+	card: Pick<GoalCard, 'goal' | 'tag'>,
+	settings: MetricSettings,
+	mappings: TagMapping[]
+): string {
+	const tagEmoji =
+		card.tag === null
+			? undefined
+			: mappings.find((mapping) => mapping.tag === card.tag)?.emoji
+	return tagEmoji || goalEmoji(card.goal, settings)
 }
 
 /** Each metric's rule: the one set, else the default for its unit. */

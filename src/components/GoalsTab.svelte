@@ -45,8 +45,8 @@
 	} from 'core/goalEdits'
 	import { formatGoalMinutes } from 'core/goals'
 	import {
-		goalColor,
-		goalEmoji,
+		cardColor,
+		cardEmoji,
 		goalStreak,
 		stampText,
 		tagGoalStreak,
@@ -71,7 +71,7 @@
 	const { plugin, log, loading, focusGoal = null, onfocused }: Props = $props()
 
 	// svelte-ignore state_referenced_locally -- settings apply on a view reload
-	const { metricSettings, doneBadge, stampTexts } = plugin.settings
+	const { metricSettings, doneBadge, stampTexts, tagMappings } = plugin.settings
 
 	/** The card elements by goal id, to focus one asked for. */
 	const cardElements = new Map<string, HTMLElement>()
@@ -177,7 +177,7 @@
 	})
 
 	function emoji(card: GoalCard): string {
-		return goalEmoji(card.goal, metricSettings)
+		return cardEmoji(card, metricSettings, tagMappings)
 	}
 
 	/** Commit a field on change (blur or Enter), unless left as it was. */
@@ -397,7 +397,7 @@
 		aria-label={card.title}
 		use:flight.arrive={card.id}
 		use:registerCard={card.id}
-		style:--goal-color={goalColor(card.goal, metricSettings)}
+		style:--goal-color={cardColor(card, metricSettings, tagMappings)}
 		style:--progress={card.progress}
 	>
 		<span class="title">{card.tag ?? cardLabel(card)}</span>
