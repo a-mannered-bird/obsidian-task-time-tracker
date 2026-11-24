@@ -280,7 +280,7 @@ Grilled on 2026-11-18; mockups and the reasoning behind each choice are on the d
 - **Rename and merge:** a metric on one side moves over; the same metric on both sides combines with its aggregation rule; mismatched units keep both lines (issue flag); two "at least" time goals add up, otherwise the surviving line's wins. The merge preview says "3 goals will be combined on 2 days".
 - **Settled 2026-11-19:** merging the same metric with targets in opposite directions ("at least" and "at most") keeps the surviving line's target. The `tag_goals` property name is fixed, like `day_start`; no setting. End day opens its confirmation whenever an unclocked task has goals, even when nothing else would be deleted.
 - **Issues** (task manager warning column): malformed goal lines, a bare number as a time goal, unit drift for a metric.
-- **Stats:** a `goals` metric renders a Goals table (Goal left-aligned, other columns centered): achieved / target combined with the metric's rule over the days that had a target, %, days met, and a streak (one dot per day: met, missed, no goal; a weekly summary on year ranges). Time-goal rows of the main table show `22h 00m · ⏱ 96%` with a tooltip. Goal deltas join from Phase 13, colored by direction.
+- **Stats:** a `goals` metric renders a Goals table (Goal left-aligned, other columns centered): achieved / target combined with the metric's rule over the days that had a target, %, days met, and a streak (one dot per day: met, missed, no goal; a weekly summary on year ranges). Time-goal rows of the main table show `22h 00m · ⏱ 96%` with a tooltip. Goal deltas join from Phase 13, colored by direction. Done 2026-11-24: `goals` is one of the default metrics, the table shows when the range has goals; a day still open counts as pending (faint dot), not missed; the streak wraps seven dots per line; the Trend column compares achieved values, its tooltip each baseline's days met; tag goals have rows too, and give tag rows of the main table their `⏱ %`.
 
 ## Phase 12: Overlap in the stats
 
@@ -306,7 +306,7 @@ Five slices, each usable and reviewed on its own; every slice is checked at mobi
 - [x] Goals tab: cards with rings, steppers and inputs, ⋯ menu, Add goal card, suggested cards, Record goal result… and Set goal… commands, End day's missing-result list.
 - [x] Tracker bars with hover and quick edit; per-metric settings (color, emoji, aggregation rule) and the done badge settings.
 - [x] Tag goals: `tag_goals` editing from the Goals tab, covered time per tag, carry-over on the first write.
-- [ ] Goal stats: `goals` metric and table with streak, `⏱ %` in the main table, goal deltas and direction coloring.
+- [x] Goal stats: `goals` metric and table with streak, `⏱ %` in the main table, goal deltas and direction coloring.
 
 ## Later
 

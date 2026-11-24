@@ -1,21 +1,41 @@
 import type { MinutesByKey } from 'types/tasks'
 import type { TaskOverlap } from './overlap'
 import {
+	deltaTone,
+	durationDelta,
+	trendBaseline,
 	trendCell,
+	type GoalDirection,
 	type PeriodValues,
 	type ReadyComparison,
 } from './progression'
+import {
+	goalDirection,
+	timeGoalRow,
+	type GoalStatsRow,
+	type StreakDot,
+} from './goalStats'
 import { strong, type RichLine } from './richText'
 import type { DayPoint, GroupBy, RangeStats } from './stats'
 import { formatHoursMinutes } from './time'
 
 export const OTHER = 'Other'
 
-export type TableCell = { text: string; tooltip?: RichLine[] }
+export type TableCell = {
+	text: string
+	tooltip?: RichLine[]
+	/** A delta a goal declares good: shown in the success color. */
+	tone?: 'good'
+	/** A streak, one dot per day or week, shown instead of the text. */
+	dots?: StreakDot[]
+}
 
 export type TableColumn = {
 	label: string
+	/** Right-aligned tabular numbers. */
 	numeric?: boolean
+	/** Centered, like the Goals table's value columns. */
+	centered?: boolean
 	tooltip?: RichLine[]
 }
 
@@ -107,9 +127,11 @@ export function buildStatsTable(
 	if (comparison) columns.push(trendColumn(comparison))
 
 	const tableRows = rows.map(([key, minutes]) => {
+		const timeGoal =
+			groupBy === 'filter' ? undefined : timeGoalRow(stats.goals, key)
 		const cells: TableCell[] = [
 			{ text: key },
-			{ text: formatHoursMinutes(minutes) },
+			timeCell(minutes, timeGoal),
 			{ text: percent(minutes, covered) },
 		]
 		if (withOverlap) {
@@ -120,14 +142,17 @@ export function buildStatsTable(
 			cells.push(overlapCell(key, overlap, kept))
 		}
 		if (comparison) {
-			cells.push(
-				trendCell(
-					key,
+			const pick = (values: PeriodValues) =>
+				baselineRowMinutes(values, key, kept)
+			cells.push({
+				...trendCell(key, minutes, pick, comparison),
+				...trendTone(
 					minutes,
-					(values) => baselineRowMinutes(values, key, kept),
-					comparison
-				)
-			)
+					pick,
+					comparison,
+					timeGoal ? goalDirection(timeGoal.goal) : null
+				),
+			})
 		}
 		return { key, cells }
 	})
@@ -140,6 +165,51 @@ export function buildStatsTable(
 		rows: tableRows,
 		footer: footerRows(stats, rows, columns.length, coveredTrend),
 	}
+}
+
+/**
+ * A row's time, with its time goal's progress over the range when it has
+ * one: `22h 00m · ⏱ 96%`, the numbers in the tooltip.
+ */
+function timeCell(
+	minutes: number,
+	timeGoal: GoalStatsRow | undefined
+): TableCell {
+	const text = formatHoursMinutes(minutes)
+	if (!timeGoal?.target || timeGoal.achieved === null) return { text }
+	const share = Math.round((timeGoal.achieved / timeGoal.target) * 100)
+	const limit = timeGoal.goal.atMost ? 'at most ' : ''
+	return {
+		text: `${text} · ⏱ ${share}%`,
+		tooltip: [
+			[strong(timeGoal.title)],
+			[
+				{
+					text: `${formatHoursMinutes(timeGoal.achieved)} of ${limit}${formatHoursMinutes(timeGoal.target)} on the ${plural(timeGoal.daysWithTarget, 'day')} with a time goal`,
+				},
+			],
+			[{ text: `Met on ${plural(timeGoal.daysMet, 'day')}` }],
+		],
+	}
+}
+
+/** The good tone of a delta its goal declares better; none otherwise. */
+export function trendTone(
+	current: number,
+	pick: (values: PeriodValues) => number | null,
+	comparison: ReadyComparison,
+	direction: GoalDirection | null
+): Pick<TableCell, 'tone'> {
+	const baseline = trendBaseline(comparison)
+	const before = baseline ? pick(baseline.values) : null
+	if (before === null) return {}
+	return deltaTone(durationDelta(current, before), direction) === 'good'
+		? { tone: 'good' }
+		: {}
+}
+
+export function plural(count: number, noun: string): string {
+	return `${count} ${noun}${count === 1 ? '' : 's'}`
 }
 
 function trendColumn(comparison: ReadyComparison): TableColumn {

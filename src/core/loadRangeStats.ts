@@ -1,5 +1,6 @@
 import { addDays } from './dailyNotes'
 import type { DailyLog, DailyLogStore } from './dailyLogs'
+import type { AggregationRuleOf } from './goals'
 import {
 	buildComparison,
 	describePeriods,
@@ -32,7 +33,8 @@ export async function loadRangeStats(
 	store: DailyLogStore,
 	options: StatsBlockOptions,
 	offset = 0,
-	now = new Date()
+	now = new Date(),
+	ruleOf?: AggregationRuleOf
 ): Promise<LoadedRangeStats | null> {
 	const resolved = shiftRange(options.range, offset, now)
 	if (!resolved) return null
@@ -47,6 +49,7 @@ export async function loadRangeStats(
 		groupBy: options.groupBy,
 		filter: options.filter,
 		now,
+		ruleOf,
 	})
 	return { range, stats, taskTags: latestTaskTags(logs) }
 }
@@ -74,7 +77,8 @@ export async function loadComparison(
 	store: DailyLogStore,
 	options: StatsBlockOptions,
 	offset = 0,
-	now = new Date()
+	now = new Date(),
+	ruleOf?: AggregationRuleOf
 ): Promise<Comparison | null> {
 	const { compare } = options
 	if (compare === 'none') return null
@@ -95,6 +99,7 @@ export async function loadComparison(
 			groupBy: options.groupBy,
 			filter: options.filter,
 			now,
+			ruleOf,
 		})
 		const hasData = hasLoggedTime(logs, range)
 		if (hasData) logged++

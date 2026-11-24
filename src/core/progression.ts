@@ -14,7 +14,11 @@ export type PeriodValues = {
 	unlogged: number | null
 	dayStart: number | null
 	dayEnd: number | null
+	/** Each goal's combined achieved value and days met, by goal id. */
+	goals: Record<string, GoalValues>
 }
+
+export type GoalValues = { achieved: number | null; daysMet: number }
 
 /** An earlier period, and whether any clock ran in it (whatever the filter). */
 export type EarlierPeriod = { values: PeriodValues; hasData: boolean }
@@ -52,13 +56,20 @@ export function periodValues(stats: RangeStats): PeriodValues {
 		covered: stats.coveredMinutes,
 		byKey: Object.fromEntries(stats.byKey),
 		...stats.timeOfDay,
+		goals: Object.fromEntries(
+			stats.goals.map((row) => [
+				row.id,
+				{ achieved: row.achieved, daysMet: row.daysMet },
+			])
+		),
 	}
 }
 
 /**
  * The usual level: every number averaged over the periods. A key missing
  * from a period had no time there, so it counts as 0; a time of day missing
- * from a period is unknown, so it is skipped.
+ * from a period is unknown, so it is skipped, as is a goal the period did
+ * not have (or its achieved value, when it had no result).
  */
 export function averageValues(periods: PeriodValues[]): PeriodValues {
 	const count = periods.length
@@ -75,7 +86,24 @@ export function averageValues(periods: PeriodValues[]): PeriodValues {
 		unlogged: average(periods.map((p) => p.unlogged)),
 		dayStart: average(periods.map((p) => p.dayStart)),
 		dayEnd: average(periods.map((p) => p.dayEnd)),
+		goals: averageGoals(periods),
 	}
+}
+
+function averageGoals(periods: PeriodValues[]): Record<string, GoalValues> {
+	const ids = new Set(periods.flatMap((p) => Object.keys(p.goals)))
+	return Object.fromEntries(
+		[...ids].map((id) => {
+			const values = periods.flatMap((p) => p.goals[id] ?? [])
+			return [
+				id,
+				{
+					achieved: average(values.map((v) => v.achieved)),
+					daysMet: average(values.map((v) => v.daysMet)) ?? 0,
+				},
+			]
+		})
+	)
 }
 
 /** Whether a clock ran on a day of the range, filtered out or not. */

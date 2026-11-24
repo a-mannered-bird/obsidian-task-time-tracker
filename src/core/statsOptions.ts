@@ -1,7 +1,13 @@
 import { isRangeSpec } from './ranges'
 import type { GroupBy } from './stats'
 
-export const METRICS = ['total', 'average', 'per-day', 'time-of-day'] as const
+export const METRICS = [
+	'total',
+	'average',
+	'per-day',
+	'time-of-day',
+	'goals',
+] as const
 export type Metric = (typeof METRICS)[number]
 
 export const COMPARE_MODES = ['both', 'previous', 'usual', 'none'] as const

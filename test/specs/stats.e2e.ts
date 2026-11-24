@@ -1,3 +1,4 @@
+import assert from 'node:assert'
 import { browser, expect } from '@wdio/globals'
 import type { ChainablePromiseElement } from 'webdriverio'
 import { obsidianPage } from 'wdio-obsidian-service'
@@ -145,6 +146,80 @@ describe('task-stats block', function () {
 				'Previous · 30m · No change',
 				'Usual · 45m · ▼ 15m · −33% (average of 4 periods of 7 days)',
 			].join('\n')
+		)
+	})
+
+	it("shows the goals' table, the time goal's progress and the trends their direction calls good", async function () {
+		const run = (day: string, end: string, goals: string[]) =>
+			[
+				'- [x] Run',
+				...goals.map((goal) => `      [goal::${goal}]`),
+				`      [clock::${day}T07:00:00--${day}T${end}:00]`,
+				'',
+			].join('\n')
+		await obsidianPage.write(
+			'2026-07-25.md',
+			run('2026-07-25', '07:15', ['1h', 'distance 6/10 km'])
+		)
+		await obsidianPage.write(
+			'2026-07-27.md',
+			run('2026-07-27', '08:00', ['1h', 'distance 8/10 km'])
+		)
+		await obsidianPage.write(
+			'2026-07-28.md',
+			run('2026-07-28', '07:30', ['1h', 'distance 10/10 km'])
+		)
+		await obsidianPage.write(
+			STATS_NOTE,
+			statsNote([
+				'range: 2026-07-27..2026-07-28',
+				'metrics: [total, goals]',
+				'compare: previous',
+			])
+		)
+		await obsidianPage.openFile(STATS_NOTE)
+		const block = browser.$('.block-language-task-stats')
+		await expect(block.$('h4=🎯 Goals')).toBeDisplayed()
+		const [main, goals] = await block.$$('table').getElements()
+		assert.ok(main && goals)
+
+		// Run ran 1h and 30m against 1h each day: 1h 30m of 2h 00m, 75%.
+		// The previous two days hold 15m: a rise its "at least" goal calls
+		// good.
+		// One task, no overlap column: Trend is the fourth.
+		await expect(main.$('thead tr th:nth-child(4)')).toHaveText('Trend')
+		await expectRow(main.$('tbody tr:nth-child(1)'), [
+			'Run',
+			'1h 30m · ⏱ 75%',
+			'100%',
+			'▲ 1h 15m · +500%',
+		])
+		await expect(
+			main.$('tbody tr:nth-child(1) td:nth-child(4) span')
+		).toHaveElementClass('is-good')
+
+		await expect(goals.$('tbody')).toHaveChildren(2)
+		// Time: met on the 27th (1h), missed on the 28th (30m).
+		await expectRow(goals.$('tbody tr:nth-child(1)'), [
+			'Run · time',
+			'1h 30m / 2h 00m',
+			'75%',
+			'1 / 2',
+			'',
+			'▲ 1h 15m · +500%',
+		])
+		// Distance adds up: 8 + 10 of 10 + 10; the previous days held 6.
+		await expectRow(goals.$('tbody tr:nth-child(2)'), [
+			'Run · distance',
+			'18 / 20 km',
+			'90%',
+			'1 / 2',
+			'',
+			'▲ 12 km · +200%',
+		])
+		await expect(goals.$('tbody tr:nth-child(2) [role="img"]')).toHaveAttribute(
+			'aria-label',
+			'1 of 2 met'
 		)
 	})
 })

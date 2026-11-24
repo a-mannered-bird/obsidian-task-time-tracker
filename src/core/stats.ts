@@ -14,6 +14,8 @@ import {
 	type TaskOverlap,
 	type TaskSpan,
 } from './overlap'
+import { computeGoalStats, type GoalStatsRow } from './goalStats'
+import { defaultAggregationRuleOf, type AggregationRuleOf } from './goals'
 import { countDays, startOfDay } from './ranges'
 import { getMinutesBetween } from './time'
 
@@ -26,6 +28,8 @@ export type StatsOptions = {
 	/** Keep only tasks whose name or one of whose tags is listed. */
 	filter?: string[]
 	now: Date
+	/** How each metric's goal values add up (see goalStats). */
+	ruleOf?: AggregationRuleOf
 }
 
 export type DayPoint = {
@@ -65,6 +69,8 @@ export type RangeStats = {
 		dayStart: number | null
 		dayEnd: number | null
 	}
+	/** The goals set on the range's days. */
+	goals: GoalStatsRow[]
 }
 
 /**
@@ -125,6 +131,16 @@ export function computeRangeStats(
 			dayStart: average(perDay.map((p) => p.dayStart)),
 			dayEnd: average(perDay.map((p) => p.dayEnd)),
 		},
+		goals: computeGoalStats(
+			logs,
+			range,
+			now,
+			options.ruleOf ?? defaultAggregationRuleOf,
+			{
+				keepTasks: (tasks) => filterTasks(tasks, options.filter),
+				tags: options.filter ?? [],
+			}
+		),
 	}
 }
 

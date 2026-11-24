@@ -22,6 +22,9 @@
 		showsOverlap,
 	} from 'core/statsTable'
 	import { formatClockMinutes, formatHoursMinutes } from 'core/time'
+	import type { GoalStatsRow } from 'core/goalStats'
+	import { buildGoalsTable } from 'core/goalsTable'
+	import { cardColor, metricRuleOf } from 'core/goalStyle'
 	import { icon } from 'ui/icon'
 	import KeyValueTable from './KeyValueTable.svelte'
 	import StackedBarChart, {
@@ -57,6 +60,12 @@
 		options.metrics.includes(metric)
 
 	const ready = $derived(comparison?.status === 'ready' ? comparison : null)
+
+	const goalsTable = $derived(buildGoalsTable(stats?.goals ?? [], ready))
+	function goalSwatch(row: GoalStatsRow | undefined) {
+		const { metricSettings, tagMappings } = plugin.settings
+		return row ? cardColor(row, metricSettings, tagMappings) : undefined
+	}
 
 	const table = $derived(
 		stats ? buildStatsTable(stats, options.groupBy, options.top, ready) : null
@@ -138,7 +147,14 @@
 	async function reload() {
 		const run = ++generation
 		const now = new Date()
-		const main = await loadRangeStats(plugin.dailyLogs, options, offset, now)
+		const ruleOf = metricRuleOf(plugin.settings.metricSettings)
+		const main = await loadRangeStats(
+			plugin.dailyLogs,
+			options,
+			offset,
+			now,
+			ruleOf
+		)
 		if (run !== generation) return
 		loaded = main
 		canGoPrevious = shiftRange(options.range, offset - 1, now) !== null
@@ -148,7 +164,13 @@
 
 		// Drawn first, compared after: earlier periods can span years.
 		comparing = true
-		const result = await loadComparison(plugin.dailyLogs, options, offset, now)
+		const result = await loadComparison(
+			plugin.dailyLogs,
+			options,
+			offset,
+			now,
+			ruleOf
+		)
 		if (run !== generation) return
 		comparison = result
 		comparing = false
@@ -246,6 +268,16 @@
 		/>
 	{/if}
 
+	{#if show('goals') && goalsTable.rows.length}
+		<h4 class="goals-title">🎯 Goals</h4>
+		<KeyValueTable
+			columns={goalsTable.columns}
+			rows={goalsTable.rows.map((row, i) => ({
+				cells: row.cells,
+				swatch: goalSwatch(stats.goals[i]),
+			}))}
+		/>
+	{/if}
 	{#if show('time-of-day')}
 		<div class="stats-summary">
 			<div>
@@ -285,6 +317,12 @@
 {/if}
 
 <style>
+	.goals-title {
+		margin: 1em 0 0.25em;
+		font-size: var(--font-ui-small);
+		font-weight: var(--font-semibold);
+	}
+
 	.stats-header {
 		display: flex;
 		justify-content: space-between;

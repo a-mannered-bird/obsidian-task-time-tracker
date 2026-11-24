@@ -59,6 +59,7 @@ describe('buildStatsTable', () => {
 					unlogged: null,
 					dayStart: null,
 					dayEnd: null,
+					goals: {},
 				},
 				label: 'average of 4 days',
 			},

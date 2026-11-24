@@ -18,12 +18,25 @@
 </script>
 
 {#snippet content(cell: TableCell)}
-	{#if cell.tooltip}
-		<span class="has-tooltip" use:instantTooltip={() => cell.tooltip ?? []}
-			>{cell.text}</span
+	{#if cell.dots}
+		<span class="dots" role="img" aria-label={cell.text}>
+			{#each cell.dots as dot, d (d)}
+				<span
+					class="dot is-{dot.status}"
+					use:instantTooltip={() => [
+						[{ text: `${dot.label} · ${dot.status}` }],
+					]}
+				></span>
+			{/each}
+		</span>
+	{:else if cell.tooltip}
+		<span
+			class="has-tooltip"
+			class:is-good={cell.tone === 'good'}
+			use:instantTooltip={() => cell.tooltip ?? []}>{cell.text}</span
 		>
 	{:else}
-		{cell.text}
+		<span class:is-good={cell.tone === 'good'}>{cell.text}</span>
 	{/if}
 {/snippet}
 
@@ -32,7 +45,7 @@
 		<thead>
 			<tr>
 				{#each columns as column, i (i)}
-					<th class:numeric={column.numeric}>
+					<th class:numeric={column.numeric} class:centered={column.centered}>
 						{#if column.tooltip}
 							<span
 								class="has-tooltip"
@@ -50,7 +63,10 @@
 			{#each rows as row, r (r)}
 				<tr>
 					{#each row.cells as cell, i (i)}
-						<td class:numeric={columns[i]?.numeric}>
+						<td
+							class:numeric={columns[i]?.numeric}
+							class:centered={columns[i]?.centered}
+						>
 							{#if i === 0 && row.swatch}
 								<span class="named">
 									<span class="swatch" style:background={row.swatch}></span>
@@ -130,6 +146,47 @@
 
 	.key-value-table .numeric {
 		text-align: right;
+	}
+
+	/* Centered value columns wrap, so a narrow pane keeps the streak in view. */
+	.key-value-table .centered {
+		text-align: center;
+		white-space: normal;
+	}
+
+	.is-good {
+		color: var(--color-green);
+	}
+
+	/* A streak: filled met, hollow missed, faint without a goal or pending. */
+	.dots {
+		display: inline-flex;
+		flex-wrap: wrap;
+		gap: 3px;
+		/* Seven dots per line, a week when there is one per day. */
+		max-width: calc(7 * 8px + 6 * 3px);
+		white-space: normal;
+		vertical-align: middle;
+	}
+
+	.dot {
+		width: 8px;
+		height: 8px;
+		box-sizing: border-box;
+		border-radius: 50%;
+	}
+
+	.dot.is-met {
+		background: var(--color-green);
+	}
+
+	.dot.is-missed {
+		border: 1.5px solid var(--color-red);
+	}
+
+	.dot.is-none,
+	.dot.is-pending {
+		background: var(--background-modifier-border);
 	}
 
 	.key-value-table tfoot td {

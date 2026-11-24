@@ -34,6 +34,7 @@ function period(
 		unlogged: null,
 		dayStart,
 		dayEnd: null,
+		goals: {},
 	}
 }
 
@@ -213,5 +214,16 @@ describe('trend against the baselines', () => {
 		expect(summaryShift(430, (v) => v.dayStart, both)).toBe('18 min earlier')
 		expect(summaryShift(430, (v) => v.dayEnd, both)).toBeNull()
 		expect(summaryShift(null, (v) => v.dayStart, both)).toBeNull()
+	})
+})
+
+describe('averageValues: goals', () => {
+	it('averages each goal over the periods that had it, results over those with one', () => {
+		const usual = averageValues([
+			{ ...period(60), goals: { a: { achieved: 10, daysMet: 2 } } },
+			{ ...period(60), goals: { a: { achieved: null, daysMet: 0 } } },
+			{ ...period(60), goals: {} },
+		])
+		expect(usual.goals).toEqual({ a: { achieved: 10, daysMet: 1 } })
 	})
 })
