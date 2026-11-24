@@ -557,8 +557,8 @@
 
 	.goals-header {
 		display: flex;
-		flex-wrap: wrap;
-		align-items: center;
+		flex-direction: column;
+		align-items: flex-start;
 		gap: var(--size-4-2);
 	}
 
@@ -566,7 +566,6 @@
 		display: flex;
 		align-items: center;
 		gap: var(--size-4-2);
-		margin-inline-start: auto;
 		color: var(--text-muted);
 		font-size: var(--font-ui-small);
 	}

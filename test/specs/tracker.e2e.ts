@@ -486,8 +486,15 @@ describe('tracker tab', function () {
 		const stretch = modal.$('label=Stretch · 15m').$('input')
 		assert.strictEqual(await anki.isSelected(), false)
 		assert.strictEqual(await stretch.isSelected(), false)
-		await stretch.click()
+		// "Always delete" ticks them all, and is remembered; Anki is kept.
+		const always = modal
+			.$('label=Always delete unclocked tasks with goals')
+			.$('input')
+		await always.click()
+		await expect(anki).toBeSelected()
 		await expect(stretch).toBeSelected()
+		await anki.click()
+		assert.strictEqual(await anki.isSelected(), false)
 		await modal.$('button=End day').click()
 
 		await browser.waitUntil(
@@ -504,6 +511,15 @@ describe('tracker tab', function () {
 			'      [goal::cards 140/200]',
 			'',
 		])
+		const remembered = await browser.executeObsidian(
+			({ plugins }) =>
+				plugins.obsidianTaskTimeTracker.settings.deleteGoalTasksOnEndDay
+		)
+		assert.strictEqual(remembered, true)
+		await browser.executeObsidian(async ({ plugins }) => {
+			plugins.obsidianTaskTimeTracker.settings.deleteGoalTasksOnEndDay = false
+			await plugins.obsidianTaskTimeTracker.saveSettings()
+		})
 	})
 
 	it('asks for the end of day again when the note already has one', async function () {

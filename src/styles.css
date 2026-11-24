@@ -445,6 +445,12 @@
 	overflow-wrap: anywhere;
 }
 
+.task-time-tracker-confirm-choices label.mod-remember {
+	padding-top: var(--size-4-2);
+	border-top: var(--border-width) solid var(--background-modifier-border);
+	color: var(--text-muted);
+}
+
 .task-time-tracker-option-note {
 	margin-left: var(--size-4-2);
 	color: var(--text-muted);

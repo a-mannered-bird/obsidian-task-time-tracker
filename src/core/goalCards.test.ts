@@ -8,8 +8,10 @@ import {
 	goalSuggestions,
 	groupGoalCards,
 	missingResults,
+	newlyTicked,
 	pruneDismissals,
 	restoreDismissals,
+	unmetMetricGoals,
 	tagGoalCards,
 	type GoalGrouping,
 } from './goalCards'
@@ -235,6 +237,34 @@ describe('dismissals', () => {
 		expect(pruneDismissals(dismissals, '2026-08-16').map((d) => d.day)).toEqual(
 			['2026-08-16', '2026-08-09']
 		)
+	})
+})
+
+describe('unmetMetricGoals', () => {
+	it('lists the metric targets not reached, never time goals', () => {
+		const [task] = parseTasks([
+			'- [ ] Run',
+			'      [goal::1h]',
+			'      [goal::distance 8/10 km]',
+			'      [goal::speed 13/12 km/h]',
+			'      [goal::pace /6 min/km]',
+			'      [goal::heart rate 160/<150 bpm]',
+			'      [goal::snacks 1/<2]',
+			'      [goal::steps 9000]',
+		])
+		expect(unmetMetricGoals(task!).map((goal) => goal.metric)).toEqual([
+			'distance',
+			'pace',
+			'heart rate',
+		])
+	})
+})
+
+describe('newlyTicked', () => {
+	it('names the tasks the write ticked', () => {
+		const before = parseTasks(['- [x] Read', '- [ ] Run', '- [ ] Swim'])
+		const after = parseTasks(['- [x] Read', '- [x] Run', '- [ ] Swim'])
+		expect(newlyTicked(before, after)).toEqual(['Run'])
 	})
 })
 

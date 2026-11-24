@@ -10,6 +10,7 @@ import {
 	describeSuggestionsReset,
 	daySuggestions,
 	goalLabel,
+	unmetMetricGoals,
 	NO_SUGGESTION_TO_ACCEPT,
 	NO_SUGGESTION_TO_REJECT,
 	NO_SUGGESTION_TO_RESET,
@@ -43,7 +44,7 @@ import { noteTagGoals, setTagGoals } from 'core/tagGoals'
 import { formatLocalDate } from 'core/time'
 import type { TaskChoice } from 'core/toggle'
 import { pickOption, type PickerOption } from 'ui/OptionSuggestModal'
-import { promptText } from 'ui/TextPromptModal'
+import { promptText, type PromptCheckbox } from 'ui/TextPromptModal'
 import { showNotice } from 'ui/notice'
 import { showUndoNotice } from 'ui/undoNotice'
 import type TaskTimeTracker from '../main'
@@ -538,14 +539,57 @@ export async function recordGoalResultFlow(
 	await recordGoalResult(plugin, file, task.name, goal)
 }
 
+const SKIP_END_DAY_RESULTS = "Don't ask for goal results when ending a day"
+
+/**
+ * After tasks were ticked, ask for the result of each metric goal they have
+ * not reached, one prompt after another; dismissing one skips that goal.
+ * When ending the day, each prompt offers to stop asking at the end of a
+ * day, which also ends this round.
+ */
+export async function askUnmetResults(
+	plugin: TaskTimeTracker,
+	file: TFile,
+	taskNames: string[],
+	endingDay = false
+): Promise<void> {
+	const { settings } = plugin
+	const note = await readTaskNote(plugin, file)
+	const asked = new Set<string>()
+	for (const taskName of taskNames) {
+		const goals = note.tasks
+			.filter((task) => task.name === taskName)
+			.flatMap(unmetMetricGoals)
+		for (const goal of goals) {
+			if (endingDay && !settings.askGoalResultsOnEndDay) return
+			if (asked.has(`${taskName}\n${goal.metric}`)) continue
+			asked.add(`${taskName}\n${goal.metric}`)
+			await recordGoalResult(plugin, file, taskName, goal, {
+				checkbox: endingDay
+					? {
+							label: SKIP_END_DAY_RESULTS,
+							checked: false,
+							onChange: (skip) => {
+								settings.askGoalResultsOnEndDay = !skip
+								void plugin.saveSettings()
+							},
+						}
+					: undefined,
+			})
+		}
+	}
+}
+
 /** Ask for a metric goal's result and write it, with Undo. */
 export async function recordGoalResult(
 	plugin: TaskTimeTracker,
 	file: TFile,
 	taskName: string,
-	goal: MetricGoal
+	goal: MetricGoal,
+	options: { checkbox?: PromptCheckbox } = {}
 ): Promise<void> {
 	const typed = await promptText(plugin.app, {
+		...options,
 		title: `${taskName} · ${goal.metric}`,
 		description:
 			goal.target === null

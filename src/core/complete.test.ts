@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
 	applyCompletion,
+	endDayMissingResults,
 	goalTaskChoices,
 	isEmptyPlan,
 	planCompletion,
@@ -54,6 +55,23 @@ describe('planCompletion', () => {
 	it('is not empty while an unclocked task has goals', () => {
 		const note = new TaskNote(['- [ ] Anki', '  [goal::cards /200]'].join('\n'))
 		expect(isEmptyPlan(planCompletion(note))).toBe(false)
+	})
+})
+
+describe('endDayMissingResults', () => {
+	it('leaves out the tasks the "Has goals" group lists', () => {
+		const note = new TaskNote(
+			[
+				'- [ ] Run',
+				'      [goal::distance /10 km]',
+				'      [clock::2026-08-16T07:00:00--2026-08-16T07:50:00]',
+				'- [ ] Walking',
+				'      [goal::tricks /10]',
+			].join('\n')
+		)
+		expect(endDayMissingResults(note, planCompletion(note))).toEqual([
+			'Run · distance',
+		])
 	})
 })
 

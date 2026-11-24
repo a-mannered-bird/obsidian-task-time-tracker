@@ -62,6 +62,10 @@ export interface TaskTimeTrackerSettings {
 	streakSkipsMissingDays: GoalKey[]
 	/** Goal suggestions dismissed for a day (see pruneDismissals). */
 	dismissedGoalSuggestions: GoalSuggestionDismissal[]
+	/** End day asks for the goals its ticked tasks have not reached. */
+	askGoalResultsOnEndDay: boolean
+	/** End day's "Has goals" boxes start ticked, deleting those tasks. */
+	deleteGoalTasksOnEndDay: boolean
 	/** How the Goals tab groups the tasks' goals, chosen in the tab. */
 	goalGrouping: GoalGrouping
 	/** UI state, not shown in the settings tab. */
@@ -88,6 +92,8 @@ export const DEFAULT_SETTINGS: TaskTimeTrackerSettings = {
 	streakSkipsMissingDays: [],
 	doneBadge: 'tick',
 	goalGrouping: 'task',
+	askGoalResultsOnEndDay: true,
+	deleteGoalTasksOnEndDay: false,
 	stampTexts: DEFAULT_STAMP_TEXTS,
 	timelineFitOnOpen: true,
 	lastDailyViewTab: 'tracker',
@@ -226,6 +232,34 @@ export class TaskTimeTrackerSettingTab extends PluginSettingTab {
 					this.display()
 				})
 			})
+
+		new Setting(containerEl)
+			.setName('Ask for goal results when ending a day')
+			.setDesc(
+				'End day asks for the result of each goal its ticked tasks have not reached. Time goals are never asked: their result comes from the clocks.'
+			)
+			.addToggle((toggle) =>
+				toggle
+					.setValue(settings.askGoalResultsOnEndDay)
+					.onChange(async (value) => {
+						settings.askGoalResultsOnEndDay = value
+						await this.plugin.saveSettings()
+					})
+			)
+
+		new Setting(containerEl)
+			.setName('Always delete unclocked tasks with goals')
+			.setDesc(
+				"End day's confirmation ticks them for deletion; untick one to keep it."
+			)
+			.addToggle((toggle) =>
+				toggle
+					.setValue(settings.deleteGoalTasksOnEndDay)
+					.onChange(async (value) => {
+						settings.deleteGoalTasksOnEndDay = value
+						await this.plugin.saveSettings()
+					})
+			)
 
 		if (settings.doneBadge === 'stamp') {
 			new Setting(containerEl)

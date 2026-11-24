@@ -1,4 +1,5 @@
 import type { Task } from 'types/tasks'
+import { missingResults } from './goalCards'
 import { describeTaskGoals } from './goals'
 import { isRunning, type TaskNote } from './note'
 
@@ -54,6 +55,18 @@ export function goalTaskChoices(
 		value: task.name,
 		label: describeTaskGoals(task),
 	}))
+}
+
+/**
+ * The targets without a result End day warns of, leaving out the tasks of
+ * the "Has goals" group, which already shows their goals.
+ */
+export function endDayMissingResults(
+	note: TaskNote,
+	plan: CompletionPlan
+): string[] {
+	const listed = new Set(plan.withGoals.map((task) => task.name))
+	return missingResults(note.tasks.filter((task) => !listed.has(task.name)))
 }
 
 /** The plan once the user picked which tasks with goals to delete as well. */

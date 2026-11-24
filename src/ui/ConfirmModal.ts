@@ -16,6 +16,15 @@ type Choices = {
 	heading: string
 	note: string
 	options: { value: string; label: string }[]
+	/**
+	 * A checkbox under the options, remembered by the caller: the options
+	 * start as it is, and follow it when it changes.
+	 */
+	remember?: {
+		label: string
+		checked: boolean
+		onChange: (checked: boolean) => void
+	}
 }
 
 /** Resolves true when confirmed, false when cancelled or dismissed. */
@@ -96,14 +105,32 @@ class ConfirmModal extends Modal {
 		})
 		group.createEl('legend', { text: choices.heading })
 		group.createEl('p', { text: choices.note })
-		for (const option of choices.options) {
+		const boxes = choices.options.map((option) => {
 			const label = group.createEl('label')
 			const box = label.createEl('input', { type: 'checkbox' })
-			box.addEventListener('change', () => {
+			const update = () => {
 				if (box.checked) this.chosen.add(option.value)
 				else this.chosen.delete(option.value)
-			})
+			}
+			box.addEventListener('change', update)
+			box.checked = choices.remember?.checked ?? false
+			update()
 			label.appendText(option.label)
+			return { box, update }
+		})
+		const { remember } = choices
+		if (remember) {
+			const label = group.createEl('label', { cls: 'mod-remember' })
+			const box = label.createEl('input', { type: 'checkbox' })
+			box.checked = remember.checked
+			box.addEventListener('change', () => {
+				for (const option of boxes) {
+					option.box.checked = box.checked
+					option.update()
+				}
+				remember.onChange(box.checked)
+			})
+			label.appendText(remember.label)
 		}
 	}
 

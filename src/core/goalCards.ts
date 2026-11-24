@@ -1,4 +1,4 @@
-import type { Goal, TagGoal, TimeGoal } from 'types/goals'
+import type { Goal, GoalLine, MetricGoal, TagGoal, TimeGoal } from 'types/goals'
 import type { Task } from 'types/tasks'
 import { taskMinutes } from './aggregate'
 import { startOfDay } from './dailyNotes'
@@ -350,6 +350,33 @@ export function restoreDismissals(
 	day: string
 ): GoalSuggestionDismissal[] {
 	return dismissals.filter((entry) => entry.day !== day)
+}
+
+/**
+ * A task's metric goals with a target it has not reached: no result yet,
+ * under an "at least" target, or over an "at most" one. Time goals are
+ * left out, their result coming from the clocks.
+ */
+export function unmetMetricGoals(task: Task): MetricGoal[] {
+	return task.goals.filter(
+		(goal): goal is GoalLine & MetricGoal =>
+			goal.kind === 'metric' &&
+			goal.target !== null &&
+			(goal.achieved === null ||
+				(goal.atMost
+					? goal.achieved > goal.target
+					: goal.achieved < goal.target))
+	)
+}
+
+/** The names of the tasks ticked in `after` that were not in `before`. */
+export function newlyTicked(before: Task[], after: Task[]): string[] {
+	const ticked = new Set(before.filter((t) => t.ticked).map((t) => t.name))
+	return [
+		...new Set(
+			after.filter((t) => t.ticked && !ticked.has(t.name)).map((t) => t.name)
+		),
+	]
 }
 
 /** The metric targets of the note still without a result. */

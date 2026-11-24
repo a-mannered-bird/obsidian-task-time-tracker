@@ -1,4 +1,10 @@
-import { Modal, Setting, type App } from 'obsidian'
+import { ButtonComponent, Modal, Setting, type App } from 'obsidian'
+
+export type PromptCheckbox = {
+	label: string
+	checked: boolean
+	onChange: (checked: boolean) => void
+}
 
 type Options = {
 	title: string
@@ -13,6 +19,8 @@ type Options = {
 	validate?: (value: string) => string | null
 	/** What the value means, shown under the input as it is typed. */
 	preview?: (value: string) => string | null
+	/** A checkbox under the input, applied as soon as it changes. */
+	checkbox?: PromptCheckbox
 }
 
 /**
@@ -74,16 +82,24 @@ class TextPromptModal extends Modal {
 		})
 		this.showPreview()
 
-		new Setting(this.contentEl)
-			.addButton((button) =>
-				button.setButtonText('Cancel').onClick(() => this.close())
-			)
-			.addButton((button) =>
-				button
-					.setButtonText(this.options.confirmText ?? 'OK')
-					.setCta()
-					.onClick(() => this.submit())
-			)
+		// Obsidian's own layout for a "don't ask again" box: on the left of
+		// the buttons' row.
+		const buttons = this.contentEl.createDiv({ cls: 'modal-button-container' })
+		const { checkbox } = this.options
+		if (checkbox) {
+			const label = buttons.createEl('label', { cls: 'mod-checkbox' })
+			const box = label.createEl('input', { type: 'checkbox' })
+			box.checked = checkbox.checked
+			box.addEventListener('change', () => checkbox.onChange(box.checked))
+			label.appendText(checkbox.label)
+		}
+		new ButtonComponent(buttons)
+			.setButtonText('Cancel')
+			.onClick(() => this.close())
+		new ButtonComponent(buttons)
+			.setButtonText(this.options.confirmText ?? 'OK')
+			.setCta()
+			.onClick(() => this.submit())
 	}
 
 	onClose(): void {

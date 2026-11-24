@@ -417,14 +417,18 @@ describe('goals tab', function () {
 		])
 	})
 
-	it('reminds of the targets without a result when the day ends', async function () {
+	it('asks for the unmet results when the day ends, then warns of those still missing', async function () {
 		const content = await writeNote(today.path, [
 			'---',
 			`day_start: ${today.date}T08:00:00`,
 			'---',
 			'- [ ] Run',
+			'      [goal::1h]',
 			'      [goal::distance /10 km]',
 			`      [clock::${today.date}T07:00:00--${today.date}T07:50:00]`,
+			'- [ ] Swim',
+			'      [goal::laps 20/20]',
+			`      [clock::${today.date}T08:00:00--${today.date}T08:30:00]`,
 		])
 		await openGoals()
 		await expect(field('Result of Run · distance')).toHaveValue('0')
@@ -439,8 +443,15 @@ describe('goals tab', function () {
 		await typeTime(setEnd, '22:00')
 		await setEnd.$('button=OK').click()
 
-		// Nothing to delete, but the confirmation opens to warn of the
-		// missing result before the day ends.
+		// Only Run's distance is asked: Swim reached its laps and the time
+		// goal comes from the clocks. Dismissed, it is left without a result.
+		const prompt = await topModal()
+		await expect(prompt.$('.modal-title')).toHaveText('Run · distance')
+		const skip = prompt.$("label=Don't ask for goal results when ending a day")
+		assert.strictEqual(await skip.$('input').isSelected(), false)
+		await browser.keys('Escape')
+
+		// The confirmation opens to warn of the missing result.
 		const confirmation = await topModal()
 		await expect(confirmation.$('.modal-title')).toHaveText('End day')
 		await expect(
@@ -450,6 +461,86 @@ describe('goals tab', function () {
 		await confirmation.$('button=End day').click()
 		await waitForChange(content)
 		await expect(noticeWith('Day ended')).toBeDisplayed()
+	})
+
+	it('stops asking for results at the end of the day once told so', async function () {
+		const content = await writeNote(today.path, [
+			'---',
+			`day_start: ${today.date}T08:00:00`,
+			'---',
+			'- [ ] Run',
+			'      [goal::distance /10 km]',
+			'      [goal::pace /6 min/km]',
+			`      [clock::${today.date}T07:00:00--${today.date}T07:50:00]`,
+		])
+		await obsidianPage.openFile(today.path)
+		await browser.executeObsidianCommand(
+			'obsidian-task-time-tracker:complete-journal-entry'
+		)
+		const setEnd = await topModal()
+		await typeTime(setEnd, '22:00')
+		await setEnd.$('button=OK').click()
+
+		const prompt = await topModal()
+		await expect(prompt.$('.modal-title')).toHaveText('Run · distance')
+		const skip = prompt
+			.$("label=Don't ask for goal results when ending a day")
+			.$('input')
+		await skip.click()
+		await expect(skip).toBeSelected()
+		// The checkbox took the focus: back to the field to type the result.
+		const result = prompt.$('input[type="number"]')
+		await result.click()
+		await expect(result).toBeFocused()
+		await browser.keys([...'9', 'Enter'])
+
+		// The distance is written; the pace is not asked any more.
+		const confirmation = await topModal()
+		await expect(confirmation.$('.modal-title')).toHaveText('End day')
+		await expect(confirmation.$('li=Run · pace')).toBeDisplayed()
+		const asks = await browser.executeObsidian(
+			({ plugins }) =>
+				plugins.obsidianTaskTimeTracker.settings.askGoalResultsOnEndDay
+		)
+		assert.strictEqual(asks, false)
+		await confirmation.$('button=End day').click()
+		const ended = await waitForChange(content)
+		assert.deepStrictEqual(goalLines(ended), [
+			'      [goal::distance 9/10 km]',
+			'      [goal::pace /6 min/km]',
+		])
+
+		await browser.executeObsidian(async ({ plugins }) => {
+			plugins.obsidianTaskTimeTracker.settings.askGoalResultsOnEndDay = true
+			await plugins.obsidianTaskTimeTracker.saveSettings()
+		})
+	})
+
+	it('asks for the result of an unmet goal when its task is ticked', async function () {
+		await writeNote(today.path, [
+			'- [ ] Read',
+			'      [goal::pages 5/20]',
+			'      [goal::30m]',
+		])
+		await obsidianPage.openFile(today.path)
+		await openDailyView('Tracker')
+		await browser.$('input[aria-label="Mark Read done"]').click()
+
+		const prompt = await topModal()
+		await expect(prompt.$('.modal-title')).toHaveText('Read · pages')
+		await expect(prompt.$('input')).toHaveValue('5')
+		await browser.keys([...'20', 'Enter'])
+		await browser.waitUntil(
+			async () => (await obsidianPage.read(today.path)).includes('pages 20/20'),
+			{ timeoutMsg: 'the result was not written' }
+		)
+		const after = await obsidianPage.read(today.path)
+		assert.deepStrictEqual(after.split('\n'), [
+			'- [x] Read',
+			'      [goal::pages 20/20]',
+			'      [goal::30m]',
+			'',
+		])
 	})
 
 	it('shows goal bars on tracker rows, recording a result from a bar', async function () {

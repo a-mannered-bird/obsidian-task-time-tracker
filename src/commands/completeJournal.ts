@@ -1,5 +1,6 @@
 import {
 	applyCompletion,
+	endDayMissingResults,
 	goalTaskChoices,
 	HAS_GOALS_HEADING,
 	HAS_GOALS_NOTE,
@@ -7,7 +8,7 @@ import {
 	planCompletion,
 	withRemovals,
 } from 'core/complete'
-import { MISSING_RESULTS_MESSAGE, missingResults } from 'core/goalCards'
+import { MISSING_RESULTS_MESSAGE } from 'core/goalCards'
 import { clockChanges, describeStops } from 'core/handOff'
 import { TaskNote } from 'core/note'
 import { recordWrites, rewriteNote } from 'core/noteRewrite'
@@ -19,6 +20,7 @@ import { showNotice } from 'ui/notice'
 import { showUndoNotice } from 'ui/undoNotice'
 import type TaskTimeTracker from '../main'
 import { DAY_END_COMMAND, runTimeCommand } from './frontmatterTime'
+import { askUnmetResults } from './goalActions'
 import {
 	currentTarget,
 	noteIo,
@@ -56,12 +58,21 @@ export async function endDay(plugin: TaskTimeTracker) {
 
 	const at = await runTimeCommand(plugin, DAY_END_COMMAND)
 	if (!at) return
+	if (plugin.settings.askGoalResultsOnEndDay) {
+		const { toTick } = planCompletion(await readTaskNote(plugin, file))
+		await askUnmetResults(
+			plugin,
+			file,
+			toTick.map((task) => task.name),
+			true
+		)
+	}
 
 	// Read after the end of day was written, or writing the note would undo it.
 	const content = await readNoteContent(plugin, file)
 	const note = new TaskNote(content)
 	let plan = planCompletion(note)
-	const missing = missingResults(note.tasks)
+	const missing = endDayMissingResults(note, plan)
 	if (
 		plan.toRemove.length > 0 ||
 		plan.withGoals.length > 0 ||
@@ -79,6 +90,14 @@ export async function endDay(plugin: TaskTimeTracker) {
 				heading: HAS_GOALS_HEADING,
 				note: HAS_GOALS_NOTE,
 				options: goalTaskChoices(plan),
+				remember: {
+					label: 'Always delete unclocked tasks with goals',
+					checked: plugin.settings.deleteGoalTasksOnEndDay,
+					onChange: (checked) => {
+						plugin.settings.deleteGoalTasksOnEndDay = checked
+						void plugin.saveSettings()
+					},
+				},
 			},
 		})
 		if (!picked) return

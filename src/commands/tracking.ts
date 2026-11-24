@@ -1,5 +1,6 @@
 import { type IconName } from 'obsidian'
 import { getDailyNoteDate } from 'core/dailyNotes'
+import { newlyTicked } from 'core/goalCards'
 import { TaskNote } from 'core/note'
 import { noteDayHeading } from 'core/overnight'
 import type {
@@ -16,6 +17,7 @@ import { promptMinutes } from 'ui/MinutesPromptModal'
 import { showNotice } from 'ui/notice'
 import { promptTime } from 'ui/timePrompt'
 import type TaskTimeTracker from '../main'
+import { askUnmetResults } from './goalActions'
 import { reportRun } from './handOffNotice'
 import {
 	currentTarget,
@@ -206,7 +208,15 @@ export async function runTrackingSteps(
 		now: new Date(),
 		day: target.date,
 	})
-	reportRun(plugin, target, notices, recorder.written(), steps.length === 1)
+	const write = recorder.written()
+	reportRun(plugin, target, notices, write, steps.length === 1)
+	const file = plugin.app.vault.getFileByPath(target.path)
+	if (!write || !file) return
+	const ticked = newlyTicked(
+		new TaskNote(write.before).tasks,
+		new TaskNote(write.after).tasks
+	)
+	if (ticked.length) await askUnmetResults(plugin, file, ticked)
 }
 
 function interactivePrompts(plugin: TaskTimeTracker, path: string): Prompts {
@@ -302,4 +312,5 @@ export async function setTaskTicked(
 	if (!task) return
 	note.setTicked(task, ticked)
 	await plugin.app.vault.modify(file, note.toString())
+	if (ticked) await askUnmetResults(plugin, file, [taskName])
 }
