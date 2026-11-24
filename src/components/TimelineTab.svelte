@@ -124,8 +124,11 @@
 	type Nudge = { id: string; key: ClockKey; times: ClockTimes; timer: number }
 	let nudge: Nudge | null = null
 
-	/** Two fingers zooming: the zoom and finger spread when they landed. */
-	type Pinch = { zoom: number; spread: number; frame: number }
+	/**
+	 * Two fingers zooming: the zoom and finger spread when they landed, and
+	 * the hours into the canvas that lay between them then.
+	 */
+	type Pinch = { zoom: number; spread: number; anchor: number; frame: number }
 	let pinch: Pinch | null = null
 
 	const blocks = $derived(log ? timelineBlocks(log.tasks, now) : [])
@@ -621,12 +624,22 @@
 
 	/** Zoom keeping the time under `clientY` where it is on screen. */
 	async function setZoom(next: number, clientY: number) {
+		if (!canvas || clampZoom(next) === zoom) return
+		await zoomKeeping(next, hoursAt(clientY), clientY)
+	}
+
+	function hoursAt(clientY: number): number {
+		return canvas ? (clientY - canvas.getBoundingClientRect().top) / zoom : 0
+	}
+
+	/** Zoom to `next`, showing the time `hours` into the canvas at `clientY`. */
+	async function zoomKeeping(next: number, hours: number, clientY: number) {
+		if (!canvas || !scroller) return
 		const clamped = clampZoom(next)
-		if (!canvas || !scroller || clamped === zoom) return
-		const offset = clientY - canvas.getBoundingClientRect().top
-		const ratio = clamped / zoom
-		zoom = clamped
-		await tick()
+		if (clamped !== zoom) {
+			zoom = clamped
+			await tick()
+		}
 		// Set, not add: Chromium's scroll anchoring has already shifted
 		// scrollTop during the re-layout, so an increment lands off target.
 		const canvasTop =
@@ -635,7 +648,7 @@
 			scroller.scrollTop
 		scroller.scrollTop =
 			canvasTop +
-			offset * ratio -
+			hours * zoom -
 			(clientY - scroller.getBoundingClientRect().top)
 		saveZoomSoon()
 	}
@@ -693,7 +706,8 @@
 		cancelDrag()
 		selectedId = null
 		const spread = spreadOf(event.touches)
-		if (spread > 0) pinch = { zoom, spread, frame: 0 }
+		const anchor = hoursAt(middleOf(event.touches))
+		if (spread > 0) pinch = { zoom, spread, anchor, frame: 0 }
 	}
 
 	function onTouchMove(event: TouchEvent) {
@@ -702,11 +716,14 @@
 			const current = pinch
 			const next = (current.zoom * spreadOf(event.touches)) / current.spread
 			const middle = middleOf(event.touches)
+			// From the landing, not step by step: the fingers' moves arrive
+			// one at a time, so their middle wobbles between frames, and
+			// zooms around wobbling anchors add up to a drift.
 			// One zoom per frame: each one sets the scroll from the layout the
 			// previous one left, so two in a frame would anchor off target.
 			window.cancelAnimationFrame(current.frame)
 			current.frame = window.requestAnimationFrame(
-				() => void setZoom(next, middle)
+				() => void zoomKeeping(next, current.anchor, middle)
 			)
 			return
 		}
