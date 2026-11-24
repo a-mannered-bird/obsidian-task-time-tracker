@@ -157,29 +157,61 @@ function cardState(
 	return achieved !== null && achieved >= target ? 'done' : 'open'
 }
 
+const GOAL_GROUPINGS = ['none', 'task', 'tag'] as const
+/** How the Goals tab groups the tasks' goals. */
+export type GoalGrouping = (typeof GOAL_GROUPINGS)[number]
+
+export const GOAL_GROUPING_NAMES: Record<GoalGrouping, string> = {
+	none: 'None',
+	task: 'Task',
+	tag: 'Tag',
+}
+
+export function isGoalGrouping(value: unknown): value is GoalGrouping {
+	return GOAL_GROUPINGS.some((grouping) => grouping === value)
+}
+
+export const UNTAGGED_GROUP = 'No tag'
+
 export type GoalCardGroup = {
-	taskName: string
+	/** The task name, the tag, or null when not grouped. */
+	label: string | null
 	cards: GoalCard[]
 	suggestions: GoalSuggestion[]
 }
 
 /**
- * The cards and suggestions under their task, tasks in note order
- * (`taskNames`); a task with neither has no group.
+ * The cards and suggestions in task order (note order of `tasks`), each
+ * task's suggestions after its group's cards: in one group (`none`), under
+ * their task, or under their task's first tag, groups in order of first
+ * appearance. A group with neither cards nor suggestions is left out.
  */
 export function groupGoalCards(
-	taskNames: string[],
+	tasks: Task[],
 	cards: GoalCard[],
-	suggestions: GoalSuggestion[]
+	suggestions: GoalSuggestion[],
+	grouping: GoalGrouping
 ): GoalCardGroup[] {
-	return [...new Set(taskNames)].flatMap((taskName) => {
-		const group = {
-			taskName,
-			cards: cards.filter((card) => card.key.taskName === taskName),
-			suggestions: suggestions.filter((s) => s.key.taskName === taskName),
-		}
-		return group.cards.length || group.suggestions.length ? [group] : []
-	})
+	const names = [...new Set(tasks.map((task) => task.name))]
+	const labelOf = (name: string): string | null => {
+		if (grouping === 'none') return null
+		if (grouping === 'task') return name
+		const tagged = tasks.find((t) => t.name === name && t.tags.length > 0)
+		return tagged?.tags[0] ?? UNTAGGED_GROUP
+	}
+	const groups = new Map<string | null, GoalCardGroup>()
+	for (const name of names) {
+		const label = labelOf(name)
+		const group = groups.get(label) ?? { label, cards: [], suggestions: [] }
+		group.cards.push(...cards.filter((card) => card.key.taskName === name))
+		group.suggestions.push(
+			...suggestions.filter((s) => s.key.taskName === name)
+		)
+		groups.set(label, group)
+	}
+	return [...groups.values()].filter(
+		(group) => group.cards.length || group.suggestions.length
+	)
 }
 
 /**

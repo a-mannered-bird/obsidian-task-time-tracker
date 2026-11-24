@@ -29,8 +29,10 @@
 		describeSuggestedTarget,
 		goalLabel,
 		goalCards,
+		GOAL_GROUPING_NAMES,
 		groupGoalCards,
 		isDayOver,
+		isGoalGrouping,
 		tagGoalCards,
 		type GoalCard,
 		type GoalSuggestion,
@@ -131,13 +133,24 @@
 	)
 	const tagSuggestions = $derived(suggestions.filter((s) => s.tag !== null))
 
+	// svelte-ignore state_referenced_locally -- read once, then owned here
+	let grouping = $state(plugin.settings.goalGrouping)
 	const groups = $derived(
-		groupGoalCards(
-			(log?.tasks ?? []).map((task) => task.name),
-			cards,
-			suggestions
-		)
+		groupGoalCards(log?.tasks ?? [], cards, suggestions, grouping)
 	)
+
+	/** The metric alone under its task's heading, else with the task. */
+	function cardLabel(item: { title: string; goal: GoalCard['goal'] }) {
+		return grouping === 'task' ? goalLabel(item.goal) : item.title
+	}
+
+	function setGrouping(event: Event & { currentTarget: HTMLSelectElement }) {
+		const { value } = event.currentTarget
+		if (!isGoalGrouping(value)) return
+		grouping = value
+		plugin.settings.goalGrouping = value
+		void plugin.saveSettings()
+	}
 
 	/*
 	 * The ring pops once when a goal is reached while the tab is open; the
@@ -264,48 +277,63 @@
 </script>
 
 <div class="goals-tab" aria-busy={loading}>
-	{#if log && (suggestions.length || daySuggestions.rejected.length)}
-		{@const date = log.date}
-		<div class="goals-toolbar" role="toolbar" aria-label="Goal suggestions">
-			<span class="toolbar-label">Suggestions:</span>
-			<button
-				class:mod-cta={suggestions.length > 0}
-				disabled={suggestions.length === 0}
-				use:instantTooltip={() => [
-					"Add every suggested goal to this day's note, targets only",
-					controlHint(plugin, 'acceptSuggestions'),
-				]}
-				onclick={() => addSuggestions(suggestions)}
+	<div class="goals-header">
+		{#if log && (suggestions.length || daySuggestions.rejected.length)}
+			{@const date = log.date}
+			<div class="goals-toolbar" role="toolbar" aria-label="Goal suggestions">
+				<span class="toolbar-label">Suggestions:</span>
+				<button
+					class:mod-cta={suggestions.length > 0}
+					disabled={suggestions.length === 0}
+					use:instantTooltip={() => [
+						"Add every suggested goal to this day's note, targets only",
+						controlHint(plugin, 'acceptSuggestions'),
+					]}
+					onclick={() => addSuggestions(suggestions)}
+				>
+					Accept all
+				</button>
+				<button
+					disabled={suggestions.length === 0}
+					use:instantTooltip={() => [
+						'Hide every suggestion for this day; Reset brings them back',
+						controlHint(plugin, 'rejectSuggestions'),
+					]}
+					onclick={() => void rejectGoalSuggestions(plugin, date, suggestions)}
+				>
+					Reject all
+				</button>
+				<button
+					disabled={daySuggestions.rejected.length === 0}
+					use:instantTooltip={() => [
+						'Bring back the suggestions rejected for this day',
+						controlHint(plugin, 'resetSuggestions'),
+					]}
+					onclick={() =>
+						void resetGoalSuggestions(
+							plugin,
+							date,
+							daySuggestions.rejected.length
+						)}
+				>
+					Reset
+				</button>
+			</div>
+		{/if}
+		<label class="group-by">
+			Group by
+			<select
+				class="dropdown"
+				aria-label="Group goals by"
+				value={grouping}
+				onchange={setGrouping}
 			>
-				Accept all
-			</button>
-			<button
-				disabled={suggestions.length === 0}
-				use:instantTooltip={() => [
-					'Hide every suggestion for this day; Reset brings them back',
-					controlHint(plugin, 'rejectSuggestions'),
-				]}
-				onclick={() => void rejectGoalSuggestions(plugin, date, suggestions)}
-			>
-				Reject all
-			</button>
-			<button
-				disabled={daySuggestions.rejected.length === 0}
-				use:instantTooltip={() => [
-					'Bring back the suggestions rejected for this day',
-					controlHint(plugin, 'resetSuggestions'),
-				]}
-				onclick={() =>
-					void resetGoalSuggestions(
-						plugin,
-						date,
-						daySuggestions.rejected.length
-					)}
-			>
-				Reset
-			</button>
-		</div>
-	{/if}
+				{#each Object.entries(GOAL_GROUPING_NAMES) as [value, name] (value)}
+					<option {value}>{name}</option>
+				{/each}
+			</select>
+		</label>
+	</div>
 
 	<!-- One grid for every list, so each task's cards fill the row after the last. -->
 	<section class="cards" aria-label="Goals">
@@ -316,9 +344,15 @@
 			</button>
 		</div>
 
-		{#each groups as group (group.taskName)}
-			<h3 class="group-title">{group.taskName}</h3>
-			<div class="card-list" role="list" aria-label={group.taskName}>
+		{#each groups as group (group.label)}
+			{#if group.label !== null}
+				<h3 class="group-title">{group.label}</h3>
+			{/if}
+			<div
+				class="card-list"
+				role="list"
+				aria-label={group.label ?? 'Task goals'}
+			>
 				{#each group.cards as card (card.id)}
 					{@render goalCard(card)}
 				{/each}
@@ -366,7 +400,7 @@
 		style:--goal-color={goalColor(card.goal, metricSettings)}
 		style:--progress={card.progress}
 	>
-		<span class="title">{card.tag ?? goalLabel(card.goal)}</span>
+		<span class="title">{card.tag ?? cardLabel(card)}</span>
 		<button
 			class="menu-button"
 			aria-label="Actions for {card.title}"
@@ -496,7 +530,7 @@
 		aria-label="Suggested {suggestion.title}"
 		use:flight.suggestion={suggestion.id}
 	>
-		<span class="title">{suggestion.tag ?? goalLabel(suggestion.goal)}</span>
+		<span class="title">{suggestion.tag ?? cardLabel(suggestion)}</span>
 		<button
 			class="menu-button"
 			aria-label="Dismiss {suggestion.title} for this day"
@@ -519,6 +553,22 @@
 	.goals-tab {
 		display: grid;
 		gap: var(--size-4-3);
+	}
+
+	.goals-header {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: var(--size-4-2);
+	}
+
+	.group-by {
+		display: flex;
+		align-items: center;
+		gap: var(--size-4-2);
+		margin-inline-start: auto;
+		color: var(--text-muted);
+		font-size: var(--font-ui-small);
 	}
 
 	.goals-toolbar {
@@ -816,7 +866,7 @@
 		height: 42px;
 		border-radius: 50%;
 		background: var(--background-primary);
-		font-size: 0.95rem;
+		font-size: 1.4rem;
 	}
 
 	.goal-card.is-done .ring > span {
@@ -915,6 +965,11 @@
 	.field[type='number']::-webkit-outer-spin-button {
 		appearance: none;
 		margin: 0;
+	}
+
+	/* Obsidian makes text inputs full width on mobile. */
+	.values .field {
+		width: auto;
 	}
 
 	.field.is-readonly {

@@ -26,6 +26,7 @@ import {
 	type GoalSuggestionDismissal,
 } from './core/goalCards'
 import type { GoalKey } from './core/goalEdits'
+import type { GoalGrouping } from './core/goalCards'
 import { openColorMenu } from './ui/colorMenu'
 
 export interface TaskTimeTrackerSettings {
@@ -61,6 +62,8 @@ export interface TaskTimeTrackerSettings {
 	streakSkipsMissingDays: GoalKey[]
 	/** Goal suggestions dismissed for a day (see pruneDismissals). */
 	dismissedGoalSuggestions: GoalSuggestionDismissal[]
+	/** How the Goals tab groups the tasks' goals, chosen in the tab. */
+	goalGrouping: GoalGrouping
 	/** UI state, not shown in the settings tab. */
 	lastDailyViewTab: DailyViewTab
 	/** Timeline tab zoom in pixels per hour (UI state). */
@@ -84,6 +87,7 @@ export const DEFAULT_SETTINGS: TaskTimeTrackerSettings = {
 	metricSettings: {},
 	streakSkipsMissingDays: [],
 	doneBadge: 'tick',
+	goalGrouping: 'task',
 	stampTexts: DEFAULT_STAMP_TEXTS,
 	timelineFitOnOpen: true,
 	lastDailyViewTab: 'tracker',

@@ -10,6 +10,7 @@ import { registerUserEditLog, type UserEdit } from './commands/userEdits'
 import { getCoreDailyNotesConfig } from './core/coreDailyNotes'
 import { DailyLogStore } from './core/dailyLogs'
 import { isDailyNote, type DailyNotesConfig } from './core/dailyNotes'
+import { isGoalGrouping } from './core/goalCards'
 import { isDoneBadge } from './core/goalStyle'
 import { VaultTaskIndex } from './core/vaultTaskIndex'
 import {
@@ -134,6 +135,8 @@ export default class TaskTimeTracker extends Plugin {
 			this.settings.lastDailyViewTab = DEFAULT_SETTINGS.lastDailyViewTab
 		if (!isDoneBadge(this.settings.doneBadge))
 			this.settings.doneBadge = DEFAULT_SETTINGS.doneBadge
+		if (!isGoalGrouping(this.settings.goalGrouping))
+			this.settings.goalGrouping = DEFAULT_SETTINGS.goalGrouping
 		// Drops the bold / italic / underline flags of older mappings.
 		this.settings.tagMappings = this.settings.tagMappings.map(
 			({ tag, emoji }) => ({ tag, emoji })

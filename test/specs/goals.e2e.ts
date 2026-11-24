@@ -301,6 +301,53 @@ describe('goals tab', function () {
 		})
 	})
 
+	it('groups the goals by task, by first tag, or not at all', async function () {
+		await writeNote(today.path, [
+			'- [ ] Run #sport',
+			'      [goal::distance 8/10 km]',
+			'- [ ] Read',
+			'      [goal::pages 5/20]',
+			'- [ ] Swim #sport #water',
+			'      [goal::laps 10/20]',
+		])
+		await openGoals()
+		const groupBy = browser.$('select[aria-label="Group goals by"]')
+		await expect(groupBy).toHaveValue('task')
+		await expect(browser.$('[role="list"][aria-label="Run"]')).toHaveChildren(1)
+
+		// Swim joins Run under #sport, its first tag; Read has none.
+		await groupBy.selectByAttribute('value', 'tag')
+		const sport = browser.$('[role="list"][aria-label="#sport"]')
+		await expect(sport).toHaveChildren(2)
+		await expect(sport.$('[role="listitem"]:nth-child(1)')).toHaveAttribute(
+			'aria-label',
+			'Run · distance'
+		)
+		await expect(sport.$('[role="listitem"]:nth-child(2)')).toHaveAttribute(
+			'aria-label',
+			'Swim · laps'
+		)
+		// Without the task heading, a card names its task.
+		await expect(sport.$('[role="listitem"]:nth-child(2)')).toHaveText(
+			expect.stringContaining('Swim · laps')
+		)
+		await expect(
+			browser.$('[role="list"][aria-label="No tag"]')
+		).toHaveChildren(1)
+
+		// Ungrouped: every task's goals side by side, in note order.
+		await groupBy.selectByAttribute('value', 'none')
+		const all = browser.$('[role="list"][aria-label="Task goals"]')
+		await expect(all).toHaveChildren(3)
+		await expect(all.$('[role="listitem"]:nth-child(2)')).toHaveAttribute(
+			'aria-label',
+			'Read · pages'
+		)
+
+		await groupBy.selectByAttribute('value', 'task')
+		await expect(groupBy).toHaveValue('task')
+	})
+
 	it('sets a goal of a new metric from the Add goal card', async function () {
 		const content = await writeNote(today.path, ['- [ ] Read'])
 		await openGoals()

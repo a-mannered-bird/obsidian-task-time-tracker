@@ -11,6 +11,7 @@ import {
 	pruneDismissals,
 	restoreDismissals,
 	tagGoalCards,
+	type GoalGrouping,
 } from './goalCards'
 import { goalKeyId } from './goalEdits'
 import { parseTasks } from './parser'
@@ -100,25 +101,49 @@ describe('describeRing', () => {
 })
 
 describe('groupGoalCards', () => {
+	const note = parseTasks([
+		'- [ ] Run #sport',
+		'      [goal::distance 8/10 km]',
+		'- [ ] Anki #study #daily',
+		'      [goal::cards 210/200]',
+		'- [ ] Snacks',
+		'      [goal::cookies 3/<2]',
+		'- [ ] Swim #sport',
+		'      [goal::laps 10/20]',
+		'- [ ] Email',
+	])
+	const cards = goalCards(note, now, false)
+	const suggestions = goalSuggestions(note, (name) =>
+		name === 'Email' ? { date: now, goals: note[0]!.goals } : null
+	)
+	const shape = (grouping: GoalGrouping) =>
+		groupGoalCards(note, cards, suggestions, grouping).map((g) => [
+			g.label,
+			g.cards.map((card) => card.key.taskName),
+			g.suggestions.map((s) => s.key.taskName),
+		])
+
 	it('groups cards and suggestions by task, in note order', () => {
-		const cards = goalCards(tasks, now, false)
-		const suggestions = goalSuggestions(parseTasks(['- [ ] Email']), () => ({
-			date: now,
-			goals: tasks[0]!.goals,
-		}))
-		const names = tasks.map((task) => task.name)
-		expect(
-			groupGoalCards(names, cards, suggestions).map((g) => [
-				g.taskName,
-				g.cards.length,
-				g.suggestions.length,
-			])
-		).toEqual([
-			['Run', 3, 0],
-			['Anki', 1, 0],
-			['Social media', 1, 0],
-			['Snacks', 1, 0],
-			['Email', 0, 3],
+		expect(shape('task')).toEqual([
+			['Run', ['Run'], []],
+			['Anki', ['Anki'], []],
+			['Snacks', ['Snacks'], []],
+			['Swim', ['Swim'], []],
+			['Email', [], ['Email']],
+		])
+	})
+
+	it("groups them under each task's first tag, untagged ones apart", () => {
+		expect(shape('tag')).toEqual([
+			['#sport', ['Run', 'Swim'], []],
+			['#study', ['Anki'], []],
+			['No tag', ['Snacks'], ['Email']],
+		])
+	})
+
+	it('puts them all in one group, in task order', () => {
+		expect(shape('none')).toEqual([
+			[null, ['Run', 'Anki', 'Snacks', 'Swim'], ['Email']],
 		])
 	})
 })
