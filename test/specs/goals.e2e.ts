@@ -1,4 +1,5 @@
 import assert from 'node:assert'
+import process from 'node:process'
 import { browser, expect } from '@wdio/globals'
 import type { ChainablePromiseElement } from 'webdriverio'
 import { obsidianPage } from 'wdio-obsidian-service'
@@ -49,8 +50,9 @@ const field = (label: string) => browser.$(`input[aria-label="${label}"]`)
 /** Type into a card field and commit it with Enter. */
 async function typeInto(input: ChainablePromiseElement, value: string) {
 	await input.click()
-	await browser.keys(['Control', 'a'])
-	await browser.keys(['Meta', 'a'])
+	// One chord only: on Linux, Meta+A types an "a" over the selection that
+	// Control+A made. Obsidian runs on this machine, so its platform is ours.
+	await browser.keys([process.platform === 'darwin' ? 'Meta' : 'Control', 'a'])
 	await browser.keys([...value, 'Enter'])
 }
 
