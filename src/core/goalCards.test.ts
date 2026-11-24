@@ -10,6 +10,7 @@ import {
 	missingResults,
 	pruneDismissals,
 	restoreDismissals,
+	tagGoalCards,
 } from './goalCards'
 import { goalKeyId } from './goalEdits'
 import { parseTasks } from './parser'
@@ -216,5 +217,43 @@ describe('missingResults', () => {
 	it('lists the metric targets without a result', () => {
 		const missing = missingResults(tasks)
 		expect(missing).toEqual(['Run · speed'])
+	})
+})
+
+describe('tag goals', () => {
+	const dayTasks = parseTasks([
+		'- [ ] Write #work',
+		'      [clock::2026-08-16T08:00:00--2026-08-16T11:00:00]',
+		'- [ ] Email #work',
+		'      [clock::2026-08-16T10:00:00--2026-08-16T12:00:00]',
+		'- [ ] Guitar #leisure',
+		'      [clock::2026-08-16T20:00:00--2026-08-16T22:30:00]',
+	])
+	const tagGoals = [
+		{ tag: '#work', minutes: 240, atMost: false },
+		{ tag: '#leisure', minutes: 120, atMost: true },
+	]
+
+	it("makes a card per tag goal, measured by its tasks' covered time", () => {
+		const cards = tagGoalCards(tagGoals, dayTasks, now, false)
+		// 08:00–11:00 and 10:00–12:00 cover 4h: the 6h of clocks overlap.
+		expect(
+			cards.map((card) => [card.title, card.tag, card.achieved, card.state])
+		).toEqual([
+			['#work', '#work', 240, 'done'],
+			['#leisure', '#leisure', 150, 'over'],
+		])
+	})
+
+	it("suggests the latest day's tag goals the note lacks", () => {
+		const { offered } = daySuggestions([], () => null, [], '2026-08-16', {
+			note: [tagGoals[0]!],
+			recent: [...tagGoals, { tag: '#admin', minutes: 30, atMost: false }],
+		})
+		expect(offered.map((s) => [s.title, s.tag])).toEqual([
+			['#leisure', '#leisure'],
+			['#admin', '#admin'],
+		])
+		expect(describeSuggestedTarget(offered[0]!.goal)).toBe('<2h')
 	})
 })

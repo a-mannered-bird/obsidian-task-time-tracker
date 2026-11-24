@@ -1,10 +1,13 @@
 import type { TFile } from 'obsidian'
-import type { Goal } from 'types/goals'
+import type { Goal, TagGoal } from 'types/goals'
 import type { Task } from 'types/tasks'
 import { taskMinutes } from './aggregate'
 import type { DailyLog } from './dailyLogs'
 
-type NoteTasks = Pick<DailyLog, 'date' | 'tasks' | 'dayStart' | 'dayEnd'>
+type NoteTasks = Pick<
+	DailyLog,
+	'date' | 'tasks' | 'dayStart' | 'dayEnd' | 'tagGoals'
+>
 
 /** Structural counterpart of DailyLogChange, holding only what is read. */
 export type VaultTaskChange = { path: string; log: NoteTasks | null }
@@ -145,6 +148,38 @@ export class VaultTaskIndex {
 		return recent
 	}
 
+	/** Every note's date, tasks and tag goals, in no particular order. */
+	notes(): { date: Date; tasks: Task[]; tagGoals: TagGoal[] }[] {
+		return [...this.byPath.values()]
+	}
+
+	/** The tag goals of the most recent note before `before` holding any. */
+	recentTagGoals(before: Date): { date: Date; goals: TagGoal[] } | null {
+		let recent: { date: Date; goals: TagGoal[] } | null = null
+		for (const entry of this.byPath.values()) {
+			if (entry.date >= before || entry.tagGoals.length === 0) continue
+			if (!recent || entry.date > recent.date) {
+				recent = { date: entry.date, goals: entry.tagGoals }
+			}
+		}
+		return recent
+	}
+
+	/** Every tag used on a task line, the most recently used first. */
+	tagsByRecency(): string[] {
+		const latest = new Map<string, number>()
+		for (const entry of this.byPath.values()) {
+			for (const task of entry.tasks) {
+				for (const tag of task.tags) {
+					latest.set(tag, Math.max(latest.get(tag) ?? 0, entry.date.valueOf()))
+				}
+			}
+		}
+		return [...latest]
+			.sort(([a, at], [b, bt]) => bt - at || a.localeCompare(b))
+			.map(([tag]) => tag)
+	}
+
 	/** Every metric used in a goal line, with its most recent unit, by name. */
 	metrics(): { metric: string; unit: string }[] {
 		const latest = new Map<string, { unit: string; date: Date }>()
@@ -221,5 +256,6 @@ function noteEntry(log: NoteTasks): NoteEntry {
 		tasks: log.tasks,
 		dayStart: log.dayStart,
 		dayEnd: log.dayEnd,
+		tagGoals: log.tagGoals,
 	}
 }

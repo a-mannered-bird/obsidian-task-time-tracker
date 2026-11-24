@@ -9,8 +9,10 @@ import {
 	metricRuleOf,
 	parseStampTexts,
 	stampText,
+	tagGoalStreak,
 } from './goalStyle'
 import { parseTasks } from './parser'
+import { readTagGoals } from './tagGoals'
 
 const now = new Date(2026, 7, 16, 12, 0, 0)
 
@@ -124,5 +126,29 @@ describe('tracker bars', () => {
 			'• speed · 0 / 12 km/h · 0%',
 			'• weight · 81,4 / <80 kg · over the limit',
 		])
+	})
+})
+
+describe('tagGoalStreak', () => {
+	const note = (date: number, minutes: number, goal = '#work 2h') => ({
+		date: new Date(2026, 7, date),
+		tasks: parseTasks([
+			'- [ ] Write #work',
+			`      [clock::2026-08-${date}T08:00:00--2026-08-${date}T${String(8 + Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}:00]`,
+		]),
+		tagGoals: readTagGoals([goal]),
+	})
+
+	it("counts the days in a row the tag's covered time met its goal", () => {
+		const notes = [note(13, 60), note(14, 120), note(15, 180), note(16, 120)]
+		expect(tagGoalStreak(notes, '#work', new Date(2026, 7, 16))).toBe(3)
+		expect(tagGoalStreak(notes, '#admin', new Date(2026, 7, 16))).toBe(0)
+	})
+
+	it('skips the days without the tag goal when asked', () => {
+		const notes = [note(13, 120), note(14, 120, '#admin 1h'), note(15, 120)]
+		const day = new Date(2026, 7, 15)
+		expect(tagGoalStreak(notes, '#work', day)).toBe(1)
+		expect(tagGoalStreak(notes, '#work', day, true)).toBe(2)
 	})
 })

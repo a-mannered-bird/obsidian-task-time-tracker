@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { readFrontmatterValue, setFrontmatterValue } from './frontmatter'
+import {
+	readFrontmatterList,
+	readFrontmatterValue,
+	setFrontmatterList,
+	setFrontmatterValue,
+} from './frontmatter'
 
 describe('readFrontmatterValue', () => {
 	it('reads a plain or quoted value from the leading block only', () => {
@@ -49,5 +54,69 @@ describe('setFrontmatterValue', () => {
 			'---',
 			'- [ ] Chores',
 		])
+	})
+})
+
+describe('frontmatter lists', () => {
+	const note = [
+		'---',
+		'day_start: 2026-08-16T07:00:00',
+		'tag_goals:',
+		'  - "#work 6h"',
+		"  - '#leisure <2h'",
+		'day_end: 2026-08-16T22:00:00',
+		'---',
+		'- [ ] Write',
+	].join('\n')
+
+	it('reads a block list, or a flow one, unquoted', () => {
+		expect(readFrontmatterList(note, 'tag_goals')).toEqual([
+			'#work 6h',
+			'#leisure <2h',
+		])
+		expect(readFrontmatterList('---\ntags: [a, "b c"]\n---\n', 'tags')).toEqual(
+			['a', 'b c']
+		)
+		expect(readFrontmatterList(note, 'missing')).toBeUndefined()
+	})
+
+	it('reads a block list starting at the key indent', () => {
+		expect(
+			readFrontmatterList('---\ntag_goals:\n- "#work 6h"\n---\n', 'tag_goals')
+		).toEqual(['#work 6h'])
+	})
+
+	it('rewrites the list in place, quoted, keeping the other properties', () => {
+		expect(
+			setFrontmatterList(note, 'tag_goals', ['#work 5h']).split('\n')
+		).toEqual([
+			'---',
+			'day_start: 2026-08-16T07:00:00',
+			'tag_goals:',
+			'  - "#work 5h"',
+			'day_end: 2026-08-16T22:00:00',
+			'---',
+			'- [ ] Write',
+		])
+	})
+
+	it('removes the property once empty, and creates the frontmatter when missing', () => {
+		expect(setFrontmatterList(note, 'tag_goals', []).split('\n')).toEqual([
+			'---',
+			'day_start: 2026-08-16T07:00:00',
+			'day_end: 2026-08-16T22:00:00',
+			'---',
+			'- [ ] Write',
+		])
+		expect(
+			setFrontmatterList(
+				'---\ntag_goals:\n  - "#a 1h"\n---\n- [ ] Write',
+				'tag_goals',
+				[]
+			)
+		).toBe('- [ ] Write')
+		expect(setFrontmatterList('- [ ] Write', 'tag_goals', ['#work 6h'])).toBe(
+			'---\ntag_goals:\n  - "#work 6h"\n---\n- [ ] Write'
+		)
 	})
 })

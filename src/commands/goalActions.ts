@@ -1,5 +1,5 @@
 import type { TFile } from 'obsidian'
-import type { Goal, MetricGoal } from 'types/goals'
+import type { Goal, MetricGoal, TagGoal } from 'types/goals'
 import type { Task } from 'types/tasks'
 import {
 	describeGoalDeleted,
@@ -39,6 +39,7 @@ import { startOfDay } from 'core/dailyNotes'
 import { TaskNote } from 'core/note'
 import { recordWrites, rewriteNote } from 'core/noteRewrite'
 import { NOTICE_ICON } from 'core/noticeText'
+import { noteTagGoals, setTagGoals } from 'core/tagGoals'
 import { formatLocalDate } from 'core/time'
 import type { TaskChoice } from 'core/toggle'
 import { pickOption, type PickerOption } from 'ui/OptionSuggestModal'
@@ -46,7 +47,13 @@ import { promptText } from 'ui/TextPromptModal'
 import { showNotice } from 'ui/notice'
 import { showUndoNotice } from 'ui/undoNotice'
 import type TaskTimeTracker from '../main'
-import { currentTarget, noteIo, readTaskNote, targetIo } from './target'
+import {
+	currentTarget,
+	noteIo,
+	readTaskNote,
+	targetIo,
+	withTagGoalCarryOver,
+} from './target'
 import { wrote } from './timelineEdits'
 import { pickNoteTask } from './tracking'
 import { undoNoteWrite } from './undo'
@@ -159,10 +166,16 @@ export async function addSuggestedGoals(
 ): Promise<void> {
 	const io = noteIo(plugin, file)
 	const recorder = recordWrites(io)
+	const forTasks = suggestions.filter((s) => s.tag === null)
+	const tagGoals = suggestions.flatMap((s) =>
+		s.tag !== null && s.goal.kind === 'time'
+			? [{ tag: s.tag, minutes: s.goal.minutes, atMost: s.goal.atMost }]
+			: []
+	)
 	const outcome = await rewriteNote(recorder.io, (content) => {
-		let next = content
-		for (const taskName of new Set(suggestions.map((s) => s.key.taskName))) {
-			const goals = suggestions
+		let next = tagGoals.length ? setTagGoals(content, tagGoals) : content
+		for (const taskName of new Set(forTasks.map((s) => s.key.taskName))) {
+			const goals = forTasks
 				.filter((s) => s.key.taskName === taskName)
 				.map((s) => s.goal)
 			next = setGoals(next, { name: taskName, tags: [], goals: [] }, goals)
@@ -225,17 +238,26 @@ export async function resetGoalSuggestions(
 	showNotice(describeSuggestionsReset(count))
 }
 
-/** The suggestions of a note's day; none until the vault index is built. */
+/**
+ * The suggestions of a note's day, from its tasks and tag goals; none until
+ * the vault index is built.
+ */
 export function suggestionsOf(
 	plugin: TaskTimeTracker,
 	tasks: Task[],
+	tagGoals: TagGoal[],
 	date: Date
 ): DaySuggestions {
+	const day = startOfDay(date)
 	return daySuggestions(
 		tasks,
-		(name) => plugin.vaultTasks.recentGoals(name, startOfDay(date)),
+		(name) => plugin.vaultTasks.recentGoals(name, day),
 		plugin.settings.dismissedGoalSuggestions,
-		formatLocalDate(date)
+		formatLocalDate(date),
+		{
+			note: tagGoals,
+			recent: plugin.vaultTasks.recentTagGoals(day)?.goals ?? [],
+		}
 	)
 }
 
@@ -247,7 +269,12 @@ async function targetSuggestions(plugin: TaskTimeTracker) {
 	return {
 		file,
 		date,
-		suggestions: suggestionsOf(plugin, note?.tasks ?? [], date),
+		suggestions: suggestionsOf(
+			plugin,
+			note?.tasks ?? [],
+			note ? noteTagGoals(note.toString()) : [],
+			date
+		),
 	}
 }
 
@@ -350,8 +377,9 @@ export async function setGoalFlow(
 
 	const io = targetIo(plugin, target)
 	const recorder = recordWrites(io)
-	const outcome = await rewriteNote(recorder.io, (content) =>
-		setGoals(content, task, [goal])
+	const outcome = await rewriteNote(
+		withTagGoalCarryOver(plugin, target, recorder.io),
+		(content) => setGoals(content, task, [goal])
 	)
 	const write = recorder.written()
 	if (!wrote(outcome) || !write) return

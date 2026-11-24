@@ -6,7 +6,12 @@ import { BUSY_NOTICE } from 'core/trackingRun'
 import { pickTask } from 'ui/TaskSuggestModal'
 import { showNotice } from 'ui/notice'
 import type TaskTimeTracker from '../main'
-import { currentTarget, readTaskNote, targetIo } from './target'
+import {
+	currentTarget,
+	readTaskNote,
+	targetIo,
+	withTagGoalCarryOver,
+} from './target'
 import { loadVaultEntries } from './tracking'
 
 /** Add a task to the note's plan without starting it. */
@@ -14,8 +19,9 @@ export async function addToPlan(
 	plugin: TaskTimeTracker,
 	{ name, tags, goals }: TaskChoice
 ): Promise<void> {
+	const target = currentTarget(plugin)
 	const outcome = await rewriteNote(
-		targetIo(plugin, currentTarget(plugin)),
+		withTagGoalCarryOver(plugin, target, targetIo(plugin, target)),
 		(content) => addTaskLine(content, name, tags, goals)
 	)
 	if (outcome === 'busy') showNotice(BUSY_NOTICE)

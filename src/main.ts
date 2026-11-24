@@ -3,6 +3,7 @@ import './styles.css'
 import { registerCompleteJournalCommand } from './commands/completeJournal'
 import { registerFrontmatterTimeCommands } from './commands/frontmatterTime'
 import { registerGoalCommands } from './commands/goalActions'
+import { registerTagGoalCommands } from './commands/tagGoalActions'
 import { registerTrackingCommands } from './commands/tracking'
 import { registerPlanCommand } from './commands/plan'
 import { registerUserEditLog, type UserEdit } from './commands/userEdits'
@@ -99,6 +100,7 @@ export default class TaskTimeTracker extends Plugin {
 		registerFrontmatterTimeCommands(this)
 		registerCompleteJournalCommand(this)
 		registerGoalCommands(this)
+		registerTagGoalCommands(this)
 		registerStatsCodeBlock(this)
 
 		this.addSettingTab(new TaskTimeTrackerSettingTab(this.app, this))

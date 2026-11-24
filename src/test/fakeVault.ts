@@ -1,6 +1,7 @@
 import type { TFile } from 'obsidian'
 import type { BulkEditVault } from 'core/bulkEdit'
 import { parseTasks } from 'core/parser'
+import { noteTagGoals } from 'core/tagGoals'
 import {
 	DAY_END_PROPERTY,
 	readFrontmatterTime,
@@ -28,6 +29,7 @@ export function fakeVault(notes: Record<string, string>) {
 			frontmatterValue(content, DAY_START_PROPERTY)
 		),
 		dayEnd: readFrontmatterTime(frontmatterValue(content, DAY_END_PROPERTY)),
+		tagGoals: noteTagGoals(content),
 	})
 	const fileOf = (path: string) => ({ path }) as TFile
 	const notify = (change?: VaultTaskChange) =>

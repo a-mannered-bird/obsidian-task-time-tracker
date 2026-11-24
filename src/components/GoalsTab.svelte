@@ -17,6 +17,11 @@
 		toggleStreakSkip,
 	} from 'commands/goalActions'
 	import { controlHint } from 'commands/shortcuts'
+	import {
+		deleteTagGoal,
+		setTagGoalFlow,
+		setTagGoalTarget,
+	} from 'commands/tagGoalActions'
 	import type { DailyLog } from 'core/dailyLogs'
 	import { isSameDay } from 'core/dailyNotes'
 	import {
@@ -26,6 +31,7 @@
 		goalCards,
 		groupGoalCards,
 		isDayOver,
+		tagGoalCards,
 		type GoalCard,
 		type GoalSuggestion,
 	} from 'core/goalCards'
@@ -36,7 +42,13 @@
 		type GoalField,
 	} from 'core/goalEdits'
 	import { formatGoalMinutes } from 'core/goals'
-	import { goalColor, goalEmoji, goalStreak, stampText } from 'core/goalStyle'
+	import {
+		goalColor,
+		goalEmoji,
+		goalStreak,
+		stampText,
+		tagGoalStreak,
+	} from 'core/goalStyle'
 	import { formatLocalDate } from 'core/time'
 	import { icon } from 'ui/icon'
 	import { suggestionFlight } from 'ui/suggestionFlight'
@@ -86,12 +98,15 @@
 	function streak(card: GoalCard): number {
 		void streakSettings
 		if (!log || !indexReady) return 0
-		return goalStreak(
-			plugin.vaultTasks.occurrences(card.key.taskName),
-			card.key,
-			log.date,
-			streakSkipsMissingDays(plugin, card.key)
-		)
+		const skip = streakSkipsMissingDays(plugin, card.key)
+		return card.tag === null
+			? goalStreak(
+					plugin.vaultTasks.occurrences(card.key.taskName),
+					card.key,
+					log.date,
+					skip
+				)
+			: tagGoalStreak(plugin.vaultTasks.notes(), card.tag, log.date, skip)
 	}
 
 	let now = $state(new Date())
@@ -108,9 +123,13 @@
 	const daySuggestions = $derived.by(() => {
 		void dismissals
 		if (!log || !indexReady) return { offered: [], rejected: [] }
-		return suggestionsOf(plugin, log.tasks, log.date)
+		return suggestionsOf(plugin, log.tasks, log.tagGoals, log.date)
 	})
 	const suggestions = $derived(daySuggestions.offered)
+	const tagCards = $derived(
+		tagGoalCards(log?.tagGoals ?? [], log?.tasks ?? [], now, dayOver)
+	)
+	const tagSuggestions = $derived(suggestions.filter((s) => s.tag !== null))
 
 	const groups = $derived(
 		groupGoalCards(
@@ -130,7 +149,9 @@
 	$effect(() => {
 		const path = log?.file.path ?? null
 		const done = new Set(
-			cards.filter((card) => card.state === 'done').map((card) => card.id)
+			[...cards, ...tagCards]
+				.filter((card) => card.state === 'done')
+				.map((card) => card.id)
 		)
 		if (path === shownPath) {
 			const fresh = [...done].filter((id) => !doneIds.has(id))
@@ -173,10 +194,18 @@
 		return Math.max(2, value.length + 1)
 	}
 
+	/** Write a target typed in a card, to its goal line or `tag_goals` entry. */
+	function writeTarget(card: GoalCard, file: TFile, value: string) {
+		return card.tag === null
+			? setGoalTarget(plugin, file, card.key, value)
+			: setTagGoalTarget(plugin, file, card.tag, value)
+	}
+
 	function openMenu(event: MouseEvent, card: GoalCard) {
 		if (!log) return
 		const file = log.file
 		const menu = new Menu()
+		const { tag } = card
 		if (card.key.metric !== null) {
 			menu.addItem((item) =>
 				item
@@ -200,7 +229,11 @@
 				.setTitle('Delete goal')
 				.setIcon('trash-2')
 				.setWarning(true)
-				.onClick(() => void deleteGoal(plugin, file, card.key))
+				.onClick(() =>
+					tag === null
+						? void deleteGoal(plugin, file, card.key)
+						: void deleteTagGoal(plugin, file, tag)
+				)
 		)
 		menu.showAtMouseEvent(event)
 	}
@@ -287,177 +320,200 @@
 			<h3 class="group-title">{group.taskName}</h3>
 			<div class="card-list" role="list" aria-label={group.taskName}>
 				{#each group.cards as card (card.id)}
-					{@const achieved =
-						card.goal.kind === 'metric' ? achievedField(card.goal) : null}
-					{@const target = targetField(card.goal)}
-					<div
-						class="goal-card"
-						class:is-done={card.state === 'done'}
-						class:is-over={card.state === 'over'}
-						class:is-at-most={card.goal.atMost}
-						role="listitem"
-						aria-label={card.title}
-						use:flight.arrive={card.id}
-						use:registerCard={card.id}
-						style:--goal-color={goalColor(card.goal, metricSettings)}
-						style:--progress={card.progress}
-					>
-						<span class="title">{goalLabel(card.goal)}</span>
-						<button
-							class="menu-button"
-							aria-label="Actions for {card.title}"
-							use:icon={'more-horizontal'}
-							onclick={(event) => openMenu(event, card)}
-						></button>
-						<div class="ring-row">
-							{#if card.goal.kind === 'metric'}
-								<button
-									class="step"
-									aria-label="Decrease {card.title}"
-									disabled={!log}
-									use:icon={'minus'}
-									onclick={() =>
-										log && void stepGoal(plugin, log.file, card.key, -1)}
-								></button>
-							{/if}
-							<div
-								class="ring"
-								class:pops={popped.has(card.id)}
-								role="img"
-								aria-label={describeRing(card)}
-							>
-								<span>{emoji(card)}</span>
-							</div>
-							{#if card.goal.kind === 'metric'}
-								<button
-									class="step"
-									aria-label="Increase {card.title}"
-									disabled={!log}
-									use:icon={'plus'}
-									onclick={() =>
-										log && void stepGoal(plugin, log.file, card.key, 1)}
-								></button>
-							{/if}
-						</div>
-						<div class="values">
-							{#if achieved}
-								<input
-									class="field"
-									aria-label="Result of {card.title}"
-									type="number"
-									step="any"
-									min="0"
-									inputmode="decimal"
-									value={achieved.value}
-									size={size(achieved.value)}
-									use:selectOnFocus
-									onchange={(event) =>
-										commit(event, achieved, (file, value) =>
-											setGoalAchieved(plugin, file, card.key, value)
-										)}
-									onkeydown={(event) => fieldKeys(event, achieved.value)}
-								/>
-							{:else}
-								<span
-									class="field is-readonly"
-									aria-label="Time spent on {card.title}"
-									use:instantTooltip={() => [
-										'Value collected from your trackers',
-									]}>{formatGoalMinutes(card.achieved ?? 0)}</span
-								>
-							{/if}
-							<span aria-hidden="true">/</span>
-							{#if target.type === 'number'}
-								{#if target.atMost}
-									<span class="at-most" use:instantTooltip={() => ['At most']}
-										>&lt;</span
-									>
-								{/if}
-								<input
-									class="field"
-									aria-label="Target of {card.title}"
-									type="number"
-									step="any"
-									min="0"
-									inputmode="decimal"
-									value={target.value}
-									size={size(target.value)}
-									use:selectOnFocus
-									onchange={(event) =>
-										commit(event, target, (file, value) =>
-											setGoalTarget(plugin, file, card.key, value)
-										)}
-									onkeydown={(event) => fieldKeys(event, target.value)}
-								/>
-							{:else}
-								<input
-									class="field"
-									aria-label="Target of {card.title}"
-									type="text"
-									value={target.value}
-									size={size(target.value)}
-									onchange={(event) =>
-										commit(event, target, (file, value) =>
-											setGoalTarget(plugin, file, card.key, value)
-										)}
-									onkeydown={(event) => fieldKeys(event, target.value)}
-								/>
-							{/if}
-							{#if card.goal.kind === 'metric' && card.goal.unit}
-								<span class="unit">{card.goal.unit}</span>
-							{/if}
-						</div>
-						{#if card.state === 'done' && doneBadge !== 'none'}
-							{@const days = doneBadge === 'flame' ? streak(card) : 0}
-							{@const stamp =
-								doneBadge === 'stamp' && log
-									? stampText(stampTexts, formatLocalDate(log.date), card.id)
-									: null}
-							<span
-								class="badge is-{doneBadge}"
-								class:stamps={popped.has(card.id)}
-								role="img"
-								aria-label={doneBadge === 'flame'
-									? `Met ${days} day${days === 1 ? '' : 's'} in a row`
-									: (stamp ?? 'Done')}
-							>
-								{#if doneBadge === 'tick'}✓{:else if doneBadge === 'trophy'}🏆{:else if doneBadge === 'flame'}🔥
-									{days}{:else if doneBadge === 'stamp'}{stamp}{/if}
-							</span>
-						{/if}
-					</div>
+					{@render goalCard(card)}
 				{/each}
 				{#each group.suggestions as suggestion (suggestion.id)}
-					<div
-						class="goal-card is-suggested"
-						role="listitem"
-						aria-label="Suggested {suggestion.title}"
-						use:flight.suggestion={suggestion.id}
-					>
-						<span class="title">{goalLabel(suggestion.goal)}</span>
-						<button
-							class="menu-button"
-							aria-label="Dismiss {suggestion.title} for this day"
-							use:icon={'x'}
-							onclick={() => dismiss(suggestion)}
-						></button>
-						<button
-							class="add-suggestion"
-							aria-label="Add {suggestion.title} to {isToday
-								? 'today'
-								: 'this day'}"
-							use:icon={'plus'}
-							onclick={() => addSuggestions([suggestion])}
-						></button>
-						<span class="suggested-target">
-							{describeSuggestedTarget(suggestion.goal)}
-						</span>
-					</div>
+					{@render suggestionCard(suggestion)}
 				{/each}
 			</div>
 		{/each}
+
+		<!-- Always there, at the end, so its Add card never shifts the tasks' cards. -->
+		<h3 class="group-title">Tags</h3>
+		<div class="card-list" role="list" aria-label="Tags">
+			{#each tagCards as card (card.id)}
+				{@render goalCard(card)}
+			{/each}
+			{#each tagSuggestions as suggestion (suggestion.id)}
+				{@render suggestionCard(suggestion)}
+			{/each}
+		</div>
+		<div class="new-slot">
+			<button
+				class="goal-card is-new"
+				onclick={() => void setTagGoalFlow(plugin)}
+			>
+				<span class="plus" use:icon={'tags'}></span>
+				<span>Add tag goal</span>
+			</button>
+		</div>
 	</section>
 </div>
+
+{#snippet goalCard(card: GoalCard)}
+	{@const achieved =
+		card.goal.kind === 'metric' ? achievedField(card.goal) : null}
+	{@const target = targetField(card.goal)}
+	<div
+		class="goal-card"
+		class:is-done={card.state === 'done'}
+		class:is-over={card.state === 'over'}
+		class:is-at-most={card.goal.atMost}
+		role="listitem"
+		aria-label={card.title}
+		use:flight.arrive={card.id}
+		use:registerCard={card.id}
+		style:--goal-color={goalColor(card.goal, metricSettings)}
+		style:--progress={card.progress}
+	>
+		<span class="title">{card.tag ?? goalLabel(card.goal)}</span>
+		<button
+			class="menu-button"
+			aria-label="Actions for {card.title}"
+			use:icon={'more-horizontal'}
+			onclick={(event) => openMenu(event, card)}
+		></button>
+		<div class="ring-row">
+			{#if card.goal.kind === 'metric'}
+				<button
+					class="step"
+					aria-label="Decrease {card.title}"
+					disabled={!log}
+					use:icon={'minus'}
+					onclick={() => log && void stepGoal(plugin, log.file, card.key, -1)}
+				></button>
+			{/if}
+			<div
+				class="ring"
+				class:pops={popped.has(card.id)}
+				role="img"
+				aria-label={describeRing(card)}
+			>
+				<span>{emoji(card)}</span>
+			</div>
+			{#if card.goal.kind === 'metric'}
+				<button
+					class="step"
+					aria-label="Increase {card.title}"
+					disabled={!log}
+					use:icon={'plus'}
+					onclick={() => log && void stepGoal(plugin, log.file, card.key, 1)}
+				></button>
+			{/if}
+		</div>
+		<div class="values">
+			{#if achieved}
+				<input
+					class="field"
+					aria-label="Result of {card.title}"
+					type="number"
+					step="any"
+					min="0"
+					inputmode="decimal"
+					value={achieved.value}
+					size={size(achieved.value)}
+					use:selectOnFocus
+					onchange={(event) =>
+						commit(event, achieved, (file, value) =>
+							setGoalAchieved(plugin, file, card.key, value)
+						)}
+					onkeydown={(event) => fieldKeys(event, achieved.value)}
+				/>
+			{:else}
+				<span
+					class="field is-readonly"
+					aria-label="Time spent on {card.title}"
+					use:instantTooltip={() => ['Value collected from your trackers']}
+					>{formatGoalMinutes(card.achieved ?? 0)}</span
+				>
+			{/if}
+			<span aria-hidden="true">/</span>
+			{#if target.type === 'number'}
+				{#if target.atMost}
+					<span class="at-most" use:instantTooltip={() => ['At most']}
+						>&lt;</span
+					>
+				{/if}
+				<input
+					class="field"
+					aria-label="Target of {card.title}"
+					type="number"
+					step="any"
+					min="0"
+					inputmode="decimal"
+					value={target.value}
+					size={size(target.value)}
+					use:selectOnFocus
+					onchange={(event) =>
+						commit(event, target, (file, value) =>
+							writeTarget(card, file, value)
+						)}
+					onkeydown={(event) => fieldKeys(event, target.value)}
+				/>
+			{:else}
+				<input
+					class="field"
+					aria-label="Target of {card.title}"
+					type="text"
+					value={target.value}
+					size={size(target.value)}
+					onchange={(event) =>
+						commit(event, target, (file, value) =>
+							writeTarget(card, file, value)
+						)}
+					onkeydown={(event) => fieldKeys(event, target.value)}
+				/>
+			{/if}
+			{#if card.goal.kind === 'metric' && card.goal.unit}
+				<span class="unit">{card.goal.unit}</span>
+			{/if}
+		</div>
+		{#if card.state === 'done' && doneBadge !== 'none'}
+			{@const days = doneBadge === 'flame' ? streak(card) : 0}
+			{@const stamp =
+				doneBadge === 'stamp' && log
+					? stampText(stampTexts, formatLocalDate(log.date), card.id)
+					: null}
+			<span
+				class="badge is-{doneBadge}"
+				class:stamps={popped.has(card.id)}
+				role="img"
+				aria-label={doneBadge === 'flame'
+					? `Met ${days} day${days === 1 ? '' : 's'} in a row`
+					: (stamp ?? 'Done')}
+			>
+				{#if doneBadge === 'tick'}✓{:else if doneBadge === 'trophy'}🏆{:else if doneBadge === 'flame'}🔥
+					{days}{:else if doneBadge === 'stamp'}{stamp}{/if}
+			</span>
+		{/if}
+	</div>
+{/snippet}
+
+{#snippet suggestionCard(suggestion: GoalSuggestion)}
+	<div
+		class="goal-card is-suggested"
+		role="listitem"
+		aria-label="Suggested {suggestion.title}"
+		use:flight.suggestion={suggestion.id}
+	>
+		<span class="title">{suggestion.tag ?? goalLabel(suggestion.goal)}</span>
+		<button
+			class="menu-button"
+			aria-label="Dismiss {suggestion.title} for this day"
+			use:icon={'x'}
+			onclick={() => dismiss(suggestion)}
+		></button>
+		<button
+			class="add-suggestion"
+			aria-label="Add {suggestion.title} to {isToday ? 'today' : 'this day'}"
+			use:icon={'plus'}
+			onclick={() => addSuggestions([suggestion])}
+		></button>
+		<span class="suggested-target">
+			{describeSuggestedTarget(suggestion.goal)}
+		</span>
+	</div>
+{/snippet}
 
 <style>
 	.goals-tab {

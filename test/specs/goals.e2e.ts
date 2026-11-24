@@ -243,9 +243,10 @@ describe('goals tab', function () {
 		const content = await writeNote(today.path, ['- [ ] Anki', '- [ ] Run'])
 		await openGoals()
 
-		// The Add goal card, then a heading and a list per task.
+		// The Add goal card, a heading and a list per task, then the Tags
+		// heading, its list and the Add tag goal card.
 		const goals = browser.$('section[aria-label="Goals"]')
-		await expect(goals).toHaveChildren(5)
+		await expect(goals).toHaveChildren(8)
 		const toolbar = browser.$('[role="toolbar"][aria-label="Goal suggestions"]')
 		const accept = toolbar.$('button=Accept all')
 		const reject = toolbar.$('button=Reject all')
@@ -263,8 +264,9 @@ describe('goals tab', function () {
 
 		await reject.click()
 		await expect(noticeWith('2 goal suggestions rejected')).toBeDisplayed()
-		// Only the Add goal card is left, and the note is untouched.
-		await expect(goals).toHaveChildren(1)
+		// Only the Add goal card and the Tags group are left, and the note is
+		// untouched.
+		await expect(goals).toHaveChildren(4)
 		await expect(accept).toBeDisabled()
 		await expect(reject).toBeDisabled()
 		await expect(reset).toBeEnabled()
@@ -275,7 +277,7 @@ describe('goals tab', function () {
 			'obsidian-task-time-tracker:reset-goal-suggestions'
 		)
 		await expect(noticeWith('2 goal suggestions brought back')).toBeDisplayed()
-		await expect(goals).toHaveChildren(5)
+		await expect(goals).toHaveChildren(8)
 		await expect(reset).toBeDisabled()
 
 		await browser.executeObsidianCommand(
@@ -594,5 +596,141 @@ describe('goals tab', function () {
 				await plugin.saveSettings()
 			}, saved)
 		}
+	})
+
+	it('sets, edits and deletes a tag goal measured by covered time', async function () {
+		let content = await writeNote(today.path, [
+			'- [ ] Write #work',
+			`      [clock::${today.date}T08:00:00--${today.date}T11:00:00]`,
+			'- [ ] Email #work',
+			`      [clock::${today.date}T10:00:00--${today.date}T12:00:00]`,
+		])
+		await openGoals()
+		await browser.$('button=Add tag goal').click()
+
+		const tagInput = browser.$(
+			'.prompt input[placeholder="Set a time goal for which tag?"]'
+		)
+		await expect(tagInput).toBeDisplayed()
+		await browser.keys([...'#work'])
+		await expect(browser.$('.prompt .suggestion-item.is-selected')).toHaveText(
+			'#work'
+		)
+		await browser.keys('Enter')
+		const prompt = await topModal()
+		await expect(prompt.$('.modal-title')).toHaveText('Time goal for #work')
+		await prompt.$('input[type="text"]').setValue('6h')
+		await expect(prompt.$('input[type="text"]')).toHaveValue('6h')
+		await prompt.$('button=OK').click()
+
+		content = await waitForChange(content)
+		assert.deepStrictEqual(content.split('\n').slice(0, 4), [
+			'---',
+			'tag_goals:',
+			'  - "#work 6h"',
+			'---',
+		])
+		const tags = browser.$('[role="list"][aria-label="Tags"]')
+		await expect(tags).toHaveChildren(1)
+		// 08:00–11:00 and 10:00–12:00 overlap: 4h covered, not 5h.
+		await expect(browser.$('[aria-label="Time spent on #work"]')).toHaveText(
+			'4h'
+		)
+
+		await typeInto(field('Target of #work'), '<5h')
+		content = await waitForChange(content)
+		assert.strictEqual(content.split('\n')[2], '  - "#work <5h"')
+		await expect(field('Target of #work')).toHaveValue('<5h')
+
+		await card('#work').$('button[aria-label="Actions for #work"]').click()
+		const deleteItem = browser.$('.menu-item-title=Delete goal')
+		await expect(deleteItem).toBeDisplayed()
+		await deleteItem.click()
+		content = await waitForChange(content)
+		assert.strictEqual(content.startsWith('---'), false)
+		await expect(noticeWith('Deleted the tag goal #work <5h')).toBeDisplayed()
+	})
+
+	it("suggests the latest day's tag goals and adds them", async function () {
+		await writeNote(yesterday.path, [
+			'---',
+			'tag_goals:',
+			'  - "#work 6h"',
+			'---',
+			'- [x] Write #work',
+		])
+		const content = await writeNote(today.path, ['- [ ] Write #work'])
+		await openGoals()
+
+		const suggested = browser.$(
+			'[role="listitem"][aria-label="Suggested #work"]'
+		)
+		await expect(suggested).toHaveText(expect.stringContaining('6h'))
+		await suggested.$('button[aria-label="Add #work to today"]').click()
+		const added = await waitForChange(content)
+		assert.deepStrictEqual(added.split('\n'), [
+			'---',
+			'tag_goals:',
+			'  - "#work 6h"',
+			'---',
+			'- [ ] Write #work',
+			'',
+		])
+		await expect(browser.$('[role="list"][aria-label="Tags"]')).toHaveChildren(
+			1
+		)
+	})
+
+	it("carries the latest tag goals over to a new day's note", async function () {
+		await writeNote(yesterday.path, [
+			'---',
+			'tag_goals:',
+			'  - "#work 6h"',
+			'  - "#leisure <2h"',
+			'---',
+			'- [x] Write #work',
+		])
+		// The active note is not a daily one: commands then act on today's.
+		await obsidianPage.write('Scratch.md', 'Not a daily note.\n')
+		await obsidianPage.openFile('Scratch.md')
+		assert.strictEqual(
+			await browser.executeObsidian(
+				({ app }, path) => app.vault.getFileByPath(path) === null,
+				today.path
+			),
+			true
+		)
+
+		await browser.executeObsidianCommand('obsidian-task-time-tracker:plan-task')
+		await expect(browser.$('.prompt input')).toHaveAttribute(
+			'placeholder',
+			'Which task to plan?'
+		)
+		await browser.keys([...'Write'])
+		await expect(
+			browser.$('.prompt .suggestion-item:nth-child(1 of .suggestion-item)')
+		).toHaveText(expect.stringContaining('Write'))
+		await browser.keys('Enter')
+
+		await browser.waitUntil(
+			() =>
+				browser.executeObsidian(
+					({ app }, path) => app.vault.getFileByPath(path) !== null,
+					today.path
+				),
+			{ timeoutMsg: "today's note was not created" }
+		)
+		await browser.waitUntil(
+			async () => (await obsidianPage.read(today.path)).includes('- [ ] Write'),
+			{ timeoutMsg: 'the task was not planned' }
+		)
+		const created = await obsidianPage.read(today.path)
+		assert.deepStrictEqual(created.split('\n').slice(0, 5), [
+			'---',
+			'tag_goals:',
+			'  - "#work 6h"',
+			'  - "#leisure <2h"',
+			'---',
+		])
 	})
 })

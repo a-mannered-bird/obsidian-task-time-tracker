@@ -209,3 +209,33 @@ describe('VaultTaskIndex goals', () => {
 		expect(index.metrics()).toEqual([{ metric: 'distance', unit: 'mi' }])
 	})
 })
+
+describe('VaultTaskIndex tag goals', () => {
+	it('finds the latest tag goals before a day, and the tags by recency', async () => {
+		const { index } = await makeBuiltIndex({
+			'Journal/2026-08-01.md': [
+				'---',
+				'tag_goals:',
+				'  - "#work 6h"',
+				'---',
+				'- [ ] Write #work #focus',
+			].join('\n'),
+			'Journal/2026-08-02.md': '- [ ] Guitar #leisure',
+			'Journal/2026-08-03.md': [
+				'---',
+				'tag_goals:',
+				'  - "#leisure <2h"',
+				'---',
+				'- [ ] Write #work',
+			].join('\n'),
+		})
+		expect(index.recentTagGoals(new Date(2026, 7, 3))).toEqual({
+			date: new Date('2026-08-01T00:00:00'),
+			goals: [{ tag: '#work', minutes: 360, atMost: false }],
+		})
+		expect(index.recentTagGoals(new Date(2026, 7, 4))?.goals).toEqual([
+			{ tag: '#leisure', minutes: 120, atMost: true },
+		])
+		expect(index.tagsByRecency()).toEqual(['#work', '#leisure', '#focus'])
+	})
+})

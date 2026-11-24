@@ -3,8 +3,10 @@ import {
 	createDailyNote,
 	getDailyNoteDate,
 	resolveTarget,
+	startOfDay,
 	type DailyTarget,
 } from 'core/dailyNotes'
+import { carryTagGoals } from 'core/tagGoals'
 import type { StopContext } from 'core/handOff'
 import { TaskNote } from 'core/note'
 import { parseTasks } from 'core/parser'
@@ -43,6 +45,29 @@ export function targetIo(plugin: TaskTimeTracker, target: DailyTarget): NoteIo {
 			if (!existing && expected !== '') return false
 			const written = existing ?? (await ensureTargetFile(plugin, target))
 			return noteIo(plugin, written).replace(expected, next)
+		},
+	}
+}
+
+/**
+ * The io, carrying the latest earlier day's tag goals over to a new note on
+ * the plugin's first write to it (see carryTagGoals). Wraps a recorder's io
+ * rather than being wrapped by one, so Undo sees what was really written.
+ */
+export function withTagGoalCarryOver(
+	plugin: TaskTimeTracker,
+	target: DailyTarget,
+	io: NoteIo
+): NoteIo {
+	return {
+		read: () => io.read(),
+		replace: async (expected, next) => {
+			await plugin.vaultTasks.ensureBuilt()
+			const recent = plugin.vaultTasks.recentTagGoals(startOfDay(target.date))
+			return io.replace(
+				expected,
+				carryTagGoals(expected, next, recent?.goals ?? [])
+			)
 		},
 	}
 }

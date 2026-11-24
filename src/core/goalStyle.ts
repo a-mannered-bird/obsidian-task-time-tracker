@@ -1,4 +1,4 @@
-import type { AggregationRule, Goal } from 'types/goals'
+import type { AggregationRule, Goal, TagGoal } from 'types/goals'
 import type { Task } from 'types/tasks'
 import { addDays, startOfDay } from './dailyNotes'
 import {
@@ -6,6 +6,7 @@ import {
 	goalCards,
 	goalLabel,
 	METRIC_GOAL_EMOJI,
+	tagGoalCards,
 	TIME_GOAL_EMOJI,
 	type GoalCard,
 } from './goalCards'
@@ -148,6 +149,36 @@ export function goalStreak(
 		const card = goalCards([task], new Date(), true).find((c) => c.id === id)
 		if (card) metOn.set(time, card.state === 'done')
 	}
+	return countStreak(metOn, day, skipMissing)
+}
+
+/** A note as the index holds it, for the tag goals' streaks. */
+export type DatedNote = { date: Date; tasks: Task[]; tagGoals: TagGoal[] }
+
+/** goalStreak for a tag goal, met on a day by its covered time. */
+export function tagGoalStreak(
+	notes: DatedNote[],
+	tag: string,
+	day: Date,
+	skipMissing = false
+): number {
+	const metOn = new Map<number, boolean>()
+	for (const note of notes) {
+		const time = startOfDay(note.date).valueOf()
+		if (time > startOfDay(day).valueOf()) continue
+		const goals = note.tagGoals.filter((goal) => goal.tag === tag)
+		const [card] = tagGoalCards(goals, note.tasks, new Date(), true)
+		if (card) metOn.set(time, card.state === 'done')
+	}
+	return countStreak(metOn, day, skipMissing)
+}
+
+/** Days in a row met, back from `day`, the missing ones ending it or skipped. */
+function countStreak(
+	metOn: Map<number, boolean>,
+	day: Date,
+	skipMissing: boolean
+): number {
 	if (skipMissing) {
 		const days = [...metOn].sort(([a], [b]) => b - a)
 		const missed = days.findIndex(([, met]) => !met)

@@ -1,10 +1,11 @@
-import type { Goal } from 'types/goals'
+import type { Goal, TagGoal, TimeGoal } from 'types/goals'
 import type { Task } from 'types/tasks'
 import { taskMinutes } from './aggregate'
 import { startOfDay } from './dailyNotes'
 import { CHART_COLORS } from './chartColors'
 import { formatGoal, targetOnly } from './goals'
 import { NOTICE_ICON, noticeTask } from './noticeText'
+import { formatTagGoal, tagCoveredMinutes } from './tagGoals'
 import {
 	formatTargetField,
 	goalKey,
@@ -22,8 +23,14 @@ export type GoalCardState = 'open' | 'done' | 'over'
 export type GoalCard = {
 	key: GoalKey
 	id: string
-	/** `Run · distance`, `Run · time`. */
+	/** `Run · distance`, `Run · time`, or the tag of a tag goal. */
 	title: string
+	/**
+	 * The tag of a tag goal (in the note's `tag_goals`), null for a task's
+	 * goal line. A tag goal's key holds the tag as its task name: a task
+	 * name never is a tag.
+	 */
+	tag: string | null
 	goal: Goal
 	/** Minutes for a time goal (from the clocks), else the recorded value. */
 	achieved: number | null
@@ -65,6 +72,7 @@ export function goalCards(
 				key,
 				id: goalKeyId(key),
 				title: `${task.name} · ${goalLabel(goal)}`,
+				tag: null,
 				goal,
 				achieved,
 				target,
@@ -73,6 +81,42 @@ export function goalCards(
 			}
 		})
 	)
+}
+
+/** A tag goal as a goal: a time goal measured on the tag's tasks. */
+export function tagTimeGoal(goal: TagGoal): TimeGoal {
+	return { kind: 'time', minutes: goal.minutes, atMost: goal.atMost }
+}
+
+export function tagGoalKey(tag: string): GoalKey {
+	return { taskName: tag, metric: null, unit: '' }
+}
+
+/**
+ * One card per tag goal of the note, measured as the time covered by the
+ * tasks carrying the tag (two of them at once count once).
+ */
+export function tagGoalCards(
+	tagGoals: TagGoal[],
+	tasks: Task[],
+	now: Date,
+	dayOver: boolean
+): GoalCard[] {
+	return tagGoals.map((tagGoal) => {
+		const key = tagGoalKey(tagGoal.tag)
+		const achieved = tagCoveredMinutes(tasks, tagGoal.tag, now)
+		return {
+			key,
+			id: goalKeyId(key),
+			title: tagGoal.tag,
+			tag: tagGoal.tag,
+			goal: tagTimeGoal(tagGoal),
+			achieved,
+			target: tagGoal.minutes,
+			progress: ringProgress(achieved, tagGoal.minutes, tagGoal.atMost),
+			state: cardState(achieved, tagGoal.minutes, tagGoal.atMost, dayOver),
+		}
+	})
 }
 
 function ringProgress(
@@ -149,11 +193,13 @@ export function defaultGoalColor(goal: Goal): string {
 	return CHART_COLORS[hash % CHART_COLORS.length]!
 }
 
-/** A goal offered for a task of the note that has none yet. */
+/** A goal offered for a task of the note, or a tag, that has none yet. */
 export type GoalSuggestion = {
 	id: string
 	key: GoalKey
 	title: string
+	/** The tag of a suggested tag goal, null for a task's goal. */
+	tag: string | null
 	/** Targets only. */
 	goal: Goal
 }
@@ -186,11 +232,32 @@ export function goalSuggestions(
 					id: goalKeyId(key),
 					key,
 					title: `${name} · ${goalLabel(goal)}`,
+					tag: null,
 					goal: targetOnly(goal),
 				},
 			]
 		})
 	})
+}
+
+/** The tag goals of the latest earlier day that the note lacks. */
+export function tagGoalSuggestions(
+	noteTagGoals: TagGoal[],
+	recentTagGoals: TagGoal[]
+): GoalSuggestion[] {
+	const present = new Set(noteTagGoals.map((goal) => goal.tag))
+	return recentTagGoals
+		.filter((goal) => !present.has(goal.tag))
+		.map((goal) => {
+			const key = tagGoalKey(goal.tag)
+			return {
+				id: goalKeyId(key),
+				key,
+				title: goal.tag,
+				tag: goal.tag,
+				goal: tagTimeGoal(goal),
+			}
+		})
 }
 
 /** A note's suggestions: still offered, or rejected for its day. */
@@ -199,14 +266,21 @@ export type DaySuggestions = {
 	rejected: GoalSuggestion[]
 }
 
+/** The note's tag goals and those of the latest earlier day that had any. */
+export type DayTagGoals = { note: TagGoal[]; recent: TagGoal[] }
+
 export function daySuggestions(
 	tasks: Task[],
 	recentGoals: RecentGoals,
 	dismissals: GoalSuggestionDismissal[],
-	day: string
+	day: string,
+	tagGoals: DayTagGoals = { note: [], recent: [] }
 ): DaySuggestions {
 	const dismissed = dismissedOn(dismissals, day)
-	const all = goalSuggestions(tasks, recentGoals)
+	const all = [
+		...goalSuggestions(tasks, recentGoals),
+		...tagGoalSuggestions(tagGoals.note, tagGoals.recent),
+	]
 	return {
 		offered: all.filter((s) => !dismissed.has(s.id)),
 		rejected: all.filter((s) => dismissed.has(s.id)),
@@ -285,6 +359,14 @@ export function describeGoalRecorded(taskName: string, goal: Goal): string {
 
 export function describeGoalDeleted(taskName: string, goal: Goal): string {
 	return `${NOTICE_ICON.remove} Deleted the goal ${noticeGoal(taskName, goal)}.`
+}
+
+export function describeTagGoalSet(goal: TagGoal): string {
+	return `${NOTICE_ICON.goal} Tag goal set: ${formatTagGoal(goal)}.`
+}
+
+export function describeTagGoalDeleted(goal: TagGoal): string {
+	return `${NOTICE_ICON.remove} Deleted the tag goal ${formatTagGoal(goal)}.`
 }
 
 export function describeGoalsAdded(count: number): string {
