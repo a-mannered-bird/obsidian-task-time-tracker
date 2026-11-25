@@ -110,21 +110,38 @@ describe('goals tab', function () {
 			'100% of the target, done'
 		)
 
-		// Plain numbers are edited in number inputs, durations as text.
+		// A + or - adds to the value instead of replacing it.
+		await typeInto(field('Result of Run · distance'), '+2,5')
+		content = await waitForChange(content)
+		assert.strictEqual(
+			goalLines(content)[1],
+			'      [goal::distance 12.5/10 km]'
+		)
+		await expect(field('Result of Run · distance')).toHaveValue('12.5')
+
+		// Plain numbers open the numeric keyboard, durations the text one.
 		await expect(field('Target of Run · speed')).toHaveAttribute(
-			'type',
-			'number'
+			'inputmode',
+			'decimal'
 		)
 		await typeInto(field('Target of Run · speed'), '14')
 		content = await waitForChange(content)
 		assert.strictEqual(goalLines(content)[2], '      [goal::speed /14 km/h]')
 		await expect(field('Target of Run · speed')).toHaveValue('14')
+		await typeInto(field('Target of Run · speed'), '-2')
+		content = await waitForChange(content)
+		assert.strictEqual(goalLines(content)[2], '      [goal::speed /12 km/h]')
+		await expect(field('Target of Run · speed')).toHaveValue('12')
 
 		await expect(field('Target of Run · time')).toHaveAttribute('type', 'text')
 		await typeInto(field('Target of Run · time'), '90')
 		content = await waitForChange(content)
 		assert.strictEqual(goalLines(content)[0], '      [goal::1h30m]')
 		await expect(field('Target of Run · time')).toHaveValue('1h30m')
+		await typeInto(field('Target of Run · time'), '+30m')
+		content = await waitForChange(content)
+		assert.strictEqual(goalLines(content)[0], '      [goal::2h]')
+		await expect(field('Target of Run · time')).toHaveValue('2h')
 	})
 
 	it('edits an "at most" goal in number fields, its ring emptying', async function () {
@@ -138,8 +155,8 @@ describe('goals tab', function () {
 		// 1 cookie of at most 4: three quarters of the limit are left.
 		await expect(ring).toHaveAttribute('aria-label', '75% of the limit left')
 		await expect(field('Target of Snacks · cookies')).toHaveAttribute(
-			'type',
-			'number'
+			'inputmode',
+			'decimal'
 		)
 		await expect(field('Target of Snacks · cookies')).toHaveValue('4')
 
@@ -155,6 +172,12 @@ describe('goals tab', function () {
 		content = await waitForChange(content)
 		assert.deepStrictEqual(goalLines(content), ['      [goal::cookies 2/<3]'])
 		await expect(ring).toHaveAttribute('aria-label', '33% of the limit left')
+
+		// Raising the limit by 2 keeps it an "at most" one.
+		await typeInto(field('Target of Snacks · cookies'), '+2')
+		content = await waitForChange(content)
+		assert.deepStrictEqual(goalLines(content), ['      [goal::cookies 2/<5]'])
+		await expect(ring).toHaveAttribute('aria-label', '60% of the limit left')
 	})
 
 	it('deletes a goal from its menu, with Undo', async function () {
@@ -427,8 +450,7 @@ describe('goals tab', function () {
 		const prompt = await topModal()
 		await expect(prompt.$('.modal-title')).toHaveText('Weight · weight')
 		const input = prompt.$('input')
-		await expect(input).toHaveAttribute('type', 'number')
-		// A number input only takes a dot: the note's comma is shown as one.
+		await expect(input).toHaveAttribute('inputmode', 'decimal')
 		await expect(input).toHaveValue('81.4')
 
 		// The value is selected on opening, so typing replaces it.
@@ -445,6 +467,20 @@ describe('goals tab', function () {
 		const recorded = await waitForChange(content)
 		assert.deepStrictEqual(goalLines(recorded), [
 			'      [goal::weight 81/<80 kg]',
+		])
+
+		// A - takes the typed amount off the recorded result.
+		await browser.executeObsidianCommand(
+			'obsidian-task-time-tracker:record-goal-result'
+		)
+		await expect(taskPicker.$('.suggestion-item')).toHaveText('Weight')
+		await browser.keys('Enter')
+		const again = await topModal()
+		await expect(again.$('input')).toHaveValue('81')
+		await browser.keys([...'-1.5', 'Enter'])
+		const lowered = await waitForChange(recorded)
+		assert.deepStrictEqual(goalLines(lowered), [
+			'      [goal::weight 79.5/<80 kg]',
 		])
 	})
 
@@ -520,7 +556,7 @@ describe('goals tab', function () {
 		await skip.click()
 		await expect(skip).toBeSelected()
 		// The checkbox took the focus: back to the field to type the result.
-		const result = prompt.$('input[type="number"]')
+		const result = prompt.$('input[inputmode="decimal"]')
 		await result.click()
 		await expect(result).toBeFocused()
 		await browser.keys([...'9', 'Enter'])

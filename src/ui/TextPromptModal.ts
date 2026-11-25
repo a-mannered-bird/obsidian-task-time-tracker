@@ -21,7 +21,10 @@ type Options = {
 	initialValue?: string
 	placeholder?: string
 	confirmText?: string
-	/** A number input takes digits and `.` only, with the numeric keyboard. */
+	/**
+	 * A number field opens the numeric keyboard; it stays a text input so
+	 * that `+2` and `,` can be typed.
+	 */
 	inputType?: 'text' | 'number'
 	/**
 	 * For a number input: the value one − / + step away from the one typed,
@@ -83,9 +86,7 @@ class TextPromptModal extends Modal {
 					})
 				: new TextComponent(control).inputEl
 		if (inputType === 'number') {
-			input.type = 'number'
-			input.step = 'any'
-			input.min = '0'
+			input.type = 'text'
 			input.inputMode = 'decimal'
 		}
 		input.placeholder = placeholder ?? ''

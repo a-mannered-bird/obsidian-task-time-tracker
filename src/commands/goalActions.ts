@@ -26,14 +26,18 @@ import {
 	goalKeyId,
 	formatGoalNumber,
 	metricNameProblem,
-	parseTypedNumber,
+	applyChange,
+	parseTypedChange,
 	parseTypedTarget,
+	parseTypedTargetEdit,
 	parseTypedTargetUnit,
 	parseTypedTimeTarget,
+	parseTypedTimeTargetEdit,
 	removeGoal,
 	setGoals,
 	stepAchieved,
 	stepTypedAchieved,
+	timeTargetAfter,
 	updateGoal,
 	type GoalKey,
 } from 'core/goalEdits'
@@ -61,13 +65,15 @@ export async function setGoalAchieved(
 	key: GoalKey,
 	typed: string
 ): Promise<void> {
-	const number = parseTypedNumber(typed)
-	if ('error' in number) {
-		showNotice(`${NOTICE_ICON.warning} ${number.error}.`)
+	const change = parseTypedChange(typed)
+	if ('error' in change) {
+		showNotice(`${NOTICE_ICON.warning} ${change.error}.`)
 		return
 	}
 	await editGoal(plugin, file, key, (goal) =>
-		goal.kind === 'metric' ? { ...goal, achieved: number.value } : goal
+		goal.kind === 'metric'
+			? { ...goal, achieved: applyChange(goal.achieved, change) }
+			: goal
 	)
 }
 
@@ -79,23 +85,29 @@ export async function setGoalTarget(
 	typed: string
 ): Promise<void> {
 	if (key.metric === null) {
-		const time = parseTypedTimeTarget(typed)
+		const time = parseTypedTimeTargetEdit(typed)
 		if ('error' in time) {
 			showNotice(`${NOTICE_ICON.warning} ${time.error}.`)
 			return
 		}
 		await editGoal(plugin, file, key, (goal) =>
-			goal.kind === 'time' ? { ...goal, ...time } : goal
+			goal.kind === 'time' ? { ...goal, ...timeTargetAfter(goal, time) } : goal
 		)
 		return
 	}
-	const target = parseTypedTarget(typed)
+	const target = parseTypedTargetEdit(typed)
 	if ('error' in target) {
 		showNotice(`${NOTICE_ICON.warning} ${target.error}.`)
 		return
 	}
 	await editGoal(plugin, file, key, (goal) =>
-		goal.kind === 'metric' ? { ...goal, ...target } : goal
+		goal.kind === 'metric'
+			? {
+					...goal,
+					target: applyChange(goal.target, target.change),
+					atMost: target.atMost,
+				}
+			: goal
 	)
 }
 
@@ -593,24 +605,27 @@ export async function recordGoalResult(
 		initialValue: achievedField(goal).value,
 		inputType: 'number',
 		step: (text, direction) => stepTypedAchieved(goal, text, direction),
-		validate: (text) => errorOf(parseTypedNumber(text)),
+		validate: (text) => errorOf(parseTypedChange(text)),
 	})
 	if (typed === null) return
-	const number = parseTypedNumber(typed)
-	if ('error' in number) return
+	const change = parseTypedChange(typed)
+	if ('error' in change) return
 	const key = { taskName, metric: goal.metric, unit: goal.unit }
-	const recorded: MetricGoal = { ...goal, achieved: number.value }
+	let recorded: MetricGoal | null = null
 	const io = noteIo(plugin, file)
 	const recorder = recordWrites(io)
 	const outcome = await rewriteNote(recorder.io, (content) =>
-		updateGoal(content, key, (current) =>
-			current.kind === 'metric'
-				? { ...current, achieved: number.value }
-				: current
-		)
+		updateGoal(content, key, (current) => {
+			if (current.kind !== 'metric') return current
+			recorded = {
+				...current,
+				achieved: applyChange(current.achieved, change),
+			}
+			return recorded
+		})
 	)
 	const write = recorder.written()
-	if (!wrote(outcome) || !write) return
+	if (!wrote(outcome) || !write || !recorded) return
 	showUndoNotice(
 		describeGoalRecorded(taskName, recorded),
 		undoNoteWrite(io, write)

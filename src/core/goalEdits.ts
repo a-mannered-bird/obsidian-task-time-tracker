@@ -102,20 +102,80 @@ export function parseTypedNumber(text: string): TypedNumber {
 	return { value: Number(trimmed.replace(',', '.')) }
 }
 
+/**
+ * A value typed over a goal's: a number to set (null clears it), or a
+ * `+n` / `-n` to add to the value the note holds when it is written.
+ */
+export type TypedChange = { set: number | null } | { add: number }
+
+const RELATIVE = /^([+-])\s*(.*)$/
+
+/** A typed number, or `+n` / `-n` added to the current one. */
+export function parseTypedChange(
+	text: string
+): TypedChange | { error: string } {
+	const relative = RELATIVE.exec(text.trim())
+	if (!relative) {
+		const number = parseTypedNumber(text)
+		return 'error' in number ? number : { set: number.value }
+	}
+	const number = parseTypedNumber(relative[2]!)
+	if ('error' in number || number.value === null) {
+		return { error: 'Type a number after + or -, like +2' }
+	}
+	return { add: relative[1] === '-' ? -number.value : number.value }
+}
+
+/**
+ * The value after the change, never below `floor`; a sum keeps the finest
+ * decimal of its terms (no 0.30000000000000004).
+ */
+export function applyChange(
+	current: number | null,
+	change: TypedChange,
+	floor = 0
+): number | null {
+	if ('set' in change) return change.set
+	const decimals = Math.max(
+		...[current ?? 0, change.add].map(
+			(value) => String(value).split('.')[1]?.length ?? 0
+		)
+	)
+	const sum = Math.max(floor, (current ?? 0) + change.add)
+	return Number(sum.toFixed(decimals))
+}
+
 /** A typed target: `<` in front for at most; empty clears it. */
 export type TypedTarget =
 	| { target: number | null; atMost: boolean }
 	| { error: string }
 
 export function parseTypedTarget(text: string): TypedTarget {
+	const edit = parseTypedTargetEdit(text)
+	if ('error' in edit) return edit
+	if ('add' in edit.change) return { error: 'Type a target, like 10 or <80' }
+	return { target: edit.change.set, atMost: edit.atMost }
+}
+
+/** A target typed over a goal's: `<` in front for at most, then a change. */
+export type TypedTargetEdit =
+	| { change: TypedChange; atMost: boolean }
+	| { error: string }
+
+export function parseTypedTargetEdit(text: string): TypedTargetEdit {
 	const trimmed = text.trim()
 	const atMost = trimmed.startsWith('<')
-	const number = parseTypedNumber(atMost ? trimmed.slice(1) : trimmed)
-	if ('error' in number) return { error: 'Type a target, like 10 or <80' }
-	if (atMost && number.value === null) {
+	const body = atMost ? trimmed.slice(1).trim() : trimmed
+	const change = parseTypedChange(body)
+	if ('error' in change) {
+		return RELATIVE.test(body)
+			? change
+			: { error: 'Type a target, like 10 or <80' }
+	}
+	if (atMost && 'set' in change && change.set === null) {
 		return { error: 'Type a target after <, like <80' }
 	}
-	return { target: number.value, atMost }
+	return { change, atMost }
 }
 
 /**
@@ -136,6 +196,44 @@ export function parseTypedTimeTarget(text: string): TypedTimeTarget {
 		return { minutes: Math.round(minutes.value), atMost }
 	}
 	return { error: 'Type a time, like 1h30m, 45m or <30m' }
+}
+
+/**
+ * A time target typed over a goal's: a target as parseTypedTimeTarget
+ * reads it, or `+30m` / `-1h` (minutes when bare) added to it. A change
+ * typed without `<` keeps the goal's at most (null): the `<` the field
+ * showed was typed over.
+ */
+export type TypedTimeTargetEdit =
+	| { change: TypedChange; atMost: boolean | null }
+	| { error: string }
+
+export function parseTypedTimeTargetEdit(text: string): TypedTimeTargetEdit {
+	const trimmed = text.trim()
+	const atMost = trimmed.startsWith('<')
+	const relative = RELATIVE.exec(atMost ? trimmed.slice(1).trim() : trimmed)
+	if (!relative) {
+		const time = parseTypedTimeTarget(trimmed)
+		if ('error' in time) return time
+		return { change: { set: time.minutes }, atMost: time.atMost }
+	}
+	const time = parseTypedTimeTarget(relative[2]!)
+	if ('error' in time || time.atMost) {
+		return { error: 'Type a time after + or -, like +30m' }
+	}
+	const add = relative[1] === '-' ? -time.minutes : time.minutes
+	return { change: { add }, atMost: atMost || null }
+}
+
+/** A time goal's or tag goal's target after the edit: never under a minute. */
+export function timeTargetAfter(
+	current: { minutes: number; atMost: boolean },
+	edit: { change: TypedChange; atMost: boolean | null }
+): { minutes: number; atMost: boolean } {
+	return {
+		minutes: applyChange(current.minutes, edit.change, 1) ?? current.minutes,
+		atMost: edit.atMost ?? current.atMost,
+	}
 }
 
 /** A new metric's target and unit typed together: `10 km`, `<3 cups`. */
@@ -183,15 +281,17 @@ export function stepAchieved(goal: MetricGoal, direction: 1 | -1): number {
 
 /**
  * The typed result one step up or down, the goal's step following the
- * decimals typed; an unreadable value steps from the recorded one.
+ * decimals typed; `+n` / `-n` is applied to the recorded result first, and
+ * an unreadable value steps from the recorded one.
  */
 export function stepTypedAchieved(
 	goal: MetricGoal,
 	typed: string,
 	direction: 1 | -1
 ): string {
-	const parsed = parseTypedNumber(typed)
-	const achieved = 'value' in parsed ? parsed.value : goal.achieved
+	const parsed = parseTypedChange(typed)
+	const achieved =
+		'error' in parsed ? goal.achieved : applyChange(goal.achieved, parsed)
 	return String(stepAchieved({ ...goal, achieved }, direction))
 }
 

@@ -1,19 +1,24 @@
 import { describe, expect, it } from 'vitest'
 import type { MetricGoal } from 'types/goals'
 import {
+	applyChange,
 	achievedField,
 	formatTargetField,
 	targetField,
 	typedFieldValue,
 	goalStep,
+	parseTypedChange,
 	parseTypedNumber,
 	parseTypedTarget,
+	parseTypedTargetEdit,
 	parseTypedTargetUnit,
 	parseTypedTimeTarget,
+	parseTypedTimeTargetEdit,
 	removeGoal,
 	setGoals,
 	stepAchieved,
 	stepTypedAchieved,
+	timeTargetAfter,
 	updateGoal,
 } from './goalEdits'
 import { parseGoal } from './goals'
@@ -154,6 +159,57 @@ describe('typed values', () => {
 	})
 })
 
+describe('relative changes', () => {
+	it('reads +n and -n as changes, anything else as a value', () => {
+		expect(parseTypedChange('+2')).toEqual({ add: 2 })
+		expect(parseTypedChange(' - 1,5 ')).toEqual({ add: -1.5 })
+		expect(parseTypedChange('7')).toEqual({ set: 7 })
+		expect(parseTypedChange('')).toEqual({ set: null })
+		expect(parseTypedChange('+')).toHaveProperty('error')
+		expect(parseTypedChange('+x')).toHaveProperty('error')
+	})
+
+	it('adds to the current value, never below the floor', () => {
+		expect(applyChange(8, { add: 2 })).toBe(10)
+		// 0.1 + 0.2 kept to the finest decimal of its terms.
+		expect(applyChange(0.1, { add: 0.2 })).toBe(0.3)
+		expect(applyChange(null, { add: 3 })).toBe(3)
+		expect(applyChange(2, { add: -5 })).toBe(0)
+		expect(applyChange(8, { set: null })).toBe(null)
+	})
+
+	it('changes a target, keeping or setting its at most', () => {
+		expect(parseTypedTargetEdit('<+5')).toEqual({
+			change: { add: 5 },
+			atMost: true,
+		})
+		expect(parseTypedTargetEdit('-1')).toEqual({
+			change: { add: -1 },
+			atMost: false,
+		})
+		expect(parseTypedTargetEdit('+')).toEqual({
+			error: 'Type a number after + or -, like +2',
+		})
+		// A new goal has nothing to add to.
+		expect(parseTypedTarget('+5')).toHaveProperty('error')
+	})
+
+	it('changes a time target, keeping its at most unless < is typed', () => {
+		const limit = { minutes: 30, atMost: true }
+		const plus = parseTypedTimeTargetEdit('+1h')
+		if ('error' in plus) throw new Error(plus.error)
+		expect(timeTargetAfter(limit, plus)).toEqual({ minutes: 90, atMost: true })
+		const minus = parseTypedTimeTargetEdit('-45')
+		if ('error' in minus) throw new Error(minus.error)
+		// Never under a minute.
+		expect(timeTargetAfter(limit, minus)).toEqual({ minutes: 1, atMost: true })
+		const set = parseTypedTimeTargetEdit('2h')
+		if ('error' in set) throw new Error(set.error)
+		expect(timeTargetAfter(limit, set)).toEqual({ minutes: 120, atMost: false })
+		expect(parseTypedTimeTargetEdit('+<1h')).toHaveProperty('error')
+	})
+})
+
 describe('card fields', () => {
 	it('edits a result as a number, 0 until one is recorded', () => {
 		expect(achievedField(metric('cards /200')).value).toBe('0')
@@ -193,5 +249,6 @@ describe('stepping', () => {
 		expect(stepTypedAchieved(weight, '80.95', -1)).toBe('80.94')
 		expect(stepTypedAchieved(weight, '80.9', 1)).toBe('81')
 		expect(stepTypedAchieved(weight, 'abc', 1)).toBe('81.5')
+		expect(stepTypedAchieved(weight, '+1', 1)).toBe('82.5')
 	})
 })

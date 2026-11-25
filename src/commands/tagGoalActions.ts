@@ -1,7 +1,11 @@
 import type { TFile } from 'obsidian'
 import type { TagGoal } from 'types/goals'
 import { describeTagGoalDeleted, describeTagGoalSet } from 'core/goalCards'
-import { parseTypedTimeTarget } from 'core/goalEdits'
+import {
+	parseTypedTimeTarget,
+	parseTypedTimeTargetEdit,
+	timeTargetAfter,
+} from 'core/goalEdits'
 import { recordWrites, rewriteNote } from 'core/noteRewrite'
 import { NOTICE_ICON } from 'core/noticeText'
 import {
@@ -27,14 +31,17 @@ export async function setTagGoalTarget(
 	tag: string,
 	typed: string
 ): Promise<void> {
-	const time = parseTypedTimeTarget(typed)
+	const time = parseTypedTimeTargetEdit(typed)
 	if ('error' in time) {
 		showNotice(`${NOTICE_ICON.warning} ${time.error}.`)
 		return
 	}
 	wrote(
 		await rewriteNote(noteIo(plugin, file), (content) =>
-			updateTagGoal(content, tag, (goal) => ({ ...goal, ...time }))
+			updateTagGoal(content, tag, (goal) => ({
+				...goal,
+				...timeTargetAfter(goal, time),
+			}))
 		)
 	)
 }

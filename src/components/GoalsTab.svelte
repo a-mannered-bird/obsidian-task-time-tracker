@@ -448,9 +448,7 @@
 				<input
 					class="field"
 					aria-label="Result of {card.title}"
-					type="number"
-					step="any"
-					min="0"
+					type="text"
 					inputmode="decimal"
 					value={achieved.value}
 					size={size(achieved.value)}
@@ -479,9 +477,7 @@
 				<input
 					class="field"
 					aria-label="Target of {card.title}"
-					type="number"
-					step="any"
-					min="0"
+					type="text"
 					inputmode="decimal"
 					value={target.value}
 					size={size(target.value)}
@@ -974,17 +970,6 @@
 		line-height: 1.5;
 		text-align: center;
 		font-variant-numeric: tabular-nums;
-	}
-
-	/* The − / + buttons step the result; no spinner inside the field. */
-	.field[type='number'] {
-		appearance: textfield;
-	}
-
-	.field[type='number']::-webkit-inner-spin-button,
-	.field[type='number']::-webkit-outer-spin-button {
-		appearance: none;
-		margin: 0;
 	}
 
 	/* Obsidian makes text inputs full width on mobile. */
