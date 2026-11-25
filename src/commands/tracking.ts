@@ -19,12 +19,7 @@ import { promptTime } from 'ui/timePrompt'
 import type TaskTimeTracker from '../main'
 import { askUnmetResults } from './goalActions'
 import { reportRun } from './handOffNotice'
-import {
-	currentTarget,
-	readTaskNote,
-	targetIo,
-	withTagGoalCarryOver,
-} from './target'
+import { currentTarget, readTaskNote, targetIo } from './target'
 
 type TrackingCommand = {
 	id: string
@@ -202,8 +197,7 @@ export async function runTrackingSteps(
 		notify: (message) => notices.push(message),
 	}
 	const recorder = recordWrites(targetIo(plugin, target))
-	const io = withTagGoalCarryOver(plugin, target, recorder.io)
-	await applyTrackingSteps(io, steps, {
+	await applyTrackingSteps(recorder.io, steps, {
 		prompts,
 		now: new Date(),
 		day: target.date,

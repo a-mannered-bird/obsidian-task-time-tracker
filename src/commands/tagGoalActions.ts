@@ -16,13 +16,7 @@ import { promptText } from 'ui/TextPromptModal'
 import { showNotice } from 'ui/notice'
 import { showUndoNotice } from 'ui/undoNotice'
 import type TaskTimeTracker from '../main'
-import {
-	currentTarget,
-	noteIo,
-	readNoteContent,
-	targetIo,
-	withTagGoalCarryOver,
-} from './target'
+import { currentTarget, noteIo, readNoteContent, targetIo } from './target'
 import { wrote } from './timelineEdits'
 import { undoNoteWrite } from './undo'
 
@@ -113,9 +107,8 @@ async function promptTagGoal(
 	const target = currentTarget(plugin)
 	const io = targetIo(plugin, target)
 	const recorder = recordWrites(io)
-	const outcome = await rewriteNote(
-		withTagGoalCarryOver(plugin, target, recorder.io),
-		(current) => setTagGoals(current, [goal])
+	const outcome = await rewriteNote(recorder.io, (current) =>
+		setTagGoals(current, [goal])
 	)
 	const write = recorder.written()
 	if (!wrote(outcome) || !write) return

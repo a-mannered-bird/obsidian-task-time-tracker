@@ -850,59 +850,6 @@ describe('goals tab', function () {
 		)
 	})
 
-	it("carries the latest tag goals over to a new day's note", async function () {
-		await writeNote(yesterday.path, [
-			'---',
-			'tag_goals:',
-			'  - "#work 6h"',
-			'  - "#leisure <2h"',
-			'---',
-			'- [x] Write #work',
-		])
-		// The active note is not a daily one: commands then act on today's.
-		await obsidianPage.write('Scratch.md', 'Not a daily note.\n')
-		await obsidianPage.openFile('Scratch.md')
-		assert.strictEqual(
-			await browser.executeObsidian(
-				({ app }, path) => app.vault.getFileByPath(path) === null,
-				today.path
-			),
-			true
-		)
-
-		await browser.executeObsidianCommand('obsidian-task-time-tracker:plan-task')
-		await expect(browser.$('.prompt input')).toHaveAttribute(
-			'placeholder',
-			'Which task to plan?'
-		)
-		await browser.keys([...'Write'])
-		await expect(
-			browser.$('.prompt .suggestion-item:nth-child(1 of .suggestion-item)')
-		).toHaveText(expect.stringContaining('Write'))
-		await browser.keys('Enter')
-
-		await browser.waitUntil(
-			() =>
-				browser.executeObsidian(
-					({ app }, path) => app.vault.getFileByPath(path) !== null,
-					today.path
-				),
-			{ timeoutMsg: "today's note was not created" }
-		)
-		await browser.waitUntil(
-			async () => (await obsidianPage.read(today.path)).includes('- [ ] Write'),
-			{ timeoutMsg: 'the task was not planned' }
-		)
-		const created = await obsidianPage.read(today.path)
-		assert.deepStrictEqual(created.split('\n').slice(0, 5), [
-			'---',
-			'tag_goals:',
-			'  - "#work 6h"',
-			'  - "#leisure <2h"',
-			'---',
-		])
-	})
-
 	it("colors a tag's goals, and its tasks without a color, from the tag mapping", async function () {
 		const saved = await browser.executeObsidian(
 			({ plugins }) => plugins.obsidianTaskTimeTracker.settings.tagMappings

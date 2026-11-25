@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { parseTasks } from './parser'
 import {
-	carryTagGoals,
 	formatTagGoal,
 	noteTagGoals,
 	parseTagGoal,
@@ -106,29 +105,5 @@ describe('tagCoveredMinutes', () => {
 		expect(tagCoveredMinutes(tasks, '#work', now)).toBe(150)
 		expect(tagCoveredMinutes(tasks, '#leisure', now)).toBe(45)
 		expect(tagCoveredMinutes(tasks, '#none', now)).toBe(0)
-	})
-})
-
-describe('carryTagGoals', () => {
-	const recent = [{ tag: '#work', minutes: 360, atMost: false }]
-
-	it("gives a new note the latest day's tag goals on the plugin's first write", () => {
-		expect(
-			carryTagGoals(
-				'',
-				'- [ ] Write\n      [clock::2026-08-17T09:00:00]',
-				recent
-			)
-		).toBe(
-			'---\ntag_goals:\n  - "#work 6h"\n---\n- [ ] Write\n      [clock::2026-08-17T09:00:00]'
-		)
-	})
-
-	it('leaves a note that had tasks or tag goals, or still has no task', () => {
-		const next = '- [ ] Write\n- [ ] Email'
-		expect(carryTagGoals('- [ ] Write', next, recent)).toBe(next)
-		expect(carryTagGoals('---\ntag_goals: []\n---\n', next, recent)).toBe(next)
-		expect(carryTagGoals('# Monday', '# Monday\n', recent)).toBe('# Monday\n')
-		expect(carryTagGoals('', next, [])).toBe(next)
 	})
 })

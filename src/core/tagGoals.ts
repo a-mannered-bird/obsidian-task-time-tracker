@@ -3,7 +3,7 @@ import type { Task } from 'types/tasks'
 import { readFrontmatterList, setFrontmatterList } from './frontmatter'
 import { formatGoalMinutes, parseGoalDuration } from './goals'
 import { intervalMinutes, mergeIntervals, tasksToIntervals } from './intervals'
-import { parseTaskInput, parseTasks } from './parser'
+import { parseTaskInput } from './parser'
 
 export const TAG_GOALS_PROPERTY = 'tag_goals'
 
@@ -96,25 +96,4 @@ export function tagCoveredMinutes(
 		(sum, interval) => sum + intervalMinutes(interval),
 		0
 	)
-}
-
-/**
- * `next` with the tag goals carried over from an earlier day when this is
- * the plugin's first write to a new note: before it, the note had neither
- * a task nor a `tag_goals` property, and the write adds a task. A template
- * that sets `tag_goals` wins, as does a note the user started by hand.
- */
-export function carryTagGoals(
-	before: string,
-	next: string,
-	recent: TagGoal[]
-): string {
-	if (recent.length === 0) return next
-	const hasProperty = (content: string) =>
-		readFrontmatterList(content, TAG_GOALS_PROPERTY) !== undefined
-	const hasTasks = (content: string) =>
-		parseTasks(content.split('\n')).length > 0
-	if (hasProperty(before) || hasTasks(before)) return next
-	if (hasProperty(next) || !hasTasks(next)) return next
-	return setFrontmatterList(next, TAG_GOALS_PROPERTY, recent.map(formatTagGoal))
 }

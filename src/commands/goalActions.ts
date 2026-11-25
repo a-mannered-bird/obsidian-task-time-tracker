@@ -49,13 +49,7 @@ import { promptText, type PromptCheckbox } from 'ui/TextPromptModal'
 import { showNotice } from 'ui/notice'
 import { showUndoNotice } from 'ui/undoNotice'
 import type TaskTimeTracker from '../main'
-import {
-	currentTarget,
-	noteIo,
-	readTaskNote,
-	targetIo,
-	withTagGoalCarryOver,
-} from './target'
+import { currentTarget, noteIo, readTaskNote, targetIo } from './target'
 import { wrote } from './timelineEdits'
 import { pickNoteTask } from './tracking'
 import { undoNoteWrite } from './undo'
@@ -379,9 +373,8 @@ export async function setGoalFlow(
 
 	const io = targetIo(plugin, target)
 	const recorder = recordWrites(io)
-	const outcome = await rewriteNote(
-		withTagGoalCarryOver(plugin, target, recorder.io),
-		(content) => setGoals(content, task, [goal])
+	const outcome = await rewriteNote(recorder.io, (content) =>
+		setGoals(content, task, [goal])
 	)
 	const write = recorder.written()
 	if (!wrote(outcome) || !write) return
