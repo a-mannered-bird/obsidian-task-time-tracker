@@ -928,7 +928,7 @@ describe('goals tab', function () {
 		}
 	})
 
-	it('warns about the settings of a metric no note uses, and forgets them', async function () {
+	it('warns about the settings of a metric no note uses, and deletes them', async function () {
 		const saved = await browser.executeObsidian(
 			({ plugins }) => plugins.obsidianTaskTimeTracker.settings.metricSettings
 		)
@@ -959,12 +959,12 @@ describe('goals tab', function () {
 			await browser.switchToWindow(settingsWindow)
 
 			const warning = browser.$(
-				'.setting-item-description=No goal line uses this metric any more. Its settings stay until you forget them.'
+				'.setting-item-description=No goal line uses this metric any more. Its settings stay until you delete them.'
 			)
 			await expect(warning).toBeDisplayed()
 			const row = warning.$('../..')
 			await expect(row.$('.setting-item-name')).toHaveText('steps')
-			await row.$('[aria-label="Forget the settings of steps"]').click()
+			await row.$('[aria-label="Delete the settings of steps"]').click()
 			// The tab redraws without the row.
 			await expect(browser.$('.setting-item-name=Time goals')).toBeDisplayed()
 			await browser.switchToWindow(main)

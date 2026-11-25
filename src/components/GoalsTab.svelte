@@ -96,8 +96,7 @@
 
 	/**
 	 * The card opened from a tracker bar, marked until the focus leaves it, so
-	 * the eye lands on it among the others (a time goal's card has no result
-	 * field to show where the focus is).
+	 * the eye lands on it among the others.
 	 */
 	let highlighted = $state<string | null>(null)
 
@@ -888,9 +887,14 @@
 		);
 	}
 
-	.goal-card.is-highlighted {
+	/* Whatever has the focus inside (a field, a stepper, the ⋯ button). */
+	.goal-card:focus-within {
 		outline: 2px solid var(--goal-color);
 		outline-offset: 2px;
+	}
+
+	/* Opened from a tracker bar: a pulse draws the eye to it. */
+	.goal-card.is-highlighted {
 		animation: goal-card-highlight 900ms ease-out 2;
 	}
 

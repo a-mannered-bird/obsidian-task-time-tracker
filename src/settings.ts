@@ -128,7 +128,7 @@ export const DEFAULT_SETTINGS: TaskTimeTrackerSettings = {
 }
 
 export const UNUSED_METRIC_WARNING =
-	'No goal line uses this metric any more. Its settings stay until you forget them.'
+	'No goal line uses this metric any more. Its settings stay until you delete them.'
 
 /**
  * A round color swatch at the end of the setting's controls, opening the
@@ -368,7 +368,7 @@ export class TaskTimeTrackerSettingTab extends PluginSettingTab {
 			setting.addExtraButton((button) =>
 				button
 					.setIcon('trash')
-					.setTooltip(`Forget the settings of ${metric}`)
+					.setTooltip(`Delete the settings of ${metric}`)
 					.onClick(async () => {
 						const all = { ...settings.metricSettings }
 						delete all[metric]
