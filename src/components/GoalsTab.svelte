@@ -105,8 +105,9 @@
 		const card = cardElements.get(focusGoal)
 		if (!card) return
 		highlighted = focusGoal
-		card.scrollIntoView({ block: 'nearest' })
-		card.querySelector('input')?.focus()
+		card.scrollIntoView({ block: 'center' })
+		// The focus would scroll again, only to bring the field to the edge.
+		card.querySelector('input')?.focus({ preventScroll: true })
 		onfocused?.()
 	})
 
