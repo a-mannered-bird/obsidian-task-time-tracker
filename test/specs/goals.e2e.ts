@@ -681,6 +681,8 @@ describe('goals tab', function () {
 			'aria-selected',
 			'true'
 		)
+		// Its card is marked, the eye having no result field to land on.
+		await expect(card('Run · time')).toHaveAttribute('aria-current', 'true')
 
 		// A metric bar's emoji opens its goal too, its result focused.
 		await openDailyView('Tracker')

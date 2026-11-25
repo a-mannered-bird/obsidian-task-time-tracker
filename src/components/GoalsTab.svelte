@@ -94,14 +94,30 @@
 		}
 	}
 
+	/**
+	 * The card opened from a tracker bar, marked until the focus leaves it, so
+	 * the eye lands on it among the others (a time goal's card has no result
+	 * field to show where the focus is).
+	 */
+	let highlighted = $state<string | null>(null)
+
 	$effect(() => {
 		if (!focusGoal || loading) return
 		const card = cardElements.get(focusGoal)
 		if (!card) return
+		highlighted = focusGoal
 		card.scrollIntoView({ block: 'nearest' })
 		card.querySelector('input')?.focus()
 		onfocused?.()
 	})
+
+	function unhighlight(event: FocusEvent, id: string) {
+		const card = event.currentTarget
+		const next = event.relatedTarget
+		if (card instanceof Node && next instanceof Node && card.contains(next))
+			return
+		if (highlighted === id) highlighted = null
+	}
 
 	/** Bumped when a goal's own settings change: settings are not reactive. */
 	let goalSettings = $state(0)
@@ -464,8 +480,11 @@
 		class:is-done={card.state === 'done'}
 		class:is-over={card.state === 'over'}
 		class:is-at-most={card.goal.atMost}
+		class:is-highlighted={highlighted === card.id}
 		role="listitem"
 		aria-label={card.title}
+		aria-current={highlighted === card.id ? 'true' : undefined}
+		onfocusout={(event) => unhighlight(event, card.id)}
 		use:flight.arrive={card.id}
 		use:registerCard={card.id}
 		style:--goal-color={color(card)}
@@ -867,6 +886,28 @@
 			var(--color-red) 7%,
 			var(--background-primary)
 		);
+	}
+
+	.goal-card.is-highlighted {
+		outline: 2px solid var(--goal-color);
+		outline-offset: 2px;
+		animation: goal-card-highlight 900ms ease-out 2;
+	}
+
+	@keyframes goal-card-highlight {
+		from {
+			box-shadow: 0 0 0 0 color-mix(in srgb, var(--goal-color) 45%, transparent);
+		}
+
+		to {
+			box-shadow: 0 0 0 12px transparent;
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.goal-card.is-highlighted {
+			animation: none;
+		}
 	}
 
 	/* Clear of the corner button on both sides, so the text stays centered. */
