@@ -10,6 +10,7 @@ import {
 	missingResults,
 	newlyTicked,
 	placeTagGoals,
+	readGoalGroupings,
 	pruneDismissals,
 	restoreDismissals,
 	unmetMetricGoals,
@@ -148,6 +149,27 @@ describe('groupGoalCards', () => {
 		expect(shape('none')).toEqual([
 			[null, ['Run', 'Anki', 'Snacks', 'Swim'], ['Email']],
 		])
+	})
+})
+
+describe('readGoalGroupings', () => {
+	it('keeps each device its own grouping, a bad one back to the default', () => {
+		expect(readGoalGroupings({ desktop: 'tag', mobile: 'none' })).toEqual({
+			desktop: 'tag',
+			mobile: 'none',
+		})
+		expect(readGoalGroupings({ desktop: 'tag', mobile: 'rows' })).toEqual({
+			desktop: 'tag',
+			mobile: 'task',
+		})
+		expect(readGoalGroupings(undefined)).toEqual({
+			desktop: 'task',
+			mobile: 'task',
+		})
+	})
+
+	it('gives a grouping saved before devices had their own to both', () => {
+		expect(readGoalGroupings('tag')).toEqual({ desktop: 'tag', mobile: 'tag' })
 	})
 })
 

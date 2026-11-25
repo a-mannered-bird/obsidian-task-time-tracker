@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Menu, type TFile } from 'obsidian'
+	import { Menu, Platform, type TFile } from 'obsidian'
 	import { onMount } from 'svelte'
 	import {
 		addSuggestedGoals,
@@ -134,8 +134,9 @@
 	)
 	const tagSuggestions = $derived(suggestions.filter((s) => s.tag !== null))
 
+	const device = Platform.isMobile ? 'mobile' : 'desktop'
 	// svelte-ignore state_referenced_locally -- read once, then owned here
-	let grouping = $state(plugin.settings.goalGrouping)
+	let grouping = $state(plugin.settings.goalGrouping[device])
 	const placed = $derived(
 		placeTagGoals(
 			groupGoalCards(log?.tasks ?? [], cards, suggestions, grouping),
@@ -156,7 +157,10 @@
 		const { value } = event.currentTarget
 		if (!isGoalGrouping(value)) return
 		grouping = value
-		plugin.settings.goalGrouping = value
+		plugin.settings.goalGrouping = {
+			...plugin.settings.goalGrouping,
+			[device]: value,
+		}
 		void plugin.saveSettings()
 	}
 

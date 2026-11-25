@@ -171,6 +171,38 @@ export function isGoalGrouping(value: unknown): value is GoalGrouping {
 	return GOAL_GROUPINGS.some((grouping) => grouping === value)
 }
 
+/**
+ * The grouping chosen on each kind of device: the settings sync between
+ * them, and a phone's narrow column may want another grouping.
+ */
+export type GoalGroupings = { desktop: GoalGrouping; mobile: GoalGrouping }
+
+export const DEFAULT_GOAL_GROUPINGS: GoalGroupings = {
+	desktop: 'task',
+	mobile: 'task',
+}
+
+/**
+ * The saved groupings, each kept when valid. A single grouping, as saved
+ * before they were per device, applies to both.
+ */
+export function readGoalGroupings(saved: unknown): GoalGroupings {
+	if (isGoalGrouping(saved)) return { desktop: saved, mobile: saved }
+	const valid = (value: unknown, fallback: GoalGrouping) =>
+		isGoalGrouping(value) ? value : fallback
+	if (typeof saved !== 'object' || saved === null) return DEFAULT_GOAL_GROUPINGS
+	return {
+		desktop: valid(
+			'desktop' in saved ? saved.desktop : null,
+			DEFAULT_GOAL_GROUPINGS.desktop
+		),
+		mobile: valid(
+			'mobile' in saved ? saved.mobile : null,
+			DEFAULT_GOAL_GROUPINGS.mobile
+		),
+	}
+}
+
 export const UNTAGGED_GROUP = 'No tag'
 
 export type GoalCardGroup = {

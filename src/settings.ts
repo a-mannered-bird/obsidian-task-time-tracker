@@ -26,7 +26,7 @@ import {
 	type GoalSuggestionDismissal,
 } from './core/goalCards'
 import type { GoalKey } from './core/goalEdits'
-import type { GoalGrouping } from './core/goalCards'
+import { DEFAULT_GOAL_GROUPINGS, type GoalGroupings } from './core/goalCards'
 import { openColorMenu } from './ui/colorMenu'
 
 export interface TaskTimeTrackerSettings {
@@ -66,8 +66,8 @@ export interface TaskTimeTrackerSettings {
 	askGoalResultsOnEndDay: boolean
 	/** End day's "Has goals" boxes start ticked, deleting those tasks. */
 	deleteGoalTasksOnEndDay: boolean
-	/** How the Goals tab groups the tasks' goals, chosen in the tab. */
-	goalGrouping: GoalGrouping
+	/** How the Goals tab groups the tasks' goals, chosen in the tab per device. */
+	goalGrouping: GoalGroupings
 	/** UI state, not shown in the settings tab. */
 	lastDailyViewTab: DailyViewTab
 	/** Timeline tab zoom in pixels per hour (UI state). */
@@ -91,7 +91,7 @@ export const DEFAULT_SETTINGS: TaskTimeTrackerSettings = {
 	metricSettings: {},
 	streakSkipsMissingDays: [],
 	doneBadge: 'tick',
-	goalGrouping: 'task',
+	goalGrouping: DEFAULT_GOAL_GROUPINGS,
 	askGoalResultsOnEndDay: true,
 	deleteGoalTasksOnEndDay: false,
 	stampTexts: DEFAULT_STAMP_TEXTS,
