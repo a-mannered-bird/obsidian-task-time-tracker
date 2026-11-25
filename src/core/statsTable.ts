@@ -11,6 +11,7 @@ import {
 } from './progression'
 import {
 	goalDirection,
+	goalShare,
 	timeGoalRow,
 	type GoalStatsRow,
 	type StreakDot,
@@ -169,18 +170,21 @@ export function buildStatsTable(
 
 /**
  * A row's time, with its time goal's progress over the range when it has
- * one: `22h 00m · ⏱ 96%`, the numbers in the tooltip.
+ * one: `22h 00m · ⏱ 96%`, or `⏱ 50% left` under a limit; the numbers in
+ * the tooltip.
  */
 function timeCell(
 	minutes: number,
 	timeGoal: GoalStatsRow | undefined
 ): TableCell {
 	const text = formatHoursMinutes(minutes)
-	if (!timeGoal?.target || timeGoal.achieved === null) return { text }
-	const share = Math.round((timeGoal.achieved / timeGoal.target) * 100)
+	const share = timeGoal ? goalShare(timeGoal) : null
+	if (!timeGoal?.target || timeGoal.achieved === null || !share) {
+		return { text }
+	}
 	const limit = timeGoal.goal.atMost ? 'at most ' : ''
 	return {
-		text: `${text} · ⏱ ${share}%`,
+		text: `${text} · ⏱ ${share}`,
 		tooltip: [
 			[strong(timeGoal.title)],
 			[

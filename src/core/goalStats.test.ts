@@ -4,7 +4,7 @@ import type { DailyLog } from './dailyLogs'
 import {
 	computeGoalStats,
 	describeAchieved,
-	goalPercent,
+	goalShare,
 	streakDots,
 	timeGoalRow,
 } from './goalStats'
@@ -148,8 +148,17 @@ describe('goal cells', () => {
 	it('shows achieved over target with the unit and limit', () => {
 		expect(describeAchieved(byTitle.get('Run · distance')!)).toBe('17 / 30 km')
 		expect(describeAchieved(byTitle.get('Run · time')!)).toBe('1h 30m / 2h 00m')
-		expect(describeAchieved(byTitle.get('Snacks · cookies')!)).toBe('2 / <4')
-		expect(goalPercent(byTitle.get('Run · distance')!)).toBe(57)
+		expect(goalShare(byTitle.get('Run · distance')!)).toBe('57%')
+	})
+
+	it('shows the room left under an "at most" limit, or how far it went over', () => {
+		// 1 + 1 cookies of a 2 + 2 limit: 2 left, half of it.
+		const cookies = byTitle.get('Snacks · cookies')!
+		expect(describeAchieved(cookies)).toBe('2 left of <4')
+		expect(goalShare(cookies)).toBe('50% left')
+		const over = { ...cookies, achieved: 5 }
+		expect(describeAchieved(over)).toBe('1 over <4')
+		expect(goalShare(over)).toBe('25% over')
 	})
 
 	it('folds the streak into weeks on long ranges', () => {

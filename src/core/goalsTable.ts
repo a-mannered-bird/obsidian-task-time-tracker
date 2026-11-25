@@ -3,7 +3,7 @@ import {
 	describeAchieved,
 	formatGoalValue,
 	goalDirection,
-	goalPercent,
+	goalShare,
 	streakDots,
 	type GoalStatsRow,
 } from './goalStats'
@@ -67,12 +67,12 @@ export function buildGoalsTable(
 		})
 	}
 	const rows = goals.map((row) => {
-		const percent = goalPercent(row)
+		const share = goalShare(row)
 		const dots = streakDots(row)
 		const cells: TableCell[] = [
 			{ text: row.title },
 			{ text: describeAchieved(row) },
-			{ text: percent === null ? '–' : `${percent}%` },
+			{ text: share ?? '–' },
 			{ text: `${row.daysMet} / ${row.daysWithTarget}` },
 			{
 				text: `${dots.filter((dot) => dot.status === 'met').length} of ${dots.length} met`,

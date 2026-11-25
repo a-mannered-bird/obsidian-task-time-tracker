@@ -193,18 +193,43 @@ export function formatGoalValue(goal: Goal, value: number | null): string {
 	return formatGoalNumber(value, goal.decimalComma)
 }
 
-/** `8 / 10 km`, `22h 00m / <23h 00m`: the achieved and target cell. */
+/**
+ * The achieved and target cell: `8 / 10 km`, `22h 00m / 23h 00m`. An "at
+ * most" goal shows the room left under its limit instead, `6 left of
+ * <12`, or how far it went over, `2 over <12`.
+ */
 export function describeAchieved(row: GoalStatsRow): string {
 	const { goal } = row
 	const target = `${goal.atMost ? '<' : ''}${formatGoalValue(goal, row.target)}`
 	const unit = goal.kind === 'metric' && goal.unit ? ` ${goal.unit}` : ''
-	return `${formatGoalValue(goal, row.achieved)} / ${target}${unit}`
+	if (!goal.atMost || row.target === null || row.achieved === null) {
+		return `${formatGoalValue(goal, row.achieved)} / ${target}${unit}`
+	}
+	const room = row.target - row.achieved
+	const amount = formatGoalValue(goal, roundLike(Math.abs(room), row))
+	return `${amount} ${room >= 0 ? 'left of' : 'over'} ${target}${unit}`
 }
 
-/** The share of the target reached; null without a target or a result. */
-export function goalPercent(row: GoalStatsRow): number | null {
+/** A difference of two goal values, rid of floating-point noise. */
+function roundLike(value: number, row: GoalStatsRow): number {
+	const decimals = Math.max(
+		...[row.achieved, row.target].map(
+			(v) => String(v ?? 0).split('.')[1]?.length ?? 0
+		)
+	)
+	return Number(value.toFixed(decimals))
+}
+
+/**
+ * The share cell: of the target reached (`82%`), or for an "at most" goal
+ * of the limit left (`50% left`) or gone past (`17% over`); null without a
+ * target or a result.
+ */
+export function goalShare(row: GoalStatsRow): string | null {
 	if (!row.target || row.achieved === null) return null
-	return Math.round((row.achieved / row.target) * 100)
+	const used = Math.round((row.achieved / row.target) * 100)
+	if (!row.goal.atMost) return `${used}%`
+	return used > 100 ? `${used - 100}% over` : `${100 - used}% left`
 }
 
 /** A time goal's row for the main table's task or tag key, if any. */
