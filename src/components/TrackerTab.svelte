@@ -395,7 +395,7 @@
 		},
 		'change-start': {
 			title: 'Change clock start time',
-			icon: 'clock',
+			icon: START_AT_ICON,
 			group: 'track',
 		},
 		'set-stop': {
@@ -920,73 +920,79 @@
 	{#if duplicate}
 		<!-- The rows are keyed by name: listing a duplicate would crash. -->
 	{:else if layout.open.length > 0 || layout.done.length > 0}
-		<section
-			class="section"
-			aria-labelledby="plan-title"
-			transition:motion.section|global
-		>
-			<h2 id="plan-title" class="section-title">
-				{otherDay ? `Plan for ${otherDay}` : "Today's plan"}
-			</h2>
-			<ul class="rows">
-				{#each layout.open as task (task.name)}
-					{@const minutes = taskMinutes(task, now)}
-					<li
-						class="row"
-						class:has-tag-editor={editingTags === task.name}
-						class:is-dragged={rowDrag?.name === task.name}
-						class:drop-before={dropSide(task) === 'before'}
-						class:drop-after={dropSide(task) === 'after'}
-						in:motion.receive|global={{ key: task.name }}
-						out:motion.send|global={{ key: task.name }}
-						animate:motion.slide
-					>
-						{@render checkbox(task)}
-						{@render tags(task)}
-						{@render taskName(task, layout.open)}
-						{#if paused.includes(task)}
-							<span class="paused-label">paused</span>
-						{/if}
-						{#if minutes > 0}
-							<span class="muted total">{formatHoursMinutes(minutes)}</span>
-						{/if}
-						{@render idleActions(task)}
-						{@render tagEditor(task)}
-						{@render bars(task)}
-					</li>
-				{/each}
-			</ul>
-			{#if layout.done.length > 0}
-				<details class="done" open={layout.doneUnfolded}>
-					<summary>Done ({layout.done.length})</summary>
-					<ul class="rows">
-						{#each layout.done as task (task.name)}
-							{@const minutes = taskMinutes(task, now)}
-							<li
-								class="row is-done"
-								class:has-tag-editor={editingTags === task.name}
-								class:is-dragged={rowDrag?.name === task.name}
-								class:drop-before={dropSide(task) === 'before'}
-								class:drop-after={dropSide(task) === 'after'}
-								in:motion.receive|global={{ key: task.name }}
-								out:motion.send|global={{ key: task.name }}
-								animate:motion.slide
-							>
-								{@render checkbox(task)}
-								{@render tags(task)}
-								{@render taskName(task, layout.done)}
-								{#if minutes > 0}
-									<span class="muted total">{formatHoursMinutes(minutes)}</span>
-								{/if}
-								{@render idleActions(task)}
-								{@render tagEditor(task)}
-								{@render bars(task)}
-							</li>
-						{/each}
-					</ul>
-				</details>
-			{/if}
-		</section>
+		{#if layout.open.length > 0}
+			<section
+				class="section"
+				aria-labelledby="plan-title"
+				transition:motion.section|global
+			>
+				<h2 id="plan-title" class="section-title">
+					{otherDay ? `Plan for ${otherDay}` : "Today's plan"}
+				</h2>
+				<ul class="rows">
+					{#each layout.open as task (task.name)}
+						{@const minutes = taskMinutes(task, now)}
+						<li
+							class="row"
+							class:has-tag-editor={editingTags === task.name}
+							class:is-dragged={rowDrag?.name === task.name}
+							class:drop-before={dropSide(task) === 'before'}
+							class:drop-after={dropSide(task) === 'after'}
+							in:motion.receive|global={{ key: task.name }}
+							out:motion.send|global={{ key: task.name }}
+							animate:motion.slide
+						>
+							{@render checkbox(task)}
+							{@render tags(task)}
+							{@render taskName(task, layout.open)}
+							{#if paused.includes(task)}
+								<span class="paused-label">paused</span>
+							{/if}
+							{#if minutes > 0}
+								<span class="muted total">{formatHoursMinutes(minutes)}</span>
+							{/if}
+							{@render idleActions(task)}
+							{@render tagEditor(task)}
+							{@render bars(task)}
+						</li>
+					{/each}
+				</ul>
+			</section>
+		{/if}
+		{#if layout.done.length > 0}
+			<section
+				class="section"
+				aria-labelledby="done-title"
+				transition:motion.section|global
+			>
+				<h2 id="done-title" class="section-title">Done</h2>
+				<ul class="rows">
+					{#each layout.done as task (task.name)}
+						{@const minutes = taskMinutes(task, now)}
+						<li
+							class="row is-done"
+							class:has-tag-editor={editingTags === task.name}
+							class:is-dragged={rowDrag?.name === task.name}
+							class:drop-before={dropSide(task) === 'before'}
+							class:drop-after={dropSide(task) === 'after'}
+							in:motion.receive|global={{ key: task.name }}
+							out:motion.send|global={{ key: task.name }}
+							animate:motion.slide
+						>
+							{@render checkbox(task)}
+							{@render tags(task)}
+							{@render taskName(task, layout.done)}
+							{#if minutes > 0}
+								<span class="muted total">{formatHoursMinutes(minutes)}</span>
+							{/if}
+							{@render idleActions(task)}
+							{@render tagEditor(task)}
+							{@render bars(task)}
+						</li>
+					{/each}
+				</ul>
+			</section>
+		{/if}
 	{:else if layout.running.length === 0}
 		<div class="empty">
 			<p class="empty-title">Nothing tracked yet</p>
@@ -1356,12 +1362,6 @@
 	.row-button:hover {
 		background: var(--background-modifier-hover);
 		color: var(--text-normal);
-	}
-
-	.done summary {
-		cursor: pointer;
-		padding: 0.5em 0;
-		color: var(--text-muted);
 	}
 
 	.duplicate {

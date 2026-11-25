@@ -378,7 +378,7 @@ describe('tracker tab', function () {
 		await expect(switchButton).toHaveAttribute('aria-pressed', 'true')
 	})
 
-	it('unfolds the done tasks when nothing else is left', async function () {
+	it('lists the done tasks in a section of their own', async function () {
 		await writeToday([
 			'- [x] Breakfast',
 			`      [clock::${today.date}T07:30:00--${today.date}T07:50:00]`,
@@ -386,7 +386,7 @@ describe('tracker tab', function () {
 		])
 		await openTracker()
 
-		await expect(browser.$('summary=Done (2)')).toBeDisplayed()
+		await expect(browser.$('h2=Done')).toBeDisplayed()
 		await expect(browser.$('span=Read news')).toBeDisplayed()
 	})
 
@@ -408,7 +408,7 @@ describe('tracker tab', function () {
 		await done.click()
 		content = await waitForChange(content)
 		assert.deepStrictEqual(states(content, '- [x] Write'), ['closed'])
-		await expect(browser.$('summary=Done (1)')).toBeDisplayed()
+		await expect(browser.$('h2=Done')).toBeDisplayed()
 
 		const bar = browser.$('input[aria-label="Task to start"]')
 		// Pressed through the DOM: the notice of the previous step can still
@@ -1376,7 +1376,7 @@ describe('tracker tab', function () {
 			content.replace('- [x] Email', '- [x] Emails')
 		)
 		await expectPlan(['Email', 'Chores'])
-		await expect(browser.$('summary=Done (1)')).toBeDisplayed()
+		await expect(browser.$('h2=Done')).toBeDisplayed()
 	})
 
 	it('shows a task alone in the task manager from its menu', async function () {
