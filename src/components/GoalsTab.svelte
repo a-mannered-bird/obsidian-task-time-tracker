@@ -838,6 +838,7 @@
 	 */
 	.ring {
 		--task-time-tracker-ring: var(--progress);
+		--task-time-tracker-ring-track: var(--background-modifier-border);
 		display: grid;
 		place-items: center;
 		flex-shrink: 0;
@@ -846,9 +847,21 @@
 		border-radius: 50%;
 		background: conic-gradient(
 			var(--goal-color) calc(var(--task-time-tracker-ring) * 1turn),
-			var(--background-modifier-border) 0
+			var(--task-time-tracker-ring-track) 0
 		);
 		transition: --task-time-tracker-ring 700ms cubic-bezier(0.2, 0.8, 0.2, 1);
+	}
+
+	/*
+	 * The used part of an "at most" ring is a pale red, short of the full red
+	 * of a limit broken, and paler than any goal color it borders.
+	 */
+	.goal-card.is-at-most .ring {
+		--task-time-tracker-ring-track: color-mix(
+			in srgb,
+			var(--color-red) 35%,
+			var(--background-modifier-border)
+		);
 	}
 
 	/* An "at most" ring shows the limit left: it starts full and empties. */

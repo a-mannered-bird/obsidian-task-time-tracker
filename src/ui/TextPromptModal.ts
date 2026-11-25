@@ -62,6 +62,7 @@ class TextPromptModal extends Modal {
 	}
 
 	onOpen(): void {
+		this.modalEl.addClass('task-time-tracker-text-prompt')
 		this.setTitle(this.options.title)
 		if (this.options.description) {
 			this.contentEl.createEl('p', { text: this.options.description })
@@ -99,7 +100,10 @@ class TextPromptModal extends Modal {
 		focusInput(input, { select: true })
 
 		this.statusEl = this.contentEl.createEl('p', {
-			cls: 'task-time-tracker-prompt-status',
+			cls: [
+				'task-time-tracker-prompt-status',
+				...(this.options.preview ? [] : ['mod-errors-only']),
+			],
 		})
 		this.showPreview()
 

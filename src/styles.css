@@ -24,6 +24,16 @@
 	margin: 0;
 }
 
+/* Without a preview, the line stays out of the way until an error shows. */
+.task-time-tracker-prompt-status.mod-errors-only:empty {
+	display: none;
+}
+
+/* One field and its buttons: Obsidian's default gap leaves the modal hollow. */
+.task-time-tracker-text-prompt .modal-button-container {
+	margin-top: var(--size-4-2);
+}
+
 .task-time-tracker-prompt-status.is-error {
 	color: var(--text-error);
 }
