@@ -4,11 +4,13 @@ import {
 	cardColor,
 	cardEmoji,
 	describeGoalBar,
+	doneBadgeOf,
 	goalBars,
 	goalColor,
 	goalEmoji,
 	goalStreak,
 	metricRuleOf,
+	ownGoalBadge,
 	parseStampTexts,
 	stampText,
 	tagGoalStreak,
@@ -62,6 +64,42 @@ describe('stamp texts', () => {
 		expect(stampText(texts, '2026-08-16', 'run')).toBe(picked)
 		expect(texts).toContain(picked)
 		expect(stampText([], '2026-08-16', 'run')).toBeNull()
+	})
+})
+
+describe('done badges', () => {
+	const pages = { taskName: 'Read', metric: 'pages', unit: '' }
+	const time = { taskName: 'Read', metric: null, unit: '' }
+
+	it("finds a goal's own badge, by task and metric", () => {
+		const goalBadges = [{ key: pages, badge: 'trophy' as const }]
+		expect(ownGoalBadge(goalBadges, pages)).toBe('trophy')
+		expect(ownGoalBadge(goalBadges, time)).toBeNull()
+	})
+
+	it('picks a random badge, the same all day for a goal', () => {
+		const picked = doneBadgeOf('random', '2026-08-16', 'run', ['Done'])
+		expect(doneBadgeOf('random', '2026-08-16', 'run', ['Done'])).toBe(picked)
+		expect(picked).not.toBe('none')
+		const days = ['2026-08-16', '2026-08-17', '2026-08-18', '2026-08-19']
+		const goals = ['run', 'read', 'swim', 'anki', 'walk']
+		const all = new Set(
+			days.flatMap((day) =>
+				goals.map((goal) => doneBadgeOf('random', day, goal, ['Done']))
+			)
+		)
+		expect(all.size).toBeGreaterThan(2)
+	})
+
+	it('never picks the rubber stamp at random without texts', () => {
+		const days = Array.from({ length: 30 }, (_, i) => `2026-08-${i + 1}`)
+		const picks = days.map((day) => doneBadgeOf('random', day, 'run', []))
+		expect(picks.includes('stamp')).toBe(false)
+	})
+
+	it('shows a chosen badge as is', () => {
+		expect(doneBadgeOf('none', '2026-08-16', 'run', [])).toBe('none')
+		expect(doneBadgeOf('flame', '2026-08-16', 'run', [])).toBe('flame')
 	})
 })
 

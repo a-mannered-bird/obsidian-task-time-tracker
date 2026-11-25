@@ -3,6 +3,7 @@
 	import { onMount } from 'svelte'
 	import {
 		addSuggestedGoals,
+		chooseGoalBadge,
 		deleteGoal,
 		dismissGoalSuggestions,
 		editGoalUnit,
@@ -48,7 +49,9 @@
 	import {
 		cardColor,
 		cardEmoji,
+		doneBadgeOf,
 		goalStreak,
+		ownGoalBadge,
 		stampText,
 		tagGoalStreak,
 	} from 'core/goalStyle'
@@ -94,12 +97,12 @@
 		onfocused?.()
 	})
 
-	/** Bumped when a goal's streak setting changes: settings are not reactive. */
-	let streakSettings = $state(0)
+	/** Bumped when a goal's own settings change: settings are not reactive. */
+	let goalSettings = $state(0)
 
 	/** The days in a row the goal was met, for the streak flame. */
 	function streak(card: GoalCard): number {
-		void streakSettings
+		void goalSettings
 		if (!log || !indexReady) return 0
 		const skip = streakSkipsMissingDays(plugin, card.key)
 		return card.tag === null
@@ -113,6 +116,15 @@
 	}
 
 	let now = $state(new Date())
+
+	/** The badge of a done card: its own, else the setting's. */
+	function badgeOf(card: GoalCard) {
+		void goalSettings
+		const choice =
+			ownGoalBadge(plugin.settings.goalBadges, card.key) ?? doneBadge
+		const day = formatLocalDate(log?.date ?? now)
+		return doneBadgeOf(choice, day, card.id, stampTexts)
+	}
 
 	// A suggestion and the goal card it becomes share their id (the goal key).
 	const flight = suggestionFlight()
@@ -246,7 +258,15 @@
 				.setChecked(streakSkipsMissingDays(plugin, card.key))
 				.onClick(async () => {
 					await toggleStreakSkip(plugin, card.key)
-					streakSettings++
+					goalSettings++
+				})
+		)
+		menu.addItem((item) =>
+			item
+				.setTitle('Done badge…')
+				.setIcon('award')
+				.onClick(async () => {
+					if (await chooseGoalBadge(plugin, card.key)) goalSettings++
 				})
 		)
 		menu.addItem((item) =>
@@ -510,23 +530,26 @@
 				<span class="unit">{card.goal.unit}</span>
 			{/if}
 		</div>
-		{#if card.state === 'done' && doneBadge !== 'none'}
-			{@const days = doneBadge === 'flame' ? streak(card) : 0}
-			{@const stamp =
-				doneBadge === 'stamp' && log
-					? stampText(stampTexts, formatLocalDate(log.date), card.id)
-					: null}
-			<span
-				class="badge is-{doneBadge}"
-				class:stamps={popped.has(card.id)}
-				role="img"
-				aria-label={doneBadge === 'flame'
-					? `Met ${days} day${days === 1 ? '' : 's'} in a row`
-					: (stamp ?? 'Done')}
-			>
-				{#if doneBadge === 'tick'}✓{:else if doneBadge === 'trophy'}🏆{:else if doneBadge === 'flame'}🔥
-					{days}{:else if doneBadge === 'stamp'}{stamp}{/if}
-			</span>
+		{#if card.state === 'done'}
+			{@const badge = badgeOf(card)}
+			{#if badge !== 'none'}
+				{@const days = badge === 'flame' ? streak(card) : 0}
+				{@const stamp =
+					badge === 'stamp' && log
+						? stampText(stampTexts, formatLocalDate(log.date), card.id)
+						: null}
+				<span
+					class="badge is-{badge}"
+					class:stamps={popped.has(card.id)}
+					role="img"
+					aria-label={badge === 'flame'
+						? `Met ${days} day${days === 1 ? '' : 's'} in a row`
+						: (stamp ?? 'Done')}
+				>
+					{#if badge === 'tick'}✓{:else if badge === 'trophy'}🏆{:else if badge === 'flame'}🔥
+						{days}{:else if badge === 'stamp'}{stamp}{/if}
+				</span>
+			{/if}
 		{/if}
 	</div>
 {/snippet}

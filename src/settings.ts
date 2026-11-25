@@ -10,12 +10,14 @@ import {
 	AGGREGATION_RULE_NAMES,
 	AGGREGATION_RULES,
 	DEFAULT_STAMP_TEXTS,
-	DONE_BADGE_NAMES,
-	DONE_BADGES,
+	DONE_BADGE_CHOICE_NAMES,
+	DONE_BADGE_CHOICES,
 	isAggregationRule,
-	isDoneBadge,
+	isDoneBadgeChoice,
 	parseStampTexts,
-	type DoneBadge,
+	usesStamps,
+	type DoneBadgeChoice,
+	type GoalBadge,
 	type MetricSetting,
 	type MetricSettings,
 } from './core/goalStyle'
@@ -54,8 +56,10 @@ export interface TaskTimeTrackerSettings {
 	timelineFitOnOpen: boolean
 	/** Color, emoji and aggregation rule per metric name (see goalStyle). */
 	metricSettings: MetricSettings
-	/** The badge a goal card gets once done. */
-	doneBadge: DoneBadge
+	/** The badge a goal card gets once done, unless it has its own. */
+	doneBadge: DoneBadgeChoice
+	/** Goals with a badge of their own, set from their card's menu. */
+	goalBadges: GoalBadge[]
 	/** The rubber stamp badge's texts, one picked per card and day. */
 	stampTexts: string[]
 	/** Goals whose streak skips the days without them (see goalStreak). */
@@ -91,6 +95,7 @@ export const DEFAULT_SETTINGS: TaskTimeTrackerSettings = {
 	metricSettings: {},
 	streakSkipsMissingDays: [],
 	doneBadge: 'tick',
+	goalBadges: [],
 	goalGrouping: DEFAULT_GOAL_GROUPINGS,
 	askGoalResultsOnEndDay: true,
 	deleteGoalTasksOnEndDay: false,
@@ -219,14 +224,14 @@ export class TaskTimeTrackerSettingTab extends PluginSettingTab {
 		new Setting(containerEl)
 			.setName('Done badge')
 			.setDesc(
-				'What a goal card shows on its corner once the goal is reached. Streak flame counts the days in a row it was.'
+				"What a goal card shows on its corner once the goal is reached. The streak flame counts the days in a row it was, a random badge changes per goal and day. A goal can have its own in its card's menu."
 			)
 			.addDropdown((dropdown) => {
-				for (const badge of DONE_BADGES) {
-					dropdown.addOption(badge, DONE_BADGE_NAMES[badge])
+				for (const badge of DONE_BADGE_CHOICES) {
+					dropdown.addOption(badge, DONE_BADGE_CHOICE_NAMES[badge])
 				}
 				dropdown.setValue(settings.doneBadge).onChange(async (value) => {
-					if (!isDoneBadge(value)) return
+					if (!isDoneBadgeChoice(value)) return
 					settings.doneBadge = value
 					await this.plugin.saveSettings()
 					this.display()
@@ -261,7 +266,12 @@ export class TaskTimeTrackerSettingTab extends PluginSettingTab {
 					})
 			)
 
-		if (settings.doneBadge === 'stamp') {
+		if (
+			usesStamps([
+				settings.doneBadge,
+				...settings.goalBadges.map((entry) => entry.badge),
+			])
+		) {
 			new Setting(containerEl)
 				.setName('Stamp texts')
 				.setDesc('One per line; each card gets one of them for the day.')

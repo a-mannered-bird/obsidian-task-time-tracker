@@ -42,6 +42,12 @@ import {
 	type GoalKey,
 } from 'core/goalEdits'
 import { startOfDay } from 'core/dailyNotes'
+import {
+	DONE_BADGE_CHOICE_NAMES,
+	DONE_BADGE_CHOICES,
+	ownGoalBadge,
+	type DoneBadgeChoice,
+} from 'core/goalStyle'
 import { TaskNote } from 'core/note'
 import { recordWrites, rewriteNote } from 'core/noteRewrite'
 import { NOTICE_ICON } from 'core/noticeText'
@@ -348,6 +354,50 @@ export async function toggleStreakSkip(
 			)
 		: [...settings.streakSkipsMissingDays, key]
 	await plugin.saveSettings()
+}
+
+/** Set the goal's own done badge; null goes back to the "Done badge" setting. */
+export async function setGoalBadge(
+	plugin: TaskTimeTracker,
+	key: GoalKey,
+	badge: DoneBadgeChoice | null
+): Promise<void> {
+	const { settings } = plugin
+	const others = settings.goalBadges.filter(
+		(entry) => goalKeyId(entry.key) !== goalKeyId(key)
+	)
+	settings.goalBadges = badge === null ? others : [...others, { key, badge }]
+	await plugin.saveSettings()
+}
+
+/** Pick the goal's own done badge, or the default one. */
+export async function chooseGoalBadge(
+	plugin: TaskTimeTracker,
+	key: GoalKey
+): Promise<boolean> {
+	const { settings } = plugin
+	const own = ownGoalBadge(settings.goalBadges, key)
+	const choice = await pickOption<{ badge: DoneBadgeChoice | null }>(
+		plugin.app,
+		{
+			placeholder: 'Which badge once done?',
+			options: [
+				{
+					label: `Default (${DONE_BADGE_CHOICE_NAMES[settings.doneBadge]})`,
+					note: own === null ? 'Current' : undefined,
+					value: { badge: null },
+				},
+				...DONE_BADGE_CHOICES.map((badge) => ({
+					label: DONE_BADGE_CHOICE_NAMES[badge],
+					note: own === badge ? 'Current' : undefined,
+					value: { badge },
+				})),
+			],
+		}
+	)
+	if (!choice) return false
+	await setGoalBadge(plugin, key, choice.badge)
+	return true
 }
 
 /** What the metric picker returns: the time goal, a known metric or a new one. */

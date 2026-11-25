@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { forgetTaskName, migrateTaskNames } from './settingsMigration'
+import {
+	forgetTaskName,
+	migrateTaskNames,
+	type NameKeyedSettings,
+} from './settingsMigration'
 
-const settings = {
+const settings: NameKeyedSettings = {
 	taskColors: { 'Deep wok': '#123456', 'Task A': 'var(--color-blue)' },
 	hiddenTasks: ['Deep wok', 'Task B'],
 	dismissedIssues: [
@@ -15,6 +19,14 @@ const settings = {
 	streakSkipsMissingDays: [
 		{ taskName: 'Deep wok', metric: 'pages', unit: '' },
 		{ taskName: 'Task A', metric: 'pages', unit: '' },
+	],
+	goalBadges: [
+		{ key: { taskName: 'Deep wok', metric: null, unit: '' }, badge: 'star' },
+		{
+			key: { taskName: 'Deep wok', metric: 'pages', unit: '' },
+			badge: 'flame',
+		},
+		{ key: { taskName: 'Task A', metric: 'pages', unit: '' }, badge: 'random' },
 	],
 }
 
@@ -35,6 +47,17 @@ describe('migrateTaskNames', () => {
 		expect(migrated.dismissedIssues).toEqual([
 			'["tag-drift","Task A","#project"]',
 		])
+		expect(migrated.goalBadges).toEqual([
+			{ key: { taskName: 'Deep work', metric: null, unit: '' }, badge: 'star' },
+			{
+				key: { taskName: 'Deep work', metric: 'pages', unit: '' },
+				badge: 'flame',
+			},
+			{
+				key: { taskName: 'Task A', metric: 'pages', unit: '' },
+				badge: 'random',
+			},
+		])
 		// A suggestion dismissed for the old name stays dismissed.
 		expect(migrated.dismissedGoalSuggestions).toEqual([
 			{ day: '2026-08-03', taskName: 'Deep work', metric: null, unit: '' },
@@ -52,6 +75,14 @@ describe('migrateTaskNames', () => {
 		// Both had the setting for pages: the target keeps one.
 		expect(migrated.streakSkipsMissingDays).toEqual([
 			{ taskName: 'Task A', metric: 'pages', unit: '' },
+		])
+		// The target's own badge for pages wins; the time goal's moves over.
+		expect(migrated.goalBadges).toEqual([
+			{ key: { taskName: 'Task A', metric: null, unit: '' }, badge: 'star' },
+			{
+				key: { taskName: 'Task A', metric: 'pages', unit: '' },
+				badge: 'random',
+			},
 		])
 		expect(migrated.taskColors).toEqual({ 'Task A': 'var(--color-blue)' })
 		// Task A was visible; the hidden sources do not hide it.
@@ -92,6 +123,12 @@ describe('forgetTaskName', () => {
 		])
 		expect(forgotten.streakSkipsMissingDays).toEqual([
 			{ taskName: 'Task A', metric: 'pages', unit: '' },
+		])
+		expect(forgotten.goalBadges).toEqual([
+			{
+				key: { taskName: 'Task A', metric: 'pages', unit: '' },
+				badge: 'random',
+			},
 		])
 	})
 })

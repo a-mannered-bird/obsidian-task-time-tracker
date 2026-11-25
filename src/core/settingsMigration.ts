@@ -1,5 +1,6 @@
 import type { GoalSuggestionDismissal } from './goalCards'
 import { goalKeyId, type GoalKey } from './goalEdits'
+import type { GoalBadge } from './goalStyle'
 import { issueKeyNames } from './issues'
 
 /** The settings keyed by task name. */
@@ -12,6 +13,8 @@ export type NameKeyedSettings = {
 	dismissedGoalSuggestions: GoalSuggestionDismissal[]
 	/** Goals whose streak skips missing days; they follow their task. */
 	streakSkipsMissingDays: GoalKey[]
+	/** Goals with a badge of their own; they follow their task. */
+	goalBadges: GoalBadge[]
 }
 
 /**
@@ -21,8 +24,9 @@ export type NameKeyedSettings = {
  * Colors: the target's own wins, else the first source with one transfers.
  * Hidden: the target's own flag when it already existed as a task, else
  * hidden only when every source was. Source entries are dropped.
- * Dismissed goal suggestions and per-goal streak settings move to the
- * target.
+ * Dismissed goal suggestions and per-goal streak and badge settings move to
+ * the target; for a goal both had, the target's own badge wins, else the
+ * first source's.
  */
 export function migrateTaskNames(
 	settings: NameKeyedSettings,
@@ -66,7 +70,31 @@ export function migrateTaskNames(
 				isSource(key.taskName) ? { ...key, taskName: targetName } : key
 			)
 		),
+		goalBadges: migrateGoalBadges(settings.goalBadges, isSource, targetName),
 	}
+}
+
+function migrateGoalBadges(
+	goalBadges: GoalBadge[],
+	isSource: (name: string) => boolean,
+	targetName: string
+): GoalBadge[] {
+	const targets = new Set(
+		goalBadges
+			.filter((entry) => entry.key.taskName === targetName)
+			.map((entry) => goalKeyId(entry.key))
+	)
+	const kept = new Map<string, GoalBadge>()
+	for (const entry of goalBadges) {
+		if (!isSource(entry.key.taskName)) {
+			kept.set(goalKeyId(entry.key), entry)
+			continue
+		}
+		const key = { ...entry.key, taskName: targetName }
+		const id = goalKeyId(key)
+		if (!targets.has(id) && !kept.has(id)) kept.set(id, { ...entry, key })
+	}
+	return [...kept.values()]
 }
 
 function uniqueKeys(keys: GoalKey[]): GoalKey[] {
@@ -75,7 +103,7 @@ function uniqueKeys(keys: GoalKey[]): GoalKey[] {
 
 /**
  * Drop the deleted task's own entries (color, hide flag, dismissed warnings
- * and goal suggestions).
+ * and goal suggestions, per-goal settings).
  */
 export function forgetTaskName(
 	settings: NameKeyedSettings,
@@ -95,6 +123,9 @@ export function forgetTaskName(
 		),
 		streakSkipsMissingDays: settings.streakSkipsMissingDays.filter(
 			(key) => key.taskName !== name
+		),
+		goalBadges: settings.goalBadges.filter(
+			(entry) => entry.key.taskName !== name
 		),
 	}
 }

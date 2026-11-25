@@ -745,6 +745,62 @@ describe('goals tab', function () {
 		}
 	})
 
+	it('gives a goal a done badge of its own', async function () {
+		const saved = await browser.executeObsidian(({ plugins }) => {
+			const { settings } = plugins.obsidianTaskTimeTracker
+			return { doneBadge: settings.doneBadge, goalBadges: settings.goalBadges }
+		})
+		await browser.executeObsidian(async ({ plugins }) => {
+			const plugin = plugins.obsidianTaskTimeTracker
+			plugin.settings.doneBadge = 'tick'
+			plugin.settings.goalBadges = []
+			await plugin.refreshViews()
+		})
+		try {
+			await writeNote(today.path, [
+				'- [ ] Anki',
+				'      [goal::cards 230/200]',
+				'- [ ] Read',
+				'      [goal::pages 30/20]',
+			])
+			await openGoals()
+			const ankiBadge = card('Anki · cards').$(
+				'[role="img"][aria-label="Done"]'
+			)
+			const readBadge = card('Read · pages').$(
+				'[role="img"][aria-label="Done"]'
+			)
+			await expect(ankiBadge).toHaveText('✓')
+
+			await card('Anki · cards')
+				.$('button[aria-label="Actions for Anki · cards"]')
+				.click()
+			const item = browser.$('.menu-item-title=Done badge…')
+			await expect(item).toBeDisplayed()
+			await item.click()
+			const picker = browser.$('.prompt')
+			await expect(picker.$('.suggestion-item.is-selected')).toHaveText(
+				'Default (Tick)Current'
+			)
+			await browser.keys([...'troph'])
+			await expect(picker.$('.suggestion-item.is-selected')).toHaveText(
+				'Trophy'
+			)
+			await browser.keys(['Enter'])
+
+			// Only that goal changes; the other one keeps the setting's badge.
+			await expect(ankiBadge).toHaveText('🏆')
+			await expect(readBadge).toHaveText('✓')
+		} finally {
+			await browser.executeObsidian(async ({ plugins }, values) => {
+				const plugin = plugins.obsidianTaskTimeTracker
+				Object.assign(plugin.settings, values)
+				await plugin.saveSettings()
+				await plugin.refreshViews()
+			}, saved)
+		}
+	})
+
 	it('warns about the settings of a metric no note uses, and forgets them', async function () {
 		const saved = await browser.executeObsidian(
 			({ plugins }) => plugins.obsidianTaskTimeTracker.settings.metricSettings

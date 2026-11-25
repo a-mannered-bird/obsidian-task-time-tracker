@@ -127,6 +127,54 @@ export function isDoneBadge(value: unknown): value is DoneBadge {
 	return DONE_BADGES.some((badge) => badge === value)
 }
 
+/** A badge setting: a badge, or one picked at random per goal and day. */
+export type DoneBadgeChoice = DoneBadge | 'random'
+
+export const DONE_BADGE_CHOICES: DoneBadgeChoice[] = [...DONE_BADGES, 'random']
+
+export const DONE_BADGE_CHOICE_NAMES: Record<DoneBadgeChoice, string> = {
+	...DONE_BADGE_NAMES,
+	random: 'Random',
+}
+
+export function isDoneBadgeChoice(value: unknown): value is DoneBadgeChoice {
+	return value === 'random' || isDoneBadge(value)
+}
+
+/** A goal's own badge, overriding the "Done badge" setting. */
+export type GoalBadge = { key: GoalKey; badge: DoneBadgeChoice }
+
+/** The goal's own badge choice; null when it follows the setting. */
+export function ownGoalBadge(
+	goalBadges: GoalBadge[],
+	key: GoalKey
+): DoneBadgeChoice | null {
+	const id = goalKeyId(key)
+	return goalBadges.find((entry) => goalKeyId(entry.key) === id)?.badge ?? null
+}
+
+/**
+ * The badge a done card shows. Random picks any badge but None, the same
+ * all day for that goal; the rubber stamp only when it has texts to show.
+ */
+export function doneBadgeOf(
+	choice: DoneBadgeChoice,
+	day: string,
+	goalId: string,
+	stampTexts: string[]
+): DoneBadge {
+	if (choice !== 'random') return choice
+	const badges = DONE_BADGES.filter(
+		(badge) => badge !== 'none' && (badge !== 'stamp' || stampTexts.length)
+	)
+	return dailyPick(badges, `${day}\nbadge\n${goalId}`) ?? 'tick'
+}
+
+/** Whether some badge setting can show the rubber stamp, needing texts. */
+export function usesStamps(choices: DoneBadgeChoice[]): boolean {
+	return choices.some((choice) => choice === 'stamp' || choice === 'random')
+}
+
 export const DEFAULT_STAMP_TEXTS = ['Done', 'Nailed it', 'Approved']
 
 /** The "Stamp texts" setting as typed: one per line, blank lines ignored. */
@@ -146,12 +194,17 @@ export function stampText(
 	day: string,
 	goalId: string
 ): string | null {
-	if (texts.length === 0) return null
+	return dailyPick(texts, `${day}\n${goalId}`)
+}
+
+/** One of the items, chosen by hashing the seed: random-looking but stable. */
+function dailyPick<T>(items: readonly T[], seed: string): T | null {
+	if (items.length === 0) return null
 	let hash = 0
-	for (const char of `${day}\n${goalId}`) {
+	for (const char of seed) {
 		hash = (hash * 31 + char.charCodeAt(0)) >>> 0
 	}
-	return texts[hash % texts.length]!
+	return items[hash % items.length]!
 }
 
 /** A task's line on one day, as the index holds it. */

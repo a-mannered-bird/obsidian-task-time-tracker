@@ -11,7 +11,7 @@ import { getCoreDailyNotesConfig } from './core/coreDailyNotes'
 import { DailyLogStore } from './core/dailyLogs'
 import { isDailyNote, type DailyNotesConfig } from './core/dailyNotes'
 import { readGoalGroupings } from './core/goalCards'
-import { isDoneBadge } from './core/goalStyle'
+import { isDoneBadgeChoice } from './core/goalStyle'
 import { VaultTaskIndex } from './core/vaultTaskIndex'
 import {
 	DEFAULT_SETTINGS,
@@ -133,7 +133,7 @@ export default class TaskTimeTracker extends Plugin {
 		// The stats tab was dropped; a view last left on it opens the tracker.
 		if (!isDailyViewTab(this.settings.lastDailyViewTab))
 			this.settings.lastDailyViewTab = DEFAULT_SETTINGS.lastDailyViewTab
-		if (!isDoneBadge(this.settings.doneBadge))
+		if (!isDoneBadgeChoice(this.settings.doneBadge))
 			this.settings.doneBadge = DEFAULT_SETTINGS.doneBadge
 		this.settings.goalGrouping = readGoalGroupings(this.settings.goalGrouping)
 		// Drops the bold / italic / underline flags of older mappings.
