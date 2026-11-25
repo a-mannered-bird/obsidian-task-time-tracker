@@ -13,6 +13,7 @@ import {
 	removeGoal,
 	setGoals,
 	stepAchieved,
+	stepTypedAchieved,
 	updateGoal,
 } from './goalEdits'
 import { parseGoal } from './goals'
@@ -185,5 +186,12 @@ describe('stepping', () => {
 	it('starts from zero without a result and never goes below it', () => {
 		expect(stepAchieved(metric('cards /200'), 1)).toBe(1)
 		expect(stepAchieved(metric('cards 0/200'), -1)).toBe(0)
+	})
+
+	it('steps a typed result by its finest decimal, else from the recorded one', () => {
+		const weight = metric('weight 81,4/<80 kg')
+		expect(stepTypedAchieved(weight, '80.95', -1)).toBe('80.94')
+		expect(stepTypedAchieved(weight, '80.9', 1)).toBe('81')
+		expect(stepTypedAchieved(weight, 'abc', 1)).toBe('81.5')
 	})
 })

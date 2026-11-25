@@ -181,6 +181,20 @@ export function stepAchieved(goal: MetricGoal, direction: 1 | -1): number {
 	return Number(next.toFixed(decimals))
 }
 
+/**
+ * The typed result one step up or down, the goal's step following the
+ * decimals typed; an unreadable value steps from the recorded one.
+ */
+export function stepTypedAchieved(
+	goal: MetricGoal,
+	typed: string,
+	direction: 1 | -1
+): string {
+	const parsed = parseTypedNumber(typed)
+	const achieved = 'value' in parsed ? parsed.value : goal.achieved
+	return String(stepAchieved({ ...goal, achieved }, direction))
+}
+
 /** A number as a goal's field shows it, with its decimal separator. */
 export function formatGoalNumber(
 	value: number | null,

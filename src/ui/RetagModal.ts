@@ -6,6 +6,7 @@ import {
 	typedTag,
 	type TagChange,
 } from 'core/taskEdits'
+import { focusInput } from './focusInput'
 import { TagSuggest } from './TagSuggest'
 
 type Options = {
@@ -100,7 +101,7 @@ class RetagModal extends Modal {
 			})
 
 		this.render()
-		window.setTimeout(() => this.inputEl?.focus())
+		if (this.inputEl) focusInput(this.inputEl, { select: false })
 	}
 
 	onClose(): void {

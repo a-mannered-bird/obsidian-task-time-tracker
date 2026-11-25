@@ -411,7 +411,7 @@ describe('goals tab', function () {
 		await expect(field('Target of Read · pages')).toHaveValue('20')
 	})
 
-	it('records a result in the number field of the command prompt', async function () {
+	it('records a result typed or stepped in the command prompt', async function () {
 		const content = await writeNote(today.path, [
 			'- [ ] Weight',
 			'      [goal::weight 81,4/<80 kg]',
@@ -432,10 +432,19 @@ describe('goals tab', function () {
 		await expect(input).toHaveValue('81.4')
 
 		// The value is selected on opening, so typing replaces it.
-		await browser.keys([...'80.9', 'Enter'])
+		await browser.keys([...'80.9'])
+		await expect(input).toHaveValue('80.9')
+		// The steppers move the typed value by its finest decimal.
+		await prompt.$('button[aria-label="Decrease Result (kg)"]').click()
+		await expect(input).toHaveValue('80.8')
+		const increase = prompt.$('button[aria-label="Increase Result (kg)"]')
+		await increase.click()
+		await increase.click()
+		await expect(input).toHaveValue('81')
+		await prompt.$('button=OK').click()
 		const recorded = await waitForChange(content)
 		assert.deepStrictEqual(goalLines(recorded), [
-			'      [goal::weight 80,9/<80 kg]',
+			'      [goal::weight 81/<80 kg]',
 		])
 	})
 

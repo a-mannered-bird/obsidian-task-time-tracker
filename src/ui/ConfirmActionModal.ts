@@ -1,6 +1,7 @@
 import { Modal, Setting, type App, type ButtonComponent } from 'obsidian'
 import { confirmationMatches } from 'core/confirmations'
 import { diffLines } from 'core/lineDiff'
+import { focusInput } from './focusInput'
 
 type Options = {
 	title: string
@@ -109,7 +110,7 @@ class ConfirmActionModal extends Modal {
 						this.confirm()
 					}
 				})
-				window.setTimeout(() => text.inputEl.focus())
+				focusInput(text.inputEl, { select: false })
 			})
 		}
 

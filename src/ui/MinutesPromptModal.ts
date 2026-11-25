@@ -1,4 +1,5 @@
 import { Modal, Setting, type App } from 'obsidian'
+import { focusInput } from './focusInput'
 
 type Options = {
 	title: string
@@ -48,7 +49,7 @@ class MinutesPromptModal extends Modal {
 					this.submit()
 				}
 			})
-			window.setTimeout(() => text.inputEl.select())
+			focusInput(text.inputEl, { select: true })
 		})
 
 		this.errorEl = this.contentEl.createEl('p', {

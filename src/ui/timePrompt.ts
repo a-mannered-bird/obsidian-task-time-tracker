@@ -1,4 +1,4 @@
-import { Modal, Setting, setIcon, type App } from 'obsidian'
+import { Modal, Setting, type App } from 'obsidian'
 import type { TimeRequest } from 'core/toggle'
 import {
 	describeTypedTime,
@@ -6,6 +6,8 @@ import {
 	timeOfDayBefore,
 } from 'core/typedTime'
 import { formatTimeOfDay } from 'core/timeline'
+import { focusInput } from './focusInput'
+import { createStepper } from './stepper'
 
 type Request = TimeRequest & { confirmText?: string }
 
@@ -83,8 +85,7 @@ class TimePromptModal extends Modal {
 					.onClick(() => this.submit())
 			)
 
-		const minutes = this.minutesEl
-		window.setTimeout(() => minutes.select())
+		focusInput(this.minutesEl, { select: true })
 
 		if (!request.reference) {
 			this.shownMinute = formatTimeOfDay(new Date())
@@ -104,36 +105,25 @@ class TimePromptModal extends Modal {
 			? `Minutes before ${formatTimeOfDay(reference)}`
 			: 'Minutes ago'
 		option.createSpan({ cls: 'task-time-tracker-time-label', text: label })
-		const stepper = option.createDiv({ cls: 'task-time-tracker-stepper' })
-		const less = stepper.createEl('button', {
-			cls: 'clickable-icon',
-			attr: { type: 'button', 'aria-label': 'One minute less' },
+		const input = createStepper(option, {
+			label,
+			lessLabel: 'One minute less',
+			moreLabel: 'One minute more',
+			onStep: (sign, event) => {
+				const current = parseInt(input.value, 10)
+				const by = event.shiftKey ? BIG_STEP : 1
+				input.value = String((isNaN(current) ? 0 : current) + sign * by)
+				this.minutesTyped(input.value)
+			},
 		})
-		setIcon(less, 'minus')
-		const input = stepper.createEl('input', {
-			cls: 'task-time-tracker-minutes-input',
-			attr: { type: 'number', step: '1', 'aria-label': label },
-		})
+		input.step = '1'
 		input.value = '0'
-		const more = stepper.createEl('button', {
-			cls: 'clickable-icon',
-			attr: { type: 'button', 'aria-label': 'One minute more' },
-		})
-		setIcon(more, 'plus')
 		option.createSpan({
 			cls: 'task-time-tracker-time-hint',
 			text: 'Negative is in the future',
 		})
 
 		input.addEventListener('input', () => this.minutesTyped(input.value))
-		const step = (sign: number) => (event: MouseEvent) => {
-			const current = parseInt(input.value, 10)
-			const by = event.shiftKey ? BIG_STEP : 1
-			input.value = String((isNaN(current) ? 0 : current) + sign * by)
-			this.minutesTyped(input.value)
-		}
-		less.addEventListener('click', step(-1))
-		more.addEventListener('click', step(1))
 		this.submitOnEnter(input)
 		return input
 	}

@@ -1,4 +1,12 @@
-import { ButtonComponent, Modal, Setting, type App } from 'obsidian'
+import {
+	ButtonComponent,
+	Modal,
+	Setting,
+	TextComponent,
+	type App,
+} from 'obsidian'
+import { focusInput } from './focusInput'
+import { createStepper } from './stepper'
 
 export type PromptCheckbox = {
 	label: string
@@ -15,6 +23,11 @@ type Options = {
 	confirmText?: string
 	/** A number input takes digits and `.` only, with the numeric keyboard. */
 	inputType?: 'text' | 'number'
+	/**
+	 * For a number input: the value one − / + step away from the one typed,
+	 * shown as buttons on either side of the input.
+	 */
+	step?: (value: string, direction: 1 | -1) => string
 	/** Error shown under the input for an unacceptable value; null = fine. */
 	validate?: (value: string) => string | null
 	/** What the value means, shown under the input as it is typed. */
@@ -54,28 +67,36 @@ class TextPromptModal extends Modal {
 			this.contentEl.createEl('p', { text: this.options.description })
 		}
 
-		new Setting(this.contentEl).setName(this.options.label).addText((text) => {
-			if (this.options.inputType === 'number') {
-				text.inputEl.type = 'number'
-				text.inputEl.step = 'any'
-				text.inputEl.min = '0'
-				text.inputEl.inputMode = 'decimal'
+		const { label, inputType, step, placeholder } = this.options
+		const control = new Setting(this.contentEl).setName(label).controlEl
+		const input =
+			inputType === 'number' && step
+				? createStepper(control, {
+						label,
+						lessLabel: `Decrease ${label}`,
+						moreLabel: `Increase ${label}`,
+						onStep: (direction) => {
+							input.value = step(input.value, direction)
+							this.typed(input.value)
+						},
+					})
+				: new TextComponent(control).inputEl
+		if (inputType === 'number') {
+			input.type = 'number'
+			input.step = 'any'
+			input.min = '0'
+			input.inputMode = 'decimal'
+		}
+		input.placeholder = placeholder ?? ''
+		input.value = this.value
+		input.addEventListener('input', () => this.typed(input.value))
+		input.addEventListener('keydown', (event) => {
+			if (event.key === 'Enter') {
+				event.preventDefault()
+				this.submit()
 			}
-			text
-				.setPlaceholder(this.options.placeholder ?? '')
-				.setValue(this.value)
-				.onChange((value) => {
-					this.value = value
-					this.showPreview()
-				})
-			text.inputEl.addEventListener('keydown', (event) => {
-				if (event.key === 'Enter') {
-					event.preventDefault()
-					this.submit()
-				}
-			})
-			window.setTimeout(() => text.inputEl.select())
 		})
+		focusInput(input, { select: true })
 
 		this.statusEl = this.contentEl.createEl('p', {
 			cls: 'task-time-tracker-prompt-status',
@@ -105,6 +126,11 @@ class TextPromptModal extends Modal {
 	onClose(): void {
 		this.contentEl.empty()
 		if (!this.submitted) this.resolve(null)
+	}
+
+	private typed(value: string): void {
+		this.value = value
+		this.showPreview()
 	}
 
 	private showPreview(): void {

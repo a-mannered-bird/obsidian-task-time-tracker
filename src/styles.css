@@ -118,6 +118,11 @@
 	transition: var(--input-transition);
 }
 
+/* In a setting row, nothing else gives the stepper a width to share. */
+.setting-item-control > .task-time-tracker-stepper {
+	width: 10em;
+}
+
 .task-time-tracker-stepper:hover {
 	background-color: var(--background-modifier-form-field-hover);
 	border-color: var(--background-modifier-border-hover);
@@ -133,9 +138,9 @@
 	padding: var(--size-2-1);
 }
 
-.task-time-tracker-stepper input.task-time-tracker-minutes-input,
-.task-time-tracker-stepper input.task-time-tracker-minutes-input:hover,
-.task-time-tracker-stepper input.task-time-tracker-minutes-input:focus {
+.task-time-tracker-stepper input.task-time-tracker-stepper-input,
+.task-time-tracker-stepper input.task-time-tracker-stepper-input:hover,
+.task-time-tracker-stepper input.task-time-tracker-stepper-input:focus {
 	flex: 1;
 	min-width: 0;
 	height: 100%;
