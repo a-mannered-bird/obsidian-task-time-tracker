@@ -9,6 +9,7 @@ import {
 	groupGoalCards,
 	missingResults,
 	newlyTicked,
+	placeTagGoals,
 	pruneDismissals,
 	restoreDismissals,
 	unmetMetricGoals,
@@ -146,6 +147,50 @@ describe('groupGoalCards', () => {
 	it('puts them all in one group, in task order', () => {
 		expect(shape('none')).toEqual([
 			[null, ['Run', 'Anki', 'Snacks', 'Swim'], ['Email']],
+		])
+	})
+})
+
+describe('placeTagGoals', () => {
+	const note = parseTasks([
+		'- [ ] Run #sport',
+		'      [goal::distance 8/10 km]',
+		'- [ ] Email #work',
+	])
+	const tagCards = tagGoalCards(
+		[
+			{ tag: '#sport', minutes: 60, atMost: false },
+			{ tag: '#work', minutes: 120, atMost: false },
+		],
+		note,
+		now,
+		false
+	)
+	const shape = (grouping: GoalGrouping) => {
+		const groups = groupGoalCards(
+			note,
+			goalCards(note, now, false),
+			[],
+			grouping
+		)
+		const placed = placeTagGoals(groups, tagCards, [], grouping)
+		return [...placed.groups, placed.tagGroup].map((g) => [
+			g.label,
+			g.cards.map((card) => card.key.taskName),
+		])
+	}
+
+	it("leads each tag's group with its tag goal, the others left apart", () => {
+		expect(shape('tag')).toEqual([
+			['#sport', ['#sport', 'Run']],
+			['Other tags', ['#work']],
+		])
+	})
+
+	it('keeps every tag goal in the Tags group otherwise', () => {
+		expect(shape('task')).toEqual([
+			['Run', ['Run']],
+			['Tags', ['#sport', '#work']],
 		])
 	})
 })

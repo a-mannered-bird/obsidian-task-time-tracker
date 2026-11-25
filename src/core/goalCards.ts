@@ -214,6 +214,53 @@ export function groupGoalCards(
 	)
 }
 
+export const TAG_GOALS_GROUP = 'Tags'
+export const OTHER_TAG_GOALS_GROUP = 'Other tags'
+
+/**
+ * The task groups with the tag goals placed, and the group of the tag goals
+ * left over (always shown, as it holds the Add tag goal card). Grouped by
+ * tag, a tag goal leads the group of its tag, where the tasks' goals show
+ * it what it counts; a tag with no task goal to join keeps it among the
+ * other tags.
+ */
+export function placeTagGoals(
+	groups: GoalCardGroup[],
+	tagCards: GoalCard[],
+	tagSuggestions: GoalSuggestion[],
+	grouping: GoalGrouping
+): { groups: GoalCardGroup[]; tagGroup: GoalCardGroup } {
+	if (grouping !== 'tag') {
+		return {
+			groups,
+			tagGroup: {
+				label: TAG_GOALS_GROUP,
+				cards: tagCards,
+				suggestions: tagSuggestions,
+			},
+		}
+	}
+	const labels = new Set(groups.map((group) => group.label))
+	return {
+		groups: groups.map((group) => ({
+			label: group.label,
+			cards: [
+				...tagCards.filter((card) => card.tag === group.label),
+				...group.cards,
+			],
+			suggestions: [
+				...tagSuggestions.filter((s) => s.tag === group.label),
+				...group.suggestions,
+			],
+		})),
+		tagGroup: {
+			label: OTHER_TAG_GOALS_GROUP,
+			cards: tagCards.filter((card) => !labels.has(card.tag)),
+			suggestions: tagSuggestions.filter((s) => !labels.has(s.tag)),
+		},
+	}
+}
+
 /**
  * Until per-metric colors are set in the settings, a goal's color is
  * picked from its metric name, so it stays the same from day to day.

@@ -305,6 +305,11 @@ describe('goals tab', function () {
 
 	it('groups the goals by task, by first tag, or not at all', async function () {
 		await writeNote(today.path, [
+			'---',
+			'tag_goals:',
+			'  - "#sport 2h"',
+			'  - "#work 6h"',
+			'---',
 			'- [ ] Run #sport',
 			'      [goal::distance 8/10 km]',
 			'- [ ] Read',
@@ -318,24 +323,39 @@ describe('goals tab', function () {
 		await expect(browser.$('[role="list"][aria-label="Run"]')).toHaveChildren(1)
 
 		// Swim joins Run under #sport, its first tag; Read has none.
+		await expect(browser.$('[role="list"][aria-label="Tags"]')).toHaveChildren(
+			2
+		)
 		await groupBy.selectByAttribute('value', 'tag')
+		// The #sport tag goal leads its group; #work has no task goal to join,
+		// so it stays apart, among the other tags.
 		const sport = browser.$('[role="list"][aria-label="#sport"]')
-		await expect(sport).toHaveChildren(2)
+		await expect(sport).toHaveChildren(3)
 		await expect(sport.$('[role="listitem"]:nth-child(1)')).toHaveAttribute(
+			'aria-label',
+			'#sport'
+		)
+		await expect(sport.$('[role="listitem"]:nth-child(2)')).toHaveAttribute(
 			'aria-label',
 			'Run · distance'
 		)
-		await expect(sport.$('[role="listitem"]:nth-child(2)')).toHaveAttribute(
+		await expect(sport.$('[role="listitem"]:nth-child(3)')).toHaveAttribute(
 			'aria-label',
 			'Swim · laps'
 		)
 		// Without the task heading, a card names its task.
-		await expect(sport.$('[role="listitem"]:nth-child(2)')).toHaveText(
+		await expect(sport.$('[role="listitem"]:nth-child(3)')).toHaveText(
 			expect.stringContaining('Swim · laps')
 		)
 		await expect(
 			browser.$('[role="list"][aria-label="No tag"]')
 		).toHaveChildren(1)
+		const otherTags = browser.$('[role="list"][aria-label="Other tags"]')
+		await expect(otherTags).toHaveChildren(1)
+		await expect(otherTags.$('[role="listitem"]')).toHaveAttribute(
+			'aria-label',
+			'#work'
+		)
 
 		// Ungrouped: every task's goals side by side, in note order.
 		await groupBy.selectByAttribute('value', 'none')

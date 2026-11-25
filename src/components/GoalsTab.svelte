@@ -33,6 +33,7 @@
 		groupGoalCards,
 		isDayOver,
 		isGoalGrouping,
+		placeTagGoals,
 		tagGoalCards,
 		type GoalCard,
 		type GoalSuggestion,
@@ -135,9 +136,16 @@
 
 	// svelte-ignore state_referenced_locally -- read once, then owned here
 	let grouping = $state(plugin.settings.goalGrouping)
-	const groups = $derived(
-		groupGoalCards(log?.tasks ?? [], cards, suggestions, grouping)
+	const placed = $derived(
+		placeTagGoals(
+			groupGoalCards(log?.tasks ?? [], cards, suggestions, grouping),
+			tagCards,
+			tagSuggestions,
+			grouping
+		)
 	)
+	const groups = $derived(placed.groups)
+	const tagGroup = $derived(placed.tagGroup)
 
 	/** The metric alone under its task's heading, else with the task. */
 	function cardLabel(item: { title: string; goal: GoalCard['goal'] }) {
@@ -363,12 +371,12 @@
 		{/each}
 
 		<!-- Always there, at the end, so its Add card never shifts the tasks' cards. -->
-		<h3 class="group-title">Tags</h3>
-		<div class="card-list" role="list" aria-label="Tags">
-			{#each tagCards as card (card.id)}
+		<h3 class="group-title">{tagGroup.label}</h3>
+		<div class="card-list" role="list" aria-label={tagGroup.label}>
+			{#each tagGroup.cards as card (card.id)}
 				{@render goalCard(card)}
 			{/each}
-			{#each tagSuggestions as suggestion (suggestion.id)}
+			{#each tagGroup.suggestions as suggestion (suggestion.id)}
 				{@render suggestionCard(suggestion)}
 			{/each}
 		</div>
