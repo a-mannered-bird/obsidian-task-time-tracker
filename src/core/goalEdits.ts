@@ -21,6 +21,19 @@ export function goalKeyId(key: GoalKey): string {
 	return JSON.stringify([key.taskName, key.metric, key.unit])
 }
 
+export function hasGoalKey(keys: GoalKey[], key: GoalKey): boolean {
+	const id = goalKeyId(key)
+	return keys.some((entry) => goalKeyId(entry) === id)
+}
+
+/** The keys with this one added, or removed when it was there. */
+export function toggleGoalKey(keys: GoalKey[], key: GoalKey): GoalKey[] {
+	const id = goalKeyId(key)
+	return hasGoalKey(keys, key)
+		? keys.filter((entry) => goalKeyId(entry) !== id)
+		: [...keys, key]
+}
+
 function sameGoal(goal: Goal, key: Omit<GoalKey, 'taskName'>): boolean {
 	return goal.kind === 'time'
 		? key.metric === null

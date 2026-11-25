@@ -7,6 +7,7 @@
 		deleteGoal,
 		dismissGoalSuggestions,
 		editGoalUnit,
+		goalBarHidden,
 		rejectGoalSuggestions,
 		resetGoalSuggestions,
 		setGoalAchieved,
@@ -15,6 +16,7 @@
 		stepGoal,
 		streakSkipsMissingDays,
 		suggestionsOf,
+		toggleGoalBar,
 		toggleStreakSkip,
 	} from 'commands/goalActions'
 	import { controlHint } from 'commands/shortcuts'
@@ -273,6 +275,15 @@
 					goalSettings++
 				})
 		)
+		if (tag === null) {
+			menu.addItem((item) =>
+				item
+					.setTitle('Hide bar in tracker')
+					.setIcon('eye-off')
+					.setChecked(goalBarHidden(plugin, card.key))
+					.onClick(() => void toggleGoalBar(plugin, card.key))
+			)
+		}
 		menu.addItem((item) =>
 			item
 				.setTitle('Done badge…')

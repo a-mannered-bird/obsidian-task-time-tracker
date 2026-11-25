@@ -5,7 +5,6 @@ import {
 	cardEmoji,
 	describeGoalBar,
 	doneBadgeOf,
-	goalBars,
 	goalColor,
 	goalEmoji,
 	goalStreak,
@@ -14,6 +13,7 @@ import {
 	parseStampTexts,
 	stampText,
 	tagGoalStreak,
+	trackerGoalBars,
 } from './goalStyle'
 import { parseTasks } from './parser'
 import { readTagGoals } from './tagGoals'
@@ -149,14 +149,17 @@ describe('goalStreak', () => {
 })
 
 describe('tracker bars', () => {
-	it('shows three bars and folds the rest', () => {
-		const bars = goalBars(cards)
-		expect(bars.shown.map((card) => card.title)).toEqual([
+	it('shows a bar for every goal but those hidden from the tracker', () => {
+		const hidden = [
+			{ taskName: 'Run', metric: 'speed', unit: 'km/h' },
+			// Another unit is another goal: the distance bar stays.
+			{ taskName: 'Run', metric: 'distance', unit: 'mi' },
+		]
+		expect(trackerGoalBars(cards, hidden).map((card) => card.title)).toEqual([
 			'Run · time',
 			'Run · distance',
-			'Run · speed',
+			'Run · weight',
 		])
-		expect(bars.folded.map((card) => card.title)).toEqual(['Run · weight'])
 	})
 
 	it('describes each bar with its numbers', () => {

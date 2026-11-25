@@ -64,6 +64,8 @@ export interface TaskTimeTrackerSettings {
 	stampTexts: string[]
 	/** Goals whose streak skips the days without them (see goalStreak). */
 	streakSkipsMissingDays: GoalKey[]
+	/** Goals whose bar is hidden under their tracker row. */
+	hiddenGoalBars: GoalKey[]
 	/** Goal suggestions dismissed for a day (see pruneDismissals). */
 	dismissedGoalSuggestions: GoalSuggestionDismissal[]
 	/** End day asks for the goals its ticked tasks have not reached. */
@@ -94,6 +96,7 @@ export const DEFAULT_SETTINGS: TaskTimeTrackerSettings = {
 	dismissedGoalSuggestions: [],
 	metricSettings: {},
 	streakSkipsMissingDays: [],
+	hiddenGoalBars: [],
 	doneBadge: 'tick',
 	goalBadges: [],
 	goalGrouping: DEFAULT_GOAL_GROUPINGS,

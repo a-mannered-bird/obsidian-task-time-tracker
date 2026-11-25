@@ -1,11 +1,12 @@
 <script lang="ts">
 	import type { GoalCard } from 'core/goalCards'
+	import type { GoalKey } from 'core/goalEdits'
 	import type { MetricGoal } from 'types/goals'
 	import {
 		describeGoalBar,
-		goalBars,
 		goalColor,
 		goalEmoji,
+		trackerGoalBars,
 		type MetricSettings,
 	} from 'core/goalStyle'
 	import { instantTooltip } from 'ui/tooltip'
@@ -14,57 +15,51 @@
 		/** The task's goals, in note order. */
 		cards: GoalCard[]
 		metricSettings: MetricSettings
+		/** Goals whose bar the user hid from the tracker. */
+		hidden: GoalKey[]
 		/** A metric goal's bar records its result. */
 		onrecord: (taskName: string, goal: MetricGoal) => void
-		/** A time goal's bar, and the folded ones, open the Goals tab. */
+		/** A time goal's bar opens the Goals tab. */
 		onedit: (goalId: string) => void
 	}
 
-	const { cards, metricSettings, onrecord, onedit }: Props = $props()
+	const { cards, metricSettings, hidden, onrecord, onedit }: Props = $props()
 
-	const bars = $derived(goalBars(cards))
+	const bars = $derived(trackerGoalBars(cards, hidden))
 </script>
 
-<ul class="goal-bars" aria-label="Goals">
-	{#each bars.shown as card (card.id)}
-		{@const emoji = goalEmoji(card.goal, metricSettings)}
-		{@const description = describeGoalBar(card, emoji)}
-		<li>
-			<button
-				class="goal-bar"
-				class:is-done={card.state === 'done'}
-				class:is-over={card.state === 'over'}
-				aria-label={description}
-				use:instantTooltip={() => [
-					description,
-					card.goal.kind === 'metric'
-						? 'Click to record the result'
-						: 'Click to open it in the Goals tab',
-				]}
-				style:--goal-color={goalColor(card.goal, metricSettings)}
-				style:--progress={card.progress}
-				onclick={() =>
-					card.goal.kind === 'metric'
-						? onrecord(card.key.taskName, card.goal)
-						: onedit(card.id)}
-			>
-				<span class="track"><span class="fill"></span></span>
-				<span class="emoji" aria-hidden="true">{emoji}</span>
-			</button>
-		</li>
-	{/each}
-	{#if bars.folded[0]}
-		{@const first = bars.folded[0]}
-		{@const count = bars.folded.length}
-		<li>
-			<button
-				class="folded"
-				aria-label="{count} more goal{count === 1 ? '' : 's'}"
-				onclick={() => onedit(first.id)}>+{count}</button
-			>
-		</li>
-	{/if}
-</ul>
+{#if bars.length > 0}
+	<ul class="goal-bars" aria-label="Goals">
+		{#each bars as card (card.id)}
+			{@const emoji = goalEmoji(card.goal, metricSettings)}
+			{@const description = describeGoalBar(card, emoji)}
+			<li>
+				<button
+					class="goal-bar"
+					class:is-done={card.state === 'done'}
+					class:is-over={card.state === 'over'}
+					class:is-at-most={card.goal.atMost}
+					aria-label={description}
+					use:instantTooltip={() => [
+						description,
+						card.goal.kind === 'metric'
+							? 'Click to record the result'
+							: 'Click to open it in the Goals tab',
+					]}
+					style:--goal-color={goalColor(card.goal, metricSettings)}
+					style:--progress={card.progress}
+					onclick={() =>
+						card.goal.kind === 'metric'
+							? onrecord(card.key.taskName, card.goal)
+							: onedit(card.id)}
+				>
+					<span class="track"><span class="fill"></span></span>
+					<span class="emoji" aria-hidden="true">{emoji}</span>
+				</button>
+			</li>
+		{/each}
+	</ul>
+{/if}
 
 <style>
 	/* Under the whole row, the checkbox included. */
@@ -88,8 +83,7 @@
 		cursor: pointer;
 	}
 
-	.goal-bar:focus-visible,
-	.folded:focus-visible {
+	.goal-bar:focus-visible {
 		outline: 2px solid var(--interactive-accent);
 		outline-offset: 2px;
 		border-radius: var(--radius-s);
@@ -102,12 +96,35 @@
 		background: var(--background-modifier-border);
 	}
 
+	/* The used part of an "at most" bar is pale red, like its ring's. */
+	.goal-bar.is-at-most .track {
+		background: color-mix(
+			in srgb,
+			var(--color-red) 35%,
+			var(--background-modifier-border)
+		);
+	}
+
+	/* Fills or empties itself on a change, like the goal rings. */
 	.fill {
 		display: block;
 		width: calc(var(--progress) * 100%);
 		height: 100%;
 		border-radius: 3px;
 		background: var(--goal-color);
+		transition:
+			width 700ms cubic-bezier(0.2, 0.8, 0.2, 1),
+			background-color 700ms;
+	}
+
+	@starting-style {
+		.fill {
+			width: 0;
+		}
+
+		.goal-bar.is-at-most .fill {
+			width: 100%;
+		}
 	}
 
 	.goal-bar.is-over .fill {
@@ -121,14 +138,6 @@
 		text-align: center;
 	}
 
-	.folded {
-		all: unset;
-		cursor: pointer;
-		color: var(--text-muted);
-		font-size: var(--font-ui-smaller);
-	}
-
-	.folded:hover,
 	.goal-bar:hover .emoji {
 		color: var(--text-normal);
 	}

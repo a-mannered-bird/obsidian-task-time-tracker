@@ -620,6 +620,7 @@
 		<GoalBars
 			cards={goalCards([task], now, isDayOver(log, now))}
 			metricSettings={plugin.settings.metricSettings}
+			hidden={plugin.settings.hiddenGoalBars}
 			onrecord={(taskName, goal) =>
 				void recordGoalResult(plugin, log.file, taskName, goal)}
 			onedit={oneditgoal}

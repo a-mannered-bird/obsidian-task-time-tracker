@@ -644,13 +644,15 @@ describe('goals tab', function () {
 		await obsidianPage.openFile(today.path)
 		await openDailyView('Tracker')
 
-		// Three bars, the fourth goal folded; Email has none.
+		// A bar for every goal; Email has none.
 		const bars = browser.$('ul[aria-label="Goals"]')
 		await expect(bars).toHaveChildren(4)
 		await expect(
 			bars.$('button[aria-label="🎯 distance · 8 / 10 km · 80%"]')
 		).toBeDisplayed()
-		await expect(bars.$('button=+1')).toBeDisplayed()
+		await expect(
+			bars.$('button[aria-label="🎯 cadence · 0 / 170 spm · 0%"]')
+		).toBeDisplayed()
 
 		// A metric bar opens the result prompt; the result is written.
 		await bars.$('button[aria-label="🎯 distance · 8 / 10 km · 80%"]').click()
@@ -672,6 +674,40 @@ describe('goals tab', function () {
 			'aria-selected',
 			'true'
 		)
+	})
+
+	it("hides a goal's bar from the tracker through its menu", async function () {
+		const saved = await browser.executeObsidian(
+			({ plugins }) => plugins.obsidianTaskTimeTracker.settings.hiddenGoalBars
+		)
+		try {
+			await writeNote(today.path, [
+				'- [ ] Run #sport',
+				'      [goal::distance 8/10 km]',
+				'      [goal::speed /12 km/h]',
+			])
+			await openGoals()
+			await card('Run · speed')
+				.$('button[aria-label="Actions for Run · speed"]')
+				.click()
+			const hide = browser.$('.menu-item-title=Hide bar in tracker')
+			await expect(hide).toBeDisplayed()
+			await hide.click()
+
+			await openDailyView('Tracker')
+			const bars = browser.$('ul[aria-label="Goals"]')
+			await expect(bars).toHaveChildren(1)
+			await expect(
+				bars.$('button[aria-label="🎯 distance · 8 / 10 km · 80%"]')
+			).toBeDisplayed()
+		} finally {
+			await browser.executeObsidian(async ({ plugins }, hidden) => {
+				const plugin = plugins.obsidianTaskTimeTracker
+				plugin.settings.hiddenGoalBars = hidden
+				await plugin.saveSettings()
+				await plugin.refreshViews()
+			}, saved)
+		}
 	})
 
 	it('styles goals from the metric settings and stamps a streak on done cards', async function () {

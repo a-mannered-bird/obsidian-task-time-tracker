@@ -20,6 +20,10 @@ const settings: NameKeyedSettings = {
 		{ taskName: 'Deep wok', metric: 'pages', unit: '' },
 		{ taskName: 'Task A', metric: 'pages', unit: '' },
 	],
+	hiddenGoalBars: [
+		{ taskName: 'Deep wok', metric: null, unit: '' },
+		{ taskName: 'Task A', metric: null, unit: '' },
+	],
 	goalBadges: [
 		{ key: { taskName: 'Deep wok', metric: null, unit: '' }, badge: 'star' },
 		{
@@ -58,6 +62,10 @@ describe('migrateTaskNames', () => {
 				badge: 'random',
 			},
 		])
+		expect(migrated.hiddenGoalBars).toEqual([
+			{ taskName: 'Deep work', metric: null, unit: '' },
+			{ taskName: 'Task A', metric: null, unit: '' },
+		])
 		// A suggestion dismissed for the old name stays dismissed.
 		expect(migrated.dismissedGoalSuggestions).toEqual([
 			{ day: '2026-08-03', taskName: 'Deep work', metric: null, unit: '' },
@@ -75,6 +83,9 @@ describe('migrateTaskNames', () => {
 		// Both had the setting for pages: the target keeps one.
 		expect(migrated.streakSkipsMissingDays).toEqual([
 			{ taskName: 'Task A', metric: 'pages', unit: '' },
+		])
+		expect(migrated.hiddenGoalBars).toEqual([
+			{ taskName: 'Task A', metric: null, unit: '' },
 		])
 		// The target's own badge for pages wins; the time goal's moves over.
 		expect(migrated.goalBadges).toEqual([
@@ -123,6 +134,9 @@ describe('forgetTaskName', () => {
 		])
 		expect(forgotten.streakSkipsMissingDays).toEqual([
 			{ taskName: 'Task A', metric: 'pages', unit: '' },
+		])
+		expect(forgotten.hiddenGoalBars).toEqual([
+			{ taskName: 'Task A', metric: null, unit: '' },
 		])
 		expect(forgotten.goalBadges).toEqual([
 			{

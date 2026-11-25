@@ -16,6 +16,7 @@ import {
 	formatGoalNumber,
 	formatTargetField,
 	goalKeyId,
+	hasGoalKey,
 	type GoalKey,
 } from './goalEdits'
 import {
@@ -278,17 +279,12 @@ function countStreak(
 	return streak
 }
 
-/** Bars shown on a tracker row; the rest fold into "+n". */
-export const MAX_GOAL_BARS = 3
-
-export function goalBars(cards: GoalCard[]): {
-	shown: GoalCard[]
-	folded: GoalCard[]
-} {
-	return {
-		shown: cards.slice(0, MAX_GOAL_BARS),
-		folded: cards.slice(MAX_GOAL_BARS),
-	}
+/** The bars under a tracker row: every goal but those hidden from it. */
+export function trackerGoalBars(
+	cards: GoalCard[],
+	hidden: GoalKey[]
+): GoalCard[] {
+	return cards.filter((card) => !hasGoalKey(hidden, card.key))
 }
 
 /** A bar's tooltip: `🏃 distance · 8 / 10 km · 80%`. */

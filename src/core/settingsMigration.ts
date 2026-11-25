@@ -13,6 +13,8 @@ export type NameKeyedSettings = {
 	dismissedGoalSuggestions: GoalSuggestionDismissal[]
 	/** Goals whose streak skips missing days; they follow their task. */
 	streakSkipsMissingDays: GoalKey[]
+	/** Goals whose tracker bar is hidden; they follow their task. */
+	hiddenGoalBars: GoalKey[]
 	/** Goals with a badge of their own; they follow their task. */
 	goalBadges: GoalBadge[]
 }
@@ -24,7 +26,7 @@ export type NameKeyedSettings = {
  * Colors: the target's own wins, else the first source with one transfers.
  * Hidden: the target's own flag when it already existed as a task, else
  * hidden only when every source was. Source entries are dropped.
- * Dismissed goal suggestions and per-goal streak and badge settings move to
+ * Dismissed goal suggestions and per-goal streak, bar and badge settings move to
  * the target; for a goal both had, the target's own badge wins, else the
  * first source's.
  */
@@ -65,11 +67,12 @@ export function migrateTaskNames(
 		dismissedGoalSuggestions: settings.dismissedGoalSuggestions.map((entry) =>
 			isSource(entry.taskName) ? { ...entry, taskName: targetName } : entry
 		),
-		streakSkipsMissingDays: uniqueKeys(
-			settings.streakSkipsMissingDays.map((key) =>
-				isSource(key.taskName) ? { ...key, taskName: targetName } : key
-			)
+		streakSkipsMissingDays: moveKeys(
+			settings.streakSkipsMissingDays,
+			isSource,
+			targetName
 		),
+		hiddenGoalBars: moveKeys(settings.hiddenGoalBars, isSource, targetName),
 		goalBadges: migrateGoalBadges(settings.goalBadges, isSource, targetName),
 	}
 }
@@ -97,8 +100,15 @@ function migrateGoalBadges(
 	return [...kept.values()]
 }
 
-function uniqueKeys(keys: GoalKey[]): GoalKey[] {
-	return [...new Map(keys.map((key) => [goalKeyId(key), key])).values()]
+function moveKeys(
+	keys: GoalKey[],
+	isSource: (name: string) => boolean,
+	targetName: string
+): GoalKey[] {
+	const moved = keys.map((key) =>
+		isSource(key.taskName) ? { ...key, taskName: targetName } : key
+	)
+	return [...new Map(moved.map((key) => [goalKeyId(key), key])).values()]
 }
 
 /**
@@ -122,6 +132,9 @@ export function forgetTaskName(
 			(entry) => entry.taskName !== name
 		),
 		streakSkipsMissingDays: settings.streakSkipsMissingDays.filter(
+			(key) => key.taskName !== name
+		),
+		hiddenGoalBars: settings.hiddenGoalBars.filter(
 			(key) => key.taskName !== name
 		),
 		goalBadges: settings.goalBadges.filter(

@@ -25,6 +25,7 @@ import {
 	findGoal,
 	goalKeyId,
 	formatGoalNumber,
+	hasGoalKey,
 	metricNameProblem,
 	applyChange,
 	parseTypedChange,
@@ -38,6 +39,7 @@ import {
 	stepAchieved,
 	stepTypedValue,
 	timeTargetAfter,
+	toggleGoalKey,
 	updateGoal,
 	type GoalKey,
 } from 'core/goalEdits'
@@ -337,9 +339,7 @@ export function streakSkipsMissingDays(
 	plugin: TaskTimeTracker,
 	key: GoalKey
 ): boolean {
-	return plugin.settings.streakSkipsMissingDays.some(
-		(entry) => goalKeyId(entry) === goalKeyId(key)
-	)
+	return hasGoalKey(plugin.settings.streakSkipsMissingDays, key)
 }
 
 /** Switch whether the goal's streak skips the days without it. */
@@ -348,11 +348,25 @@ export async function toggleStreakSkip(
 	key: GoalKey
 ): Promise<void> {
 	const { settings } = plugin
-	settings.streakSkipsMissingDays = streakSkipsMissingDays(plugin, key)
-		? settings.streakSkipsMissingDays.filter(
-				(entry) => goalKeyId(entry) !== goalKeyId(key)
-			)
-		: [...settings.streakSkipsMissingDays, key]
+	settings.streakSkipsMissingDays = toggleGoalKey(
+		settings.streakSkipsMissingDays,
+		key
+	)
+	await plugin.saveSettings()
+}
+
+/** Whether the goal's bar is hidden under its tracker row. */
+export function goalBarHidden(plugin: TaskTimeTracker, key: GoalKey): boolean {
+	return hasGoalKey(plugin.settings.hiddenGoalBars, key)
+}
+
+/** Switch whether the goal's bar shows under its tracker row. */
+export async function toggleGoalBar(
+	plugin: TaskTimeTracker,
+	key: GoalKey
+): Promise<void> {
+	const { settings } = plugin
+	settings.hiddenGoalBars = toggleGoalKey(settings.hiddenGoalBars, key)
 	await plugin.saveSettings()
 }
 
