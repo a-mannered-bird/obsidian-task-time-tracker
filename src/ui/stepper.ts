@@ -5,7 +5,15 @@ type StepperOptions = {
 	label: string
 	lessLabel: string
 	moreLabel: string
-	onStep: (direction: 1 | -1, event: MouseEvent) => void
+	/** From the buttons, or the up and down arrows in the input. */
+	onStep: (direction: 1 | -1, event: MouseEvent | KeyboardEvent) => void
+}
+
+/** The step of an up or down arrow press; null for any other key. */
+export function arrowStep(event: KeyboardEvent): 1 | -1 | null {
+	if (event.key === 'ArrowUp') return 1
+	if (event.key === 'ArrowDown') return -1
+	return null
 }
 
 /** A number input between − and + buttons, styled as one field. */
@@ -30,5 +38,12 @@ export function createStepper(
 	setIcon(more, 'plus')
 	less.addEventListener('click', (event) => options.onStep(-1, event))
 	more.addEventListener('click', (event) => options.onStep(1, event))
+	// The input may be a text one (to take `+n`), which has no arrow steps.
+	input.addEventListener('keydown', (event) => {
+		const direction = arrowStep(event)
+		if (!direction) return
+		event.preventDefault()
+		options.onStep(direction, event)
+	})
 	return input
 }

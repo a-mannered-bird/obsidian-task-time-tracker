@@ -133,6 +133,24 @@ describe('goals tab', function () {
 		assert.strictEqual(goalLines(content)[2], '      [goal::speed /12 km/h]')
 		await expect(field('Target of Run · speed')).toHaveValue('12')
 
+		// The arrows step the field; Enter writes what they reached.
+		await field('Target of Run · speed').click()
+		await browser.keys(['ArrowUp', 'ArrowUp', 'ArrowUp', 'ArrowDown'])
+		await expect(field('Target of Run · speed')).toHaveValue('14')
+		await browser.keys(['Enter'])
+		content = await waitForChange(content)
+		assert.strictEqual(goalLines(content)[2], '      [goal::speed /14 km/h]')
+		// A result steps by its finest decimal: 12.5 goes down by 0.1.
+		await field('Result of Run · distance').click()
+		await browser.keys(['ArrowDown'])
+		await expect(field('Result of Run · distance')).toHaveValue('12.4')
+		await browser.keys(['Enter'])
+		content = await waitForChange(content)
+		assert.strictEqual(
+			goalLines(content)[1],
+			'      [goal::distance 12.4/10 km]'
+		)
+
 		await expect(field('Target of Run · time')).toHaveAttribute('type', 'text')
 		await typeInto(field('Target of Run · time'), '90')
 		content = await waitForChange(content)
@@ -461,7 +479,10 @@ describe('goals tab', function () {
 		await expect(input).toHaveValue('80.8')
 		const increase = prompt.$('button[aria-label="Increase Result (kg)"]')
 		await increase.click()
-		await increase.click()
+		await expect(input).toHaveValue('80.9')
+		// So do the up and down arrows.
+		await input.click()
+		await browser.keys(['ArrowUp'])
 		await expect(input).toHaveValue('81')
 		await prompt.$('button=OK').click()
 		const recorded = await waitForChange(content)

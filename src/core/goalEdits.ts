@@ -280,19 +280,24 @@ export function stepAchieved(goal: MetricGoal, direction: 1 | -1): number {
 }
 
 /**
- * The typed result one step up or down, the goal's step following the
- * decimals typed; `+n` / `-n` is applied to the recorded result first, and
- * an unreadable value steps from the recorded one.
+ * A typed result or target one step up or down, the goal's step following
+ * the decimals typed, never below zero; `+n` / `-n` is applied to the
+ * recorded value first, and an unreadable value steps from the recorded
+ * one. A decimal comma typed stays a comma.
  */
-export function stepTypedAchieved(
+export function stepTypedValue(
 	goal: MetricGoal,
+	field: 'achieved' | 'target',
 	typed: string,
 	direction: 1 | -1
 ): string {
 	const parsed = parseTypedChange(typed)
-	const achieved =
-		'error' in parsed ? goal.achieved : applyChange(goal.achieved, parsed)
-	return String(stepAchieved({ ...goal, achieved }, direction))
+	const value =
+		'error' in parsed ? goal[field] : applyChange(goal[field], parsed)
+	const step = goalStep({ ...goal, [field]: value })
+	const decimals = String(step).split('.')[1]?.length ?? 0
+	const next = Math.max(0, (value ?? 0) + direction * step)
+	return formatGoalNumber(Number(next.toFixed(decimals)), typed.includes(','))
 }
 
 /** A number as a goal's field shows it, with its decimal separator. */

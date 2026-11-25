@@ -42,6 +42,7 @@
 	import {
 		achievedField,
 		targetField,
+		stepTypedValue,
 		typedFieldValue,
 		type GoalField,
 	} from 'core/goalEdits'
@@ -57,6 +58,7 @@
 	} from 'core/goalStyle'
 	import { formatLocalDate } from 'core/time'
 	import { icon } from 'ui/icon'
+	import { arrowStep } from 'ui/stepper'
 	import { suggestionFlight } from 'ui/suggestionFlight'
 	import { selectOnFocus } from 'ui/selectOnFocus'
 	import { instantTooltip } from 'ui/tooltip'
@@ -204,9 +206,13 @@
 		return cardEmoji(card, metricSettings, tagMappings)
 	}
 
-	/** Commit a field on change (blur or Enter), unless left as it was. */
+	/**
+	 * Commit a field on blur (Enter blurs it), unless left as it was. Not on
+	 * change: a value stepped with the arrows is set by script, which some
+	 * engines do not count as a change.
+	 */
 	function commit(
-		event: Event & { currentTarget: HTMLInputElement },
+		event: FocusEvent & { currentTarget: HTMLInputElement },
 		field: GoalField,
 		write: (file: TFile, value: string) => Promise<void>
 	) {
@@ -217,8 +223,14 @@
 
 	function fieldKeys(
 		event: KeyboardEvent & { currentTarget: HTMLInputElement },
-		shown: string
+		shown: string,
+		step?: (typed: string, direction: 1 | -1) => string
 	) {
+		const direction = arrowStep(event)
+		if (direction && step) {
+			event.preventDefault()
+			event.currentTarget.value = step(event.currentTarget.value, direction)
+		}
 		if (event.key === 'Enter') event.currentTarget.blur()
 		if (event.key === 'Escape') {
 			event.currentTarget.value = shown
@@ -477,11 +489,16 @@
 					value={achieved.value}
 					size={size(achieved.value)}
 					use:selectOnFocus
-					onchange={(event) =>
+					onblur={(event) =>
 						commit(event, achieved, (file, value) =>
 							setGoalAchieved(plugin, file, card.key, value)
 						)}
-					onkeydown={(event) => fieldKeys(event, achieved.value)}
+					onkeydown={(event) =>
+						fieldKeys(event, achieved.value, (typed, direction) =>
+							card.goal.kind === 'metric'
+								? stepTypedValue(card.goal, 'achieved', typed, direction)
+								: typed
+						)}
 				/>
 			{:else}
 				<span
@@ -506,11 +523,16 @@
 					value={target.value}
 					size={size(target.value)}
 					use:selectOnFocus
-					onchange={(event) =>
+					onblur={(event) =>
 						commit(event, target, (file, value) =>
 							writeTarget(card, file, value)
 						)}
-					onkeydown={(event) => fieldKeys(event, target.value)}
+					onkeydown={(event) =>
+						fieldKeys(event, target.value, (typed, direction) =>
+							card.goal.kind === 'metric'
+								? stepTypedValue(card.goal, 'target', typed, direction)
+								: typed
+						)}
 				/>
 			{:else}
 				<input
@@ -519,7 +541,7 @@
 					type="text"
 					value={target.value}
 					size={size(target.value)}
-					onchange={(event) =>
+					onblur={(event) =>
 						commit(event, target, (file, value) =>
 							writeTarget(card, file, value)
 						)}

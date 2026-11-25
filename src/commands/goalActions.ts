@@ -36,7 +36,7 @@ import {
 	removeGoal,
 	setGoals,
 	stepAchieved,
-	stepTypedAchieved,
+	stepTypedValue,
 	timeTargetAfter,
 	updateGoal,
 	type GoalKey,
@@ -654,7 +654,8 @@ export async function recordGoalResult(
 		label: goal.unit ? `Result (${goal.unit})` : 'Result',
 		initialValue: achievedField(goal).value,
 		inputType: 'number',
-		step: (text, direction) => stepTypedAchieved(goal, text, direction),
+		step: (text, direction) =>
+			stepTypedValue(goal, 'achieved', text, direction),
 		validate: (text) => errorOf(parseTypedChange(text)),
 	})
 	if (typed === null) return

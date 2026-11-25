@@ -17,7 +17,7 @@ import {
 	removeGoal,
 	setGoals,
 	stepAchieved,
-	stepTypedAchieved,
+	stepTypedValue,
 	timeTargetAfter,
 	updateGoal,
 } from './goalEdits'
@@ -246,9 +246,19 @@ describe('stepping', () => {
 
 	it('steps a typed result by its finest decimal, else from the recorded one', () => {
 		const weight = metric('weight 81,4/<80 kg')
-		expect(stepTypedAchieved(weight, '80.95', -1)).toBe('80.94')
-		expect(stepTypedAchieved(weight, '80.9', 1)).toBe('81')
-		expect(stepTypedAchieved(weight, 'abc', 1)).toBe('81.5')
-		expect(stepTypedAchieved(weight, '+1', 1)).toBe('82.5')
+		const step = (typed: string, direction: 1 | -1) =>
+			stepTypedValue(weight, 'achieved', typed, direction)
+		expect(step('80.95', -1)).toBe('80.94')
+		expect(step('80.9', 1)).toBe('81')
+		expect(step('abc', 1)).toBe('81.5')
+		expect(step('+1', 1)).toBe('82.5')
+		expect(step('80,9', -1)).toBe('80,8')
+	})
+
+	it('steps a typed target the same way, never below zero', () => {
+		const cards = metric('cards 120/200')
+		expect(stepTypedValue(cards, 'target', '200', 1)).toBe('201')
+		expect(stepTypedValue(cards, 'target', '0', -1)).toBe('0')
+		expect(stepTypedValue(cards, 'target', '', 1)).toBe('1')
 	})
 })
