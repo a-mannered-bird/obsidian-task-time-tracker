@@ -29,6 +29,14 @@ async function waitForViewToSettle() {
 			const layout = await browser.execute(() => {
 				const panel = document.querySelector('[role="tabpanel"]')
 				if (!panel || panel.getAttribute('aria-busy') !== 'false') return ''
+				// A sidebar stalled while sliding open keeps the view laid out
+				// but clipped away, standing still: not a view to point at yet.
+				const box = panel.getBoundingClientRect()
+				const hit = document.elementFromPoint(
+					box.left + box.width / 2,
+					box.top + box.height / 2
+				)
+				if (!hit || !panel.contains(hit)) return ''
 				const buttons = Array.from(panel.querySelectorAll('button'))
 				const rects = [panel, ...buttons].map((el) =>
 					el.getBoundingClientRect()

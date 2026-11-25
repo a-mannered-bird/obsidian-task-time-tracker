@@ -41,18 +41,25 @@ export async function setWindowSize() {
 	)
 }
 
-async function sendToBackground() {
-	await browser.execute(() => {
+/**
+ * A window Chromium deems in the background pauses its timers, animation
+ * frames and CSS transitions, which the views (and the tests waiting on
+ * them) rely on. Hidden on macOS, or under the other instance's window on
+ * CI, where two Obsidians share one screen: there the sidebar can stall
+ * mid-slide, its view laid out but not displayed (suspected cause of CI
+ * flakes on the first opening of the daily view of a spec).
+ */
+async function prepareWindow() {
+	await setWindowSize()
+	await browser.execute((hide) => {
 		const electron = (
 			window as unknown as {
 				require(id: 'electron'): { remote: ElectronRemote }
 			}
 		).require('electron')
-		// A hidden window otherwise pauses its timers and animation frames,
-		// which the views (and the tests waiting on them) rely on.
 		electron.remote.getCurrentWebContents().setBackgroundThrottling(false)
-		electron.remote.app.hide()
-	})
+		if (hide) electron.remote.app.hide()
+	}, inBackground)
 }
 
 export const config: WebdriverIO.Config = {
@@ -91,15 +98,11 @@ export const config: WebdriverIO.Config = {
 		})
 	},
 
-	before: async () => {
-		await setWindowSize()
-		if (inBackground) await sendToBackground()
-	},
+	before: prepareWindow,
 	// A reload starts a new Obsidian, which takes the focus again.
 	afterCommand: async (command) => {
 		if (command !== 'reloadObsidian') return
-		await setWindowSize()
-		if (inBackground) await sendToBackground()
+		await prepareWindow()
 	},
 
 	services: ['obsidian'],
