@@ -19,7 +19,7 @@
 		hidden: GoalKey[]
 		/** A metric goal's bar records its result. */
 		onrecord: (taskName: string, goal: MetricGoal) => void
-		/** A time goal's bar opens the Goals tab. */
+		/** A bar's emoji, and a time goal's bar, open the Goals tab. */
 		onedit: (goalId: string) => void
 	}
 
@@ -33,7 +33,10 @@
 		{#each bars as card (card.id)}
 			{@const emoji = goalEmoji(card.goal, metricSettings)}
 			{@const description = describeGoalBar(card, emoji)}
-			<li>
+			<li
+				style:--goal-color={goalColor(card.goal, metricSettings)}
+				style:--progress={card.progress}
+			>
 				<button
 					class="goal-bar"
 					class:is-done={card.state === 'done'}
@@ -46,16 +49,22 @@
 							? 'Click to record the result'
 							: 'Click to open it in the Goals tab',
 					]}
-					style:--goal-color={goalColor(card.goal, metricSettings)}
-					style:--progress={card.progress}
 					onclick={() =>
 						card.goal.kind === 'metric'
 							? onrecord(card.key.taskName, card.goal)
 							: onedit(card.id)}
 				>
 					<span class="track"><span class="fill"></span></span>
-					<span class="emoji" aria-hidden="true">{emoji}</span>
 				</button>
+				<button
+					class="emoji"
+					aria-label="Open {card.title} in the Goals tab"
+					use:instantTooltip={() => [
+						card.title,
+						'Click to open it in the Goals tab',
+					]}
+					onclick={() => onedit(card.id)}>{emoji}</button
+				>
 			</li>
 		{/each}
 	</ul>
@@ -72,18 +81,29 @@
 		list-style: none;
 	}
 
-	.goal-bar {
-		all: unset;
-		box-sizing: border-box;
+	.goal-bars > li {
 		display: grid;
 		grid-template-columns: 1fr 1.4em;
 		align-items: center;
 		gap: 6px;
-		width: 100%;
+	}
+
+	.goal-bar,
+	.emoji {
+		all: unset;
+		box-sizing: border-box;
 		cursor: pointer;
 	}
 
-	.goal-bar:focus-visible {
+	/* Taller than its track, so the thin bar is easy to hit. */
+	.goal-bar {
+		display: grid;
+		align-items: center;
+		min-height: 1em;
+	}
+
+	.goal-bar:focus-visible,
+	.emoji:focus-visible {
 		outline: 2px solid var(--interactive-accent);
 		outline-offset: 2px;
 		border-radius: var(--radius-s);
@@ -138,7 +158,7 @@
 		text-align: center;
 	}
 
-	.goal-bar:hover .emoji {
-		color: var(--text-normal);
+	.emoji:hover {
+		transform: scale(1.25);
 	}
 </style>

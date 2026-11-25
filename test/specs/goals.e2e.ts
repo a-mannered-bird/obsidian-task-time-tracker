@@ -681,6 +681,17 @@ describe('goals tab', function () {
 			'aria-selected',
 			'true'
 		)
+
+		// A metric bar's emoji opens its goal too, its result focused.
+		await openDailyView('Tracker')
+		await bars
+			.$('button[aria-label="Open Run · distance in the Goals tab"]')
+			.click()
+		await expect(browser.$('button[role="tab"]=Goals')).toHaveAttribute(
+			'aria-selected',
+			'true'
+		)
+		await expect(field('Result of Run · distance')).toBeFocused()
 	})
 
 	it("hides a goal's bar from the tracker through its menu", async function () {
