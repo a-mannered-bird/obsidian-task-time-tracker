@@ -756,7 +756,7 @@ describe('goals tab', function () {
 			await openGoals()
 
 			const cards = card('Anki · cards')
-			await expect(cards.$('[role="img"]=🃏')).toBeDisplayed()
+			await expect(cards.$('button[aria-label^="Emoji of"]')).toHaveText('🃏')
 			// Met today, yesterday and the day before.
 			await expect(
 				cards.$('[role="img"][aria-label="Met 3 days in a row"]')
@@ -814,6 +814,56 @@ describe('goals tab', function () {
 			await browser.executeObsidian(async ({ plugins }, values) => {
 				const plugin = plugins.obsidianTaskTimeTracker
 				Object.assign(plugin.settings, values)
+				await plugin.saveSettings()
+				await plugin.refreshViews()
+			}, saved)
+		}
+	})
+
+	it("replaces a goal's emoji from its card", async function () {
+		const saved = await browser.executeObsidian(
+			({ plugins }) => plugins.obsidianTaskTimeTracker.settings.metricSettings
+		)
+		await browser.executeObsidian(async ({ plugins }) => {
+			const plugin = plugins.obsidianTaskTimeTracker
+			plugin.settings.metricSettings = {}
+			await plugin.refreshViews()
+		})
+		try {
+			await writeNote(today.path, [
+				'- [ ] Read',
+				'      [goal::pages 10/20]',
+				'- [ ] Write',
+				'      [goal::pages 1/2]',
+			])
+			await openGoals()
+			const readEmoji = card('Read · pages').$(
+				'button[aria-label="Emoji of Read · pages"]'
+			)
+			await expect(readEmoji).toHaveText('🎯')
+			await readEmoji.click()
+
+			const prompt = await topModal()
+			await expect(prompt.$('.modal-title')).toHaveText('Emoji of pages')
+			// ChromeDriver only types characters of the BMP, as ✍ is.
+			await browser.keys(['✍'])
+			await expect(prompt.$('input')).toHaveValue('✍')
+			await browser.keys(['Enter'])
+
+			// The emoji is the metric's: every pages goal shows it.
+			await expect(readEmoji).toHaveText('✍')
+			await expect(
+				card('Write · pages').$('button[aria-label="Emoji of Write · pages"]')
+			).toHaveText('✍')
+			const emoji = await browser.executeObsidian(
+				({ plugins }) =>
+					plugins.obsidianTaskTimeTracker.settings.metricSettings.pages?.emoji
+			)
+			assert.strictEqual(emoji, '✍')
+		} finally {
+			await browser.executeObsidian(async ({ plugins }, metricSettings) => {
+				const plugin = plugins.obsidianTaskTimeTracker
+				plugin.settings.metricSettings = metricSettings
 				await plugin.saveSettings()
 				await plugin.refreshViews()
 			}, saved)
@@ -1043,7 +1093,7 @@ describe('goals tab', function () {
 				'style',
 				expect.stringContaining('--goal-color: rgb(18, 52, 86)')
 			)
-			await expect(work.$('[role="img"]=💼')).toBeDisplayed()
+			await expect(work.$('button[aria-label^="Emoji of"]')).toHaveText('💼')
 
 			await openDailyView('Tracker')
 			await expect(

@@ -18,6 +18,7 @@ import {
 	restoreDismissals,
 	type DaySuggestions,
 	TIME_GOAL_EMOJI,
+	type GoalCard,
 	type GoalSuggestion,
 } from 'core/goalCards'
 import {
@@ -47,7 +48,10 @@ import { startOfDay } from 'core/dailyNotes'
 import {
 	DONE_BADGE_CHOICE_NAMES,
 	DONE_BADGE_CHOICES,
+	goalEmoji,
 	ownGoalBadge,
+	withMetricSetting,
+	withTagEmoji,
 	type DoneBadgeChoice,
 } from 'core/goalStyle'
 import { TaskNote } from 'core/note'
@@ -368,6 +372,49 @@ export async function toggleGoalBar(
 	const { settings } = plugin
 	settings.hiddenGoalBars = toggleGoalKey(settings.hiddenGoalBars, key)
 	await plugin.saveSettings()
+}
+
+/**
+ * Ask for the emoji a goal card shows, kept where it comes from: the tag
+ * mapping for a tag goal, the metric's settings otherwise (`time` for time
+ * goals). Empty goes back to the default.
+ */
+export async function chooseGoalEmoji(
+	plugin: TaskTimeTracker,
+	card: Pick<GoalCard, 'goal' | 'tag'>
+): Promise<boolean> {
+	const { settings } = plugin
+	const { goal, tag } = card
+	const metric = goalLabel(goal)
+	const typed = await promptText(plugin.app, {
+		title: `Emoji of ${tag ?? metric}`,
+		description:
+			tag !== null
+				? `Shown on the ${tag} goal and in the task pickers. Empty for none.`
+				: goal.kind === 'time'
+					? 'Shown on every time goal. Empty for the default.'
+					: `Shown on every ${metric} goal and its tracker bars. Empty for the default.`,
+		label: 'Emoji',
+		initialValue:
+			tag !== null
+				? (settings.tagMappings.find((mapping) => mapping.tag === tag)?.emoji ??
+					'')
+				: (settings.metricSettings[metric]?.emoji ?? ''),
+		placeholder: goalEmoji(goal, {}),
+	})
+	if (typed === null) return false
+	const emoji = typed.trim()
+	if (tag !== null) {
+		settings.tagMappings = withTagEmoji(settings.tagMappings, tag, emoji)
+	} else {
+		settings.metricSettings = withMetricSetting(
+			settings.metricSettings,
+			metric,
+			{ emoji: emoji || undefined }
+		)
+	}
+	await plugin.saveSettings()
+	return true
 }
 
 /** Set the goal's own done badge; null goes back to the "Done badge" setting. */

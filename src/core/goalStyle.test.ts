@@ -14,6 +14,8 @@ import {
 	stampText,
 	tagGoalStreak,
 	trackerGoalBars,
+	withMetricSetting,
+	withTagEmoji,
 } from './goalStyle'
 import { parseTasks } from './parser'
 import { readTagGoals } from './tagGoals'
@@ -47,6 +49,35 @@ describe('metric settings', () => {
 		expect(ruleOf('weight', 'kg')).toBe('last')
 		expect(ruleOf('speed', 'km/h')).toBe('average')
 		expect(ruleOf('distance', 'km')).toBe('sum')
+	})
+})
+
+describe('emoji edits', () => {
+	it("changes one metric's setting, dropping the metric once empty", () => {
+		const settings = { pages: { emoji: '📖', color: '#00ff00' } }
+		expect(withMetricSetting(settings, 'pages', { emoji: '📚' })).toEqual({
+			pages: { emoji: '📚', color: '#00ff00' },
+		})
+		expect(withMetricSetting(settings, 'km', { emoji: '🏃' })).toEqual({
+			pages: { emoji: '📖', color: '#00ff00' },
+			km: { emoji: '🏃' },
+		})
+		const cleared = withMetricSetting({ pages: { emoji: '📖' } }, 'pages', {
+			emoji: undefined,
+		})
+		expect(cleared).toEqual({})
+	})
+
+	it("sets a tag's emoji, adding a mapping for a tag without one", () => {
+		const mappings = [{ tag: '#work', emoji: '💼', color: '#123456' }]
+		expect(withTagEmoji(mappings, '#work', '🏢')).toEqual([
+			{ tag: '#work', emoji: '🏢', color: '#123456' },
+		])
+		expect(withTagEmoji(mappings, '#sport', '⚽')).toEqual([
+			...mappings,
+			{ tag: '#sport', emoji: '⚽' },
+		])
+		expect(withTagEmoji(mappings, '#sport', '')).toEqual(mappings)
 	})
 })
 

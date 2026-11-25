@@ -4,6 +4,7 @@
 	import {
 		addSuggestedGoals,
 		chooseGoalBadge,
+		chooseGoalEmoji,
 		deleteGoal,
 		dismissGoalSuggestions,
 		editGoalUnit,
@@ -80,7 +81,7 @@
 	const { plugin, log, loading, focusGoal = null, onfocused }: Props = $props()
 
 	// svelte-ignore state_referenced_locally -- settings apply on a view reload
-	const { metricSettings, doneBadge, stampTexts, tagMappings } = plugin.settings
+	const { doneBadge, stampTexts } = plugin.settings
 
 	/** The card elements by goal id, to focus one asked for. */
 	const cardElements = new Map<string, HTMLElement>()
@@ -205,8 +206,22 @@
 		doneIds = done
 	})
 
+	function color(card: GoalCard): string {
+		void goalSettings
+		return cardColor(
+			card,
+			plugin.settings.metricSettings,
+			plugin.settings.tagMappings
+		)
+	}
+
 	function emoji(card: GoalCard): string {
-		return cardEmoji(card, metricSettings, tagMappings)
+		void goalSettings
+		return cardEmoji(
+			card,
+			plugin.settings.metricSettings,
+			plugin.settings.tagMappings
+		)
 	}
 
 	/**
@@ -453,7 +468,7 @@
 		aria-label={card.title}
 		use:flight.arrive={card.id}
 		use:registerCard={card.id}
-		style:--goal-color={cardColor(card, metricSettings, tagMappings)}
+		style:--goal-color={color(card)}
 		style:--progress={card.progress}
 	>
 		<span class="title">{card.tag ?? cardLabel(card)}</span>
@@ -473,13 +488,16 @@
 					onclick={() => log && void stepGoal(plugin, log.file, card.key, -1)}
 				></button>
 			{/if}
-			<div
-				class="ring"
-				class:pops={popped.has(card.id)}
-				role="img"
-				aria-label={describeRing(card)}
-			>
-				<span>{emoji(card)}</span>
+			<div class="ring-stack" class:pops={popped.has(card.id)}>
+				<div class="ring" role="img" aria-label={describeRing(card)}></div>
+				<button
+					class="ring-emoji"
+					aria-label="Emoji of {card.title}"
+					use:instantTooltip={() => ['Change emoji']}
+					onclick={async () => {
+						if (await chooseGoalEmoji(plugin, card)) goalSettings++
+					}}>{emoji(card)}</button
+				>
 			</div>
 			{#if card.goal.kind === 'metric'}
 				<button
@@ -941,17 +959,43 @@
 		background: var(--color-red);
 	}
 
-	.ring > span {
+	/* The emoji is a button laid over the ring, which stays a plain image. */
+	.ring-stack {
 		display: grid;
 		place-items: center;
-		width: 42px;
-		height: 42px;
-		border-radius: 50%;
-		background: var(--background-primary);
-		font-size: 1.4rem;
+		flex-shrink: 0;
 	}
 
-	.goal-card.is-done .ring > span {
+	.ring-stack > * {
+		grid-area: 1 / 1;
+	}
+
+	/* Pinned against theme button styles, as the step buttons below are. */
+	.goal-card .ring-stack button.ring-emoji {
+		display: grid;
+		place-items: center;
+		box-sizing: border-box;
+		width: 42px;
+		min-width: 42px;
+		max-width: 42px;
+		height: 42px;
+		min-height: 42px;
+		max-height: 42px;
+		padding: 0;
+		border: none;
+		border-radius: 50%;
+		--button-corner-shape: round;
+		box-shadow: none;
+		background: var(--background-primary);
+		font-size: 1.4rem;
+		cursor: pointer;
+	}
+
+	.goal-card .ring-stack button.ring-emoji:hover {
+		background: var(--background-modifier-hover);
+	}
+
+	.goal-card.is-done .ring-stack button.ring-emoji:not(:hover) {
 		background: color-mix(
 			in srgb,
 			var(--color-green) 9%,
@@ -959,7 +1003,7 @@
 		);
 	}
 
-	.ring.pops {
+	.ring-stack.pops {
 		animation: goal-ring-pop 600ms ease-out 1;
 	}
 
@@ -974,7 +1018,7 @@
 			transition: none;
 		}
 
-		.ring.pops {
+		.ring-stack.pops {
 			animation: none;
 		}
 	}

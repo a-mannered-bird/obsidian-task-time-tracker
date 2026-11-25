@@ -62,6 +62,37 @@ export function goalColor(goal: Goal, settings: MetricSettings): string {
 	return settings[goalLabel(goal)]?.color ?? defaultGoalColor(goal)
 }
 
+/** The metric settings with one metric's changed; empty fields are dropped. */
+export function withMetricSetting(
+	settings: MetricSettings,
+	metric: string,
+	change: MetricSetting
+): MetricSettings {
+	const next = Object.fromEntries(
+		Object.entries({ ...settings[metric], ...change }).filter(
+			([, value]) => value !== undefined && value !== ''
+		)
+	)
+	const all = { ...settings }
+	if (Object.keys(next).length) all[metric] = next
+	else delete all[metric]
+	return all
+}
+
+/** The tag mappings with the tag's emoji set, adding a mapping if needed. */
+export function withTagEmoji(
+	mappings: TagMapping[],
+	tag: string,
+	emoji: string
+): TagMapping[] {
+	if (!mappings.some((mapping) => mapping.tag === tag)) {
+		return emoji ? [...mappings, { tag, emoji }] : mappings
+	}
+	return mappings.map((mapping) =>
+		mapping.tag === tag ? { ...mapping, emoji } : mapping
+	)
+}
+
 export function goalEmoji(goal: Goal, settings: MetricSettings): string {
 	return (
 		settings[goalLabel(goal)]?.emoji ??

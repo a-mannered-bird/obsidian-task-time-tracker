@@ -16,6 +16,7 @@ import {
 	isDoneBadgeChoice,
 	parseStampTexts,
 	usesStamps,
+	withMetricSetting,
 	type DoneBadgeChoice,
 	type GoalBadge,
 	type MetricSetting,
@@ -323,15 +324,11 @@ export class TaskTimeTrackerSettingTab extends PluginSettingTab {
 		const { settings } = this.plugin
 		const current = (): MetricSetting => settings.metricSettings[metric] ?? {}
 		const update = async (change: MetricSetting) => {
-			const next = Object.fromEntries(
-				Object.entries({ ...current(), ...change }).filter(
-					([, value]) => value !== undefined && value !== ''
-				)
+			settings.metricSettings = withMetricSetting(
+				settings.metricSettings,
+				metric,
+				change
 			)
-			const all = { ...settings.metricSettings }
-			if (Object.keys(next).length) all[metric] = next
-			else delete all[metric]
-			settings.metricSettings = all
 			await this.plugin.saveSettings()
 		}
 		const isTime = metric === TIME_GOAL_LABEL
