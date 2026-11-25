@@ -160,6 +160,13 @@ describe('goals tab', function () {
 		content = await waitForChange(content)
 		assert.strictEqual(goalLines(content)[0], '      [goal::2h]')
 		await expect(field('Target of Run · time')).toHaveValue('2h')
+		// The arrows step a time target by 5 minutes.
+		await field('Target of Run · time').click()
+		await browser.keys(['ArrowUp', 'ArrowUp', 'ArrowUp', 'ArrowDown'])
+		await expect(field('Target of Run · time')).toHaveValue('2h10m')
+		await browser.keys(['Enter'])
+		content = await waitForChange(content)
+		assert.strictEqual(goalLines(content)[0], '      [goal::2h10m]')
 	})
 
 	it('edits an "at most" goal in number fields, its ring emptying', async function () {

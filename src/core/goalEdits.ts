@@ -1,4 +1,4 @@
-import type { Goal, GoalLine, MetricGoal } from 'types/goals'
+import type { Goal, GoalLine, MetricGoal, TimeGoal } from 'types/goals'
 import type { Task } from 'types/tasks'
 import { formatGoalMinutes, parseGoalDuration } from './goals'
 import { TaskNote } from './note'
@@ -247,6 +247,32 @@ export function timeTargetAfter(
 		minutes: applyChange(current.minutes, edit.change, 1) ?? current.minutes,
 		atMost: edit.atMost ?? current.atMost,
 	}
+}
+
+const TIME_STEP = 5
+
+/**
+ * A typed time target 5 minutes up or down, landing on a multiple of 5 and
+ * never under 5 minutes (a shorter one only goes up); `+n` / `-n` is
+ * applied to the goal's target first, and an unreadable value steps from it.
+ */
+export function stepTypedTimeTarget(
+	goal: TimeGoal,
+	typed: string,
+	direction: 1 | -1
+): string {
+	const edit = parseTypedTimeTargetEdit(typed)
+	const { minutes, atMost } =
+		'error' in edit ? goal : timeTargetAfter(goal, edit)
+	const snapped =
+		direction === 1
+			? Math.floor(minutes / TIME_STEP + 1) * TIME_STEP
+			: Math.ceil(minutes / TIME_STEP - 1) * TIME_STEP
+	const next =
+		minutes < TIME_STEP
+			? Math.max(minutes, snapped)
+			: Math.max(TIME_STEP, snapped)
+	return formatTargetField({ kind: 'time', minutes: next, atMost })
 }
 
 /** A new metric's target and unit typed together: `10 km`, `<3 cups`. */

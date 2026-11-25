@@ -44,6 +44,7 @@
 	import {
 		achievedField,
 		targetField,
+		stepTypedTimeTarget,
 		stepTypedValue,
 		typedFieldValue,
 		type GoalField,
@@ -556,7 +557,12 @@
 						commit(event, target, (file, value) =>
 							writeTarget(card, file, value)
 						)}
-					onkeydown={(event) => fieldKeys(event, target.value)}
+					onkeydown={(event) =>
+						fieldKeys(event, target.value, (typed, direction) =>
+							card.goal.kind === 'time'
+								? stepTypedTimeTarget(card.goal, typed, direction)
+								: typed
+						)}
 				/>
 			{/if}
 			{#if card.goal.kind === 'metric' && card.goal.unit}

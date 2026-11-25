@@ -17,6 +17,7 @@ import {
 	removeGoal,
 	setGoals,
 	stepAchieved,
+	stepTypedTimeTarget,
 	stepTypedValue,
 	timeTargetAfter,
 	updateGoal,
@@ -260,5 +261,21 @@ describe('stepping', () => {
 		expect(stepTypedValue(cards, 'target', '200', 1)).toBe('201')
 		expect(stepTypedValue(cards, 'target', '0', -1)).toBe('0')
 		expect(stepTypedValue(cards, 'target', '', 1)).toBe('1')
+	})
+
+	it('steps a typed time target by 5 minutes, onto a multiple of 5', () => {
+		const limit = { kind: 'time', minutes: 30, atMost: true } as const
+		const step = (typed: string, direction: 1 | -1) =>
+			stepTypedTimeTarget(limit, typed, direction)
+		expect(step('<1h', 1)).toBe('<1h5m')
+		expect(step('1h32m', 1)).toBe('1h35m')
+		expect(step('1h32m', -1)).toBe('1h30m')
+		// Without `<` typed, the goal's at most stays, as when written.
+		expect(step('+10m', 1)).toBe('<45m')
+		expect(step('abc', -1)).toBe('<25m')
+		// A full time typed without `<` is no longer at most.
+		expect(step('5m', -1)).toBe('5m')
+		expect(step('<3', -1)).toBe('<3m')
+		expect(step('<3', 1)).toBe('<5m')
 	})
 })
