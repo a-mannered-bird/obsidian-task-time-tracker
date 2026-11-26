@@ -944,10 +944,8 @@ describe('tracker tab', function () {
 
 		const modal = await modalTitled('When did it happen?')
 		await typeTime(modal, '00:05')
-		// Today too, the line under the fields gives the full date.
-		await expect(
-			modal.$(`p=Toggles on ${promptDay(0)} at 00:05`)
-		).toBeDisplayed()
+		// Today, the time field says it all: the line under it stays empty.
+		await expect(modal.$('.task-time-tracker-prompt-status')).toHaveText('')
 		await modal.$('button=OK').click()
 		await answerStartOfDay()
 

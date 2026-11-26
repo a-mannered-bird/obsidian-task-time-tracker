@@ -48,7 +48,7 @@ class TimePromptModal extends Modal {
 	private nowTimer: number | null = null
 	private minutesEl: HTMLInputElement | null = null
 	private timeEl: HTMLInputElement | null = null
-	/** Under the fields: the day when it is not the reference's, or the error. */
+	/** Under the fields: the day when it is not today, or the error. */
 	private statusEl: HTMLElement | null = null
 	/**
 	 * Opened on `initial` and not edited yet: an initial time that is no
@@ -247,7 +247,7 @@ class TimePromptModal extends Modal {
 			else this.setStatus(parsed.error, true)
 		} else
 			this.setStatus(
-				describeTypedTime(parsed.at, reference, this.request.verb),
+				describeTypedTime(parsed.at, new Date(), this.request.verb) ?? '',
 				false
 			)
 	}

@@ -262,15 +262,16 @@ export function minutesBefore(at: Date, reference: Date): number {
  * The full date and time a prompt's fields stand for, which the time field
  * alone cannot show, after the verb of what happens then:
  * `Stops on Thursday, November 13 at 00:30`, with the year when it is not
- * the reference's.
+ * this year. Null when it is today: the time field says it all.
  */
 export function describeTypedTime(
 	at: Date,
-	reference: Date,
+	today: Date,
 	verb: string
-): string {
+): string | null {
+	if (isSameDay(at, today)) return null
 	const format =
-		at.getFullYear() === reference.getFullYear()
+		at.getFullYear() === today.getFullYear()
 			? 'dddd, MMMM D'
 			: 'dddd, MMMM D, YYYY'
 	return `${verb} on ${moment(at).format(format)} at ${formatTimeOfDay(at)}`
