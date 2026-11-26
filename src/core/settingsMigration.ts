@@ -1,7 +1,7 @@
 import type { GoalSuggestionDismissal } from './goalCards'
 import { goalKeyId, type GoalKey } from './goalEdits'
 import type { GoalBadge, MetricSetting, MetricSettings } from './goalStyle'
-import { issueKeyNames } from './issues'
+import { issueKeyNames, metricIssueKeyNames } from './issues'
 import type { TagMapping } from 'types/tags'
 
 /**
@@ -239,12 +239,24 @@ function remapEntries<T>(
 /** The settings keyed by metric name. */
 export type MetricKeyedSettings = GoalKeySettings & {
 	metricSettings: MetricSettings
+	/** Dismissed warnings; the Metrics tab's naming a metric that goes are dropped. */
+	dismissedIssues: string[]
+}
+
+function dropMetricIssues(
+	dismissedIssues: string[],
+	metrics: string[]
+): string[] {
+	return dismissedIssues.filter(
+		(key) => !metricIssueKeyNames(key).some((name) => metrics.includes(name))
+	)
 }
 
 /**
  * Follow a metric rename or merge: the target's settings keep their fields
  * and fill their blanks from the sources' (the first source with one wins);
- * the goals' own settings move to the target metric, the target's winning.
+ * the goals' own settings move to the target metric, the target's winning;
+ * dismissed Metrics tab warnings naming a source are dropped.
  */
 export function migrateMetrics(
 	settings: MetricKeyedSettings,
@@ -261,6 +273,7 @@ export function migrateMetrics(
 	if (Object.keys(merged).length) metricSettings[targetMetric] = merged
 	return {
 		metricSettings,
+		dismissedIssues: dropMetricIssues(settings.dismissedIssues, sources),
 		...remapGoalKeys(settings, (key) =>
 			key.metric !== null && sources.includes(key.metric)
 				? { ...key, metric: targetMetric }
@@ -278,6 +291,7 @@ export function forgetMetrics(
 	for (const metric of metrics) delete metricSettings[metric]
 	return {
 		metricSettings,
+		dismissedIssues: dropMetricIssues(settings.dismissedIssues, metrics),
 		...remapGoalKeys(settings, (key) =>
 			key.metric !== null && metrics.includes(key.metric) ? null : key
 		),
@@ -293,6 +307,7 @@ export function migrateMetricUnit(
 ): MetricKeyedSettings {
 	return {
 		metricSettings: settings.metricSettings,
+		dismissedIssues: settings.dismissedIssues,
 		...remapGoalKeys(settings, (key) =>
 			key.metric === metric && fromUnits.includes(key.unit)
 				? { ...key, unit: toUnit }

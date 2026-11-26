@@ -19,6 +19,18 @@ export type TaskIssue =
 	| { kind: 'similar-name'; name: string; other: string }
 	/** Two tags a typo or a case apart; `name` is the tag (Tags tab only). */
 	| { kind: 'similar-tag'; name: string; other: string }
+	/** Two metrics a typo or a case apart; `name` is the metric (Metrics tab only). */
+	| { kind: 'similar-metric'; name: string; other: string }
+	/**
+	 * A metric written with several units, `name` being the metric (Metrics
+	 * tab only; unit-drift is the same warning on each task using it).
+	 */
+	| {
+			kind: 'metric-units'
+			name: string
+			/** Goal lines per unit, the most used first. */
+			units: { unit: string; count: number }[]
+	  }
 	/** A closed session far longer than the task's usual ones, or ≥ 16 h. */
 	| ({ kind: 'long-session'; name: string; minutes: number } & ClockRef)
 	/** The task's lines do not all carry the same tags. */
@@ -69,6 +81,8 @@ export const ISSUE_KINDS: IssueKind[] = [
 	'goal-syntax',
 	'unit-drift',
 	'similar-tag',
+	'similar-metric',
+	'metric-units',
 ]
 
 export const ISSUE_TITLES: Record<IssueKind, string> = {
@@ -81,6 +95,8 @@ export const ISSUE_TITLES: Record<IssueKind, string> = {
 	'goal-syntax': 'Goal line not understood',
 	'unit-drift': 'Metric written with several units',
 	'similar-tag': 'Tag close to another tag',
+	'similar-metric': 'Metric close to another metric',
+	'metric-units': 'Metric with several units',
 }
 
 /** What the user chose not to see again (see visibleIssues). */
@@ -99,7 +115,18 @@ export function issueKey(issue: TaskIssue): string {
 	switch (issue.kind) {
 		case 'similar-name':
 		case 'similar-tag':
+		case 'similar-metric':
 			return JSON.stringify([issue.kind, ...[issue.name, issue.other].sort()])
+		case 'metric-units':
+			// Without the counts, which change with every goal line written.
+			return JSON.stringify([
+				issue.kind,
+				issue.name,
+				issue.units
+					.map(({ unit }) => unit)
+					.sort()
+					.join('|'),
+			])
 		case 'tag-drift':
 			return JSON.stringify([
 				issue.kind,
@@ -154,22 +181,38 @@ function formatTime(date: Date): string {
 	return formatLocalDateTime(date).slice(11, 16)
 }
 
+const METRIC_ISSUE_KINDS: string[] = ['similar-metric', 'metric-units']
+
 /**
  * Task names or tags a dismissal key refers to (one, or both of a similar
- * pair).
+ * pair). Metric warnings name metrics, which may read like a task name, so
+ * they have their own (metricIssueKeyNames).
  */
 export function issueKeyNames(key: string): string[] {
+	const parsed = parseIssueKey(key)
+	return parsed && !METRIC_ISSUE_KINDS.includes(parsed.kind) ? parsed.names : []
+}
+
+/** The metrics a dismissal key of a Metrics tab warning refers to. */
+export function metricIssueKeyNames(key: string): string[] {
+	const parsed = parseIssueKey(key)
+	return parsed && METRIC_ISSUE_KINDS.includes(parsed.kind) ? parsed.names : []
+}
+
+function parseIssueKey(key: string): { kind: string; names: string[] } | null {
 	try {
 		const parts: unknown = JSON.parse(key)
 		if (!Array.isArray(parts) || !parts.every((p) => typeof p === 'string')) {
-			return []
+			return null
 		}
-		const strings = parts
-		return strings[0] === 'similar-name' || strings[0] === 'similar-tag'
-			? strings.slice(1, 3)
-			: strings.slice(1, 2)
+		const [kind = '', ...rest] = parts
+		const paired =
+			kind === 'similar-name' ||
+			kind === 'similar-tag' ||
+			kind === 'similar-metric'
+		return { kind, names: rest.slice(0, paired ? 2 : 1) }
 	} catch {
-		return []
+		return null
 	}
 }
 
@@ -223,6 +266,12 @@ export function describeIssue(issue: TaskIssue): string {
 			return `Name close to "${issue.other}"`
 		case 'similar-tag':
 			return `Tag close to ${issue.other}`
+		case 'similar-metric':
+			return `Metric close to "${issue.other}"`
+		case 'metric-units':
+			return `Units: ${issue.units
+				.map(({ unit, count }) => `${unitName(unit)} (${count})`)
+				.join(', ')}`
 		case 'long-session':
 			return `${formatHoursMinutes(issue.minutes)} session in ${noteName(issue.path)}`
 		case 'tag-drift':
@@ -238,8 +287,12 @@ export function describeIssue(issue: TaskIssue): string {
 		case 'goal-syntax':
 			return `Goal "${issue.text}" in ${noteName(issue.path)}: ${issue.problem}`
 		case 'unit-drift':
-			return `"${issue.metric}" written in ${issue.units.map((unit) => (unit ? unit : 'no unit')).join(', ')}`
+			return `"${issue.metric}" written in ${issue.units.map(unitName).join(', ')}`
 	}
+}
+
+function unitName(unit: string): string {
+	return unit || 'no unit'
 }
 
 function noteName(path: string): string {
@@ -283,6 +336,30 @@ export function detectTagIssues(tags: string[]): TaskIssue[] {
 			{ kind: 'similar-tag' as const, name: other, other: name },
 		]
 	)
+}
+
+/**
+ * Metrics a typo or a case apart, as names are, and metrics written with
+ * several units; the time goals have neither, so they are left out.
+ */
+export function detectMetricIssues(
+	metrics: { metric: string; units: { unit: string; count: number }[] }[]
+): TaskIssue[] {
+	const similar = similarPairs(
+		metrics.map(({ metric }) => metric),
+		normalizeName
+	).flatMap(([name, other]) => [
+		{ kind: 'similar-metric' as const, name, other },
+		{ kind: 'similar-metric' as const, name: other, other: name },
+	])
+	const drifting = metrics
+		.filter(({ units }) => units.length > 1)
+		.map(({ metric, units }) => ({
+			kind: 'metric-units' as const,
+			name: metric,
+			units,
+		}))
+	return [...similar, ...drifting]
 }
 
 function similarPairs(

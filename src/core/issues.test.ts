@@ -7,7 +7,9 @@ import {
 	explainOutsideDay,
 	issueKey,
 	issueKeyNames,
+	metricIssueKeyNames,
 	issuesByTask,
+	detectMetricIssues,
 	detectTagIssues,
 	similarNames,
 	visibleIssues,
@@ -48,6 +50,53 @@ describe('detectTagIssues', () => {
 			{ kind: 'similar-tag', name: '#Work', other: '#work' },
 		])
 		expect(detectTagIssues(['#job', '#jobs'])).toHaveLength(2)
+	})
+})
+
+describe('detectMetricIssues', () => {
+	it('flags metrics a typo apart and metrics with several units', () => {
+		const issues = detectMetricIssues([
+			{ metric: 'distance', units: [{ unit: 'km', count: 3 }] },
+			{ metric: 'Distnace', units: [] },
+			{
+				metric: 'pace',
+				units: [
+					{ unit: 'min/km', count: 12 },
+					{ unit: '', count: 1 },
+				],
+			},
+		])
+		expect(issues).toEqual([
+			{ kind: 'similar-metric', name: 'distance', other: 'Distnace' },
+			{ kind: 'similar-metric', name: 'Distnace', other: 'distance' },
+			{
+				kind: 'metric-units',
+				name: 'pace',
+				units: [
+					{ unit: 'min/km', count: 12 },
+					{ unit: '', count: 1 },
+				],
+			},
+		])
+		expect(describeIssue(issues[2]!)).toBe('Units: min/km (12), no unit (1)')
+	})
+
+	it('keys the units warning by its units, not their counts', () => {
+		const units = (count: number): TaskIssue => ({
+			kind: 'metric-units',
+			name: 'pace',
+			units: [
+				{ unit: 'min/km', count },
+				{ unit: 'min/mi', count: 1 },
+			],
+		})
+		expect(issueKey(units(3))).toBe(issueKey(units(4)))
+	})
+
+	it('names metrics apart from task names in dismissal keys', () => {
+		const key = issueKey({ kind: 'similar-metric', name: 'km', other: 'kms' })
+		expect(metricIssueKeyNames(key)).toEqual(['km', 'kms'])
+		expect(issueKeyNames(key)).toEqual([])
 	})
 })
 

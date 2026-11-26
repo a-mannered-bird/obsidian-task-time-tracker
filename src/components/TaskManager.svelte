@@ -164,6 +164,8 @@
 		'goal-syntax': 'target',
 		'unit-drift': 'ruler',
 		'similar-tag': 'spell-check',
+		'similar-metric': 'spell-check',
+		'metric-units': 'ruler',
 	}
 
 	async function dismiss(keys: string[], kind?: IssueKind) {
@@ -225,7 +227,9 @@
 						})
 						break
 					case 'similar-tag':
-						// Raised on the Tags tab only.
+					case 'similar-metric':
+					case 'metric-units':
+						// Raised on the Tags and Metrics tabs only.
 						break
 					default:
 						item.onClick(() => void goTo(issue.path, issue.lineIndex))

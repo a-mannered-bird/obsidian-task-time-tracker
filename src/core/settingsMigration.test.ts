@@ -219,6 +219,12 @@ describe('forgetTag', () => {
 })
 
 const metricSettings: MetricKeyedSettings = {
+	dismissedIssues: [
+		'["similar-metric","dist","distance"]',
+		'["metric-units","km","km|mi"]',
+		// A task named like a metric: not a metric warning, so it stays.
+		'["tag-drift","km","#run"]',
+	],
 	metricSettings: {
 		distance: { color: '#00ff00' },
 		km: { emoji: '🏃', color: '#ff0000' },
@@ -266,6 +272,7 @@ describe('migrateMetrics', () => {
 		expect(migrated.dismissedGoalSuggestions).toEqual([
 			{ day: '2026-08-03', taskName: 'Run', metric: 'distance', unit: 'km' },
 		])
+		expect(migrated.dismissedIssues).toEqual(['["tag-drift","km","#run"]'])
 	})
 })
 
