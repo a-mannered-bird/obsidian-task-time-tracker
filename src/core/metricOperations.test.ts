@@ -7,6 +7,7 @@ import {
 	editMetricsInVault,
 	metricNameProblem,
 	previewMetricEdit,
+	unitProblem,
 	type MetricOperation,
 } from './metricOperations'
 import { VaultTaskIndex } from './vaultTaskIndex'
@@ -159,6 +160,20 @@ describe('metricNameProblem', () => {
 	it('refuses an empty name, the time goals’ name and what a line cannot hold', () => {
 		for (const name of [' ', 'time', 'a:b', 'km/h', 'a]', 'b<']) {
 			expect(metricNameProblem(name)).not.toBeNull()
+		}
+	})
+})
+
+describe('unitProblem', () => {
+	it('accepts the units a goal line reads back, none included', () => {
+		for (const unit of ['km', 'min/km', 'pages read', '']) {
+			expect(unitProblem(unit)).toBeNull()
+		}
+	})
+
+	it('refuses units the parser would read as values', () => {
+		for (const unit of ['5k', '/h', '<kg', 'a]']) {
+			expect(unitProblem(unit)).not.toBeNull()
 		}
 	})
 })

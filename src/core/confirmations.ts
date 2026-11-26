@@ -1,3 +1,4 @@
+import type { MetricEditPreview } from './metricOperations'
 import type { TagEditPreview } from './tagOperations'
 import type { TagChange } from './taskEdits'
 import type {
@@ -126,6 +127,72 @@ export function describeTagDeletion(
 	preview: TagEditPreview
 ): string {
 	return `Remove ${tags.join(', ')} from ${plural(preview.taskLines, 'task line')} and delete ${plural(preview.goals, 'tag goal')} across ${plural(preview.notes, 'daily note')}. The tasks stay, and so do their other tags.`
+}
+
+/**
+ * Preview paragraphs of a metric rename (one source onto a new metric) or
+ * merge (several, or onto a metric that exists). A null target stands for
+ * "the metric chosen in the dialog".
+ */
+export function describeMetricConsolidation(
+	sourceMetrics: string[],
+	targetMetric: string | null,
+	preview: MetricEditPreview,
+	targetExists: boolean
+): string[] {
+	const target =
+		targetMetric === null ? 'the surviving metric' : quote(targetMetric)
+	const scope = goalLineScope(preview)
+	return [
+		sourceMetrics.length === 1 && !targetExists
+			? `Rename ${quote(sourceMetrics[0]!)} to ${target} on ${scope}.`
+			: `Merge ${sourceMetrics.map(quote).join(', ')} into ${target} on ${scope}. Units are never converted.`,
+		...combinedGoals(preview, "the surviving metric's rule"),
+	]
+}
+
+/**
+ * Preview paragraph of a metric deletion; one no goal line uses only
+ * loses its settings.
+ */
+export function describeMetricDeletion(
+	metrics: string[],
+	preview: MetricEditPreview
+): string {
+	const names = metrics.map(quote).join(', ')
+	return preview.goalLines === 0
+		? `No goal line uses ${names}: only ${metrics.length === 1 ? 'its' : 'their'} settings are deleted.`
+		: `Delete ${plural(preview.goalLines, 'goal line')} of ${names} across ${plural(preview.notes, 'daily note')}, results included, along with ${metrics.length === 1 ? 'its' : 'their'} settings. The tasks stay, and so do their other goals.`
+}
+
+/** Preview paragraphs of a unit change: the text only, never the values. */
+export function describeUnitChange(
+	metric: string,
+	fromUnits: string[],
+	toUnit: string,
+	preview: MetricEditPreview
+): string[] {
+	const from = fromUnits.map(unitName).join(', ')
+	return [
+		`Change the unit of ${quote(metric)} from ${from} to ${unitName(toUnit)} on ${goalLineScope(preview)}. Values are not converted.`,
+		...combinedGoals(preview, `the rule of ${quote(metric)}`),
+	]
+}
+
+function goalLineScope(preview: MetricEditPreview): string {
+	return `${plural(preview.goalLines, 'goal line')} across ${plural(preview.notes, 'daily note')}`
+}
+
+function combinedGoals(preview: MetricEditPreview, rule: string): string[] {
+	return preview.combinedGoalLines > 0
+		? [
+				`${plural(preview.combinedGoalLines, 'goal')} will be combined on ${plural(preview.notesCombiningGoals, 'day')}: on a task line, results and targets in the same unit combine with ${rule}.`,
+			]
+		: []
+}
+
+function unitName(unit: string): string {
+	return unit || 'no unit'
 }
 
 /** Quoted names, the tail folded into a count past a handful. */

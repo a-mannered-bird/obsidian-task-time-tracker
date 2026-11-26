@@ -50,7 +50,6 @@ import {
 	DONE_BADGE_CHOICES,
 	goalEmoji,
 	ownGoalBadge,
-	withMetricSetting,
 	type DoneBadgeChoice,
 } from 'core/goalStyle'
 import { TaskNote } from 'core/note'
@@ -64,6 +63,7 @@ import { promptText, type PromptCheckbox } from 'ui/TextPromptModal'
 import { showNotice } from 'ui/notice'
 import { showUndoNotice } from 'ui/undoNotice'
 import type TaskTimeTracker from '../main'
+import { chooseMetricEmoji } from './metricActions'
 import { currentTarget, noteIo, readTaskNote, targetIo } from './target'
 import { wrote } from './timelineEdits'
 import { chooseTagEmoji } from './tagActions'
@@ -383,26 +383,9 @@ export async function chooseGoalEmoji(
 	plugin: TaskTimeTracker,
 	card: Pick<GoalCard, 'goal' | 'tag'>
 ): Promise<boolean> {
-	const { settings } = plugin
 	const { goal, tag } = card
 	if (tag !== null) return chooseTagEmoji(plugin, tag, goalEmoji(goal, {}))
-	const metric = goalLabel(goal)
-	const typed = await promptText(plugin.app, {
-		title: `Emoji of ${metric}`,
-		description:
-			goal.kind === 'time'
-				? 'Shown on every time goal. Empty for the default.'
-				: `Shown on every ${metric} goal and its tracker bars. Empty for the default.`,
-		label: 'Emoji',
-		initialValue: settings.metricSettings[metric]?.emoji ?? '',
-		placeholder: goalEmoji(goal, {}),
-	})
-	if (typed === null) return false
-	settings.metricSettings = withMetricSetting(settings.metricSettings, metric, {
-		emoji: typed.trim() || undefined,
-	})
-	await plugin.saveSettings()
-	return true
+	return chooseMetricEmoji(plugin, goalLabel(goal))
 }
 
 /** Set the goal's own done badge; null goes back to the "Done badge" setting. */

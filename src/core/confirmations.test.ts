@@ -5,7 +5,10 @@ import {
 	describeDeletion,
 	describeNoteTaskRemoval,
 	describeRetag,
+	describeMetricConsolidation,
+	describeMetricDeletion,
 	describeTagConsolidation,
+	describeUnitChange,
 	listNames,
 	referenceWarnings,
 } from './confirmations'
@@ -51,6 +54,58 @@ describe('describeTagConsolidation', () => {
 		).toEqual([
 			'Merge #a, #b into the surviving tag on 4 task lines and 1 tag goal across 3 daily notes. A line carrying several of them keeps the tag once.',
 			"Tag goals meet on 2 days: targets of the same kind add up, otherwise the surviving tag's goal is kept.",
+		])
+	})
+})
+
+describe('metric confirmations', () => {
+	const preview = {
+		notes: 9,
+		goalLines: 14,
+		combinedGoalLines: 0,
+		notesCombiningGoals: 0,
+	}
+
+	it('calls a rename onto an existing metric a merge', () => {
+		expect(
+			describeMetricConsolidation(['distnce'], 'distance', preview, false)
+		).toEqual([
+			'Rename "distnce" to "distance" on 14 goal lines across 9 daily notes.',
+		])
+		expect(
+			describeMetricConsolidation(['km'], 'distance', preview, true)[0]
+		).toMatch(/^Merge "km" into "distance"/)
+	})
+
+	it('says how many goals combine, and on how many days', () => {
+		const combining = {
+			...preview,
+			combinedGoalLines: 3,
+			notesCombiningGoals: 2,
+		}
+		expect(
+			describeMetricConsolidation(['km', 'dist'], null, combining, true)[1]
+		).toMatch(/^3 goals will be combined on 2 days/)
+		expect(
+			describeUnitChange('laps', ['lengths'], 'laps', combining)
+		).toHaveLength(2)
+	})
+
+	it('only deletes the settings of a metric no goal line uses', () => {
+		const unused = { ...preview, notes: 0, goalLines: 0 }
+		expect(describeMetricDeletion(['steps'], unused)).toBe(
+			'No goal line uses "steps": only its settings are deleted.'
+		)
+		expect(describeMetricDeletion(['km'], preview)).toMatch(
+			/^Delete 14 goal lines of "km" across 9 daily notes, results included/
+		)
+	})
+
+	it('names a missing unit and never promises a conversion', () => {
+		expect(
+			describeUnitChange('pace', ['', 'mn/km'], 'min/km', preview)
+		).toEqual([
+			'Change the unit of "pace" from no unit, mn/km to min/km on 14 goal lines across 9 daily notes. Values are not converted.',
 		])
 	})
 })

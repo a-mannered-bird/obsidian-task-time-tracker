@@ -86,6 +86,32 @@ export function metricNameProblem(name: string): string | null {
 		: problem
 }
 
+/**
+ * Why the text cannot be a goal line's unit, or null when it can (empty
+ * included: no unit): it must read back as the same unit.
+ */
+export function unitProblem(unit: string): string | null {
+	const trimmed = unit.trim()
+	const problem =
+		'A unit cannot start with a digit, a slash or <, nor hold brackets'
+	if (/[[\]]/.test(trimmed)) return problem
+	const sample: Goal = {
+		kind: 'metric',
+		metric: 'm',
+		achieved: 1,
+		target: 2,
+		atMost: false,
+		unit: trimmed,
+		decimalComma: false,
+	}
+	const parsed = parseGoal(formatGoal(sample))
+	return 'goal' in parsed &&
+		parsed.goal.kind === 'metric' &&
+		parsed.goal.unit === trimmed
+		? null
+		: problem
+}
+
 /** The note with the operation applied to every task's goal lines. */
 export function editMetricsInNote(
 	content: string,
