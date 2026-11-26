@@ -2,7 +2,7 @@ import { moment } from 'obsidian'
 import type { Task } from 'types/tasks'
 import { addDays, isSameDay } from './dailyNotes'
 import { describeDay } from './overnight'
-import { addMinutes } from './time'
+import { addMinutes, toEpochMinute } from './time'
 import { formatTimeOfDay } from './timeline'
 
 /** A time the user typed, placed on a date, or why it cannot be. */
@@ -74,8 +74,9 @@ export function parseStartTime(
  * When a tracking command toggles, typed: a time of day on `day` (the
  * reference's by default), or minutes before the reference (negative
  * minutes after it). When the toggle closes clocks, it must come after
- * `after`, the latest of their starts: a time of day that does not moves
- * to the next day (work past midnight). A toggle may be in the future.
+ * `after`, the latest of their starts: a time of day before it moves to
+ * the next day (work past midnight), one in its minute is refused. A
+ * toggle may be in the future.
  */
 export function parseToggleTime(
 	text: string,
@@ -114,6 +115,12 @@ export function parseToggleTime(
 		return { at }
 	}
 	const at = onDay(typed, day)
+	// The start's own minute would otherwise read as a full day later.
+	if (after && !touching && toEpochMinute(at) === toEpochMinute(after)) {
+		return {
+			error: `That is not after ${afterWhat}, ${formatTimeOfDay(after)}.`,
+		}
+	}
 	return { at: after && tooEarly(at, after) ? addDays(at, 1) : at }
 }
 

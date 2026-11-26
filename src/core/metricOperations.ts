@@ -1,4 +1,4 @@
-import type { Goal, GoalLine } from 'types/goals'
+import type { Goal, GoalLine, MetricGoal } from 'types/goals'
 import type { Task } from 'types/tasks'
 import {
 	runBulkEdit,
@@ -33,7 +33,11 @@ export type MetricOperation =
 			metric: string
 			fromUnits: string[]
 			toUnit: string
+			/** Combines the lines the change leaves in the same unit. */
+			ruleOf: AggregationRuleOf
 	  }
+
+type MetricGoalLine = Extract<GoalLine, { kind: 'metric' }>
 
 /** One goal line rewritten, or removed (`goal` null). */
 type GoalLineEdit = { lineIndex: number; goal: Goal | null }
@@ -123,8 +127,19 @@ export function editMetricsInNote(
 
 function planTask(task: Task, operation: MetricOperation): TaskPlan {
 	switch (operation.kind) {
-		case 'consolidate':
-			return planConsolidation(task.goals, operation)
+		case 'consolidate': {
+			const { sources, target, ruleOf } = operation
+			return planFold(
+				task.goals,
+				(goal) =>
+					goal.metric === target || sources.includes(goal.metric)
+						? goal.metric
+						: null,
+				target,
+				(goal) => ({ ...goal, metric: target }),
+				ruleOf
+			)
+		}
 		case 'delete': {
 			const metrics = new Set(operation.metrics)
 			return {
@@ -135,57 +150,60 @@ function planTask(task: Task, operation: MetricOperation): TaskPlan {
 			}
 		}
 		case 'changeUnit': {
-			const { metric, fromUnits, toUnit } = operation
-			return {
-				edits: task.goals.flatMap((goal) =>
-					goal.kind === 'metric' &&
+			const { metric, fromUnits, toUnit, ruleOf } = operation
+			return planFold(
+				task.goals,
+				(goal) =>
 					goal.metric === metric &&
-					goal.unit !== toUnit &&
-					fromUnits.includes(goal.unit)
-						? [{ lineIndex: goal.lineIndex, goal: { ...goal, unit: toUnit } }]
-						: []
-				),
-				combinedGoalLines: 0,
-			}
+					(goal.unit === toUnit || fromUnits.includes(goal.unit))
+						? goal.unit
+						: null,
+				toUnit,
+				(goal) => ({ ...goal, unit: toUnit }),
+				ruleOf
+			)
 		}
 	}
 }
 
 /**
- * The task's goal lines of the sources renamed to the target. Where the
- * task line holds several of the metrics in the same unit, they combine as a
- * task merge combines them, with the target's rule: the target's own line
- * survives in place, else the first in the note; the others are removed.
+ * The task's metric goal lines in a group other than `survivor` (a metric
+ * for a rename or merge, a unit for a unit change) rewritten by `transform`.
+ * Lines that end up with the same metric and unit combine as a task merge
+ * combines them, with `ruleOf`: the survivor group's line stays in place,
+ * else the first in the note, and the others are removed. Two lines of the
+ * same group were left apart until now, so they stay apart.
  */
-function planConsolidation(
+function planFold(
 	goals: GoalLine[],
-	{ sources, target, ruleOf }: Extract<MetricOperation, { kind: 'consolidate' }>
+	groupOf: (goal: MetricGoal) => string | null,
+	survivor: string,
+	transform: (goal: MetricGoalLine) => MetricGoal,
+	ruleOf: AggregationRuleOf
 ): TaskPlan {
-	const involved = (metric: string) =>
-		metric === target || sources.includes(metric)
-	const byMetric = new Map<string, GoalLine[]>()
+	const byGroup = new Map<string, MetricGoalLine[]>()
 	for (const goal of goals) {
-		if (goal.kind !== 'metric' || !involved(goal.metric)) continue
-		byMetric.set(goal.metric, [...(byMetric.get(goal.metric) ?? []), goal])
+		if (goal.kind !== 'metric') continue
+		const group = groupOf(goal)
+		if (group === null) continue
+		byGroup.set(group, [...(byGroup.get(group) ?? []), goal])
 	}
-	if (![...byMetric.keys()].some((metric) => metric !== target)) {
+	if (![...byGroup.keys()].some((group) => group !== survivor)) {
 		return { edits: [], combinedGoalLines: 0 }
 	}
-	// One group per metric, as one per task line in a task merge, so two
-	// lines of the same metric (left apart until now) stay apart.
 	const groups = [
-		byMetric.get(target) ?? [],
-		...[...byMetric]
-			.filter(([metric]) => metric !== target)
+		byGroup.get(survivor) ?? [],
+		...[...byGroup]
+			.filter(([group]) => group !== survivor)
 			.map(([, lines]) => lines),
 	]
-	const plan = planGoalMerge(groups, 0, (line) => renamed(line, target), ruleOf)
+	const plan = planGoalMerge<MetricGoalLine>(groups, 0, transform, ruleOf)
 	const edits = plan.flatMap((output): GoalLineEdit[] => {
 		if (output.kind === 'keep') {
 			const { item } = output
-			return item.kind === 'metric' && item.metric !== target
-				? [{ lineIndex: item.lineIndex, goal: renamed(item, target) }]
-				: []
+			return groupOf(item) === survivor
+				? []
+				: [{ lineIndex: item.lineIndex, goal: transform(item) }]
 		}
 		const [first, ...rest] = output.items
 		return [
@@ -194,10 +212,6 @@ function planConsolidation(
 		]
 	})
 	return { edits, combinedGoalLines: countCombinedGoalLines(plan) }
-}
-
-function renamed(goal: GoalLine, metric: string): Goal {
-	return goal.kind === 'metric' ? { ...goal, metric } : goal
 }
 
 /** What an operation touches, from the index alone. */

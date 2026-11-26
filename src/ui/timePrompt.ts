@@ -16,6 +16,8 @@ type Request = TimeRequest & {
 	 * now mean nothing, as on a day that is over.
 	 */
 	timeOnly?: Date
+	/** The time both fields open on, instead of the reference. */
+	initial?: Date
 }
 
 /** Shift-clicking a stepper moves by this many minutes. */
@@ -47,6 +49,11 @@ class TimePromptModal extends Modal {
 	private timeEl: HTMLInputElement | null = null
 	/** Under the fields: the day when it is not the reference's, or the error. */
 	private statusEl: HTMLElement | null = null
+	/**
+	 * Opened on `initial` and not edited yet: an initial time that is no
+	 * answer (a stop at the clock's start) is a starting point, not an error.
+	 */
+	private pristine: boolean
 
 	constructor(
 		app: App,
@@ -54,6 +61,7 @@ class TimePromptModal extends Modal {
 		private resolve: (at: Date | null) => void
 	) {
 		super(app)
+		this.pristine = Boolean(request.initial)
 	}
 
 	onOpen(): void {
@@ -82,8 +90,13 @@ class TimePromptModal extends Modal {
 				.createDiv({ cls: 'task-time-tracker-time-or' })
 				.createSpan({ text: 'or' })
 			this.timeEl = this.buildTime(
-				options.createDiv({ cls: 'task-time-tracker-time-option' })
+				options.createDiv({ cls: 'task-time-tracker-time-option' }),
+				request.initial
 			)
+			if (request.initial) {
+				// Held as a time of day, so the minutes follow now and the time stays.
+				this.timeTyped(this.timeEl.value)
+			}
 		}
 
 		this.statusEl = contentEl.createEl('p', {
@@ -131,6 +144,7 @@ class TimePromptModal extends Modal {
 				const current = parseInt(input.value, 10)
 				const by = event.shiftKey ? BIG_STEP : 1
 				input.value = String((isNaN(current) ? 0 : current) + sign * by)
+				this.pristine = false
 				this.minutesTyped(input.value)
 			},
 		})
@@ -141,7 +155,10 @@ class TimePromptModal extends Modal {
 			text: 'Negative is in the future',
 		})
 
-		input.addEventListener('input', () => this.minutesTyped(input.value))
+		input.addEventListener('input', () => {
+			this.pristine = false
+			this.minutesTyped(input.value)
+		})
 		this.submitOnEnter(input)
 		return input
 	}
@@ -156,7 +173,10 @@ class TimePromptModal extends Modal {
 			attr: { type: 'time', 'aria-label': 'Time' },
 		})
 		input.value = formatTimeOfDay(initial)
-		input.addEventListener('input', () => this.timeTyped(input.value))
+		input.addEventListener('input', () => {
+			this.pristine = false
+			this.timeTyped(input.value)
+		})
 		this.submitOnEnter(input)
 		return input
 	}
@@ -213,8 +233,10 @@ class TimePromptModal extends Modal {
 		}
 		const reference = this.reference()
 		const parsed = this.request.parse(this.typed, reference)
-		if ('error' in parsed) this.setStatus(parsed.error, true)
-		else
+		if ('error' in parsed) {
+			if (this.pristine) this.setStatus('', false)
+			else this.setStatus(parsed.error, true)
+		} else
 			this.setStatus(
 				describeTypedTime(parsed.at, reference, this.request.verb),
 				false

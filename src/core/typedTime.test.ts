@@ -35,6 +35,13 @@ describe('parseEndTime', () => {
 		})
 	})
 
+	it("refuses the start's own minute rather than a day later", () => {
+		const started = new Date(2026, 10, 11, 22, 40, 17)
+		expect(parseEndTime('22:40', started, now)).toEqual({
+			error: 'That is not after the start, 22:40.',
+		})
+	})
+
 	it('accepts a time still to come, as the tracking commands do', () => {
 		expect(parseEndTime('9:00', start, now)).toEqual({
 			at: new Date(2026, 10, 12, 9, 0),

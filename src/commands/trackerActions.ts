@@ -241,6 +241,7 @@ export async function setStop(
 		description: describeStart(start, new Date()),
 		verb: 'Stops',
 		parse: (text, now) => parseEndTime(text, start, now),
+		initial: start,
 		confirmText: 'Stop',
 	})
 	if (!at) return

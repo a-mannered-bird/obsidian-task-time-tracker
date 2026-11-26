@@ -695,6 +695,8 @@ describe('tracker tab', function () {
 
 		await button('Stop Chores at…').click()
 		const modal = await modalTitled('When does "Chores" stop?')
+		// It opens on the clock's start, to count on from there.
+		await expect(timeField(modal)).toHaveValue('00:00')
 		await typeTime(modal, '00:10')
 		await modal.$('button=Stop').click()
 
