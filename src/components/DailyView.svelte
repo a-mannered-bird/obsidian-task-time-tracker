@@ -35,7 +35,7 @@
 	import { showCrossingNotices } from 'ui/goalNotices'
 	import { icon } from 'ui/icon'
 	import { instantTooltip } from 'ui/tooltip'
-	import { openTaskManager } from 'ui/TaskManagerModal'
+	import { openTagManager, openTaskManager } from 'ui/TaskManagerModal'
 	import GoalsTab from './GoalsTab.svelte'
 	import TimelineTab from './TimelineTab.svelte'
 	import TrackerTab from './TrackerTab.svelte'
@@ -177,6 +177,12 @@
 				.setTitle(titleWithShortcut(plugin, 'Manage tasks', 'manageTasks'))
 				.setIcon('list-todo')
 				.onClick(() => openTaskManager(plugin))
+		)
+		menu.addItem((item) =>
+			item
+				.setTitle(titleWithShortcut(plugin, 'Manage tags', 'manageTags'))
+				.setIcon('tags')
+				.onClick(() => openTagManager(plugin))
 		)
 		menu.showAtMouseEvent(event)
 	}

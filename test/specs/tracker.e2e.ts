@@ -1399,4 +1399,18 @@ describe('tracker tab', function () {
 		await expect(rows.$('.name=Email')).toBeDisplayed()
 		await expect(rows.$('.name=Emails')).toBeDisplayed()
 	})
+
+	it('opens the tag manager from the view menu', async function () {
+		await writeToday(['- [ ] Email #work'])
+		await openTracker()
+
+		await button('More actions').click()
+		const item = browser.$('.menu-item-title*=Manage tags')
+		await expect(item).toBeDisplayed()
+		await item.click()
+		const modal = await modalTitled('Manage tasks and tags')
+		await expect(modal.$('[role="tab"][aria-selected="true"]')).toHaveText(
+			'Tags'
+		)
+	})
 })
