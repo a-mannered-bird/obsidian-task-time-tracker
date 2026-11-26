@@ -1,9 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import {
+	forgetMetrics,
 	forgetTag,
 	forgetTaskName,
+	migrateMetrics,
+	migrateMetricUnit,
 	migrateTags,
 	migrateTaskNames,
+	type MetricKeyedSettings,
 	type NameKeyedSettings,
 	type TagKeyedSettings,
 } from './settingsMigration'
@@ -211,5 +215,80 @@ describe('forgetTag', () => {
 				{ key: { taskName: '#work', metric: null, unit: '' }, badge: 'flame' },
 			],
 		})
+	})
+})
+
+const metricSettings: MetricKeyedSettings = {
+	metricSettings: {
+		distance: { color: '#00ff00' },
+		km: { emoji: '🏃', color: '#ff0000' },
+		dist: { rule: 'max', emoji: '🚲' },
+	},
+	dismissedGoalSuggestions: [
+		{ day: '2026-08-03', taskName: 'Run', metric: 'km', unit: 'km' },
+	],
+	streakSkipsMissingDays: [{ taskName: 'Run', metric: 'km', unit: 'mi' }],
+	hiddenGoalBars: [
+		{ taskName: 'Run', metric: 'km', unit: 'km' },
+		{ taskName: 'Run', metric: 'distance', unit: 'km' },
+	],
+	goalBadges: [
+		{ key: { taskName: 'Run', metric: 'km', unit: 'km' }, badge: 'tick' },
+		{ key: { taskName: 'Run', metric: 'distance', unit: 'km' }, badge: 'star' },
+		{ key: { taskName: 'Bike', metric: 'km', unit: 'km' }, badge: 'flame' },
+	],
+}
+
+describe('migrateMetrics', () => {
+	it('fills the target metric from the sources and moves the goal settings', () => {
+		const migrated = migrateMetrics(metricSettings, ['km', 'dist'], 'distance')
+		// The target's color stays; the emoji comes from the first source.
+		expect(migrated.metricSettings).toEqual({
+			distance: { color: '#00ff00', emoji: '🏃', rule: 'max' },
+		})
+		// Run's distance goal already had a badge and a hidden bar: they win.
+		expect(migrated.goalBadges).toEqual([
+			{
+				key: { taskName: 'Run', metric: 'distance', unit: 'km' },
+				badge: 'star',
+			},
+			{
+				key: { taskName: 'Bike', metric: 'distance', unit: 'km' },
+				badge: 'flame',
+			},
+		])
+		expect(migrated.hiddenGoalBars).toEqual([
+			{ taskName: 'Run', metric: 'distance', unit: 'km' },
+		])
+		expect(migrated.streakSkipsMissingDays).toEqual([
+			{ taskName: 'Run', metric: 'distance', unit: 'mi' },
+		])
+		expect(migrated.dismissedGoalSuggestions).toEqual([
+			{ day: '2026-08-03', taskName: 'Run', metric: 'distance', unit: 'km' },
+		])
+	})
+})
+
+describe('forgetMetrics', () => {
+	it("drops the metrics' settings and their goals' settings", () => {
+		const forgotten = forgetMetrics(metricSettings, ['km'])
+		expect(Object.keys(forgotten.metricSettings)).toEqual(['distance', 'dist'])
+		expect(forgotten.goalBadges).toEqual([
+			{
+				key: { taskName: 'Run', metric: 'distance', unit: 'km' },
+				badge: 'star',
+			},
+		])
+		expect(forgotten.streakSkipsMissingDays).toEqual([])
+	})
+})
+
+describe('migrateMetricUnit', () => {
+	it('moves the goal settings of the changed units only', () => {
+		const migrated = migrateMetricUnit(metricSettings, 'km', ['mi'], 'km')
+		expect(migrated.streakSkipsMissingDays).toEqual([
+			{ taskName: 'Run', metric: 'km', unit: 'km' },
+		])
+		expect(migrated.goalBadges).toEqual(metricSettings.goalBadges)
 	})
 })

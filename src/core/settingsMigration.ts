@@ -1,6 +1,6 @@
 import type { GoalSuggestionDismissal } from './goalCards'
 import { goalKeyId, type GoalKey } from './goalEdits'
-import type { GoalBadge } from './goalStyle'
+import type { GoalBadge, MetricSetting, MetricSettings } from './goalStyle'
 import { issueKeyNames } from './issues'
 import type { TagMapping } from 'types/tags'
 
@@ -143,16 +143,9 @@ function moveGoalKeyed(
 		dismissedIssues: settings.dismissedIssues.filter(
 			(key) => !issueKeyNames(key).some(isSource)
 		),
-		dismissedGoalSuggestions: settings.dismissedGoalSuggestions.map((entry) =>
-			isSource(entry.taskName) ? { ...entry, taskName: targetName } : entry
+		...remapGoalKeys(settings, (key) =>
+			isSource(key.taskName) ? { ...key, taskName: targetName } : key
 		),
-		streakSkipsMissingDays: moveKeys(
-			settings.streakSkipsMissingDays,
-			isSource,
-			targetName
-		),
-		hiddenGoalBars: moveKeys(settings.hiddenGoalBars, isSource, targetName),
-		goalBadges: migrateGoalBadges(settings.goalBadges, isSource, targetName),
 	}
 }
 
@@ -164,53 +157,148 @@ function forgetGoalKeyed(
 		dismissedIssues: settings.dismissedIssues.filter(
 			(key) => !issueKeyNames(key).includes(name)
 		),
-		dismissedGoalSuggestions: settings.dismissedGoalSuggestions.filter(
-			(entry) => entry.taskName !== name
+		...remapGoalKeys(settings, (key) => (key.taskName === name ? null : key)),
+	}
+}
+
+/** The settings keyed by a goal (task or tag, metric and unit). */
+type GoalKeySettings = Omit<GoalKeyedSettings, 'dismissedIssues'>
+
+/**
+ * Each entry's key through `remap`: the same key keeps the entry, a new one
+ * moves it, null drops it. An entry moved onto a key an untouched entry
+ * holds gives way to it, and among moved ones the first wins, so a
+ * target's own settings always survive a migration.
+ */
+function remapGoalKeys(
+	settings: GoalKeySettings,
+	remap: (key: GoalKey) => GoalKey | null
+): GoalKeySettings {
+	const byKey = <T extends GoalKey>(entry: T, key: GoalKey): T => ({
+		...entry,
+		...key,
+	})
+	return {
+		dismissedGoalSuggestions: remapEntries(
+			settings.dismissedGoalSuggestions,
+			(entry) => entry,
+			byKey,
+			(entry) => `${entry.day}\n${goalKeyId(entry)}`,
+			remap
 		),
-		streakSkipsMissingDays: settings.streakSkipsMissingDays.filter(
-			(key) => key.taskName !== name
+		streakSkipsMissingDays: remapEntries(
+			settings.streakSkipsMissingDays,
+			(key) => key,
+			byKey,
+			goalKeyId,
+			remap
 		),
-		hiddenGoalBars: settings.hiddenGoalBars.filter(
-			(key) => key.taskName !== name
+		hiddenGoalBars: remapEntries(
+			settings.hiddenGoalBars,
+			(key) => key,
+			byKey,
+			goalKeyId,
+			remap
 		),
-		goalBadges: settings.goalBadges.filter(
-			(entry) => entry.key.taskName !== name
+		goalBadges: remapEntries(
+			settings.goalBadges,
+			(entry) => entry.key,
+			(entry, key) => ({ ...entry, key }),
+			(entry) => goalKeyId(entry.key),
+			remap
 		),
 	}
 }
 
-function migrateGoalBadges(
-	goalBadges: GoalBadge[],
-	isSource: (name: string) => boolean,
-	targetName: string
-): GoalBadge[] {
-	const targets = new Set(
-		goalBadges
-			.filter((entry) => entry.key.taskName === targetName)
-			.map((entry) => goalKeyId(entry.key))
+function remapEntries<T>(
+	entries: T[],
+	keyOf: (entry: T) => GoalKey,
+	withKey: (entry: T, key: GoalKey) => T,
+	idOf: (entry: T) => string,
+	remap: (key: GoalKey) => GoalKey | null
+): T[] {
+	const remapped = entries.flatMap((entry) => {
+		const key = keyOf(entry)
+		const next = remap(key)
+		if (next === null) return []
+		const moved = goalKeyId(next) !== goalKeyId(key)
+		return [{ entry: moved ? withKey(entry, next) : entry, moved }]
+	})
+	const held = new Set(
+		remapped.filter(({ moved }) => !moved).map(({ entry }) => idOf(entry))
 	)
-	const kept = new Map<string, GoalBadge>()
-	for (const entry of goalBadges) {
-		if (!isSource(entry.key.taskName)) {
-			kept.set(goalKeyId(entry.key), entry)
-			continue
-		}
-		const key = { ...entry.key, taskName: targetName }
-		const id = goalKeyId(key)
-		if (!targets.has(id) && !kept.has(id)) kept.set(id, { ...entry, key })
-	}
-	return [...kept.values()]
+	const placed = new Set<string>()
+	return remapped.flatMap(({ entry, moved }) => {
+		const id = idOf(entry)
+		if (moved ? held.has(id) || placed.has(id) : placed.has(id)) return []
+		placed.add(id)
+		return [entry]
+	})
 }
 
-function moveKeys(
-	keys: GoalKey[],
-	isSource: (name: string) => boolean,
-	targetName: string
-): GoalKey[] {
-	const moved = keys.map((key) =>
-		isSource(key.taskName) ? { ...key, taskName: targetName } : key
+/** The settings keyed by metric name. */
+export type MetricKeyedSettings = GoalKeySettings & {
+	metricSettings: MetricSettings
+}
+
+/**
+ * Follow a metric rename or merge: the target's settings keep their fields
+ * and fill their blanks from the sources' (the first source with one wins);
+ * the goals' own settings move to the target metric, the target's winning.
+ */
+export function migrateMetrics(
+	settings: MetricKeyedSettings,
+	sourceMetrics: string[],
+	targetMetric: string
+): MetricKeyedSettings {
+	const sources = sourceMetrics.filter((metric) => metric !== targetMetric)
+	const metricSettings = { ...settings.metricSettings }
+	const merged = [targetMetric, ...sources].reduce<MetricSetting>(
+		(sum, metric) => ({ ...settings.metricSettings[metric], ...sum }),
+		{}
 	)
-	return [...new Map(moved.map((key) => [goalKeyId(key), key])).values()]
+	for (const metric of sources) delete metricSettings[metric]
+	if (Object.keys(merged).length) metricSettings[targetMetric] = merged
+	return {
+		metricSettings,
+		...remapGoalKeys(settings, (key) =>
+			key.metric !== null && sources.includes(key.metric)
+				? { ...key, metric: targetMetric }
+				: key
+		),
+	}
+}
+
+/** Drop the deleted metrics' settings and their goals' own settings. */
+export function forgetMetrics(
+	settings: MetricKeyedSettings,
+	metrics: string[]
+): MetricKeyedSettings {
+	const metricSettings = { ...settings.metricSettings }
+	for (const metric of metrics) delete metricSettings[metric]
+	return {
+		metricSettings,
+		...remapGoalKeys(settings, (key) =>
+			key.metric !== null && metrics.includes(key.metric) ? null : key
+		),
+	}
+}
+
+/** Follow a unit change: the goals' own settings move to the new unit. */
+export function migrateMetricUnit(
+	settings: MetricKeyedSettings,
+	metric: string,
+	fromUnits: string[],
+	toUnit: string
+): MetricKeyedSettings {
+	return {
+		metricSettings: settings.metricSettings,
+		...remapGoalKeys(settings, (key) =>
+			key.metric === metric && fromUnits.includes(key.unit)
+				? { ...key, unit: toUnit }
+				: key
+		),
+	}
 }
 
 /**

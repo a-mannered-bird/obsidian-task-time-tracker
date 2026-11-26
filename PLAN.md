@@ -359,7 +359,7 @@ Five slices, each usable and reviewed on its own; every slice is checked at mobi
 ## Phase 17: Metric management
 
 - [x] Core: metric aggregates from the index (tasks, notes, last used, units, Total by rule, time row), filter and sort with the time row pinned, exact `goal:<metric>` query on the Tasks tab; unit tests.
-- [ ] Core: metric rename, merge (through `combineGoals`), delete and unit change rewrites of goal lines, `metricSettings` and GoalKey settings migration; unit tests with collision fixtures.
+- [x] Core: metric rename, merge (through `combineGoals`), delete and unit change rewrites of goal lines, `metricSettings` and GoalKey settings migration; unit tests with collision fixtures.
 - [ ] Core: similar-metrics and unit drift issues for the Metrics tab.
 - [ ] Commands: metric rename, merge, delete and unit change flows (preview, confirmation, `runBulkEdit`, notices); Manage metrics command.
 - [ ] UI: "Manage tracking data" title, Metrics tab and table, daily view menu item, card ⋯ "Manage metric", settings row replacing the Metrics list.
