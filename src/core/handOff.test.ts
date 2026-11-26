@@ -70,17 +70,17 @@ describe('describeHandOff', () => {
 	it('names a switch and a stop with how long the stopped clock ran', () => {
 		// Chores ran 10:00–10:42, after 09:00–09:30 earlier: 42m of 1h 12m.
 		expect(say(handOff)).toBe(
-			'🔀 Switched from "Chores" (42m of 1h 12m today) to "Email" at 10:42'
+			'⏹️ Stopped "Chores" (42m / 1h 12m) at 10:42\n▶️ Started "Email" at 10:42'
 		)
 		expect(say({ ...handOff, started: [] })).toBe(
-			'⏹️ Stopped "Chores" (42m of 1h 12m today) at 10:42'
+			'⏹️ Stopped "Chores" (42m / 1h 12m) at 10:42'
 		)
 	})
 
 	it('names the day of a stop in an earlier note', () => {
 		const nextDay = new Date(2026, 10, 13, 8, 0)
 		expect(say({ ...handOff, started: [] }, { ...today, now: nextDay })).toBe(
-			'⏹️ Stopped "Chores" (42m of 1h 12m yesterday) at 10:42'
+			'⏹️ Stopped "Chores" (42m / 1h 12m yesterday) at 10:42'
 		)
 	})
 
@@ -105,7 +105,7 @@ describe('describeRetime', () => {
 					context
 				)
 			)
-		).toBe('⏹️ Stopped "Chores" (42m of 1h 12m today) at 10:42')
+		).toBe('⏹️ Stopped "Chores" (42m / 1h 12m) at 10:42')
 	})
 
 	it('shows both ranges for any other edit', () => {

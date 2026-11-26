@@ -613,8 +613,8 @@ describe('tracker tab', function () {
 		assert.deepStrictEqual(states(content, '- [ ] Chores'), ['closed'])
 		assert.deepStrictEqual(states(content, '- [ ] Email'), ['running'])
 
-		// One notice tells the switch, instead of one per clock.
-		const notice = noticeWith('Switched from "Chores" (')
+		// One notice tells the switch, a line per clock.
+		const notice = noticeWith('Started "Email" at')
 		await clickNoticeButton(notice, 'Change')
 		const modal = await modalTitled('Change the time')
 		await typeTime(modal, '00:01')
@@ -630,9 +630,10 @@ describe('tracker tab', function () {
 		])
 		// The moved switch has its own notice: Chores now ran 00:00–00:01,
 		// its only clock today.
-		await expect(
-			noticeWith('Switched from "Chores" (1m of 1m today) to "Email" at 00:01')
-		).toBeDisplayed()
+		const moved = noticeWith('Stopped "Chores" (1m / 1m) at 00:01')
+		await expect(moved).toHaveText(
+			expect.stringContaining('Started "Email" at 00:01')
+		)
 	})
 
 	it('changes when a task started from its notice, then undoes it', async function () {

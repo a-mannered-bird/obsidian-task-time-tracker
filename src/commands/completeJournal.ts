@@ -123,9 +123,7 @@ export async function endDay(plugin: TaskTimeTracker) {
 		stopContext(plugin, file.path, write.after)
 	)
 	showUndoNotice(
-		[summary, stops ? `${stops}.` : null]
-			.filter((line) => line !== null)
-			.join('\n'),
+		[summary, stops].filter((line) => line !== null).join('\n'),
 		undoNoteWrite(io, write)
 	)
 }

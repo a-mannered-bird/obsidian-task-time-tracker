@@ -2,7 +2,6 @@
 export const NOTICE_ICON = {
 	start: '▶️',
 	stop: '⏹️',
-	switch: '🔀',
 	done: '✅',
 	edit: '✏️',
 	add: '➕',

@@ -117,7 +117,7 @@ describe('toggleTasks', () => {
 		expect(off.lines[6]).toBe(`      [clock::${at(11)}--${at(12)}]`)
 		// The clock ran 11:00–12:00, the only time on Emails today.
 		expect(off.notices).toEqual([
-			'⏹️ Stopped "Emails" (1h 00m of 1h 00m today) at 12:00.',
+			'⏹️ Stopped "Emails" (1h 00m / 1h 00m) at 12:00.',
 		])
 	})
 

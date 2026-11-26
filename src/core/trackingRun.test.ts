@@ -218,7 +218,7 @@ describe('applyTrackingSteps', () => {
 		])
 		expect(note.prompted()).toBe(1)
 		expect(note.notices).toEqual([
-			'⏹️ Stopped "Emails" (10m of 10m today) at 12:00.',
+			'⏹️ Stopped "Emails" (10m / 10m) at 12:00.',
 		])
 	})
 

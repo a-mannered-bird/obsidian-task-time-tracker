@@ -73,53 +73,43 @@ export function clockChanges(before: Task[], after: Task[]): HandOff {
 export type StopContext = { tasks: Task[]; day: Date; now: Date }
 
 /**
- * `🔀 Switched from "Chores" (25m of 1h 10m today) to "Email" at 10:42`,
- * `⏹️ Stopped "Chores" (…) at 10:42`, `▶️ Started "Email" at 10:42`; null
- * when no clock started or stopped. A stopped clock tells how long it ran
- * out of its task's time that day.
+ * One line per clock: `⏹️ Stopped "Chores" (25m / 1h 10m) at 10:42`, then
+ * `▶️ Started "Email" at 10:42`; null when no clock started or stopped. A
+ * stopped clock tells how long it ran out of its task's time that day.
  */
 export function describeHandOff(
 	handOff: HandOff,
 	context: StopContext
 ): string | null {
-	const started = handOff.started
-		.map((clock) => noticeTask(clock.taskName))
-		.join(', ')
-	const first = handOff.stopped[0]
-	if (!first) {
-		const [clock] = handOff.started
-		if (!clock) return null
-		return `${NOTICE_ICON.start} Started ${started} at ${formatTimeOfDay(clock.start)}`
-	}
-	if (handOff.started.length === 0)
-		return describeStops(handOff.stopped, context)
-	const stopped = handOff.stopped
-		.map((clock) => describeStoppedClock(clock, context))
-		.join(', ')
-	return `${NOTICE_ICON.switch} Switched from ${stopped} to ${started} at ${formatTimeOfDay(first.end)}`
+	const lines = [
+		...handOff.stopped.map((clock) => stopLine(clock, context)),
+		...handOff.started.map(
+			(clock) =>
+				`${NOTICE_ICON.start} Started ${noticeTask(clock.taskName)} at ${formatTimeOfDay(clock.start)}`
+		),
+	]
+	return lines.length > 0 ? lines.join('\n') : null
 }
 
-/** `⏹️ Stopped "Chores" (25m of 1h 10m today) at 10:42`; null for none. */
+/** `⏹️ Stopped "Chores" (25m / 1h 10m) at 10:42`, one line each; null for none. */
 export function describeStops(
 	stopped: HandOff['stopped'],
 	context: StopContext
 ): string | null {
-	const [first] = stopped
-	return first ? stopSentence(stopped, first.end, context) : null
+	return describeHandOff({ stopped, started: [] }, context)
 }
 
-function stopSentence(
-	stopped: HandOff['stopped'],
-	at: Date,
+function stopLine(
+	clock: ClockKey & { end: Date },
 	context: StopContext
 ): string {
-	const clocks = stopped
-		.map((clock) => describeStoppedClock(clock, context))
-		.join(', ')
-	return `${NOTICE_ICON.stop} Stopped ${clocks} at ${formatTimeOfDay(at)}`
+	return `${NOTICE_ICON.stop} Stopped ${describeStoppedClock(clock, context)} at ${formatTimeOfDay(clock.end)}`
 }
 
-/** `"Chores" (25m of 1h 10m today)`: the clock's length, then its task's day. */
+/**
+ * `"Chores" (25m / 1h 10m)`: the clock's length, then its task's day, named
+ * when it is not today.
+ */
 export function describeStoppedClock(
 	clock: ClockKey & { end: Date },
 	context: StopContext
@@ -127,11 +117,12 @@ export function describeStoppedClock(
 	const task = context.tasks.find((other) => other.name === clock.taskName)
 	const total = task ? taskMinutes(task, context.now) : 0
 	const lasted = getMinutesBetween(clock.start, clock.end)
-	return `${noticeTask(clock.taskName)} (${formatHoursMinutes(lasted)} of ${formatHoursMinutes(total)} ${dayPhrase(context.day, context.now)})`
+	const day = dayPhrase(context.day, context.now)
+	return `${noticeTask(clock.taskName)} (${formatHoursMinutes(lasted)} / ${formatHoursMinutes(total)}${day ? ` ${day}` : ''})`
 }
 
-function dayPhrase(day: Date, now: Date): string {
-	if (isSameDay(day, now)) return 'today'
+function dayPhrase(day: Date, now: Date): string | null {
+	if (isSameDay(day, now)) return null
 	const described = describeDay(day, now)
 	return described === 'yesterday' ? described : `on ${described}`
 }
@@ -146,7 +137,7 @@ export function describeRetime(
 		return describeClockEdit(key.taskName, key, times)
 	}
 	const clock = { taskName: key.taskName, start: times.start, end: times.end }
-	return stopSentence([clock], times.end, context)
+	return stopLine(clock, context)
 }
 
 /**
