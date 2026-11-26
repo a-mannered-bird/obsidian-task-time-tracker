@@ -465,12 +465,22 @@
 
 	<!-- One grid for every list, so each task's cards fill the row after the last. -->
 	<section class="cards" aria-label="Goals">
-		<div class="new-slot">
-			<button class="goal-card is-new" onclick={() => void setGoalFlow(plugin)}>
-				<span class="plus" use:icon={'plus'}></span>
-				<span>Add goal</span>
-			</button>
-		</div>
+		{#snippet addGoal()}
+			<div class="new-slot">
+				<button
+					class="goal-card is-new"
+					onclick={() => void setGoalFlow(plugin)}
+				>
+					<span class="plus" use:icon={'plus'}></span>
+					<span>Add goal</span>
+				</button>
+			</div>
+		{/snippet}
+
+		<!-- Headings would separate a trailing Add card from its group; ungrouped it can follow the goals like the tag one. -->
+		{#if grouping !== 'none'}
+			{@render addGoal()}
+		{/if}
 
 		{#each groups as group (group.label)}
 			{#if group.label !== null}
@@ -489,6 +499,10 @@
 				{/each}
 			</div>
 		{/each}
+
+		{#if grouping === 'none'}
+			{@render addGoal()}
+		{/if}
 
 		<!-- Always there, at the end, so its Add card never shifts the tasks' cards. -->
 		<h3 class="group-title">{tagGroup.label}</h3>
@@ -945,7 +959,8 @@
 
 	@keyframes goal-card-highlight {
 		from {
-			box-shadow: 0 0 0 0 color-mix(in srgb, var(--goal-color) 45%, transparent);
+			box-shadow: 0 0 0 0
+				color-mix(in srgb, var(--interactive-accent) 45%, transparent);
 		}
 
 		to {
