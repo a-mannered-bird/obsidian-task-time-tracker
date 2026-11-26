@@ -20,6 +20,7 @@ import {
 	type TaskTimeTrackerSettings,
 } from './settings'
 import { registerCustomIcons } from './ui/customIcons'
+import { hideCrossingNotices } from './ui/goalNotices'
 import { SoundPlayer } from './ui/goalSounds'
 import { openTagManager, openTaskManager } from './ui/TaskManagerModal'
 import { assignDateTimeType } from './ui/propertyTypes'
@@ -75,6 +76,7 @@ export default class TaskTimeTracker extends Plugin {
 		await this.loadSettings()
 		registerCustomIcons()
 		this.register(() => this.sounds.close())
+		this.register(hideCrossingNotices)
 		this.dailyLogs.register(this)
 		registerUserEditLog(this)
 

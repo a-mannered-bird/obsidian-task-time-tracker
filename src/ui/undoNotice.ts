@@ -4,10 +4,11 @@ import { appendNoticeText, NOTICE_DURATION, showNotice } from './notice'
 
 export type NoticeAction = { label: string; run: () => void }
 
-/** Notice telling what happened, with buttons acting on it. */
+/** Notice telling what happened, with buttons acting on it; 0 keeps it. */
 export function showActionNotice(
 	message: string,
-	actions: NoticeAction[]
+	actions: NoticeAction[],
+	duration = NOTICE_DURATION
 ): Notice {
 	const fragment = new DocumentFragment()
 	appendNoticeText(fragment.createDiv(), message)
@@ -17,7 +18,7 @@ export function showActionNotice(
 	for (const { label, run } of actions) {
 		buttons.createEl('button', { text: label }).addEventListener('click', run)
 	}
-	return new Notice(fragment, NOTICE_DURATION)
+	return new Notice(fragment, duration)
 }
 
 /** Only the latest change can be undone; its notice goes when another lands. */

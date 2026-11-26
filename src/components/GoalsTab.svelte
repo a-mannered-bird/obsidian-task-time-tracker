@@ -42,7 +42,12 @@
 		type GoalCard,
 		type GoalSuggestion,
 	} from 'core/goalCards'
-	import { cardsReached, goalStates, type GoalStates } from 'core/goalCrossings'
+	import {
+		cardsReached,
+		goalCrossings,
+		goalStates,
+		type GoalStates,
+	} from 'core/goalCrossings'
 	import {
 		achievedField,
 		targetField,
@@ -227,9 +232,9 @@
 	})
 
 	/*
-	 * Goals reached while the window had no focus pulse when it gets it back,
-	 * like a card opened from a tracker bar: their badge may have stamped in
-	 * unseen.
+	 * Goals reached or gone over while the window had no focus pulse when it
+	 * gets it back, like a card opened from a tracker bar: their badge or red
+	 * ring may have come unseen.
 	 */
 	let away: { path: string | null; states: GoalStates } | null = null
 	let returned = $state(new Set<string>())
@@ -245,8 +250,9 @@
 		// The view reads its clock again on focus; let the cards follow.
 		void tick().then(() => {
 			if (left.path !== shownPath) return
-			const reached = cardsReached(left.states, [...cards, ...tagCards])
-			if (reached.length) returned = new Set(reached)
+			const crossed = goalCrossings(left.states, [...cards, ...tagCards])
+			if (crossed.length)
+				returned = new Set(crossed.map((crossing) => crossing.card.id))
 		})
 	}
 

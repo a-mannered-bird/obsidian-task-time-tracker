@@ -20,6 +20,7 @@
 	import type { DailyLog } from 'core/dailyLogs'
 	import {
 		crossingSound,
+		goalCrossings,
 		goalStates,
 		noteGoalCards,
 		type GoalStates,
@@ -31,6 +32,7 @@
 	} from 'core/overnight'
 	import type { DailyViewTab } from '../settings'
 	import { formatTimeOfDay } from 'core/timeline'
+	import { showCrossingNotices } from 'ui/goalNotices'
 	import { icon } from 'ui/icon'
 	import { instantTooltip } from 'ui/tooltip'
 	import { openTaskManager } from 'ui/TaskManagerModal'
@@ -118,8 +120,10 @@
 		const path = log?.file.path ?? null
 		const cards = log ? noteGoalCards(log, now) : []
 		if (path !== null && path === soundPath) {
-			const sound = crossingSound(soundStates, cards)
+			const crossings = goalCrossings(soundStates, cards)
+			const sound = crossingSound(crossings)
 			if (sound) plugin.sounds.play(sound)
+			showCrossingNotices(crossings)
 		}
 		soundPath = path
 		soundStates = goalStates(cards)
