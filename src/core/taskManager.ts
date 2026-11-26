@@ -11,12 +11,21 @@ export function exactNameQuery(name: string): string {
 	return `"${name}"`
 }
 
+const GOAL_QUERY_PREFIX = 'goal:'
+
+/** The filter showing the tasks with a goal of that metric (`time` for time goals). */
+export function metricQuery(metric: string): string {
+	return `${GOAL_QUERY_PREFIX}${metric}`
+}
+
 /**
  * Tasks whose name or one of whose lines' tags contains the query (case
  * folded); a query in double quotes matches one name exactly, as task
  * identity does, and a query naming a tag some task carries matches that
  * tag exactly (`#work` not `#workout`), while a partial one still filters
- * as it is typed.
+ * as it is typed. Likewise `goal:<metric>`, the whole query, matches the
+ * tasks with a goal of that metric on any line, a partial one the tasks
+ * with a goal of a metric containing it.
  */
 export function filterTaskInfos(
 	infos: VaultTaskInfo[],
@@ -28,6 +37,15 @@ export function filterTaskInfos(
 	if (isTag(trimmed)) {
 		const tagged = infos.filter((info) => info.lineTags.includes(trimmed))
 		if (tagged.length > 0) return tagged
+	}
+	if (trimmed.startsWith(GOAL_QUERY_PREFIX)) {
+		const metric = trimmed.slice(GOAL_QUERY_PREFIX.length).trim()
+		const withGoal = infos.filter((info) => info.goalLabels.includes(metric))
+		if (withGoal.length > 0) return withGoal
+		const partial = metric.toLowerCase()
+		return infos.filter((info) =>
+			info.goalLabels.some((label) => label.toLowerCase().includes(partial))
+		)
 	}
 	const needle = trimmed.toLowerCase()
 	if (!needle) return infos

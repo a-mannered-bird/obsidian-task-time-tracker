@@ -98,6 +98,7 @@ const info = (name: string, tags: string[] = []): VaultTaskInfo => ({
 	name,
 	tags,
 	lineTags: tags,
+	goalLabels: [],
 	goals: [],
 	noteCount: 1,
 	lastUsed: new Date(2026, 7, 15),

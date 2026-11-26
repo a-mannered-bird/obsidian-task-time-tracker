@@ -2,6 +2,7 @@ import type { TFile } from 'obsidian'
 import type { Goal, TagGoal } from 'types/goals'
 import type { Task } from 'types/tasks'
 import { taskMinutes } from './aggregate'
+import { goalLabel } from './goalCards'
 import type { DailyLog } from './dailyLogs'
 
 type NoteTasks = Pick<
@@ -31,6 +32,8 @@ export type VaultTaskInfo = {
 	tags: string[]
 	/** Every tag any line of the task carries, sorted. */
 	lineTags: string[]
+	/** The metric of every goal any line of the task holds (`time` for time goals), sorted. */
+	goalLabels: string[]
 	/** Goals of that same occurrence, carried over to a line added for it. */
 	goals: Goal[]
 	/** Minutes over all occurrences; running clocks count up to `now`. */
@@ -100,6 +103,7 @@ export class VaultTaskIndex {
 						lastUsed: entry.date,
 						tags: task.tags,
 						lineTags: [],
+						goalLabels: [],
 						goals: task.goals,
 						totalMinutes: 0,
 					}
@@ -119,11 +123,16 @@ export class VaultTaskIndex {
 				for (const tag of task.tags) {
 					if (!info.lineTags.includes(tag)) info.lineTags.push(tag)
 				}
+				for (const goal of task.goals) {
+					const label = goalLabel(goal)
+					if (!info.goalLabels.includes(label)) info.goalLabels.push(label)
+				}
 				info.totalMinutes += taskMinutes(task, now)
 			}
 		}
 		for (const info of infos.values()) {
 			info.lineTags.sort((a, b) => a.localeCompare(b))
+			info.goalLabels.sort((a, b) => a.localeCompare(b))
 		}
 		return [...infos.values()].sort(
 			(a, b) =>

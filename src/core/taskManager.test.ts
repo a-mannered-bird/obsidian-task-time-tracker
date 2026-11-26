@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { exactNameQuery, filterTaskInfos, sortTaskInfos } from './taskManager'
+import {
+	exactNameQuery,
+	filterTaskInfos,
+	metricQuery,
+	sortTaskInfos,
+} from './taskManager'
 import type { VaultTaskInfo } from './vaultTaskIndex'
 
 const info = (
@@ -9,6 +14,7 @@ const info = (
 	name,
 	tags: [],
 	lineTags: [],
+	goalLabels: [],
 	goals: [],
 	noteCount: 1,
 	lastUsed: new Date(2026, 7, 1),
@@ -20,6 +26,7 @@ const infos = [
 	info('Deep work', {
 		tags: ['#focus'],
 		lineTags: ['#focus', '#workshop'],
+		goalLabels: ['time'],
 		noteCount: 3,
 		totalMinutes: 120,
 	}),
@@ -31,6 +38,7 @@ const infos = [
 	info('Workout', {
 		tags: ['#routine'],
 		lineTags: ['#routine', '#work'],
+		goalLabels: ['5k pace', 'distance'],
 		noteCount: 2,
 		totalMinutes: 300,
 	}),
@@ -63,6 +71,18 @@ describe('filterTaskInfos', () => {
 		expect(names('#wor')).toEqual(['Deep work', 'Workout'])
 		// No task carries "#Work" (case counts), so it filters as text.
 		expect(names('#Work')).toEqual(['Deep work', 'Workout'])
+	})
+
+	it('matches the tasks with a goal of a metric, time included', () => {
+		const names = (query: string) =>
+			filterTaskInfos(infos, query).map((i) => i.name)
+		expect(names(metricQuery('distance'))).toEqual(['Workout'])
+		expect(names(metricQuery('5k pace'))).toEqual(['Workout'])
+		expect(names(metricQuery('time'))).toEqual(['Deep work'])
+		// Partial or in another case, it narrows as it is typed.
+		expect(names('goal:DIST')).toEqual(['Workout'])
+		expect(names('goal:')).toEqual(['Deep work', 'Workout'])
+		expect(names('goal:sleep')).toEqual([])
 	})
 
 	it('returns everything for a blank query', () => {

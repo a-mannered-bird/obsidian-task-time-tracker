@@ -47,6 +47,9 @@ describe('VaultTaskIndex.snapshot', () => {
 		// recent note, even when it has no goal any more.
 		expect(deepWork.tags).toEqual(['#focus'])
 		expect(deepWork.lineTags).toEqual(['#dup', '#focus', '#project'])
+		expect(deepWork.goalLabels).toEqual(['time'])
+		// A goal on an older line still counts: push-ups is only on the 2nd.
+		expect(byName.get('Workout')?.goalLabels).toEqual(['push-ups'])
 		expect(deepWork.goals).toMatchObject([{ kind: 'time', minutes: 180 }])
 
 		expect(byName.get('Workout')).toMatchObject({
