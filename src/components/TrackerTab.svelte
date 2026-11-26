@@ -77,14 +77,14 @@
 		/** How the note's day is called when it is not today, else null. */
 		otherDay: string | null
 		loading: boolean
+		/** The view's clock, ticking each minute. */
+		now: Date
 		/** Edit a goal (by id) in the Goals tab, from its bar. */
 		oneditgoal: (goalId: string) => void
 	}
 
-	const { plugin, log, overnight, otherDay, loading, oneditgoal }: Props =
+	const { plugin, log, overnight, otherDay, loading, now, oneditgoal }: Props =
 		$props()
-
-	let now = $state(new Date())
 
 	const motion = rowMotion()
 	$effect.pre(() => {
@@ -543,15 +543,7 @@
 		}
 	}
 
-	// Clock math compares against `now`; a stale value would make a clock
-	// started after the last minute tick look negative.
-	$effect(() => {
-		void log
-		now = new Date()
-	})
-
 	onMount(() => {
-		const tick = window.setInterval(() => (now = new Date()), 60 * 1000)
 		window.addEventListener('pointermove', onRowPointerMove)
 		window.addEventListener('pointerup', onRowPointerUp)
 		window.addEventListener('pointercancel', endRowPress)
@@ -560,7 +552,6 @@
 		// Not through Svelte attributes: those make touchmove passive.
 		window.addEventListener('touchmove', onRowTouchMove, { passive: false })
 		return () => {
-			window.clearInterval(tick)
 			window.removeEventListener('pointermove', onRowPointerMove)
 			window.removeEventListener('pointerup', onRowPointerUp)
 			window.removeEventListener('pointercancel', endRowPress)

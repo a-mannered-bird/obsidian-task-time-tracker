@@ -16,16 +16,26 @@ export function goalStates(cards: GoalCard[]): GoalStates {
 }
 
 /**
- * The cards that are now in `state` and were not before. A card new since
- * then counts as open before, so a goal set already reached counts too.
+ * The goals reached since `before`. A card new since then counts as open
+ * before, so a goal set already reached counts too. An "at most" goal is
+ * reached only from open, by its day ending under the limit: one going from
+ * over to done had its limit raised (or was added on a day already over),
+ * which is no achievement.
  */
-export function cardsEntering(
-	before: GoalStates,
-	cards: GoalCard[],
-	state: GoalCardState
-): string[] {
+export function cardsReached(before: GoalStates, cards: GoalCard[]): string[] {
 	return cards
-		.filter((card) => card.state === state && before.get(card.id) !== state)
+		.filter((card) => {
+			if (card.state !== 'done') return false
+			const was = before.get(card.id)
+			return card.goal.atMost ? was === 'open' : was !== 'done'
+		})
+		.map((card) => card.id)
+}
+
+/** The "at most" goals that went over their limit since `before`. */
+export function cardsWentOver(before: GoalStates, cards: GoalCard[]): string[] {
+	return cards
+		.filter((card) => card.state === 'over' && before.get(card.id) !== 'over')
 		.map((card) => card.id)
 }
 
@@ -40,8 +50,8 @@ export function crossingSound(
 	before: GoalStates,
 	cards: GoalCard[]
 ): GoalSound | null {
-	if (cardsEntering(before, cards, 'over').length) return 'over'
-	if (cardsEntering(before, cards, 'done').length) return 'reached'
+	if (cardsWentOver(before, cards).length) return 'over'
+	if (cardsReached(before, cards).length) return 'reached'
 	return null
 }
 

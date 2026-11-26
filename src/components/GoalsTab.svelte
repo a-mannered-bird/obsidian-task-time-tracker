@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { Menu, Platform, type TFile } from 'obsidian'
-	import { onMount } from 'svelte'
+	import { onMount, tick } from 'svelte'
 	import {
 		addSuggestedGoals,
 		chooseGoalBadge,
@@ -42,11 +42,7 @@
 		type GoalCard,
 		type GoalSuggestion,
 	} from 'core/goalCards'
-	import {
-		cardsEntering,
-		goalStates,
-		type GoalStates,
-	} from 'core/goalCrossings'
+	import { cardsReached, goalStates, type GoalStates } from 'core/goalCrossings'
 	import {
 		achievedField,
 		targetField,
@@ -78,12 +74,21 @@
 		/** Null until the note's first write creates it. */
 		log: DailyLog | null
 		loading: boolean
+		/** The view's clock, ticking each minute. */
+		now: Date
 		/** A goal (by id) to edit as the tab opens, from a tracker bar. */
 		focusGoal?: string | null
 		onfocused?: () => void
 	}
 
-	const { plugin, log, loading, focusGoal = null, onfocused }: Props = $props()
+	const {
+		plugin,
+		log,
+		loading,
+		now,
+		focusGoal = null,
+		onfocused,
+	}: Props = $props()
 
 	// svelte-ignore state_referenced_locally -- settings apply on a view reload
 	const { doneBadge, stampTexts } = plugin.settings
@@ -141,8 +146,6 @@
 				)
 			: tagGoalStreak(plugin.vaultTasks.notes(), card.tag, log.date, skip)
 	}
-
-	let now = $state(new Date())
 
 	/** The badge of a done card: its own, else the setting's. */
 	function badgeOf(card: GoalCard) {
@@ -214,7 +217,7 @@
 		const path = log?.file.path ?? null
 		const all = [...cards, ...tagCards]
 		if (path === shownPath) {
-			const fresh = cardsEntering(shownStates, all, 'done')
+			const fresh = cardsReached(shownStates, all)
 			if (fresh.length) popped = new Set([...popped, ...fresh])
 		} else {
 			popped = new Set()
@@ -222,6 +225,35 @@
 		shownPath = path
 		shownStates = goalStates(all)
 	})
+
+	/*
+	 * Goals reached while the window had no focus pulse when it gets it back,
+	 * like a card opened from a tracker bar: their badge may have stamped in
+	 * unseen.
+	 */
+	let away: { path: string | null; states: GoalStates } | null = null
+	let returned = $state(new Set<string>())
+
+	function onWindowBlur() {
+		away = { path: shownPath, states: shownStates }
+	}
+
+	function onWindowFocus() {
+		const left = away
+		away = null
+		if (!left) return
+		// The view reads its clock again on focus; let the cards follow.
+		void tick().then(() => {
+			if (left.path !== shownPath) return
+			const reached = cardsReached(left.states, [...cards, ...tagCards])
+			if (reached.length) returned = new Set(reached)
+		})
+	}
+
+	function endPulse(event: AnimationEvent, id: string) {
+		if (event.target !== event.currentTarget || !returned.has(id)) return
+		returned = new Set([...returned].filter((other) => other !== id))
+	}
 
 	function color(card: GoalCard): string {
 		void goalSettings
@@ -351,12 +383,14 @@
 
 	onMount(() => {
 		const unsubscribe = plugin.onGoalDismissals(() => dismissals++)
+		window.addEventListener('blur', onWindowBlur)
+		window.addEventListener('focus', onWindowFocus)
 		if (!indexReady) {
 			void plugin.vaultTasks.ensureBuilt().then(() => (indexReady = true))
 		}
-		const tick = window.setInterval(() => (now = new Date()), 60 * 1000)
 		return () => {
-			window.clearInterval(tick)
+			window.removeEventListener('blur', onWindowBlur)
+			window.removeEventListener('focus', onWindowFocus)
 			unsubscribe()
 		}
 	})
@@ -482,10 +516,12 @@
 		class:is-over={card.state === 'over'}
 		class:is-at-most={card.goal.atMost}
 		class:is-highlighted={highlighted === card.id}
+		class:is-returned={returned.has(card.id)}
 		role="listitem"
 		aria-label={card.title}
 		aria-current={highlighted === card.id ? 'true' : undefined}
 		onfocusout={(event) => unhighlight(event, card.id)}
+		onanimationend={(event) => endPulse(event, card.id)}
 		use:flight.arrive={card.id}
 		use:registerCard={card.id}
 		style:--goal-color={color(card)}
@@ -895,8 +931,9 @@
 		outline-offset: 2px;
 	}
 
-	/* Opened from a tracker bar: a pulse draws the eye to it. */
-	.goal-card.is-highlighted {
+	/* Opened from a tracker bar, or reached while away: a pulse draws the eye. */
+	.goal-card.is-highlighted,
+	.goal-card.is-returned {
 		animation: goal-card-highlight 900ms ease-out 2;
 	}
 
@@ -911,7 +948,8 @@
 	}
 
 	@media (prefers-reduced-motion: reduce) {
-		.goal-card.is-highlighted {
+		.goal-card.is-highlighted,
+		.goal-card.is-returned {
 			animation: none;
 		}
 	}

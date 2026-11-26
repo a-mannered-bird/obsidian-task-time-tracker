@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-	cardsEntering,
+	cardsReached,
 	crossingSound,
 	goalStates,
 	noteGoalCards,
@@ -97,6 +97,21 @@ describe('crossingSound', () => {
 		expect(crossingSound(before, after)).toBe('reached')
 	})
 
+	it('plays nothing when an "at most" limit is raised above the result', () => {
+		const ended = at(22)
+		const before = goalStates(
+			noteGoalCards(
+				note(['- [x] Snacks', '      [goal::cookies 3/<2]'], [], ended),
+				ended
+			)
+		)
+		const after = noteGoalCards(
+			note(['- [x] Snacks', '      [goal::cookies 3/<4]'], [], ended),
+			ended
+		)
+		expect(crossingSound(before, after)).toBe(null)
+	})
+
 	it('plays again after a goal fell back under its target and crossed anew', () => {
 		const reached = noteGoalCards(
 			note(['- [ ] Run', '      [goal::distance 10/10 km]']),
@@ -110,7 +125,7 @@ describe('crossingSound', () => {
 	})
 })
 
-describe('cardsEntering', () => {
+describe('cardsReached', () => {
 	it('counts a goal added already reached, but not one already done before', () => {
 		const before = goalStates(
 			noteGoalCards(note(['- [ ] Anki', '      [goal::cards 210/200]']), at(12))
@@ -123,6 +138,6 @@ describe('cardsEntering', () => {
 			]),
 			at(12)
 		)
-		expect(cardsEntering(before, after, 'done')).toEqual([after[1]?.id])
+		expect(cardsReached(before, after)).toEqual([after[1]?.id])
 	})
 })

@@ -55,9 +55,11 @@
 		plugin: TaskTimeTracker
 		log: DailyLog | null
 		loading: boolean
+		/** The view's clock, ticking each minute. */
+		now: Date
 	}
 
-	const { plugin, log, loading }: Props = $props()
+	const { plugin, log, loading, now }: Props = $props()
 
 	const HOUR = 60 * 60 * 1000
 	/** Movement before a press becomes a drag, so a click stays a click. */
@@ -72,7 +74,6 @@
 	const MORE_BUTTON_MIN_PX = 24
 	const ZOOM_SAVE_MS = 500
 
-	let now = $state(new Date())
 	// svelte-ignore state_referenced_locally -- deliberately only the initial value
 	let zoom = $state(clampZoom(plugin.settings.timelineZoom))
 	/** Times shown for a block whose write is under way, until the note reloads. */
@@ -744,7 +745,6 @@
 
 	$effect(() => {
 		void log
-		now = new Date()
 		pending = null
 		markPending = null
 	})
@@ -783,13 +783,11 @@
 	})
 
 	onMount(() => {
-		const timer = window.setInterval(() => (now = new Date()), 60 * 1000)
 		window.addEventListener('pointermove', onPointerMove)
 		window.addEventListener('pointerup', onPointerUp)
 		window.addEventListener('pointercancel', cancelDrag)
 		window.addEventListener('keyup', onKeyUpWindow)
 		return () => {
-			window.clearInterval(timer)
 			window.clearTimeout(zoomSaveTimer)
 			window.removeEventListener('pointermove', onPointerMove)
 			window.removeEventListener('pointerup', onPointerUp)

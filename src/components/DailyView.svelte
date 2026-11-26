@@ -96,15 +96,22 @@
 	)
 
 	/*
-	 * Goal sounds play here rather than in a tab, so a goal reached while the
-	 * tracker shows sounds too. Only crossings seen while a note stays shown
-	 * play: not the goals already done or over when it opens.
+	 * One clock for the view and its tabs, so a ring fills on the same tick
+	 * that plays its sound. Read again on every note change (a clock started
+	 * after the last tick would look negative) and when the window gets the
+	 * focus back (timers of a background window may be throttled).
 	 */
 	let now = $state(new Date())
 	$effect(() => {
 		void log
 		now = new Date()
 	})
+
+	/*
+	 * Goal sounds play here rather than in a tab, so a goal reached while the
+	 * tracker shows sounds too. Only crossings seen while a note stays shown
+	 * play: not the goals already done or over when it opens.
+	 */
 	let soundPath: string | null = null
 	let soundStates: GoalStates = new Map()
 	$effect(() => {
@@ -179,8 +186,9 @@
 	}
 
 	onMount(() => {
-		// Time goals cross as clocks run, with no note change to tell.
-		const tick = window.setInterval(() => (now = new Date()), 60 * 1000)
+		const refresh = () => (now = new Date())
+		const tick = window.setInterval(refresh, 60 * 1000)
+		window.addEventListener('focus', refresh)
 		const unsubscribe = plugin.dailyLogs.onChange(() => void reload())
 		const leafRef = app.workspace.on('active-leaf-change', () => void reload())
 		// The log store only reports notes it parsed, so a note created or
@@ -196,6 +204,7 @@
 		app.workspace.onLayoutReady(() => void reload())
 		return () => {
 			window.clearInterval(tick)
+			window.removeEventListener('focus', refresh)
 			unsubscribe()
 			app.workspace.offref(leafRef)
 			app.vault.offref(createRef)
@@ -303,6 +312,7 @@
 				{overnight}
 				{otherDay}
 				{loading}
+				{now}
 				oneditgoal={editGoal}
 			/>
 		{:else if active === 'goals'}
@@ -310,11 +320,12 @@
 				{plugin}
 				{log}
 				{loading}
+				{now}
 				focusGoal={goalToEdit}
 				onfocused={() => (goalToEdit = null)}
 			/>
 		{:else}
-			<TimelineTab {plugin} {log} {loading} />
+			<TimelineTab {plugin} {log} {loading} {now} />
 		{/if}
 	</div>
 </div>
