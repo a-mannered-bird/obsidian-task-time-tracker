@@ -17,6 +17,8 @@ type LineRef = { path: string; lineIndex: number }
 export type TaskIssue =
 	/** Two names a typo apart — the accident the panel exists to catch. */
 	| { kind: 'similar-name'; name: string; other: string }
+	/** Two tags a typo or a case apart; `name` is the tag (Tags tab only). */
+	| { kind: 'similar-tag'; name: string; other: string }
 	/** A closed session far longer than the task's usual ones, or ≥ 16 h. */
 	| ({ kind: 'long-session'; name: string; minutes: number } & ClockRef)
 	/** The task's lines do not all carry the same tags. */
@@ -66,6 +68,7 @@ export const ISSUE_KINDS: IssueKind[] = [
 	'outside-day',
 	'goal-syntax',
 	'unit-drift',
+	'similar-tag',
 ]
 
 export const ISSUE_TITLES: Record<IssueKind, string> = {
@@ -77,6 +80,7 @@ export const ISSUE_TITLES: Record<IssueKind, string> = {
 	'outside-day': 'Clock outside the start and end of day',
 	'goal-syntax': 'Goal line not understood',
 	'unit-drift': 'Metric written with several units',
+	'similar-tag': 'Tag close to another tag',
 }
 
 /** What the user chose not to see again (see visibleIssues). */
@@ -94,6 +98,7 @@ export type IssueDismissals = {
 export function issueKey(issue: TaskIssue): string {
 	switch (issue.kind) {
 		case 'similar-name':
+		case 'similar-tag':
 			return JSON.stringify([issue.kind, ...[issue.name, issue.other].sort()])
 		case 'tag-drift':
 			return JSON.stringify([
@@ -149,7 +154,10 @@ function formatTime(date: Date): string {
 	return formatLocalDateTime(date).slice(11, 16)
 }
 
-/** Task names a dismissal key refers to (one, or both of a similar pair). */
+/**
+ * Task names or tags a dismissal key refers to (one, or both of a similar
+ * pair).
+ */
 export function issueKeyNames(key: string): string[] {
 	try {
 		const parts: unknown = JSON.parse(key)
@@ -157,7 +165,7 @@ export function issueKeyNames(key: string): string[] {
 			return []
 		}
 		const strings = parts
-		return strings[0] === 'similar-name'
+		return strings[0] === 'similar-name' || strings[0] === 'similar-tag'
 			? strings.slice(1, 3)
 			: strings.slice(1, 2)
 	} catch {
@@ -213,6 +221,8 @@ export function describeIssue(issue: TaskIssue): string {
 	switch (issue.kind) {
 		case 'similar-name':
 			return `Name close to "${issue.other}"`
+		case 'similar-tag':
+			return `Tag close to ${issue.other}`
 		case 'long-session':
 			return `${formatHoursMinutes(issue.minutes)} session in ${noteName(issue.path)}`
 		case 'tag-drift':
@@ -256,8 +266,31 @@ export function issuesByTask(issues: TaskIssue[]): Map<string, TaskIssue[]> {
  * length are skipped before any distance is computed.
  */
 export function similarNames(names: string[]): TaskIssue[] {
-	const normalized = names.map(normalizeName)
-	const issues: TaskIssue[] = []
+	return similarPairs(names, normalizeName).flatMap(([name, other]) => [
+		{ kind: 'similar-name' as const, name, other },
+		{ kind: 'similar-name' as const, name: other, other: name },
+	])
+}
+
+/**
+ * Tags a typo apart, as names are, or differing only by case (tags are
+ * case-sensitive here, unlike in Obsidian, so `#Work` is not `#work`).
+ */
+export function detectTagIssues(tags: string[]): TaskIssue[] {
+	return similarPairs(tags, (tag) => normalizeName(tag.slice(1))).flatMap(
+		([name, other]) => [
+			{ kind: 'similar-tag' as const, name, other },
+			{ kind: 'similar-tag' as const, name: other, other: name },
+		]
+	)
+}
+
+function similarPairs(
+	names: string[],
+	normalize: (name: string) => string
+): [string, string][] {
+	const normalized = names.map(normalize)
+	const pairs: [string, string][] = []
 	for (let a = 0; a < names.length; a++) {
 		for (let b = a + 1; b < names.length; b++) {
 			const left = normalized[a]!
@@ -265,12 +298,11 @@ export function similarNames(names: string[]): TaskIssue[] {
 			if (Math.abs(left.length - right.length) > 2) continue
 			const allowed = Math.min(left.length, right.length) < 6 ? 1 : 2
 			if (editDistance(left, right, allowed) <= allowed) {
-				issues.push({ kind: 'similar-name', name: names[a]!, other: names[b]! })
-				issues.push({ kind: 'similar-name', name: names[b]!, other: names[a]! })
+				pairs.push([names[a]!, names[b]!])
 			}
 		}
 	}
-	return issues
+	return pairs
 }
 
 function normalizeName(name: string): string {

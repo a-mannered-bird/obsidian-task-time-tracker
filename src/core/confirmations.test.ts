@@ -5,6 +5,7 @@ import {
 	describeDeletion,
 	describeNoteTaskRemoval,
 	describeRetag,
+	describeTagConsolidation,
 	listNames,
 	referenceWarnings,
 } from './confirmations'
@@ -26,6 +27,31 @@ describe('referenceWarnings', () => {
 
 	it('is empty when the plugin relies on none of the names', () => {
 		expect(referenceWarnings(['Email'])).toEqual([])
+	})
+})
+
+describe('describeTagConsolidation', () => {
+	const preview = { notes: 3, taskLines: 4, goals: 1, notesCombiningGoals: 0 }
+
+	it('calls a rename onto an existing tag a merge', () => {
+		expect(
+			describeTagConsolidation(['#job'], '#fitness', preview, false)
+		).toEqual([
+			'Rename #job to #fitness on 4 task lines and 1 tag goal across 3 daily notes.',
+		])
+		expect(
+			describeTagConsolidation(['#job'], '#work', preview, true)[0]
+		).toMatch(/^Merge #job into #work/)
+	})
+
+	it('explains how tag goals meeting in a note combine', () => {
+		const combining = { ...preview, notesCombiningGoals: 2 }
+		expect(
+			describeTagConsolidation(['#a', '#b'], null, combining, true)
+		).toEqual([
+			'Merge #a, #b into the surviving tag on 4 task lines and 1 tag goal across 3 daily notes. A line carrying several of them keeps the tag once.',
+			"Tag goals meet on 2 days: targets of the same kind add up, otherwise the surviving tag's goal is kept.",
+		])
 	})
 })
 

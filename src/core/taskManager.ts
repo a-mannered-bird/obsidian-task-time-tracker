@@ -1,3 +1,4 @@
+import { isTag } from './taskEdits'
 import type { VaultTaskInfo } from './vaultTaskIndex'
 
 /** Rows rendered at once in the management table; sorting sees everything. */
@@ -11,8 +12,11 @@ export function exactNameQuery(name: string): string {
 }
 
 /**
- * Tasks whose name or one of whose tags contains the query (case folded);
- * a query in double quotes matches one name exactly, as task identity does.
+ * Tasks whose name or one of whose lines' tags contains the query (case
+ * folded); a query in double quotes matches one name exactly, as task
+ * identity does, and a query naming a tag some task carries matches that
+ * tag exactly (`#work` not `#workout`), while a partial one still filters
+ * as it is typed.
  */
 export function filterTaskInfos(
 	infos: VaultTaskInfo[],
@@ -21,12 +25,16 @@ export function filterTaskInfos(
 	const trimmed = query.trim()
 	const quoted = /^"(.+)"$/.exec(trimmed)
 	if (quoted) return infos.filter((info) => info.name === quoted[1])
+	if (isTag(trimmed)) {
+		const tagged = infos.filter((info) => info.lineTags.includes(trimmed))
+		if (tagged.length > 0) return tagged
+	}
 	const needle = trimmed.toLowerCase()
 	if (!needle) return infos
 	return infos.filter(
 		(info) =>
 			info.name.toLowerCase().includes(needle) ||
-			info.tags.some((tag) => tag.toLowerCase().includes(needle))
+			info.lineTags.some((tag) => tag.toLowerCase().includes(needle))
 	)
 }
 

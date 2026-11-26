@@ -1,3 +1,4 @@
+import type { TagEditPreview } from './tagOperations'
 import type { TagChange } from './taskEdits'
 import type {
 	ConsolidationPreview,
@@ -91,6 +92,40 @@ export function describeRetag(
 	return change.add.length
 		? `Set the tags of ${listNames(names)} to ${change.add.map(quote).join(', ')} on ${scope}${removed}.`
 		: `Remove every tag of ${listNames(names)} on ${scope}${removed}.`
+}
+
+/**
+ * Preview paragraphs of a tag rename (one source onto a new tag) or merge
+ * (several, or onto a tag that exists). A null target stands for "the tag
+ * chosen in the dialog".
+ */
+export function describeTagConsolidation(
+	sourceTags: string[],
+	targetTag: string | null,
+	preview: TagEditPreview,
+	targetExists: boolean
+): string[] {
+	const target = targetTag ?? 'the surviving tag'
+	const scope = `${plural(preview.taskLines, 'task line')} and ${plural(preview.goals, 'tag goal')} across ${plural(preview.notes, 'daily note')}`
+	const paragraphs = [
+		sourceTags.length === 1 && !targetExists
+			? `Rename ${sourceTags[0]} to ${target} on ${scope}.`
+			: `Merge ${sourceTags.join(', ')} into ${target} on ${scope}. A line carrying several of them keeps the tag once.`,
+	]
+	if (preview.notesCombiningGoals > 0) {
+		paragraphs.push(
+			`Tag goals meet on ${plural(preview.notesCombiningGoals, 'day')}: targets of the same kind add up, otherwise the surviving tag's goal is kept.`
+		)
+	}
+	return paragraphs
+}
+
+/** Preview paragraph of a tag deletion. */
+export function describeTagDeletion(
+	tags: string[],
+	preview: TagEditPreview
+): string {
+	return `Remove ${tags.join(', ')} from ${plural(preview.taskLines, 'task line')} and delete ${plural(preview.goals, 'tag goal')} across ${plural(preview.notes, 'daily note')}. The tasks stay, and so do their other tags.`
 }
 
 /** Quoted names, the tail folded into a count past a handful. */

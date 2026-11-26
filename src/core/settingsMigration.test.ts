@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import {
+	forgetTag,
 	forgetTaskName,
+	migrateTags,
 	migrateTaskNames,
 	type NameKeyedSettings,
+	type TagKeyedSettings,
 } from './settingsMigration'
 
 const settings: NameKeyedSettings = {
@@ -144,5 +147,69 @@ describe('forgetTaskName', () => {
 				badge: 'random',
 			},
 		])
+	})
+})
+
+const tagSettings: TagKeyedSettings = {
+	tagMappings: [
+		{ tag: '#job', emoji: '🏢', color: '#ff0000' },
+		{ tag: '#sport', emoji: '⚽' },
+		{ tag: '#work', emoji: '💼' },
+	],
+	dismissedIssues: ['["similar-tag","#job","#jobs"]'],
+	dismissedGoalSuggestions: [],
+	streakSkipsMissingDays: [{ taskName: '#job', metric: null, unit: '' }],
+	hiddenGoalBars: [],
+	goalBadges: [
+		{ key: { taskName: '#job', metric: null, unit: '' }, badge: 'star' },
+		{ key: { taskName: '#work', metric: null, unit: '' }, badge: 'flame' },
+	],
+}
+
+describe('migrateTags', () => {
+	it("keeps the target's mapping, filling its blanks from the sources", () => {
+		const migrated = migrateTags(tagSettings, ['#job'], '#work')
+		expect(migrated).toEqual({
+			// The merged mapping takes the place of the first involved one.
+			tagMappings: [
+				{ tag: '#work', emoji: '💼', color: '#ff0000' },
+				{ tag: '#sport', emoji: '⚽' },
+			],
+			dismissedIssues: [],
+			dismissedGoalSuggestions: [],
+			streakSkipsMissingDays: [{ taskName: '#work', metric: null, unit: '' }],
+			hiddenGoalBars: [],
+			goalBadges: [
+				{ key: { taskName: '#work', metric: null, unit: '' }, badge: 'flame' },
+			],
+		})
+	})
+
+	it('moves the mapping to a new tag', () => {
+		expect(
+			migrateTags(tagSettings, ['#sport'], '#fitness').tagMappings
+		).toEqual([
+			{ tag: '#job', emoji: '🏢', color: '#ff0000' },
+			{ tag: '#fitness', emoji: '⚽' },
+			{ tag: '#work', emoji: '💼' },
+		])
+	})
+})
+
+describe('forgetTag', () => {
+	it("drops the tag's mapping and its goals' settings", () => {
+		expect(forgetTag(tagSettings, '#job')).toEqual({
+			tagMappings: [
+				{ tag: '#sport', emoji: '⚽' },
+				{ tag: '#work', emoji: '💼' },
+			],
+			dismissedIssues: [],
+			dismissedGoalSuggestions: [],
+			streakSkipsMissingDays: [],
+			hiddenGoalBars: [],
+			goalBadges: [
+				{ key: { taskName: '#work', metric: null, unit: '' }, badge: 'flame' },
+			],
+		})
 	})
 })

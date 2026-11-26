@@ -29,6 +29,8 @@ export type VaultTaskInfo = {
 	lastUsed: Date
 	/** Tags of the task's occurrence in that most recent note. */
 	tags: string[]
+	/** Every tag any line of the task carries, sorted. */
+	lineTags: string[]
 	/** Goals of that same occurrence, carried over to a line added for it. */
 	goals: Goal[]
 	/** Minutes over all occurrences; running clocks count up to `now`. */
@@ -45,6 +47,13 @@ export type VaultTaskOccurrence = {
 }
 
 type NoteEntry = NoteTasks
+
+export type IndexedNote = {
+	path: string
+	date: Date
+	tasks: Task[]
+	tagGoals: TagGoal[]
+}
 
 /**
  * Vault-wide task aggregates over the daily notes, for the picker's vault
@@ -90,6 +99,7 @@ export class VaultTaskIndex {
 						noteCount: 0,
 						lastUsed: entry.date,
 						tags: task.tags,
+						lineTags: [],
 						goals: task.goals,
 						totalMinutes: 0,
 					}
@@ -106,8 +116,14 @@ export class VaultTaskIndex {
 					info.tags = task.tags
 					info.goals = task.goals
 				}
+				for (const tag of task.tags) {
+					if (!info.lineTags.includes(tag)) info.lineTags.push(tag)
+				}
 				info.totalMinutes += taskMinutes(task, now)
 			}
+		}
+		for (const info of infos.values()) {
+			info.lineTags.sort((a, b) => a.localeCompare(b))
 		}
 		return [...infos.values()].sort(
 			(a, b) =>
@@ -148,9 +164,9 @@ export class VaultTaskIndex {
 		return recent
 	}
 
-	/** Every note's date, tasks and tag goals, in no particular order. */
-	notes(): { date: Date; tasks: Task[]; tagGoals: TagGoal[] }[] {
-		return [...this.byPath.values()]
+	/** Every note's path, date, tasks and tag goals, in no particular order. */
+	notes(): IndexedNote[] {
+		return [...this.byPath].map(([path, entry]) => ({ path, ...entry }))
 	}
 
 	/** The tag goals of the most recent note before `before` holding any. */

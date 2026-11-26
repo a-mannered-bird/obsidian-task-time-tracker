@@ -307,7 +307,8 @@ export async function openNoteAtLine(
 	await plugin.app.workspace.getLeaf(false).openFile(file, { eState: { line } })
 }
 
-function reportOutcome(
+/** The notices after a bulk run: notes updated, then any that failed. */
+export function reportOutcome(
 	report: BulkEditReport<BulkTransformResult>,
 	subject: string
 ) {

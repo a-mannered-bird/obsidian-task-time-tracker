@@ -8,6 +8,7 @@ import {
 	issueKey,
 	issueKeyNames,
 	issuesByTask,
+	detectTagIssues,
 	similarNames,
 	visibleIssues,
 	type TaskIssue,
@@ -37,6 +38,16 @@ describe('editDistance', () => {
 
 	it('stops early past the limit', () => {
 		expect(editDistance('abcdefgh', 'zzzzzzzz', 2)).toBeGreaterThan(2)
+	})
+})
+
+describe('detectTagIssues', () => {
+	it('flags tags a case or a typo apart, the hash aside', () => {
+		expect(detectTagIssues(['#work', '#Work', '#sport', '#jobs'])).toEqual([
+			{ kind: 'similar-tag', name: '#work', other: '#Work' },
+			{ kind: 'similar-tag', name: '#Work', other: '#work' },
+		])
+		expect(detectTagIssues(['#job', '#jobs'])).toHaveLength(2)
 	})
 })
 

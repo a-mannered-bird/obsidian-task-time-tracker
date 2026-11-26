@@ -309,6 +309,24 @@ Five slices, each usable and reviewed on its own; every slice is checked at mobi
 - [x] Tag goals: `tag_goals` editing from the Goals tab, covered time per tag (carry-over on the first write dropped 2026-11-25).
 - [x] Goal stats: `goals` metric and table with streak, `⏱ %` in the main table, goal deltas and direction coloring.
 
+## Decisions (2026-11-26): tag management
+
+- **Where:** the task management modal becomes "Manage tasks and tags" with a `Tasks | Tags` tab switch. The Manage tasks command, the daily view menu and the tracker row open Tasks; a new Manage tags command and the settings' "Manage tags" row (replacing the tag mapping list, so tags have a single editor) open Tags. The last tab is not remembered. Each tab keeps its own filter, sort and selection while the modal is open.
+- **Rows:** the union of the tags used on task lines and the mapped tags; a mapped tag no note uses shows 0 notes, muted. No "Add tag": a tag gets a mapping by being given an emoji or a color, and loses it when both are cleared. `tagMappings` has no defaults anymore (no migration, no real users yet).
+- **Columns:** checkbox, color swatch (color menu), emoji (the "Emoji of …" prompt of the goal cards), Tag (click to rename), Tasks (task names carrying the tag on a line; click shows the Tasks tab filtered to `#tag`), Notes, Last used, Total (covered time per note, `tagCoveredMinutes`, as tag goals and stats count it). Default sort: Notes. On the Tasks tab, a query that is exactly `#tag` matches that whole tag, not `#tagged`, on any line of the task; a `#tag` no task carries still filters as text, so typing `#wo` narrows as it goes. The text filter, too, now looks at every line's tags, not only the latest line's.
+- **Identity:** a tag is case-sensitive and exact, like a task name; nested tags are tags of their own (renaming `#work` leaves `#work/meeting`).
+- **Actions:** Rename (one), Merge (several, pick the survivor), Color (several), Delete (several). Rename onto an existing tag is a merge. Lines get the target once; `tag_goals` are rewritten; the target's mapping keeps its fields and fills its blanks from the absorbed ones; GoalKey-keyed settings of tag goals (badges, streak skip, hidden bars, suggestion dismissals) migrate, the target's own winning. Two tag goals meeting in a note add their targets when they compare the same way (`6h` + `2h`, `<6h` + `<2h`), else the target's wins. Delete strips the tag from every line and drops its mapping, its tag goals and their settings. Merge (and a rename onto an existing tag) and delete take the type-the-name ritual; a plain rename a light confirm.
+- **Issues:** similar tags only (same detector as similar task names), with merge and show actions, the Issues only filter and the usual dismissals.
+
+## Phase 15: Tag management
+
+- [x] Core: tag aggregates from the index, filter and sort, exact `#tag` query on the Tasks tab, `tagMappings` without defaults.
+- [x] Core: tag consolidation (rename/merge/delete line and `tag_goals` rewrite, goal target sum), mapping and GoalKey settings migration; unit tests.
+- [x] Core: similar-tags issue.
+- [x] Commands: tag rename, merge and delete flows (preview, confirmation, `runBulkEdit`, notices).
+- [x] UI: tabbed modal, tag table, Manage tags command, settings row replacing the mapping list.
+- [x] E2E: tag rename, merge and delete through the real UI, asserting the exact markdown.
+
 ## Later
 
 - [ ] ~~Native task-name completion from past daily notes (replaces `syncTaskDictionary.js` + Various Complements).~~ Superseded by Phase 5.
@@ -318,7 +336,7 @@ Five slices, each usable and reviewed on its own; every slice is checked at mobi
 - [ ] Charts: tooltips, donut for tag share, if needed.
 - [ ] Release pipeline: build `main.js` in CI, GitHub release, community plugin submission.
 - [ ] ~~Improve the daily view's tag legend (currently a plain list of styled tag names; needs a clearer layout/design).~~ Dropped (2026-11-13): tag mappings no longer style text (bold / italic / underline removed), so there is no legend left.
-- [ ] Add a custom color per tag mapping in the settings, used in the legend (and by extension in table rows / charts).
+- [x] Add a custom color per tag mapping in the settings, used in the legend (and by extension in table rows / charts). Done with the tag goals (2026-11-24), edited from the Tags tab since 2026-11-26.
 - [ ] Redo the daily view's stats tab (removed 2026-11-17), once the `task-stats` block improvements have landed, reusing its components.
 - [ ] Group the tracker tab's plan by tag (mocked up 2026-11-13): a header per first tag with the day's total for it, a "No tag" group, other tags after the name, dragging across a header retags. Open questions: tasks with several tags, and how it combines with drag to reorder.
 - [ ] Performance test on a vault with 5 years of daily notes (year blocks with `compare: both`, overlap on long ranges, open blocks with running clocks); optimize only what it shows.

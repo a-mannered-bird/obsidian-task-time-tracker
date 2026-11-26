@@ -96,6 +96,8 @@ export const config: WebdriverIO.Config = {
 			await plugin.loadSettings()
 			// Goals crossed by the specs would chime through the hidden windows.
 			plugin.settings.playSounds = false
+			// The specs' pickers and tracker slots show the fixture's #project emoji.
+			plugin.settings.tagMappings = [{ tag: '#project', emoji: '⭐️' }]
 			await plugin.saveSettings()
 		})
 	},

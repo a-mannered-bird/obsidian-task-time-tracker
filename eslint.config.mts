@@ -35,6 +35,17 @@ export default tseslint.config(
 		},
 	},
 	{
+		// Svelte modules: the runes are compiler globals.
+		files: ['src/**/*.svelte.ts'],
+		languageOptions: {
+			globals: {
+				$state: 'readonly',
+				$derived: 'readonly',
+				$effect: 'readonly',
+			},
+		},
+	},
+	{
 		// E2E specs: mocha globals via @wdio/mocha-framework, dev-only deps.
 		files: ['test/specs/**/*.ts'],
 		languageOptions: {

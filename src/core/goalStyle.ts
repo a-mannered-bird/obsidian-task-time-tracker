@@ -79,18 +79,24 @@ export function withMetricSetting(
 	return all
 }
 
-/** The tag mappings with the tag's emoji set, adding a mapping if needed. */
-export function withTagEmoji(
+/**
+ * The tag mappings with the tag's emoji or color changed (a null color
+ * removes it): a mapping is added for a tag without one, and dropped once it
+ * has neither an emoji nor a color.
+ */
+export function withTagStyle(
 	mappings: TagMapping[],
 	tag: string,
-	emoji: string
+	change: { emoji?: string; color?: string | null }
 ): TagMapping[] {
-	if (!mappings.some((mapping) => mapping.tag === tag)) {
-		return emoji ? [...mappings, { tag, emoji }] : mappings
-	}
-	return mappings.map((mapping) =>
-		mapping.tag === tag ? { ...mapping, emoji } : mapping
-	)
+	const current = mappings.find((mapping) => mapping.tag === tag)
+	const emoji = change.emoji ?? current?.emoji ?? ''
+	const color =
+		change.color === undefined ? current?.color : (change.color ?? undefined)
+	const next: TagMapping[] = emoji || color ? [{ tag, emoji }] : []
+	if (next[0] && color) next[0].color = color
+	if (!current) return [...mappings, ...next]
+	return mappings.flatMap((mapping) => (mapping === current ? next : [mapping]))
 }
 
 export function goalEmoji(goal: Goal, settings: MetricSettings): string {

@@ -1,12 +1,3 @@
-.task-time-tracker-tag-mapping .setting-item-info {
-	display: none;
-}
-
-.task-time-tracker-tag-mapping .setting-item-control {
-	justify-content: flex-start;
-	flex-wrap: wrap;
-}
-
 .task-time-tracker-emoji-input {
 	width: 4em;
 }
@@ -259,6 +250,257 @@
 	max-width: 90vw;
 }
 
+/* The daily view's tabs and the management modal's. */
+.task-time-tracker-tabs {
+	display: flex;
+	gap: 1.25em;
+	margin-bottom: 1em;
+	border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.task-time-tracker-tabs button {
+	all: unset;
+	cursor: pointer;
+	color: var(--text-faint);
+	font-size: var(--font-ui-medium);
+	padding: 0.4em 0.1em;
+	margin-bottom: -1px;
+	border-bottom: 2px solid transparent;
+}
+
+.task-time-tracker-tabs button:hover {
+	color: var(--text-muted);
+}
+
+.task-time-tracker-tabs button:focus-visible {
+	outline: 2px solid var(--interactive-accent);
+	outline-offset: 2px;
+}
+
+.task-time-tracker-tabs button.active {
+	color: var(--text-normal);
+	font-weight: var(--font-semibold);
+	border-bottom-color: var(--interactive-accent);
+}
+
+/* The task and tag tables of the management modal share these. */
+.task-time-tracker-manager-modal .toolbar {
+	display: flex;
+	align-items: center;
+	gap: 0.75em;
+	margin-bottom: 0.75em;
+}
+
+.task-time-tracker-manager-modal .search {
+	flex: 1;
+}
+
+.task-time-tracker-manager-modal .selection-bar {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.5em;
+	/* Same height with or without a selection, so the table never jumps. */
+	min-height: calc(var(--input-height) + 1em);
+	margin-bottom: 0.75em;
+	padding: 0.5em 0.75em;
+	border-radius: var(--radius-m);
+	background: var(--background-secondary);
+}
+
+.task-time-tracker-manager-modal .selection-bar.idle {
+	background: transparent;
+	border: 1px dashed var(--background-modifier-border);
+}
+
+.task-time-tracker-manager-modal .selection-bar .clear {
+	margin-left: auto;
+}
+
+.task-time-tracker-manager-modal .facet {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.35em;
+	color: var(--text-muted);
+}
+
+.task-time-tracker-manager-modal .facet[aria-pressed='true'] {
+	color: var(--text-on-accent);
+	background: var(--interactive-accent);
+}
+
+.task-time-tracker-manager-modal .muted {
+	color: var(--text-muted);
+}
+
+.task-time-tracker-manager-modal .table-wrapper {
+	max-height: 60vh;
+	overflow-y: auto;
+}
+
+.task-time-tracker-manager-modal table {
+	width: 100%;
+	border-collapse: collapse;
+}
+
+.task-time-tracker-manager-modal th {
+	position: sticky;
+	top: 0;
+	/* Above the rows scrolled beneath (their checkboxes are positioned). */
+	z-index: 1;
+	background: var(--background-primary);
+	text-align: left;
+	border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.task-time-tracker-manager-modal .header {
+	all: unset;
+	cursor: pointer;
+	padding: 0.3em 0.5em;
+	display: inline-flex;
+	align-items: center;
+	gap: 0.3em;
+	font-weight: 600;
+}
+
+.task-time-tracker-manager-modal .header:hover {
+	color: var(--text-accent-hover);
+}
+
+.task-time-tracker-manager-modal .header:focus-visible {
+	outline: 2px solid var(--interactive-accent);
+	outline-offset: -2px;
+}
+
+.task-time-tracker-manager-modal td {
+	padding: 0.3em 0.5em;
+	border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.task-time-tracker-manager-modal td.numeric,
+.task-time-tracker-manager-modal th.numeric {
+	text-align: right;
+	padding: 0.3em 0.5em;
+}
+
+.task-time-tracker-manager-modal td.numeric,
+.task-time-tracker-manager-modal td.nowrap {
+	white-space: nowrap;
+}
+
+.task-time-tracker-manager-modal .name {
+	all: unset;
+	cursor: pointer;
+	margin-right: 0.5em;
+}
+
+.task-time-tracker-manager-modal .name:hover {
+	color: var(--text-accent-hover);
+}
+
+.task-time-tracker-manager-modal .name:focus-visible,
+.task-time-tracker-manager-modal .tags:focus-visible {
+	outline: 2px solid var(--interactive-accent);
+	outline-offset: 2px;
+}
+
+.task-time-tracker-manager-modal .tags {
+	all: unset;
+	cursor: pointer;
+}
+
+.task-time-tracker-manager-modal .tags:hover .tag {
+	color: var(--text-normal);
+}
+
+.task-time-tracker-manager-modal .tag.placeholder {
+	font-style: italic;
+	opacity: 0.6;
+}
+
+.task-time-tracker-manager-modal .swatch-cell,
+.task-time-tracker-manager-modal .select-cell {
+	width: 1.6em;
+}
+
+.task-time-tracker-manager-modal th.select-cell,
+.task-time-tracker-manager-modal td.select-cell {
+	padding: 0.3em 0.5em;
+	text-align: center;
+	vertical-align: middle;
+}
+
+/* As a block, like the swatch: inline `vertical-align: middle` centers on
+   the font's x-height, a little below the row's middle. */
+.task-time-tracker-manager-modal .select-cell input {
+	display: block;
+	margin: 0 auto;
+}
+
+.task-time-tracker-manager-modal .swatch {
+	all: unset;
+	cursor: pointer;
+	/* Inline, it would sit on the text baseline, above the row's middle. */
+	display: block;
+	width: 1em;
+	height: 1em;
+	border-radius: 50%;
+	border: 1px solid var(--background-modifier-border);
+}
+
+.task-time-tracker-manager-modal .swatch.unset {
+	border-style: dashed;
+}
+
+.task-time-tracker-manager-modal .swatch:hover {
+	border-color: var(--text-muted);
+}
+
+.task-time-tracker-manager-modal .swatch:focus-visible {
+	outline: 2px solid var(--interactive-accent);
+	outline-offset: 2px;
+}
+
+.task-time-tracker-manager-modal .tag {
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+	margin-right: 0.35em;
+}
+
+.task-time-tracker-manager-modal .hidden-marker {
+	display: inline-flex;
+	vertical-align: middle;
+	color: var(--text-faint);
+	margin-right: 0.5em;
+}
+
+.task-time-tracker-manager-modal .issues-cell {
+	white-space: nowrap;
+}
+
+.task-time-tracker-manager-modal .issue {
+	all: unset;
+	cursor: pointer;
+	display: inline-flex;
+	align-items: center;
+	gap: 0.15em;
+	margin-right: 0.4em;
+	color: var(--text-warning);
+}
+
+.task-time-tracker-manager-modal .issue:hover {
+	color: var(--text-normal);
+}
+
+.task-time-tracker-manager-modal .issue:focus-visible {
+	outline: 2px solid var(--interactive-accent);
+	outline-offset: 2px;
+}
+
+.task-time-tracker-manager-modal .issue .count {
+	font-size: var(--font-ui-smaller);
+}
+
 .task-time-tracker-color-input {
 	/* Invisible; left/top are set to the click position so the native picker
 	   pops up next to it. */
@@ -506,4 +748,37 @@
 .task-time-tracker-swatch-button.has-color {
 	border-style: solid;
 	border-color: var(--background-modifier-border);
+}
+
+.task-time-tracker-manager-modal .emoji-cell {
+	width: 2em;
+}
+
+.task-time-tracker-manager-modal .emoji,
+.task-time-tracker-manager-modal .link {
+	all: unset;
+	cursor: pointer;
+}
+
+.task-time-tracker-manager-modal .emoji {
+	display: inline-flex;
+	align-items: center;
+}
+
+.task-time-tracker-manager-modal .emoji.unset {
+	color: var(--text-faint);
+}
+
+.task-time-tracker-manager-modal .link {
+	color: var(--text-accent);
+}
+
+.task-time-tracker-manager-modal .link:hover {
+	text-decoration: underline;
+}
+
+.task-time-tracker-manager-modal .emoji:focus-visible,
+.task-time-tracker-manager-modal .link:focus-visible {
+	outline: 2px solid var(--interactive-accent);
+	outline-offset: 2px;
 }

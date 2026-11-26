@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Menu, SearchComponent, type IconName } from 'obsidian'
+	import { Menu, type IconName } from 'obsidian'
 	import { onMount } from 'svelte'
 	import {
 		changeTags,
@@ -28,20 +28,22 @@
 	} from 'core/taskManager'
 	import { formatHoursMinutes, formatLocalDateTime } from 'core/time'
 	import type { VaultTaskInfo } from 'core/vaultTaskIndex'
+	import { dismissIssues } from 'commands/issueActions'
 	import { openColorMenu } from 'ui/colorMenu'
 	import { icon } from 'ui/icon'
 	import { showNotice } from 'ui/notice'
 	import type TaskTimeTracker from '../main'
+	import { RowSelection, searchField, TableSort } from './managerTable.svelte'
 
 	type Props = {
 		plugin: TaskTimeTracker
 		/** Close the hosting modal (after navigating to a note). */
 		close: () => void
-		/** The filter the table opens with. */
-		initialQuery?: string
+		/** The filter, also set from the Tags tab. */
+		query: string
 	}
 
-	const { plugin, close, initialQuery = '' }: Props = $props()
+	let { plugin, close, query = $bindable() }: Props = $props()
 
 	let infos = $state<VaultTaskInfo[] | null>(null)
 	// Local mirrors of the settings so the rows re-render on change; the
@@ -54,16 +56,10 @@
 	let hiddenTasks = $state<string[]>([...plugin.settings.hiddenTasks])
 	/** Detected issues per task name, refreshed with the table. */
 	let issues = $state<Map<string, TaskIssue[]>>(new Map())
-	// svelte-ignore state_referenced_locally
-	let query = $state(initialQuery)
 	let hiddenOnly = $state(false)
 	let issuesOnly = $state(false)
-	let sortKey = $state<TaskSortKey>('usage')
-	let ascending = $state(false)
-	/** Names ticked for a bulk action. */
-	let selected = $state<string[]>([])
-	/** Row of the last plain click, the anchor of a shift-click range. */
-	let anchor = $state<string | null>(null)
+	const sort = new TableSort<TaskSortKey>('usage', (key) => key === 'name')
+	const selection = new RowSelection()
 	let busy = $state(false)
 
 	const HEADERS: { key: TaskSortKey; label: string; numeric?: boolean }[] = [
@@ -80,23 +76,10 @@
 				(!hiddenOnly || isHidden(info.name)) &&
 				(!issuesOnly || issues.has(info.name))
 		)
-		return sortTaskInfos(matching, sortKey, ascending)
+		return sortTaskInfos(matching, sort.key, sort.ascending)
 	})
 	const rows = $derived(filtered?.slice(0, TASK_TABLE_ROW_CAP) ?? null)
-
-	function setSort(key: TaskSortKey) {
-		if (sortKey === key) {
-			ascending = !ascending
-		} else {
-			sortKey = key
-			ascending = key === 'name'
-		}
-	}
-
-	function ariaSort(key: TaskSortKey): 'ascending' | 'descending' | undefined {
-		if (sortKey !== key) return undefined
-		return ascending ? 'ascending' : 'descending'
-	}
+	const filteredNames = $derived(filtered?.map((info) => info.name) ?? [])
 
 	function lastUsedLabel(info: VaultTaskInfo): string {
 		return formatLocalDateTime(info.lastUsed).split('T')[0]!
@@ -106,11 +89,8 @@
 		return hiddenTasks.includes(name)
 	}
 
-	const allSelected = $derived(
-		filtered !== null &&
-			filtered.length > 0 &&
-			filtered.every((info) => selected.includes(info.name))
-	)
+	const selected = $derived(selection.selected)
+	const allSelected = $derived(selection.allOf(filteredNames))
 	const someSelected = $derived(selected.length > 0 && !allSelected)
 	const singleSelected = $derived(
 		selected.length === 1 ? (selected[0] ?? null) : null
@@ -118,36 +98,6 @@
 	const selectedHidden = $derived(
 		selected.length > 0 && selected.every((name) => isHidden(name))
 	)
-
-	function isSelected(name: string): boolean {
-		return selected.includes(name)
-	}
-
-	/**
-	 * Tick or untick a row; with shift, tick every row between the last
-	 * plain click and this one (in the current order of the table).
-	 */
-	function toggleSelected(name: string, shift: boolean) {
-		if (shift && anchor !== null && rows) {
-			const names = rows.map((info) => info.name)
-			const [from, to] = [names.indexOf(anchor), names.indexOf(name)]
-			if (from !== -1 && to !== -1) {
-				const range = names.slice(Math.min(from, to), Math.max(from, to) + 1)
-				selected = [...new Set([...selected, ...range])]
-				return
-			}
-		}
-		anchor = name
-		selected = isSelected(name)
-			? selected.filter((other) => other !== name)
-			: [...selected, name]
-	}
-
-	/** Header checkbox: select every matching task, or clear the selection. */
-	function toggleAll() {
-		selected = allSelected ? [] : (filtered?.map((info) => info.name) ?? [])
-		anchor = null
-	}
 
 	function setHiddenAll(names: string[], hidden: boolean) {
 		const set = new Set(hiddenTasks)
@@ -181,7 +131,7 @@
 			busy = false
 			taskColors = { ...plugin.settings.taskColors }
 			hiddenTasks = [...plugin.settings.hiddenTasks]
-			selected = []
+			selection.clear()
 			await load()
 		}
 	}
@@ -206,18 +156,11 @@
 		'outside-day': 'calendar-x',
 		'goal-syntax': 'target',
 		'unit-drift': 'ruler',
+		'similar-tag': 'spell-check',
 	}
 
-	/** Remember not to show these warnings again, or a whole kind of them. */
 	async function dismiss(keys: string[], kind?: IssueKind) {
-		const { settings } = plugin
-		if (kind && !settings.ignoredIssueKinds.includes(kind)) {
-			settings.ignoredIssueKinds = [...settings.ignoredIssueKinds, kind]
-		}
-		settings.dismissedIssues = [
-			...new Set([...settings.dismissedIssues, ...keys]),
-		]
-		await plugin.saveSettings()
+		await dismissIssues(plugin, keys, kind)
 		await load()
 	}
 
@@ -274,6 +217,9 @@
 							void goTo(issue.path, issue.lineIndex)
 						})
 						break
+					case 'similar-tag':
+						// Raised on the Tags tab only.
+						break
 					default:
 						item.onClick(() => void goTo(issue.path, issue.lineIndex))
 				}
@@ -305,25 +251,6 @@
 		menu.showAtMouseEvent(event)
 	}
 
-	/**
-	 * Obsidian's own search field, for its clear button. The query also
-	 * changes from elsewhere (an issue menu), hence the sync back.
-	 */
-	function searchField(container: HTMLElement) {
-		const search = new SearchComponent(container)
-			.setPlaceholder('Filter by name or tag, "Name" for an exact name')
-			.onChange((value) => (query = value))
-		search.inputEl.setAttribute('aria-label', 'Filter tasks')
-		// Obsidian leaves its clear button unnamed.
-		search.clearButtonEl.setAttribute('aria-label', 'Clear filter')
-		$effect(() => {
-			if (search.getValue() === query) return
-			search.setValue(query)
-			// Shows or hides the clear button for the new value.
-			search.onChanged()
-		})
-	}
-
 	onMount(() => {
 		void load()
 		// Keep the table fresh while notes change (e.g. a tracked task stops).
@@ -332,7 +259,15 @@
 </script>
 
 <div class="toolbar">
-	<div class="search" use:searchField></div>
+	<div
+		class="search"
+		use:searchField={{
+			placeholder: 'Filter by name or tag, "Name" for an exact name',
+			label: 'Filter tasks',
+			get: () => query,
+			set: (value) => (query = value),
+		}}
+	></div>
 	<button
 		class="facet"
 		aria-pressed={hiddenOnly}
@@ -420,7 +355,7 @@
 		<button
 			class="clear"
 			title="Untick every task"
-			onclick={() => (selected = [])}
+			onclick={() => selection.clear()}
 		>
 			Clear
 		</button>
@@ -442,16 +377,19 @@
 							aria-label="Select every matching task"
 							checked={allSelected}
 							indeterminate={someSelected}
-							onchange={toggleAll}
+							onchange={() => selection.toggleAll(filteredNames)}
 						/>
 					</th>
 					<th class="swatch-cell"></th>
 					{#each HEADERS as header (header.key)}
-						<th class:numeric={header.numeric} aria-sort={ariaSort(header.key)}>
-							<button class="header" onclick={() => setSort(header.key)}>
+						<th
+							class:numeric={header.numeric}
+							aria-sort={sort.ariaSort(header.key)}
+						>
+							<button class="header" onclick={() => sort.set(header.key)}>
 								{header.label}
-								{#if sortKey === header.key}
-									<span aria-hidden="true">{ascending ? '▲' : '▼'}</span>
+								{#if sort.key === header.key}
+									<span aria-hidden="true">{sort.ascending ? '▲' : '▼'}</span>
 								{/if}
 							</button>
 						</th>
@@ -466,8 +404,13 @@
 							<input
 								type="checkbox"
 								aria-label="Select {info.name}"
-								checked={isSelected(info.name)}
-								onclick={(event) => toggleSelected(info.name, event.shiftKey)}
+								checked={selection.has(info.name)}
+								onclick={(event) =>
+									selection.toggle(
+										info.name,
+										event.shiftKey,
+										rows.map((row) => row.name)
+									)}
 							/>
 						</td>
 						<td class="swatch-cell">
@@ -545,222 +488,3 @@
 		</p>
 	{/if}
 {/if}
-
-<style>
-	.toolbar {
-		display: flex;
-		align-items: center;
-		gap: 0.75em;
-		margin-bottom: 0.75em;
-	}
-
-	.search {
-		flex: 1;
-	}
-
-	.selection-bar {
-		display: flex;
-		flex-wrap: wrap;
-		align-items: center;
-		gap: 0.5em;
-		/* Same height with or without a selection, so the table never jumps. */
-		min-height: calc(var(--input-height) + 1em);
-		margin-bottom: 0.75em;
-		padding: 0.5em 0.75em;
-		border-radius: var(--radius-m);
-		background: var(--background-secondary);
-	}
-
-	.selection-bar.idle {
-		background: transparent;
-		border: 1px dashed var(--background-modifier-border);
-	}
-
-	.selection-bar .clear {
-		margin-left: auto;
-	}
-
-	.facet {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.35em;
-		color: var(--text-muted);
-	}
-
-	.facet[aria-pressed='true'] {
-		color: var(--text-on-accent);
-		background: var(--interactive-accent);
-	}
-
-	.muted {
-		color: var(--text-muted);
-	}
-
-	.table-wrapper {
-		max-height: 60vh;
-		overflow-y: auto;
-	}
-
-	table {
-		width: 100%;
-		border-collapse: collapse;
-	}
-
-	th {
-		position: sticky;
-		top: 0;
-		/* Above the rows scrolled beneath (their checkboxes are positioned). */
-		z-index: 1;
-		background: var(--background-primary);
-		text-align: left;
-		border-bottom: 1px solid var(--background-modifier-border);
-	}
-
-	.header {
-		all: unset;
-		cursor: pointer;
-		padding: 0.3em 0.5em;
-		display: inline-flex;
-		align-items: center;
-		gap: 0.3em;
-		font-weight: 600;
-	}
-
-	.header:hover {
-		color: var(--text-accent-hover);
-	}
-
-	.header:focus-visible {
-		outline: 2px solid var(--interactive-accent);
-		outline-offset: -2px;
-	}
-
-	td {
-		padding: 0.3em 0.5em;
-		border-bottom: 1px solid var(--background-modifier-border);
-	}
-
-	td.numeric,
-	th.numeric {
-		text-align: right;
-		padding: 0.3em 0.5em;
-	}
-
-	td.numeric,
-	td.nowrap {
-		white-space: nowrap;
-	}
-
-	.name {
-		all: unset;
-		cursor: pointer;
-		margin-right: 0.5em;
-	}
-
-	.name:hover {
-		color: var(--text-accent-hover);
-	}
-
-	.name:focus-visible,
-	.tags:focus-visible {
-		outline: 2px solid var(--interactive-accent);
-		outline-offset: 2px;
-	}
-
-	.tags {
-		all: unset;
-		cursor: pointer;
-	}
-
-	.tags:hover .tag {
-		color: var(--text-normal);
-	}
-
-	.tag.placeholder {
-		font-style: italic;
-		opacity: 0.6;
-	}
-
-	.swatch-cell,
-	.select-cell {
-		width: 1.6em;
-	}
-
-	th.select-cell,
-	td.select-cell {
-		padding: 0.3em 0.5em;
-		text-align: center;
-		vertical-align: middle;
-	}
-
-	/* As a block, like the swatch: inline `vertical-align: middle` centers on
-	   the font's x-height, a little below the row's middle. */
-	.select-cell input {
-		display: block;
-		margin: 0 auto;
-	}
-
-	.swatch {
-		all: unset;
-		cursor: pointer;
-		/* Inline, it would sit on the text baseline, above the row's middle. */
-		display: block;
-		width: 1em;
-		height: 1em;
-		border-radius: 50%;
-		border: 1px solid var(--background-modifier-border);
-	}
-
-	.swatch.unset {
-		border-style: dashed;
-	}
-
-	.swatch:hover {
-		border-color: var(--text-muted);
-	}
-
-	.swatch:focus-visible {
-		outline: 2px solid var(--interactive-accent);
-		outline-offset: 2px;
-	}
-
-	.tag {
-		color: var(--text-muted);
-		font-size: var(--font-ui-smaller);
-		margin-right: 0.35em;
-	}
-
-	.hidden-marker {
-		display: inline-flex;
-		vertical-align: middle;
-		color: var(--text-faint);
-		margin-right: 0.5em;
-	}
-
-	.issues-cell {
-		white-space: nowrap;
-	}
-
-	.issue {
-		all: unset;
-		cursor: pointer;
-		display: inline-flex;
-		align-items: center;
-		gap: 0.15em;
-		margin-right: 0.4em;
-		color: var(--text-warning);
-	}
-
-	.issue:hover {
-		color: var(--text-normal);
-	}
-
-	.issue:focus-visible {
-		outline: 2px solid var(--interactive-accent);
-		outline-offset: 2px;
-	}
-
-	.issue .count {
-		font-size: var(--font-ui-smaller);
-	}
-</style>

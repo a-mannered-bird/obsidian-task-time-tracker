@@ -8,6 +8,7 @@ const info = (
 ): VaultTaskInfo => ({
 	name,
 	tags: [],
+	lineTags: [],
 	goals: [],
 	noteCount: 1,
 	lastUsed: new Date(2026, 7, 1),
@@ -16,13 +17,23 @@ const info = (
 })
 
 const infos = [
-	info('Deep work', { tags: ['#focus'], noteCount: 3, totalMinutes: 120 }),
+	info('Deep work', {
+		tags: ['#focus'],
+		lineTags: ['#focus', '#workshop'],
+		noteCount: 3,
+		totalMinutes: 120,
+	}),
 	info('Email', {
 		noteCount: 2,
 		lastUsed: new Date(2026, 7, 20),
 		totalMinutes: 45,
 	}),
-	info('Workout', { tags: ['#routine'], noteCount: 2, totalMinutes: 300 }),
+	info('Workout', {
+		tags: ['#routine'],
+		lineTags: ['#routine', '#work'],
+		noteCount: 2,
+		totalMinutes: 300,
+	}),
 ]
 
 describe('filterTaskInfos', () => {
@@ -43,6 +54,15 @@ describe('filterTaskInfos', () => {
 		expect(names('"work"')).toEqual([])
 		// Unquoted, the same text also matches the other names containing it.
 		expect(names('Work')).toEqual(['Deep work', 'Workout'])
+	})
+
+	it('matches a whole tag exactly, on any line of the task', () => {
+		const names = (query: string) =>
+			filterTaskInfos(infos, query).map((i) => i.name)
+		expect(names('#work')).toEqual(['Workout'])
+		expect(names('#wor')).toEqual(['Deep work', 'Workout'])
+		// No task carries "#Work" (case counts), so it filters as text.
+		expect(names('#Work')).toEqual(['Deep work', 'Workout'])
 	})
 
 	it('returns everything for a blank query', () => {

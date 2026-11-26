@@ -15,7 +15,7 @@ import {
 	tagGoalStreak,
 	trackerGoalBars,
 	withMetricSetting,
-	withTagEmoji,
+	withTagStyle,
 } from './goalStyle'
 import { parseTasks } from './parser'
 import { readTagGoals } from './tagGoals'
@@ -68,16 +68,23 @@ describe('emoji edits', () => {
 		expect(cleared).toEqual({})
 	})
 
-	it("sets a tag's emoji, adding a mapping for a tag without one", () => {
+	it("sets a tag's emoji or color, adding a mapping for a tag without one", () => {
 		const mappings = [{ tag: '#work', emoji: '💼', color: '#123456' }]
-		expect(withTagEmoji(mappings, '#work', '🏢')).toEqual([
+		expect(withTagStyle(mappings, '#work', { emoji: '🏢' })).toEqual([
 			{ tag: '#work', emoji: '🏢', color: '#123456' },
 		])
-		expect(withTagEmoji(mappings, '#sport', '⚽')).toEqual([
+		expect(withTagStyle(mappings, '#sport', { color: '#00ff00' })).toEqual([
 			...mappings,
-			{ tag: '#sport', emoji: '⚽' },
+			{ tag: '#sport', emoji: '', color: '#00ff00' },
 		])
-		expect(withTagEmoji(mappings, '#sport', '')).toEqual(mappings)
+		expect(withTagStyle(mappings, '#sport', { emoji: '' })).toEqual(mappings)
+	})
+
+	it('drops a mapping left with neither emoji nor color', () => {
+		const mappings = [{ tag: '#work', emoji: '💼', color: '#123456' }]
+		const noColor = withTagStyle(mappings, '#work', { color: null })
+		expect(noColor).toEqual([{ tag: '#work', emoji: '💼' }])
+		expect(withTagStyle(noColor, '#work', { emoji: '' })).toEqual([])
 	})
 })
 

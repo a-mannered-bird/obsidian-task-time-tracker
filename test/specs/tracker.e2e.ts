@@ -1297,7 +1297,7 @@ describe('tracker tab', function () {
 		/** A row's tag slot, named by the tags it lists. */
 		const slot = (task: string, tags: string) =>
 			browser.$(`li*=${task}`).$(`button[aria-label="${tags}"]`)
-		// #project maps to ⭐️ by default, badged with the unmapped #sport.
+		// #project maps to ⭐️ (wdio.conf.mts), badged with the unmapped #sport.
 		await expect(slot('Gym', '#project #sport')).toHaveText(/^⭐️\s*\+1$/)
 		// No tag of Email has an emoji: a hash icon stands for them.
 		await expect(slot('Email', '#work #admin')).toHaveText('')
@@ -1384,7 +1384,7 @@ describe('tracker tab', function () {
 		await openTracker()
 
 		await chooseFromRowMenu('Email', 'Show in task manager')
-		const modal = await modalTitled('Manage tasks')
+		const modal = await modalTitled('Manage tasks and tags')
 		// Quoted, the filter matches the name exactly: not "Emails" too.
 		const filter = modal.$('input[aria-label="Filter tasks"]')
 		await expect(filter).toHaveValue('"Email"')

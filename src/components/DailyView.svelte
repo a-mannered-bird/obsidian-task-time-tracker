@@ -280,7 +280,7 @@
 		</div>
 	{/if}
 
-	<div class="tabs" role="tablist">
+	<div class="task-time-tracker-tabs" role="tablist">
 		{#each TABS as tab (tab.id)}
 			<button
 				type="button"
@@ -492,37 +492,5 @@
 	.back-to-today:focus-visible {
 		outline: 2px solid var(--interactive-accent);
 		outline-offset: 2px;
-	}
-
-	.tabs {
-		display: flex;
-		gap: 1.25em;
-		margin-bottom: 1em;
-		border-bottom: 1px solid var(--background-modifier-border);
-	}
-
-	.tabs button {
-		all: unset;
-		cursor: pointer;
-		color: var(--text-faint);
-		font-size: var(--font-ui-medium);
-		padding: 0.4em 0.1em;
-		margin-bottom: -1px;
-		border-bottom: 2px solid transparent;
-	}
-
-	.tabs button:hover {
-		color: var(--text-muted);
-	}
-
-	.tabs button:focus-visible {
-		outline: 2px solid var(--interactive-accent);
-		outline-offset: 2px;
-	}
-
-	.tabs button.active {
-		color: var(--text-normal);
-		font-weight: var(--font-semibold);
-		border-bottom-color: var(--interactive-accent);
 	}
 </style>

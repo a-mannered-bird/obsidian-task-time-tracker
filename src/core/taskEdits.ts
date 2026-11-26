@@ -116,7 +116,7 @@ export function typedTag(text: string): string | null {
 	return isTag(tag) ? tag : null
 }
 
-const TASK_PREFIX = /^(\s*- \[[ xX]\] )(.*)$/
+export const TASK_PREFIX = /^(\s*- \[[ xX]\] )(.*)$/
 
 function retagLine(line: string, change: TagChange): string {
 	const match = TASK_PREFIX.exec(line)

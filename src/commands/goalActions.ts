@@ -51,7 +51,6 @@ import {
 	goalEmoji,
 	ownGoalBadge,
 	withMetricSetting,
-	withTagEmoji,
 	type DoneBadgeChoice,
 } from 'core/goalStyle'
 import { TaskNote } from 'core/note'
@@ -67,6 +66,7 @@ import { showUndoNotice } from 'ui/undoNotice'
 import type TaskTimeTracker from '../main'
 import { currentTarget, noteIo, readTaskNote, targetIo } from './target'
 import { wrote } from './timelineEdits'
+import { chooseTagEmoji } from './tagActions'
 import { pickNoteTask } from './tracking'
 import { undoNoteWrite } from './undo'
 
@@ -385,34 +385,22 @@ export async function chooseGoalEmoji(
 ): Promise<boolean> {
 	const { settings } = plugin
 	const { goal, tag } = card
+	if (tag !== null) return chooseTagEmoji(plugin, tag, goalEmoji(goal, {}))
 	const metric = goalLabel(goal)
 	const typed = await promptText(plugin.app, {
-		title: `Emoji of ${tag ?? metric}`,
+		title: `Emoji of ${metric}`,
 		description:
-			tag !== null
-				? `Shown on the ${tag} goal and in the task pickers. Empty for none.`
-				: goal.kind === 'time'
-					? 'Shown on every time goal. Empty for the default.'
-					: `Shown on every ${metric} goal and its tracker bars. Empty for the default.`,
+			goal.kind === 'time'
+				? 'Shown on every time goal. Empty for the default.'
+				: `Shown on every ${metric} goal and its tracker bars. Empty for the default.`,
 		label: 'Emoji',
-		initialValue:
-			tag !== null
-				? (settings.tagMappings.find((mapping) => mapping.tag === tag)?.emoji ??
-					'')
-				: (settings.metricSettings[metric]?.emoji ?? ''),
+		initialValue: settings.metricSettings[metric]?.emoji ?? '',
 		placeholder: goalEmoji(goal, {}),
 	})
 	if (typed === null) return false
-	const emoji = typed.trim()
-	if (tag !== null) {
-		settings.tagMappings = withTagEmoji(settings.tagMappings, tag, emoji)
-	} else {
-		settings.metricSettings = withMetricSetting(
-			settings.metricSettings,
-			metric,
-			{ emoji: emoji || undefined }
-		)
-	}
+	settings.metricSettings = withMetricSetting(settings.metricSettings, metric, {
+		emoji: typed.trim() || undefined,
+	})
 	await plugin.saveSettings()
 	return true
 }

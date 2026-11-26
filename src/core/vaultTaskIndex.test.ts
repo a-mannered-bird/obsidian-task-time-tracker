@@ -46,6 +46,7 @@ describe('VaultTaskIndex.snapshot', () => {
 		// Tags and goals come from the first matching line of the most
 		// recent note, even when it has no goal any more.
 		expect(deepWork.tags).toEqual(['#focus'])
+		expect(deepWork.lineTags).toEqual(['#dup', '#focus', '#project'])
 		expect(deepWork.goals).toMatchObject([{ kind: 'time', minutes: 180 }])
 
 		expect(byName.get('Workout')).toMatchObject({

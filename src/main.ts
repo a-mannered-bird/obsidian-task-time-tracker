@@ -21,7 +21,7 @@ import {
 } from './settings'
 import { registerCustomIcons } from './ui/customIcons'
 import { SoundPlayer } from './ui/goalSounds'
-import { openTaskManager } from './ui/TaskManagerModal'
+import { openTagManager, openTaskManager } from './ui/TaskManagerModal'
 import { assignDateTimeType } from './ui/propertyTypes'
 import { DAY_END_PROPERTY, DAY_START_PROPERTY } from './core/time'
 import { DailyItemView, DAILY_VIEW } from './views/DailyItemView'
@@ -98,6 +98,13 @@ export default class TaskTimeTracker extends Plugin {
 			name: 'Manage tasks',
 			icon: 'list-todo',
 			callback: () => openTaskManager(this),
+		})
+
+		this.addCommand({
+			id: 'manage-tags',
+			name: 'Manage tags',
+			icon: 'tags',
+			callback: () => openTagManager(this),
 		})
 
 		registerTrackingCommands(this)

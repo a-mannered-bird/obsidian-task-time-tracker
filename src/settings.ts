@@ -4,7 +4,7 @@ import { ZOOM_DEFAULT } from './core/timeline'
 import { ISSUE_KINDS, ISSUE_TITLES, type IssueKind } from './core/issues'
 import type TaskTimeTracker from './main'
 import { showNotice } from './ui/notice'
-import { openTaskManager } from './ui/TaskManagerModal'
+import { openTagManager, openTaskManager } from './ui/TaskManagerModal'
 import type { TagMapping } from './types/tags'
 import {
 	AGGREGATION_RULE_NAMES,
@@ -110,24 +110,7 @@ export const DEFAULT_SETTINGS: TaskTimeTrackerSettings = {
 	timelineFitOnOpen: true,
 	lastDailyViewTab: 'tracker',
 	timelineZoom: ZOOM_DEFAULT,
-	tagMappings: [
-		{
-			tag: '#project',
-			emoji: '⭐️',
-		},
-		{
-			tag: '#tracker',
-			emoji: '👣',
-		},
-		{
-			tag: '#routine',
-			emoji: '🔂',
-		},
-		{
-			tag: '#chores',
-			emoji: '🧼',
-		},
-	],
+	tagMappings: [],
 }
 
 export const UNUSED_METRIC_WARNING =
@@ -168,10 +151,6 @@ function addColorSwatch(
 	paint()
 }
 
-function emptyMapping(): TagMapping {
-	return { tag: '', emoji: '' }
-}
-
 export class TaskTimeTrackerSettingTab extends PluginSettingTab {
 	plugin: TaskTimeTracker
 
@@ -188,7 +167,6 @@ export class TaskTimeTrackerSettingTab extends PluginSettingTab {
 		this.displayGoalsSection(containerEl)
 		this.displayTaskManagementSection(containerEl)
 		this.displayWarningsSection(containerEl)
-		this.displayTagMappingsSection(containerEl)
 
 		new Setting(containerEl)
 			.setName('Apply changes')
@@ -420,6 +398,15 @@ export class TaskTimeTrackerSettingTab extends PluginSettingTab {
 			.addButton((button) =>
 				button.setButtonText('Open').onClick(() => openTaskManager(this.plugin))
 			)
+
+		new Setting(containerEl)
+			.setName('Manage tags')
+			.setDesc(
+				'Each tag can have an emoji, shown in the task pickers, on the tracker and on its tag goals, and a color for its tag goals; a task without a color of its own takes the color of its first tag that has one. Rename, merge and delete tags there too; also available as a command.'
+			)
+			.addButton((button) =>
+				button.setButtonText('Open').onClick(() => openTagManager(this.plugin))
+			)
 	}
 
 	private displayWarningsSection(containerEl: HTMLElement) {
@@ -457,69 +444,5 @@ export class TaskTimeTrackerSettingTab extends PluginSettingTab {
 						this.display()
 					})
 			)
-	}
-
-	private displayTagMappingsSection(containerEl: HTMLElement) {
-		new Setting(containerEl)
-			.setName('Tag mappings')
-			.setDesc(
-				'For each tag: an emoji shown in task pickers and on its tag goals, and a color for its tag goals. A task without a color of its own takes the color of its first tag that has one.'
-			)
-			.setHeading()
-			.addButton((button) =>
-				button
-					.setButtonText('Add tag')
-					.setCta()
-					.onClick(async () => {
-						this.plugin.settings.tagMappings.push(emptyMapping())
-						await this.plugin.saveSettings()
-						this.display()
-					})
-			)
-
-		this.plugin.settings.tagMappings.forEach((mapping, index) => {
-			const setting = new Setting(containerEl)
-			setting.settingEl.addClass('task-time-tracker-tag-mapping')
-
-			setting
-				.addText((text) =>
-					text
-						.setPlaceholder('#tag')
-						.setValue(mapping.tag)
-						.onChange(async (value) => {
-							mapping.tag = value.trim()
-							await this.plugin.saveSettings()
-						})
-				)
-				.addText((text) => {
-					text.inputEl.addClass('task-time-tracker-emoji-input')
-					text
-						.setPlaceholder('Emoji')
-						.setValue(mapping.emoji)
-						.onChange(async (value) => {
-							mapping.emoji = value.trim()
-							await this.plugin.saveSettings()
-						})
-				})
-			addColorSwatch(setting, 'Color of the tag', {
-				get: () => mapping.color,
-				set: async (color) => {
-					if (color) mapping.color = color
-					else delete mapping.color
-					await this.plugin.saveSettings()
-				},
-			})
-
-			setting.addExtraButton((button) =>
-				button
-					.setIcon('trash')
-					.setTooltip('Remove')
-					.onClick(async () => {
-						this.plugin.settings.tagMappings.splice(index, 1)
-						await this.plugin.saveSettings()
-						this.display()
-					})
-			)
-		})
 	}
 }
