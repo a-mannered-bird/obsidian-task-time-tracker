@@ -693,15 +693,18 @@
 		vertical-align: middle;
 	}
 
+	/* As a block, like the swatch: inline `vertical-align: middle` centers on
+	   the font's x-height, a little below the row's middle. */
 	.select-cell input {
-		margin: 0;
-		vertical-align: middle;
+		display: block;
+		margin: 0 auto;
 	}
 
 	.swatch {
 		all: unset;
 		cursor: pointer;
-		display: inline-block;
+		/* Inline, it would sit on the text baseline, above the row's middle. */
+		display: block;
 		width: 1em;
 		height: 1em;
 		border-radius: 50%;
