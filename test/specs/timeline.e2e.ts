@@ -52,12 +52,79 @@ async function focus(label: string) {
 	await expect(element).toBeFocused()
 }
 
-/** Open notes at the remembered zoom, or fitted to their day. */
-async function setFitOnOpen(fit: boolean) {
-	await browser.executeObsidian(async ({ plugins }, fit) => {
-		plugins.obsidianTaskTimeTracker.settings.timelineFitOnOpen = fit
-		await plugins.obsidianTaskTimeTracker.saveSettings()
-	}, fit)
+type NoteViews = Record<string, { zoom?: number; top?: number }>
+
+/**
+ * Set the zoom and scroll remembered per note (a note without a zoom opens
+ * fitted to its day) and reopen the view with them. The view saves what was
+ * changed in it as it closes, so it is closed before they are set.
+ */
+async function setNoteViews(views: NoteViews) {
+	await browser.executeObsidian(async ({ plugins }, views) => {
+		const plugin = plugins.obsidianTaskTimeTracker
+		await plugin.refreshViews()
+		plugin.settings.timelineViews = views
+		await plugin.saveSettings()
+		await plugin.refreshViews()
+	}, views)
+}
+
+/** The pixel arithmetic of these tests needs the default zoom, not one fitted to the window. */
+const DEFAULT_ZOOM = { [NOTE]: { zoom: 60 } }
+
+const savedViews = () =>
+	browser.executeObsidian(
+		({ plugins }) => plugins.obsidianTaskTimeTracker.settings.timelineViews
+	)
+
+async function waitForSavedZoom(zoom: number) {
+	await browser.waitUntil(
+		async () => (await savedViews())[NOTE]?.zoom === zoom,
+		{ timeoutMsg: `the zoom saved for ${NOTE} is not ${zoom}` }
+	)
+}
+
+/** Where a block stands in the window, from its top. */
+async function topOf(label: string) {
+	const element = await block(label).getElement()
+	return browser.execute((el) => el.getBoundingClientRect().top, element)
+}
+
+/**
+ * Whether the view shows from the start of `first` at its top, just under
+ * the toolbar, to the end of `last` (as much as the zoom limit allows).
+ */
+function fittedBetween(first: string, last: string) {
+	return browser.execute(
+		(first, last) => {
+			const panel = document.querySelector('[role="tabpanel"]')
+			const toolbar = panel?.querySelector('.timeline-toolbar')
+			const top = panel?.querySelector(`[aria-label="${first}"]`)
+			const bottom = panel?.querySelector(`[aria-label="${last}"]`)
+			if (!panel || !(toolbar instanceof HTMLElement) || !top || !bottom)
+				return 'missing elements'
+			const view = panel.getBoundingClientRect()
+			const viewTop = view.top + toolbar.offsetHeight
+			const start = top.getBoundingClientRect().top
+			const end = bottom.getBoundingClientRect().bottom
+			return Math.abs(start - viewTop) < 1 && end < view.bottom + 1
+				? 'fitted'
+				: `start at ${start - viewTop} px below the toolbar, end at ${end} of ${view.bottom}`
+		},
+		first,
+		last
+	)
+}
+
+async function expectFitted(first: string, last: string) {
+	let state = ''
+	// The assertion says what was seen instead, should the wait run out.
+	await browser
+		.waitUntil(
+			async () => (state = await fittedBetween(first, last)) === 'fitted'
+		)
+		.catch(() => undefined)
+	assert.strictEqual(state, 'fitted')
 }
 
 /** Wait for the timeline's write to land in the file. */
@@ -73,65 +140,80 @@ async function waitForChange(before: string) {
 }
 
 describe('timeline tab', function () {
-	// The pixel arithmetic of these tests needs the default zoom, not one
-	// fitted to the window.
-	before(async function () {
-		await setFitOnOpen(false)
-	})
-
-	after(async function () {
-		await setFitOnOpen(true)
-	})
-
 	beforeEach(async function () {
+		await setNoteViews(DEFAULT_ZOOM)
 		await resetVault()
 	})
 
-	// Here rather than at the end of the zoom tests: a zoom left behind by a
-	// failing one would throw off the pixel arithmetic of every later test.
-	// The remount also drops the view's pending, debounced zoom save.
-	afterEach(async function () {
-		await browser.executeObsidian(async ({ plugins }) => {
-			plugins.obsidianTaskTimeTracker.settings.timelineZoom = 60
-			await plugins.obsidianTaskTimeTracker.saveSettings()
-			await plugins.obsidianTaskTimeTracker.refreshViews()
-		})
+	after(async function () {
+		await setNoteViews({})
 	})
 
-	it('opens a note fitted to its day', async function () {
-		await setFitOnOpen(true)
+	it('opens a note without a zoom of its own fitted to its day', async function () {
+		await setNoteViews({})
 		await openTimeline()
 		// The note has no start or end of day: its clocks, 09:00 to 09:45, fill
 		// the view from its top (or as much of it as the zoom limit allows).
-		const fitted = () =>
-			browser.execute(() => {
-				const panel = document.querySelector('[role="tabpanel"]')
-				const toolbar = panel?.querySelector('.timeline-toolbar')
-				const first = panel?.querySelector(
-					'[aria-label="Task A, 09:00 to 09:30"]'
-				)
-				const last = panel?.querySelector(
-					'[aria-label="Task B, 09:15 to 09:45"]'
-				)
-				if (!panel || !(toolbar instanceof HTMLElement) || !first || !last)
-					return 'missing elements'
-				const view = panel.getBoundingClientRect()
-				const top = view.top + toolbar.offsetHeight
-				const start = first.getBoundingClientRect().top
-				const end = last.getBoundingClientRect().bottom
-				return Math.abs(start - top) < 1 && end <= view.bottom
-					? 'fitted'
-					: `09:00 at ${start - top} px below the toolbar, 09:45 at ${end} of ${view.bottom}`
-			})
-		await browser.waitUntil(async () => (await fitted()) === 'fitted', {
-			timeoutMsg: 'the day was not fitted',
-		})
-		assert.strictEqual(await fitted(), 'fitted')
+		await expectFitted('Task A, 09:00 to 09:30', 'Task B, 09:15 to 09:45')
+	})
 
-		// Reopen the view at the remembered zoom for the other tests.
-		await setFitOnOpen(false)
-		await browser.executeObsidian(({ plugins }) =>
-			plugins.obsidianTaskTimeTracker.refreshViews()
+	it('remembers the zoom of each note', async function () {
+		await openTimeline()
+		const taskA = block('Task A, 09:00 to 09:30')
+		await expect(taskA).toHaveStyle({ height: '30px' })
+
+		// Two steps of 1.5 take 60 px per hour to 135: half an hour is 67.5 px.
+		const zoomIn = browser.$('button[aria-label="Zoom in"]')
+		await zoomIn.click()
+		await expect(zoomIn).toBeEnabled()
+		await zoomIn.click()
+		await expect(taskA).toHaveStyle({ height: '67.5px' })
+		await waitForSavedZoom(135)
+
+		// The day before has no zoom of its own: fitted, and not saved as chosen.
+		await browser.$('button[aria-label="Previous daily note"]').click()
+		await expect(block('Deep work, 09:00 to 09:45')).toBeDisplayed()
+		await expectFitted('Deep work, 09:00 to 09:45', 'Task B, 11:30 to 12:00')
+		assert.deepStrictEqual(Object.keys(await savedViews()), [NOTE])
+
+		await browser.$('button[aria-label="Next daily note"]').click()
+		await expect(taskA).toHaveStyle({ height: '67.5px' })
+	})
+
+	it('remembers the scroll of each note', async function () {
+		await openTimeline()
+		const opened = await topOf('Task A, 09:00 to 09:30')
+
+		// Five hours further down the day, at 60 px per hour.
+		const element = await block('Task A, 09:00 to 09:30').getElement()
+		await browser.execute((el) => {
+			let node = el.parentElement
+			while (
+				node &&
+				!['auto', 'scroll'].includes(getComputedStyle(node).overflowY)
+			)
+				node = node.parentElement
+			node?.scrollBy(0, 300)
+		}, element)
+		await browser.waitUntil(
+			async () => (await savedViews())[NOTE]?.top !== undefined,
+			{ timeoutMsg: `no scroll was saved for ${NOTE}` }
+		)
+		const scrolled = await topOf('Task A, 09:00 to 09:30')
+		assert.ok(
+			Math.abs(scrolled - (opened - 300)) <= 1,
+			`Task A went from ${opened} to ${scrolled}`
+		)
+
+		await browser.$('button[aria-label="Previous daily note"]').click()
+		await expect(block('Deep work, 09:00 to 09:45')).toBeDisplayed()
+		await browser.$('button[aria-label="Next daily note"]').click()
+		await expect(block('Task A, 09:00 to 09:30')).toBeDisplayed()
+		await waitForSteadyTimeline()
+		const back = await topOf('Task A, 09:00 to 09:30')
+		assert.ok(
+			Math.abs(back - scrolled) <= 1,
+			`Task A came back at ${back}, not ${scrolled}`
 		)
 	})
 
@@ -275,13 +357,7 @@ describe('timeline tab', function () {
 				'[clock::2026-08-03T09:05:00--2026-08-03T09:35:00]'
 			)
 		)
-		await browser.waitUntil(() =>
-			browser
-				.executeObsidian(
-					({ plugins }) => plugins.obsidianTaskTimeTracker.settings.timelineZoom
-				)
-				.then((zoom) => zoom === 135)
-		)
+		await waitForSavedZoom(135)
 	})
 
 	it('zooms out around the middle of the view, not the pointer', async function () {
@@ -351,13 +427,7 @@ describe('timeline tab', function () {
 			Math.abs(after.y - center.y) <= 1,
 			`09:15 moved from ${center.y} to ${after.y}`
 		)
-		await browser.waitUntil(() =>
-			browser
-				.executeObsidian(
-					({ plugins }) => plugins.obsidianTaskTimeTracker.settings.timelineZoom
-				)
-				.then((zoom) => zoom === 120)
-		)
+		await waitForSavedZoom(120)
 	})
 
 	/**
@@ -426,6 +496,63 @@ describe('timeline tab', function () {
 		await clickNoticeButton(noticeWith('Added "Retro" 10:00–10:30'), 'Undo')
 		await expect(block('Task A, 09:00 to 09:30')).toBeDisplayed()
 		assert.strictEqual(await waitForChange(added), before)
+	})
+
+	it('adds a half-hour clock on a click on empty space', async function () {
+		await openTimeline()
+		const before = await obsidianPage.read(NOTE)
+
+		// 40 px above 09:15 is 08:35, in the step starting at 08:30.
+		await browser
+			.action('pointer', { parameters: { pointerType: 'mouse' } })
+			.move({ origin: block('Task A, 09:00 to 09:30'), y: -40 })
+			.down()
+			.up()
+			.perform()
+		await pickTask('Task for 08:30–09:00', 'Task B', 'Task B')
+
+		await expect(block('Task B, 08:30 to 09:00')).toBeDisplayed()
+		assert.strictEqual(
+			await waitForChange(before),
+			before.replace(
+				'      [clock::2026-08-03T09:15:00--2026-08-03T09:45:00]',
+				'      [clock::2026-08-03T08:30:00--2026-08-03T09:00:00]\n' +
+					'      [clock::2026-08-03T09:15:00--2026-08-03T09:45:00]'
+			)
+		)
+	})
+
+	it('draws a clock beside the clocks of a busy hour, in the space kept free', async function () {
+		await openTimeline()
+		const before = await obsidianPage.read(NOTE)
+
+		// At 09:15 Task A and Task B share the width; the strip right of
+		// them stays empty. Both ends stick to Task B's edges, 09:15 and 09:45.
+		const start = await browser.execute(
+			(el) => {
+				const lanes = el.parentElement?.getBoundingClientRect()
+				const rect = el.getBoundingClientRect()
+				return {
+					x: Math.round((lanes?.right ?? 0) - 6),
+					y: Math.round(rect.top + rect.height / 2),
+				}
+			},
+			await block('Task A, 09:00 to 09:30').getElement()
+		)
+		await browser
+			.action('pointer', { parameters: { pointerType: 'mouse' } })
+			.move(start)
+			.down()
+			.move({ origin: 'pointer', y: 30 })
+			.up()
+			.perform()
+		await pickTask('Task for 09:15–09:45', 'Review', 'Create')
+
+		await expect(block('Review, 09:15 to 09:45')).toBeDisplayed()
+		assert.strictEqual(
+			await waitForChange(before),
+			`${before.trimEnd()}\n- [ ] Review\n      [clock::2026-08-03T09:15:00--2026-08-03T09:45:00]\n`
+		)
 	})
 
 	/** Check the open block menu lists `items`, and pick `choice`. */

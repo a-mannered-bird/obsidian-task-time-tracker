@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { parseTasks } from './parser'
 import {
 	addClock,
+	clickedTimes,
 	clockActions,
 	describeClockDeleted,
 	describeClockAdded,
@@ -16,12 +17,16 @@ import {
 	layoutBlocks,
 	magnetsFor,
 	nudgeTimes,
+	readNoteViews,
+	rememberView,
 	removeClock,
 	retimeClock,
 	sameTaskOverlaps,
 	snapStepMinutes,
 	timelineAxis,
 	timelineBlocks,
+	REMEMBERED_VIEWS,
+	ZOOM_MAX,
 	type SnapOptions,
 } from './timeline'
 import { plainNoticeText } from './noticeText'
@@ -214,6 +219,39 @@ describe('fitRange', () => {
 			end: now,
 		})
 		expect(fitRange(null, null, [], now)).toBeNull()
+	})
+})
+
+describe('rememberView', () => {
+	it('merges the change into the note view and moves the note to the end', () => {
+		const views = { 'a.md': { zoom: 60, top: 1000 }, 'b.md': { zoom: 90 } }
+		expect(Object.entries(rememberView(views, 'a.md', { top: 2000 }))).toEqual([
+			['b.md', { zoom: 90 }],
+			['a.md', { zoom: 60, top: 2000 }],
+		])
+	})
+
+	it('forgets the oldest notes beyond the limit, keeping the zoom in range', () => {
+		const views = Object.fromEntries(
+			Array.from({ length: REMEMBERED_VIEWS }, (_, i) => [`${i}.md`, {}])
+		)
+		const remembered = rememberView(views, 'new.md', { zoom: 5000 })
+		expect(Object.keys(remembered)).toHaveLength(REMEMBERED_VIEWS)
+		expect(remembered['0.md']).toBeUndefined()
+		expect(remembered['new.md']).toEqual({ zoom: ZOOM_MAX })
+	})
+})
+
+describe('readNoteViews', () => {
+	it('keeps the numeric zoom and top of saved data, nothing else', () => {
+		expect(
+			readNoteViews({
+				'a.md': { zoom: 90, top: 1000 },
+				'b.md': { zoom: '90', top: Number.NaN },
+				'c.md': 90,
+			})
+		).toEqual({ 'a.md': { zoom: 90, top: 1000 }, 'b.md': {} })
+		expect(readNoteViews(undefined)).toEqual({})
 	})
 })
 
@@ -477,6 +515,39 @@ describe('drawnTimes', () => {
 			end: at(14),
 		})
 		expect(drawnTimes(at(13, 55), at(14, 30), grid)).toBeNull()
+	})
+})
+
+describe('clickedTimes', () => {
+	it('starts on the grid line above the click and lasts half an hour', () => {
+		expect(clickedTimes(at(9, 14), grid)).toEqual({
+			start: at(9),
+			end: at(9, 30),
+		})
+	})
+
+	it('starts on a magnet within reach, to follow a clock', () => {
+		const options = { ...grid, magnets: [at(9, 20)], magnetMs: minutes(5) }
+		expect(clickedTimes(at(9, 22), options)).toEqual({
+			start: at(9, 20),
+			end: at(9, 50),
+		})
+	})
+
+	it('starts on the minute clicked when snapping is off', () => {
+		expect(clickedTimes(at(9, 7, 40), { ...grid, free: true })).toEqual({
+			start: at(9, 7),
+			end: at(9, 37),
+		})
+	})
+
+	it('stops at now, and adds nothing on a click after it', () => {
+		// now is 14:00.
+		expect(clickedTimes(at(13, 40), grid)).toEqual({
+			start: at(13, 30),
+			end: at(14),
+		})
+		expect(clickedTimes(at(14, 5), grid)).toBeNull()
 	})
 })
 

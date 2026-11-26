@@ -11,6 +11,7 @@ import { getCoreDailyNotesConfig } from './core/coreDailyNotes'
 import { DailyLogStore } from './core/dailyLogs'
 import { isDailyNote, type DailyNotesConfig } from './core/dailyNotes'
 import { readGoalGroupings } from './core/goalCards'
+import { readNoteViews } from './core/timeline'
 import { isDoneBadgeChoice } from './core/goalStyle'
 import { VaultTaskIndex } from './core/vaultTaskIndex'
 import {
@@ -138,6 +139,9 @@ export default class TaskTimeTracker extends Plugin {
 		delete data.includeVaultTasks
 		// Dropped setting; interruptions always record into "Interruption".
 		delete data.unassignedTaskName
+		// Dropped settings; zoom and scroll are remembered per note, fitted until chosen.
+		delete data.timelineFitOnOpen
+		delete data.timelineZoom
 		this.settings = Object.assign(
 			{},
 			DEFAULT_SETTINGS,
@@ -149,6 +153,7 @@ export default class TaskTimeTracker extends Plugin {
 		if (!isDoneBadgeChoice(this.settings.doneBadge))
 			this.settings.doneBadge = DEFAULT_SETTINGS.doneBadge
 		this.settings.goalGrouping = readGoalGroupings(this.settings.goalGrouping)
+		this.settings.timelineViews = readNoteViews(this.settings.timelineViews)
 		// Drops the bold / italic / underline flags of older mappings.
 		this.settings.tagMappings = this.settings.tagMappings.map(
 			({ tag, emoji, color }) =>

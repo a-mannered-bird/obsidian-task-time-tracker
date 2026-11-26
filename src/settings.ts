@@ -1,5 +1,5 @@
 import { App, PluginSettingTab, Setting } from 'obsidian'
-import { ZOOM_DEFAULT } from './core/timeline'
+import type { NoteViews } from './core/timeline'
 import { ISSUE_KINDS, ISSUE_TITLES, type IssueKind } from './core/issues'
 import type TaskTimeTracker from './main'
 import { openTagManager, openTaskManager } from './ui/TaskManagerModal'
@@ -48,11 +48,6 @@ export interface TaskTimeTrackerSettings {
 	/** Individual warnings dismissed (keys from issueKey). */
 	dismissedIssues: string[]
 	tagMappings: TagMapping[]
-	/**
-	 * The timeline opens each note zoomed to its day, as the Fit button does;
-	 * off, it opens at `timelineZoom`.
-	 */
-	timelineFitOnOpen: boolean
 	/** Color, emoji and aggregation rule per metric name (see goalStyle). */
 	metricSettings: MetricSettings
 	/** The badge a goal card gets once done, unless it has its own. */
@@ -77,8 +72,11 @@ export interface TaskTimeTrackerSettings {
 	goalGrouping: GoalGroupings
 	/** UI state, not shown in the settings tab. */
 	lastDailyViewTab: DailyViewTab
-	/** Timeline tab zoom in pixels per hour (UI state). */
-	timelineZoom: number
+	/**
+	 * Timeline zoom and scroll per note (UI state); a note without a zoom
+	 * opens fitted to its day.
+	 */
+	timelineViews: NoteViews
 }
 
 const DAILY_VIEW_TABS = ['tracker', 'goals', 'timeline'] as const
@@ -105,9 +103,8 @@ export const DEFAULT_SETTINGS: TaskTimeTrackerSettings = {
 	playSounds: true,
 	deleteGoalTasksOnEndDay: false,
 	stampTexts: DEFAULT_STAMP_TEXTS,
-	timelineFitOnOpen: true,
 	lastDailyViewTab: 'tracker',
-	timelineZoom: ZOOM_DEFAULT,
+	timelineViews: {},
 	tagMappings: [],
 }
 
@@ -170,7 +167,6 @@ export class TaskTimeTrackerSettingTab extends PluginSettingTab {
 		const { containerEl } = this
 		containerEl.empty()
 
-		this.displayTimelineSection(containerEl)
 		this.displayGoalsSection(containerEl)
 		this.displayTaskManagementSection(containerEl)
 		this.displayWarningsSection(containerEl)
@@ -181,24 +177,6 @@ export class TaskTimeTrackerSettingTab extends PluginSettingTab {
 		const changed = this.settingsOnOpen !== JSON.stringify(this.plugin.settings)
 		this.settingsOnOpen = null
 		if (changed) void this.plugin.refreshViews()
-	}
-
-	private displayTimelineSection(containerEl: HTMLElement) {
-		new Setting(containerEl).setName('Timeline').setHeading()
-
-		new Setting(containerEl)
-			.setName('Open fitted to the day')
-			.setDesc(
-				"Each note opens zoomed to show its day, as the fit button does. Turned off, it opens at the last zoom used, scrolled to now on today's note."
-			)
-			.addToggle((toggle) =>
-				toggle
-					.setValue(this.plugin.settings.timelineFitOnOpen)
-					.onChange(async (value) => {
-						this.plugin.settings.timelineFitOnOpen = value
-						await this.plugin.saveSettings()
-					})
-			)
 	}
 
 	private displayGoalsSection(containerEl: HTMLElement) {

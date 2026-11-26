@@ -23,6 +23,7 @@
 		blockId,
 		blockLabel,
 		clampZoom,
+		clickedTimes,
 		clockActions,
 		dragDayMark,
 		dragTimes,
@@ -33,16 +34,19 @@
 		layoutBlocks,
 		magnetsFor,
 		nudgeTimes,
+		rememberView,
 		sameTaskOverlaps,
 		sameTimes,
 		snapStepMinutes,
 		timelineAxis,
 		timelineBlocks,
+		ZOOM_DEFAULT,
 		ZOOM_MAX,
 		ZOOM_MIN,
 		type ClockAction,
 		type DragEdge,
 		type MarkBounds,
+		type NoteView,
 		type SnapOptions,
 		type TimelineBlock,
 	} from 'core/timeline'
@@ -72,10 +76,10 @@
 	const NUDGE_SETTLE_MS = 600
 	/** Shortest block that shows its ⋯ button (18 px and its 3 px inset); a tap opens the same menu. */
 	const MORE_BUTTON_MIN_PX = 24
-	const ZOOM_SAVE_MS = 500
+	const VIEW_SAVE_MS = 500
 
-	// svelte-ignore state_referenced_locally -- deliberately only the initial value
-	let zoom = $state(clampZoom(plugin.settings.timelineZoom))
+	/** Set for each note as it opens: its own saved zoom, else fitted to its day. */
+	let zoom = $state(ZOOM_DEFAULT)
 	/** Times shown for a block whose write is under way, until the note reloads. */
 	let pending = $state<{ id: string; times: ClockTimes } | null>(null)
 	/** Where the block being dragged would land. */
@@ -96,12 +100,21 @@
 	let scroller: HTMLElement | null = null
 	let scrolledFor: string | null = null
 	let focusAfterReload: string | null = null
-	let zoomSaveTimer = 0
+	/** A zoom or scroll of a note, saved once it settles. */
+	let unsavedView: { path: string; view: NoteView; timer: number } | null = null
+	/** The note is being given its zoom and scroll: those are not the user's. */
+	let placing = false
+	/** Where placing the note left the scroll; its scroll event is not the user's either. */
+	let placedAt: number | null = null
 
 	type PressTarget =
 		| { kind: 'block'; block: TimelineBlock; edge: DragEdge }
-		/** A press on empty space, drawing a new clock from `anchor`. */
-		| { kind: 'create'; anchor: Date }
+		/**
+		 * A press on empty space, drawing a new clock from `anchor`; released
+		 * without moving, it adds a half-hour clock unless it only cleared
+		 * the touch selection.
+		 */
+		| { kind: 'create'; anchor: Date; clickAdds: boolean }
 		| { kind: 'mark'; mark: DayMark; at: Date }
 	type Press = PressTarget & {
 		pointerId: number
@@ -222,6 +235,11 @@
 	}
 
 	/** Position on the axis, pinned to its ends for times beyond them. */
+	/** A share of the lanes' width, short of the strip kept free for drawing. */
+	function lane(columns: number, of: number): string {
+		return `calc((100% - var(--draw-space)) * ${columns / of})`
+	}
+
 	function yOnAxis(date: Date): number {
 		return axis ? Math.min(Math.max(y(date), 0), y(axis.end)) : 0
 	}
@@ -316,11 +334,12 @@
 	/** A press on the empty lanes draws a new clock (on touch, after a long press). */
 	function onLanesPointerDown(event: PointerEvent) {
 		if (event.target !== event.currentTarget) return
+		const clickAdds = selectedId === null
 		selectedId = null
 		if (event.button !== 0 || !log || picking) return
 		flushNudge()
 		startPress(
-			{ kind: 'create', anchor: timeAt(event.clientY) },
+			{ kind: 'create', anchor: timeAt(event.clientY), clickAdds },
 			event,
 			event.pointerType !== 'touch'
 		)
@@ -397,6 +416,10 @@
 	/** Scrolling moves the canvas under a still pointer; the drag follows it. */
 	function onScroll() {
 		if (press?.armed) updateDrag(press)
+		if (!log || !scroller || placing || scrolledFor !== log.file.path) return
+		if (placedAt !== null && Math.abs(scroller.scrollTop - placedAt) < 1) return
+		placedAt = null
+		saveViewSoon({ top: visibleTop() })
 	}
 
 	function updateDrag(current: Press) {
@@ -445,7 +468,17 @@
 		if (!current || event.pointerId !== current.pointerId) return
 		endPress()
 		if (current.kind === 'create') {
-			if (current.active && drawn) void pickTaskFor(drawn)
+			const times = current.active
+				? drawn
+				: current.clickAdds
+					? clickedTimes(current.anchor, snapOptions(event, ''))
+					: null
+			if (times && fitsInAxis(times)) {
+				drawn = times
+				void pickTaskFor(times)
+			} else {
+				drawn = null
+			}
 			return
 		}
 		if (current.kind === 'mark') {
@@ -651,7 +684,7 @@
 			canvasTop +
 			hours * zoom -
 			(clientY - scroller.getBoundingClientRect().top)
-		saveZoomSoon()
+		saveViewSoon({ zoom, top: visibleTop() })
 	}
 
 	function zoomBy(factor: number) {
@@ -671,17 +704,40 @@
 		const visible = scroller.clientHeight - toolbarHeight()
 		const hoursShown = (end - range.start.valueOf()) / HOUR
 		zoom = clampZoom(visible / hoursShown)
-		if (remember) saveZoomSoon()
 		await tick()
 		scrollToTime(range.start, 0)
+		if (remember) saveViewSoon({ zoom, top: visibleTop() })
 	}
 
-	function saveZoomSoon() {
-		window.clearTimeout(zoomSaveTimer)
-		zoomSaveTimer = window.setTimeout(() => {
-			plugin.settings.timelineZoom = zoom
-			void plugin.saveSettings()
-		}, ZOOM_SAVE_MS)
+	/** The time at the top of the visible timeline, under the toolbar. */
+	function visibleTop(): number {
+		const top = scroller?.getBoundingClientRect().top ?? 0
+		return timeAt(top + toolbarHeight()).valueOf()
+	}
+
+	function saveViewSoon(change: NoteView) {
+		if (!log) return
+		const path = log.file.path
+		if (unsavedView && unsavedView.path !== path) saveView()
+		if (unsavedView) window.clearTimeout(unsavedView.timer)
+		unsavedView = {
+			path,
+			view: { ...unsavedView?.view, ...change },
+			timer: window.setTimeout(saveView, VIEW_SAVE_MS),
+		}
+	}
+
+	function saveView() {
+		const unsaved = unsavedView
+		if (!unsaved) return
+		unsavedView = null
+		window.clearTimeout(unsaved.timer)
+		plugin.settings.timelineViews = rememberView(
+			plugin.settings.timelineViews,
+			unsaved.path,
+			unsaved.view
+		)
+		void plugin.saveSettings()
 	}
 
 	function onWheel(event: WheelEvent) {
@@ -749,21 +805,40 @@
 		markPending = null
 	})
 
-	// Open each note at its interesting part, not wherever the last one was.
+	// Open each note as it was last left, else at its interesting part.
+	// Fitting is not a choice: it is redone each time, following the day as
+	// it grows, until a zoom is chosen.
 	$effect(() => {
 		if (!log || !canvas) return
-		const path = log.file.path
+		const current = log
+		const path = current.file.path
 		if (scrolledFor === path) return
 		scrolledFor = path
-		if (
-			plugin.settings.timelineFitOnOpen &&
-			fitRange(log.dayStart, log.dayEnd, shown, now)
-		) {
-			void tick().then(() => fit(false))
-			return
-		}
-		const target = initialScrollTime(log.date, new Date(), log.dayStart, blocks)
-		if (target) void tick().then(() => scrollToTime(target))
+		saveView()
+		placing = true
+		const saved = plugin.settings.timelineViews[path]
+		const fitted =
+			saved?.zoom === undefined &&
+			fitRange(current.dayStart, current.dayEnd, shown, now) !== null
+		if (!fitted) zoom = clampZoom(saved?.zoom ?? ZOOM_DEFAULT)
+		void tick().then(async () => {
+			if (fitted) await fit(false)
+			const target =
+				saved?.top !== undefined
+					? new Date(saved.top)
+					: fitted
+						? null
+						: initialScrollTime(
+								current.date,
+								new Date(),
+								current.dayStart,
+								blocks
+							)
+			if (target) scrollToTime(target, saved?.top !== undefined ? 0 : 0.25)
+			if (scrolledFor !== path) return
+			placedAt = scroller?.scrollTop ?? null
+			placing = false
+		})
 	})
 
 	// Arrow keys rewrite the block's id (its start); keep the focus on it.
@@ -788,7 +863,7 @@
 		window.addEventListener('pointercancel', cancelDrag)
 		window.addEventListener('keyup', onKeyUpWindow)
 		return () => {
-			window.clearTimeout(zoomSaveTimer)
+			saveView()
 			window.removeEventListener('pointermove', onPointerMove)
 			window.removeEventListener('pointerup', onPointerUp)
 			window.removeEventListener('pointercancel', cancelDrag)
@@ -941,8 +1016,8 @@
 						style:--block-color={blockColor(block.key.taskName)}
 						style:top="{top}px"
 						style:height="{height}px"
-						style:left="{(place.column / place.columns) * 100}%"
-						style:width="{(place.span / place.columns) * 100}%"
+						style:left={lane(place.column, place.columns)}
+						style:width={lane(place.span, place.columns)}
 						onpointerdown={(event) => onPointerDown(event, block, 'move')}
 						onkeydown={(event) => onKeyDown(event, block)}
 						oncontextmenu={(event) => onContextMenu(event, block)}
@@ -978,8 +1053,8 @@
 							style:--block-color={blockColor(block.key.taskName)}
 							style:top="{ghostTop}px"
 							style:height="{ghostHeight}px"
-							style:left="{(place.column / place.columns) * 100}%"
-							style:width="{(place.span / place.columns) * 100}%"
+							style:left={lane(place.column, place.columns)}
+							style:width={lane(place.span, place.columns)}
 						>
 							<span class="block-name">{nameOf(block)}</span>
 							<span class="block-times">
@@ -1126,12 +1201,21 @@
 		border-top: 2px solid var(--color-red);
 	}
 
+	/*
+	 * Blocks stop short of the right edge, so a new clock can always be
+	 * drawn there, even beside the clocks of a busy hour.
+	 */
 	.lanes {
+		--draw-space: 24px;
 		position: absolute;
 		top: 0;
 		bottom: 0;
 		left: var(--gutter);
 		right: 0;
+	}
+
+	:global(body.is-mobile) .lanes {
+		--draw-space: 40px;
 	}
 
 	.block {

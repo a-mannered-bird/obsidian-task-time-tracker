@@ -216,6 +216,50 @@ export function clampZoom(pxPerHour: number): number {
 	return Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, pxPerHour))
 }
 
+/**
+ * How a note was last shown: the zoom chosen for it, if one was (without,
+ * it opens fitted to its day), and the time at the top of the view, if it
+ * was scrolled (kept as a time, so it survives a change of zoom or axis).
+ */
+export type NoteView = { zoom?: number; top?: number }
+
+/** Views by note path, the most recently changed last. */
+export type NoteViews = Record<string, NoteView>
+
+/** Notes whose view is remembered; the oldest are forgotten first. */
+export const REMEMBERED_VIEWS = 100
+
+export function rememberView(
+	views: NoteViews,
+	path: string,
+	change: NoteView
+): NoteViews {
+	const view = { ...views[path], ...change }
+	if (view.zoom !== undefined) view.zoom = clampZoom(view.zoom)
+	const others = Object.entries(views).filter(([key]) => key !== path)
+	return Object.fromEntries(
+		[...others, [path, view] as const].slice(-REMEMBERED_VIEWS)
+	)
+}
+
+function isFiniteNumber(value: unknown): value is number {
+	return typeof value === 'number' && Number.isFinite(value)
+}
+
+export function readNoteViews(saved: unknown): NoteViews {
+	if (typeof saved !== 'object' || saved === null) return {}
+	const views: NoteViews = {}
+	const entries: [string, unknown][] = Object.entries(saved)
+	for (const [path, value] of entries) {
+		if (typeof value !== 'object' || value === null) continue
+		const view: NoteView = {}
+		if ('zoom' in value && isFiniteNumber(value.zoom)) view.zoom = value.zoom
+		if ('top' in value && isFiniteNumber(value.top)) view.top = value.top
+		views[path] = view
+	}
+	return views
+}
+
 /** Snap step at a zoom: coarse when a minute is too small to aim at. */
 export function snapStepMinutes(pxPerHour: number): number {
 	if (pxPerHour < 120) return 15
@@ -371,6 +415,12 @@ function toGrid(date: Date, stepMinutes: number): Date {
 	return atMinutesOfDay(date, minutes)
 }
 
+/** The grid line starting the step that holds `date`. */
+function gridFloor(date: Date, stepMinutes: number): Date {
+	const minutes = Math.floor(minutesOfDay(date) / stepMinutes) * stepMinutes
+	return atMinutesOfDay(date, minutes)
+}
+
 /**
  * A block never gets shorter than one step (never zero-length), and a
  * running clock's start never passes now. A running clock moved or ended
@@ -492,6 +542,30 @@ export function drawnTimes(
 		else end = start + minimum
 	}
 	end = Math.min(end, options.now.valueOf())
+	if (end - start < minimum) return null
+	return { start: new Date(start), end: new Date(end) }
+}
+
+export const CLICKED_CLOCK_MINUTES = 30
+
+/**
+ * The clock a click on empty space adds, 30 minutes from where clicked.
+ * It starts on the grid line above the pointer rather than the nearest one,
+ * so the new block covers the spot clicked; a magnet within reach wins, to
+ * follow a clock. It is cut at now; null when not even a step fits before.
+ */
+export function clickedTimes(
+	at: Date,
+	options: SnapOptions
+): FinishedClockTimes | null {
+	const minimum = (options.free ? 1 : options.stepMinutes) * MINUTE
+	const start = options.free
+		? Math.floor(at.valueOf() / MINUTE) * MINUTE
+		: (magnetFor(at, options) ?? gridFloor(at, options.stepMinutes)).valueOf()
+	const end = Math.min(
+		start + CLICKED_CLOCK_MINUTES * MINUTE,
+		options.now.valueOf()
+	)
 	if (end - start < minimum) return null
 	return { start: new Date(start), end: new Date(end) }
 }
