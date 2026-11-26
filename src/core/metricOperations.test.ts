@@ -93,9 +93,30 @@ describe('editMetricsInNote', () => {
 			metric: 'km',
 			fromUnits: ['mi'],
 			toUnit: 'km',
+			ruleOf: defaultAggregationRuleOf,
 		})
 		expect(result.content.split('\n')[8]).toBe('      [goal::km 1/2 km]')
 		expect(result.changedGoalLines).toBe(1)
+	})
+
+	it('combines the lines a unit change leaves in the same unit', () => {
+		const note = [
+			'- [ ] Swim',
+			'      [goal::laps 10/20 lengths]',
+			'      [goal::laps 4/10 laps]',
+		].join('\n')
+		const result = editMetricsInNote(note, {
+			kind: 'changeUnit',
+			metric: 'laps',
+			fromUnits: ['lengths'],
+			toUnit: 'laps',
+			ruleOf: defaultAggregationRuleOf,
+		})
+		// The line already in laps survives: 10 + 4, 20 + 10.
+		expect(result.content).toBe(
+			['- [ ] Swim', '      [goal::laps 14/30 laps]'].join('\n')
+		)
+		expect(result.combinedGoalLines).toBe(2)
 	})
 })
 
