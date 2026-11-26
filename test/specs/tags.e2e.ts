@@ -293,4 +293,47 @@ describe('tag management', function () {
 			).toHaveText(name)
 		}
 	})
+
+	it('clears the filters when nothing matches', async function () {
+		const panel = await openTags()
+		await expectTags(panel, ['#project', '#focus', '#routine'])
+		await expect(
+			panel.$('tbody tr:nth-child(1) [aria-label="No issues"]')
+		).toBeDisplayed()
+
+		const tagFilter = panel.$('input[aria-label="Filter tags"]')
+		await tagFilter.setValue('#nothing')
+		await expect(tagFilter).toHaveValue('#nothing')
+		const tagIssuesOnly = panel.$('button*=Issues only')
+		await tagIssuesOnly.click()
+		await expect(tagIssuesOnly).toHaveAttribute('aria-pressed', 'true')
+		await expect(panel.$('span=No tag matches.')).toBeDisplayed()
+
+		await clickButton(panel, 'Clear filters')
+		await expect(tagFilter).toHaveValue('')
+		await expect(tagIssuesOnly).toHaveAttribute('aria-pressed', 'false')
+		await expectTags(panel, ['#project', '#focus', '#routine'])
+
+		const modal = browser.$(MODAL)
+		await modal.$('[role="tab"]=Tasks').click()
+		const tasks = modal.$(TASKS_PANEL)
+		await expect(tasks.$('table')).toBeDisplayed()
+		// "Workout" has no issue in the fixture.
+		await expect(
+			tasks.$('.//tr[.//*[text()="Workout"]]//*[@aria-label="No issues"]')
+		).toBeDisplayed()
+
+		const taskFilter = tasks.$('input[aria-label="Filter tasks"]')
+		await taskFilter.setValue('zzz')
+		await expect(taskFilter).toHaveValue('zzz')
+		const hiddenOnly = tasks.$('button*=Hidden only')
+		await hiddenOnly.click()
+		await expect(hiddenOnly).toHaveAttribute('aria-pressed', 'true')
+		await expect(tasks.$('span=No task matches.')).toBeDisplayed()
+
+		await clickButton(tasks, 'Clear filters')
+		await expect(taskFilter).toHaveValue('')
+		await expect(hiddenOnly).toHaveAttribute('aria-pressed', 'false')
+		await expect(tasks.$('tbody')).toHaveChildren(6)
+	})
 })

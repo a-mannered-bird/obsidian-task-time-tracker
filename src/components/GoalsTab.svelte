@@ -933,7 +933,7 @@
 
 	/* Whatever has the focus inside (a field, a stepper, the ⋯ button). */
 	.goal-card:focus-within {
-		outline: 2px solid var(--goal-color);
+		outline: 2px solid var(--interactive-accent);
 		outline-offset: 2px;
 	}
 

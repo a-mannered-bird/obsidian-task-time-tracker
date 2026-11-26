@@ -513,6 +513,17 @@
 	outline-offset: 2px;
 }
 
+.task-time-tracker-manager-modal .no-issue {
+	color: var(--text-faint);
+}
+
+.task-time-tracker-manager-modal .no-results {
+	display: flex;
+	align-items: center;
+	gap: 0.75em;
+	margin: 1em 0;
+}
+
 .task-time-tracker-manager-modal .issue .count {
 	font-size: var(--font-ui-smaller);
 }

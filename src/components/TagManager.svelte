@@ -47,6 +47,12 @@
 	let issues = $state<Map<string, TaskIssue[]>>(new Map())
 	let query = $state('')
 	let issuesOnly = $state(false)
+	const filtering = $derived(query !== '' || issuesOnly)
+
+	function clearFilters() {
+		query = ''
+		issuesOnly = false
+	}
 	let busy = $state(false)
 	const sort = new TableSort<TagSortKey>('notes', (key) => key === 'tag')
 	const selection = new RowSelection()
@@ -247,7 +253,12 @@
 {#if rows === null}
 	<p class="muted">Scanning vault tags…</p>
 {:else if rows.length === 0}
-	<p class="muted">No tag matches.</p>
+	<div class="no-results">
+		<span class="muted">No tag matches.</span>
+		{#if filtering}
+			<button onclick={clearFilters}>Clear filters</button>
+		{/if}
+	</div>
 {:else}
 	<div class="table-wrapper">
 		<table>
@@ -362,6 +373,9 @@
 									{#if list.length > 1}<span class="count">{list.length}</span
 										>{/if}
 								</button>
+							{:else}
+								<span class="no-issue" role="img" aria-label="No issues">—</span
+								>
 							{/if}
 						</td>
 					</tr>
