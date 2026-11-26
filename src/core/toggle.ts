@@ -1,5 +1,5 @@
 import type { Goal } from 'types/goals'
-import type { Task } from 'types/tasks'
+import type { Clock, Task } from 'types/tasks'
 import { getLastEnd, isRunning, type TaskNote } from './note'
 import { addMinutes } from './time'
 import { describeStoppedClock } from './handOff'
@@ -487,6 +487,10 @@ function toggleOne(
 	context: ToggleContext
 ) {
 	const running = task.clocks.find((clock) => clock.end === null)
+	if (running && running.start > at) {
+		cancelClock(note, task, running, tick, context)
+		return
+	}
 	if (running) note.stopClock(task, at)
 	else note.startClock(task, at)
 	if (tick) note.setTicked(note.findTask(task.name) ?? task, true)
@@ -507,6 +511,24 @@ function toggleOne(
 		? `${NOTICE_ICON.done} Finished`
 		: `${NOTICE_ICON.stop} Stopped`
 	context.prompts.notify(`${verb} ${stopped} at ${time}.`)
+}
+
+/** A clock stopped before its start never ran: it goes instead of closing backwards. */
+function cancelClock(
+	note: TaskNote,
+	task: Task,
+	clock: Clock,
+	tick: boolean,
+	context: ToggleContext
+) {
+	note.removeClock(clock)
+	if (tick) note.setTicked(note.findTask(task.name) ?? task, true)
+	const start = formatTimeOfDay(clock.start)
+	context.prompts.notify(
+		tick
+			? `${NOTICE_ICON.done} Ticked ${noticeTask(task.name)} and removed its clock, which would have started at ${start}.`
+			: `${NOTICE_ICON.remove} Removed the clock of ${noticeTask(task.name)}, which would have started at ${start}.`
+	)
 }
 
 async function migrateClock(

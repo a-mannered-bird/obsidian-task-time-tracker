@@ -3,6 +3,8 @@ import type { Clock, Task } from 'types/tasks'
 import type { CompletionPlan } from './complete'
 import { getLastEnd, isRunning, TaskNote } from './note'
 import { NOTICE_ICON, noticeTask } from './noticeText'
+import { formatHoursMinutes, getMinutesBetween } from './time'
+import { formatTimeOfDay } from './timeline'
 import { getLastEndedTasks, INTERRUPTION_TASK } from './toggle'
 
 /** The tracker tab's sections, each in the note's order. */
@@ -303,6 +305,20 @@ function when(condition: boolean, action: RowAction): RowAction[] {
 export function lastTaskEnd(tasks: Task[]): Date | null {
 	const last = getLastEndedTasks(tasks)[0]
 	return last ? getLastEnd(last) : null
+}
+
+/** How long a running clock has run; `-15m` while it waits for a start set later. */
+export function describeElapsed(start: Date, now: Date): string {
+	const minutes = getMinutesBetween(start, now)
+	return minutes < 0
+		? `-${formatHoursMinutes(-minutes)}`
+		: formatHoursMinutes(minutes)
+}
+
+/** `Started 09:30`, or `Will start at 14:00` for a clock set later. */
+export function describeClockStart(start: Date, now: Date): string {
+	const time = formatTimeOfDay(start)
+	return start > now ? `Will start at ${time}` : `Started ${time}`
 }
 
 /** The clock a row's menu acts on: the running one, else the last line. */

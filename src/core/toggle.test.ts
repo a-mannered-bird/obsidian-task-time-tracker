@@ -121,6 +121,38 @@ describe('toggleTasks', () => {
 		])
 	})
 
+	it('removes a running clock stopped before its start, saying so', async () => {
+		const note = new TaskNote(
+			['- [ ] Meeting', '      [clock::2026-08-16T12:30:00]'].join('\n')
+		)
+		const { prompts, notices } = scripted()
+		await toggleTasks(
+			note,
+			{ taskNames: ['Meeting'], targetState: 'off' },
+			{ prompts, now }
+		)
+		expect(note.toString()).toBe('- [ ] Meeting')
+		expect(notices).toEqual([
+			'🗑️ Removed the clock of "Meeting", which would have started at 12:30.',
+		])
+	})
+
+	it('ticks a task done before its clock started, removing the clock', async () => {
+		const note = new TaskNote(
+			['- [ ] Meeting', '      [clock::2026-08-16T12:30:00]'].join('\n')
+		)
+		const { prompts, notices } = scripted()
+		await toggleTasks(
+			note,
+			{ taskNames: ['Meeting'], targetState: 'off', tick: true },
+			{ prompts, now }
+		)
+		expect(note.toString()).toBe('- [x] Meeting')
+		expect(notices).toEqual([
+			'✅ Ticked "Meeting" and removed its clock, which would have started at 12:30.',
+		])
+	})
+
 	it("starts another note's task on a line given its tags and goal targets", async () => {
 		const note = new TaskNote(content)
 		const [earlier] = new TaskNote(

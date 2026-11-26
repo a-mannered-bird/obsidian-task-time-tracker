@@ -1,9 +1,10 @@
 import type { Clock, Interval, Task } from 'types/tasks'
 import { getMinutesBetween } from './time'
 
-/** A running clock is measured up to `now`. */
+/** A running clock is measured up to `now`; one starting later counts nothing yet. */
 export function clockToInterval(clock: Clock, now: Date): Interval {
-	return { start: clock.start, end: clock.end ?? now }
+	if (clock.end) return { start: clock.start, end: clock.end }
+	return { start: clock.start, end: now < clock.start ? clock.start : now }
 }
 
 export function tasksToIntervals(tasks: Task[], now: Date): Interval[] {

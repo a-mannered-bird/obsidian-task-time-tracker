@@ -37,9 +37,11 @@
 	import { tagSlot } from 'core/rowTags'
 	import type { ViewControl } from 'core/shortcuts'
 	import { formatTimeOfDay } from 'core/timeline'
-	import { formatHoursMinutes, getMinutesBetween } from 'core/time'
+	import { formatHoursMinutes } from 'core/time'
 	import { INTERRUPTION_TASK, taskChoice } from 'core/toggle'
 	import {
+		describeClockStart,
+		describeElapsed,
 		dropMove,
 		INITIAL_BAR_MODE,
 		dayButtons,
@@ -157,12 +159,6 @@
 
 	function runningClockStart(task: Task): Date | null {
 		return task.clocks.find((clock) => clock.end === null)?.start ?? null
-	}
-
-	function elapsed(task: Task): string {
-		const start = runningClockStart(task)
-		if (!start) return ''
-		return formatHoursMinutes(Math.max(0, getMinutesBetween(start, now)))
 	}
 
 	function editStart(task: Task, start: Date) {
@@ -649,7 +645,7 @@
 		<button
 			class="elapsed"
 			use:instantTooltip={() => [
-				`Started ${formatTimeOfDay(start)} · ${formatHoursMinutes(taskMinutes(task, now))} today`,
+				`${describeClockStart(start, now)} · ${formatHoursMinutes(taskMinutes(task, now))} today`,
 				interruption
 					? 'Click to set how long the interruption lasted'
 					: 'Click to set how long the clock lasted',
@@ -663,7 +659,7 @@
 					? setInterruptionDuration(plugin)
 					: setDuration(plugin, task.name))}
 		>
-			{elapsed(task)}
+			{describeElapsed(start, now)}
 		</button>
 	{/if}
 {/snippet}

@@ -4,7 +4,9 @@ import { TaskNote } from './note'
 import { parseTasks } from './parser'
 import {
 	addTaskLine,
+	describeClockStart,
 	describeCompletion,
+	describeElapsed,
 	dropMove,
 	dropSlot,
 	moveTaskLine,
@@ -561,6 +563,31 @@ describe('dayButtons', () => {
 		)
 		expect(dayButtons([], null, true).endDay).toBe(
 			'The day has not started: add a task first'
+		)
+	})
+})
+
+describe('describeElapsed', () => {
+	const now = new Date(2026, 7, 16, 12, 0, 30)
+
+	it('tells how long a running clock has run', () => {
+		expect(describeElapsed(new Date(2026, 7, 16, 10, 55), now)).toBe('1h 05m')
+	})
+
+	it('counts down to a start set later', () => {
+		expect(describeElapsed(new Date(2026, 7, 16, 13, 15), now)).toBe('-1h 15m')
+	})
+})
+
+describe('describeClockStart', () => {
+	const now = new Date(2026, 7, 16, 12, 0)
+
+	it('says when a running clock started, or when it will', () => {
+		expect(describeClockStart(new Date(2026, 7, 16, 11, 0), now)).toBe(
+			'Started 11:00'
+		)
+		expect(describeClockStart(new Date(2026, 7, 16, 12, 30), now)).toBe(
+			'Will start at 12:30'
 		)
 	})
 })

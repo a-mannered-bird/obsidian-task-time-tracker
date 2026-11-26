@@ -20,6 +20,15 @@ describe('taskMinutes', () => {
 	it('is zero for a task without clocks', () => {
 		expect(taskMinutes(tasks[2]!, now)).toBe(0)
 	})
+
+	it('counts nothing for a running clock set to start later', () => {
+		const [later] = parseTasks([
+			'- [ ] Meeting',
+			'      [clock::2026-08-16T09:00:00--2026-08-16T09:20:00]',
+			'      [clock::2026-08-16T15:30:00]',
+		])
+		expect(taskMinutes(later!, now)).toBe(20)
+	})
 })
 
 describe('sortByMinutes', () => {
