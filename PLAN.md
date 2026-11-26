@@ -327,6 +327,10 @@ Five slices, each usable and reviewed on its own; every slice is checked at mobi
 - [x] UI: tabbed modal, tag table, Manage tags command, settings row replacing the mapping list.
 - [x] E2E: tag rename, merge and delete through the real UI, asserting the exact markdown.
 
+## Decisions (2026-11-26): settings without Apply
+
+- The settings tab's Apply button is gone. Settings already saved on each change; Apply only remounted the daily views. Now the views remount once when the settings tab closes, and only if a setting changed (a snapshot taken on open, compared on `hide()`). Remounting on each change was rejected: text fields would remount the views per keystroke (flicker, lost scroll and focus, half-typed tags and emoji shown), and the settings modal covers the views on desktop anyway. Reactive settings (views re-deriving without a remount) stay possible if a live preview is ever wanted.
+
 ## Later
 
 - [ ] ~~Native task-name completion from past daily notes (replaces `syncTaskDictionary.js` + Various Complements).~~ Superseded by Phase 5.

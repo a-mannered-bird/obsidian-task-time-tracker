@@ -103,7 +103,7 @@ Arrows next to the rendered date range step to the previous or next period (a mo
 
 - The daily notes folder and date format are inherited from the core Daily notes plugin.
 - Tag mapping: for each tag, an emoji shown in pickers and in the tracker tab's tag slots.
-- An Apply button reloads the open views after changing settings.
+- Changes reach the open views when the settings close.
 
 ## Development
 

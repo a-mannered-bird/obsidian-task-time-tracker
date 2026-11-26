@@ -1,9 +1,7 @@
 import { App, PluginSettingTab, Setting } from 'obsidian'
-import { NOTICE_ICON } from './core/noticeText'
 import { ZOOM_DEFAULT } from './core/timeline'
 import { ISSUE_KINDS, ISSUE_TITLES, type IssueKind } from './core/issues'
 import type TaskTimeTracker from './main'
-import { showNotice } from './ui/notice'
 import { openTagManager, openTaskManager } from './ui/TaskManagerModal'
 import type { TagMapping } from './types/tags'
 import {
@@ -159,7 +157,16 @@ export class TaskTimeTrackerSettingTab extends PluginSettingTab {
 		this.plugin = plugin
 	}
 
-	display(): void {
+	/*
+	 * The views read the settings when they mount, so they pick up the changes
+	 * once the tab closes: remounting on every change would make them flicker
+	 * and show half-typed values. display() also runs on each re-render of
+	 * the open tab, hence the snapshot is only taken when none is held.
+	 */
+	private settingsOnOpen: string | null = null
+
+	override display(): void {
+		this.settingsOnOpen ??= JSON.stringify(this.plugin.settings)
 		const { containerEl } = this
 		containerEl.empty()
 
@@ -167,21 +174,13 @@ export class TaskTimeTrackerSettingTab extends PluginSettingTab {
 		this.displayGoalsSection(containerEl)
 		this.displayTaskManagementSection(containerEl)
 		this.displayWarningsSection(containerEl)
+	}
 
-		new Setting(containerEl)
-			.setName('Apply changes')
-			.setDesc('Reload the open daily views so they use the settings above.')
-			.addButton((button) =>
-				button
-					.setButtonText('Apply')
-					.setCta()
-					.onClick(async () => {
-						await this.plugin.refreshViews()
-						showNotice(
-							`${NOTICE_ICON.reload} Task time tracker: views reloaded.`
-						)
-					})
-			)
+	override hide(): void {
+		super.hide()
+		const changed = this.settingsOnOpen !== JSON.stringify(this.plugin.settings)
+		this.settingsOnOpen = null
+		if (changed) void this.plugin.refreshViews()
 	}
 
 	private displayTimelineSection(containerEl: HTMLElement) {

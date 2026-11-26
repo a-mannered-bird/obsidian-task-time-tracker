@@ -15,7 +15,6 @@ export const NOTICE_ICON = {
 	undone: '↩️',
 	updated: '📝',
 	progress: '⏳',
-	reload: '🔄',
 	goal: '🎯',
 	info: 'ℹ️',
 	warning: '⚠️',
