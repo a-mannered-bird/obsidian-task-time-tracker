@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { parseTasks } from './parser'
 import {
 	dayEndFloor,
+	pastDayEndDefault,
 	describeTypedTime,
 	describeStart,
 	minutesBefore,
@@ -176,6 +177,45 @@ describe('dayEndFloor', () => {
 			what: 'the start of day',
 		})
 		expect(dayEndFloor(tasks, null)).toBeNull()
+	})
+})
+
+describe('pastDayEndDefault', () => {
+	const day = new Date(2026, 10, 11)
+	const dayStart = new Date(2026, 10, 11, 7, 30)
+
+	it('is the end of the last clock', () => {
+		const tasks = parseTasks([
+			'- [x] Write plugin',
+			'      [clock::2026-11-11T21:00:00--2026-11-11T22:30:00]',
+			'- [x] Emails',
+			'      [clock::2026-11-11T09:00:00--2026-11-11T09:30:00]',
+		])
+		expect(pastDayEndDefault(tasks, day, dayStart)).toEqual(
+			new Date(2026, 10, 11, 22, 30)
+		)
+	})
+
+	it('is an hour after the start of day without a finished clock', () => {
+		expect(
+			pastDayEndDefault(parseTasks(['- [ ] Emails']), day, dayStart)
+		).toEqual(new Date(2026, 10, 11, 8, 30))
+	})
+
+	it('is 18:00 without a clock or a start of day', () => {
+		expect(pastDayEndDefault([], day, null)).toEqual(
+			new Date(2026, 10, 11, 18, 0)
+		)
+	})
+
+	it('is never before a running clock it closes', () => {
+		const tasks = parseTasks([
+			'- [ ] Reading',
+			'      [clock::2026-11-11T19:00:00]',
+		])
+		expect(pastDayEndDefault(tasks, day, null)).toEqual(
+			new Date(2026, 10, 11, 19, 0)
+		)
 	})
 })
 

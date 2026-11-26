@@ -554,4 +554,13 @@ describe('dayButtons', () => {
 			'The day has not started: set its start and add a task first'
 		)
 	})
+
+	it('ends a past day without a start, as long as it has a task', () => {
+		expect(dayButtons(parseTasks(['- [ ] Chores']), null, true).endDay).toBe(
+			null
+		)
+		expect(dayButtons([], null, true).endDay).toBe(
+			'The day has not started: add a task first'
+		)
+	})
 })

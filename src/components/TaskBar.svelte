@@ -31,6 +31,7 @@
 		type BarButton,
 		type BarMode,
 	} from 'core/tracker'
+	import type { TaskChoice } from 'core/toggle'
 	import type { Task } from 'types/tasks'
 	import { icon } from 'ui/icon'
 	import { fitInScroller } from 'ui/scroller'
@@ -48,6 +49,8 @@
 		mode?: BarMode
 		/** A past day: picking only plans, nothing starts there. */
 		planOnly?: boolean
+		/** What planning a picked task does, instead of adding it to the plan. */
+		onplan?: (choice: TaskChoice) => void
 	}
 
 	let {
@@ -57,6 +60,7 @@
 		noteHeading,
 		mode = $bindable(INITIAL_BAR_MODE),
 		planOnly = false,
+		onplan,
 	}: Props = $props()
 
 	/** Other notes' tasks listed before anything is typed, or once typed. */
@@ -123,8 +127,10 @@
 		}
 		reset()
 		const choice = suggestionChoice(option)
-		if (as === 'plan') void addToPlan(plugin, choice)
-		else void startTask(plugin, choice, as)
+		if (as === 'plan') {
+			if (onplan) onplan(choice)
+			else void addToPlan(plugin, choice)
+		} else void startTask(plugin, choice, as)
 	}
 
 	/**

@@ -95,7 +95,7 @@ export async function applyTrackingSteps(
 		if (firstClock) {
 			if (!dayStart) {
 				dayStart = await context.prompts.promptTime(
-					dayStartRequest(firstClock, context.day ?? context.now)
+					firstDayStartRequest(firstClock, context.day ?? context.now)
 				)
 				if (!dayStart) return
 				if ((await io.read()) !== base) continue
@@ -117,7 +117,11 @@ export async function applyTrackingSteps(
 const FIRST_TASK_TEXT =
 	"It's the first task of the day! But when did your day actually start?"
 
-function dayStartRequest(firstClock: Date, day: Date): TimeRequest {
+/**
+ * Asking when the day started, once its first clock (starting at
+ * `firstClock`) is written: at that start at the latest.
+ */
+export function firstDayStartRequest(firstClock: Date, day: Date): TimeRequest {
 	return {
 		title: 'Start of day',
 		description: FIRST_TASK_TEXT,

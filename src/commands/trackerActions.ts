@@ -8,6 +8,7 @@ import {
 	type RewriteOutcome,
 } from 'core/noteRewrite'
 import { setNoteTaskTags } from 'core/rowTags'
+import type { ClockTarget } from 'core/timeline'
 import {
 	defaultClockTimes,
 	describeClockDay,
@@ -18,13 +19,13 @@ import { askingTime, type TaskChoice, type ToggleOptions } from 'core/toggle'
 import { NOTICE_ICON, noticeTask } from 'core/noticeText'
 import { BUSY_NOTICE, CLOCKS_CHANGED_NOTICE } from 'core/trackingRun'
 import { describeStart, parseEndTime, parseStartTime } from 'core/typedTime'
-import type { Task } from 'types/tasks'
 import { confirmAction } from 'ui/ConfirmActionModal'
 import { promptClock } from 'ui/SetClockModal'
 import { showNotice } from 'ui/notice'
 import { promptTime } from 'ui/timePrompt'
 import { showUndoNotice } from 'ui/undoNotice'
 import type TaskTimeTracker from '../main'
+import { promptFirstDayStart } from './frontmatterTime'
 import { addClockTo, retimeClockLine } from './timelineEdits'
 import { noteIo, readNoteContent } from './target'
 import { runTrackingSteps } from './tracking'
@@ -253,26 +254,29 @@ export async function setStop(
 
 /**
  * Ask for a clock's start and end on the note's day and give it to the
- * task: how a past day's tasks get their time, as nothing runs there.
+ * task, added to the note when new (Undo takes both back): how a past
+ * day's tasks get their time, as nothing runs there. Dismissed, nothing
+ * is written. The day's first clock then asks when the day started, when
+ * the note does not say, as starting the first task does.
  */
 export async function setClock(
 	plugin: TaskTimeTracker,
 	log: DailyLog,
-	task: Task
+	target: ClockTarget
 ): Promise<void> {
+	const clocks =
+		log.tasks.find((task) => task.name === target.name)?.clocks ?? []
 	const times = await promptClock(plugin.app, {
-		title: `Add a clock to "${task.name}"`,
+		title: `Add a clock to "${target.name}"`,
 		description: describeClockDay(log.date, new Date()),
 		initial: defaultClockTimes(log.tasks, log.date, log.dayStart),
-		parse: (start, end) => parseClockTimes(start, end, log.date, task.clocks),
+		parse: (start, end) => parseClockTimes(start, end, log.date, clocks),
 	})
-	if (times) {
-		await addClockTo(
-			plugin,
-			log.file,
-			{ name: task.name, tags: task.tags },
-			times
-		)
+	if (!times || !(await addClockTo(plugin, log.file, target, times))) return
+	const firstClock = log.tasks.every((task) => task.clocks.length === 0)
+	if (firstClock && !log.dayStart) {
+		const day = { date: log.date, path: log.file.path, file: log.file }
+		await promptFirstDayStart(plugin, day, times.start)
 	}
 }
 

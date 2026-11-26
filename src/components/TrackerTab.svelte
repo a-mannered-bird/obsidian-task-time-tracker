@@ -120,7 +120,7 @@
 	const interruptionActive = $derived(
 		layout.running.some((task) => task.name === INTERRUPTION_TASK)
 	)
-	const unavailable = $derived(dayButtons(tasks, log?.dayStart ?? null))
+	const unavailable = $derived(dayButtons(tasks, log?.dayStart ?? null, past))
 	function interruptionHint() {
 		if (unavailable.interruption) return [unavailable.interruption]
 		return [
@@ -793,12 +793,19 @@
 			{tasks}
 			bind:mode={barMode}
 			planOnly={past}
+			onplan={past && log
+				? (choice) => void setClock(plugin, log, choice)
+				: undefined}
 			placeholders={otherDay
 				? {
 						start: `Add a task to ${otherDay}`,
 						switch: `Add a task to ${otherDay}`,
 						alongside: `Add a task running alongside to ${otherDay}`,
-						plan: `Plan a task for ${otherDay}`,
+						// A day that is over is not planned: a task added there
+						// comes with its clock.
+						plan: past
+							? `Add a task to ${otherDay}`
+							: `Plan a task for ${otherDay}`,
 					}
 				: {
 						start: 'Start a task…',
@@ -808,8 +815,8 @@
 					}}
 			noteHeading={noteDayHeading(log?.date ?? now, now)}
 		/>
-		{#if !past}
-			<div class="buttons">
+		<div class="buttons">
+			{#if !past}
 				<button
 					class="interruption-button"
 					class:is-active={interruptionActive}
@@ -821,16 +828,16 @@
 					<span use:icon={'pause'}></span>
 					Interruption
 				</button>
-				<button
-					disabled={unavailable.endDay !== null}
-					use:instantTooltip={endDayHint}
-					onclick={() => void endDay(plugin)}
-				>
-					<span use:icon={'sunset'}></span>
-					End day
-				</button>
-			</div>
-		{/if}
+			{/if}
+			<button
+				disabled={unavailable.endDay !== null}
+				use:instantTooltip={endDayHint}
+				onclick={() => void endDay(plugin)}
+			>
+				<span use:icon={'sunset'}></span>
+				End day
+			</button>
+		</div>
 	</div>
 
 	{#if duplicate}

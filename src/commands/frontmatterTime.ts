@@ -1,5 +1,5 @@
 import { type IconName } from 'obsidian'
-import type { DailyTarget } from 'core/dailyNotes'
+import { isPastDay, type DailyTarget } from 'core/dailyNotes'
 import { setFrontmatterValue } from 'core/frontmatter'
 import { recordWrites, rewriteNote } from 'core/noteRewrite'
 import { BUSY_NOTICE } from 'core/trackingRun'
@@ -12,9 +12,11 @@ import {
 import {
 	DAY_MARK_PROPERTY,
 	describeMarkSet,
+	pastDayMarkDefault,
 	type DayMark,
 } from 'core/dayBoundaries'
 import { formatTimeOfDay } from 'core/timeline'
+import { firstDayStartRequest } from 'core/trackingRun'
 import { dayEndFloor, parseDayEnd, parseDayStart } from 'core/typedTime'
 import { showNotice } from 'ui/notice'
 import { promptTime } from 'ui/timePrompt'
@@ -63,12 +65,54 @@ export function registerFrontmatterTimeCommands(plugin: TaskTimeTracker) {
 	}
 }
 
+/**
+ * How a start or end of day is asked: on a past day, as a time of day only
+ * (minutes before now mean nothing there), opening on `pastDayMarkDefault`;
+ * `endingDay` for End day.
+ */
+type MarkPrompt = { past: boolean; endingDay?: boolean }
+
+function markPrompt(
+	plugin: TaskTimeTracker,
+	target: DailyTarget,
+	endingDay = false
+): MarkPrompt {
+	const past = isPastDay(plugin.app, plugin.getDailyNotesConfig(), target)
+	return { past, endingDay }
+}
+
 /** Ask for the time and write it; the time written, or null when dismissed. */
 export function runTimeCommand(
 	plugin: TaskTimeTracker,
 	command: TimeCommand
 ): Promise<Date | null> {
-	return promptDayMark(plugin, currentTarget(plugin), command.mark)
+	const target = currentTarget(plugin)
+	return promptDayMark(plugin, target, command.mark, markPrompt(plugin, target))
+}
+
+/** Ask for the end of day as End day does. */
+export function promptEndOfDay(plugin: TaskTimeTracker): Promise<Date | null> {
+	const target = currentTarget(plugin)
+	return promptDayMark(plugin, target, 'end', markPrompt(plugin, target, true))
+}
+
+/**
+ * After the first clock of a past day without a start of day, ask when the
+ * day started, as the tracking commands do on the first task; opens on the
+ * clock's start, never later. The time written, or null when dismissed.
+ */
+export async function promptFirstDayStart(
+	plugin: TaskTimeTracker,
+	target: DailyTarget,
+	firstClock: Date
+): Promise<Date | null> {
+	const time = await promptTime(plugin.app, {
+		...firstDayStartRequest(firstClock, target.date),
+		timeOnly: firstClock,
+	})
+	if (time === null) return null
+	await writeDayTime(plugin, target, 'start', time)
+	return time
 }
 
 /**
@@ -78,18 +122,28 @@ export function runTimeCommand(
 export async function promptDayMark(
 	plugin: TaskTimeTracker,
 	target: DailyTarget,
-	mark: DayMark
+	mark: DayMark,
+	how: MarkPrompt = { past: false }
 ): Promise<Date | null> {
 	const { app } = plugin
 	const frontmatter =
 		target.file && app.metadataCache.getFileCache(target.file)?.frontmatter
 	const dayStart = readFrontmatterTime(frontmatter?.[DAY_START_PROPERTY])
 	const dayEnd = readFrontmatterTime(frontmatter?.[DAY_END_PROPERTY])
-	const floor =
-		mark === 'end' && target.file
-			? dayEndFloor((await readTaskNote(plugin, target.file)).tasks, dayStart)
-			: null
+	const tasks = target.file
+		? (await readTaskNote(plugin, target.file)).tasks
+		: []
+	const floor = mark === 'end' ? dayEndFloor(tasks, dayStart) : null
 	const time = await promptTime(app, {
+		timeOnly: how.past
+			? pastDayMarkDefault(
+					mark,
+					tasks,
+					target.date,
+					{ dayStart, dayEnd },
+					how.endingDay
+				)
+			: undefined,
 		title: DAY_MARK_QUESTIONS[mark],
 		description:
 			mark === 'start' && dayEnd
@@ -131,7 +185,13 @@ export async function writeDayTime(
 	showUndoNotice(
 		describeMarkSet(mark, time, new Date()),
 		undoNoteWrite(io, write),
-		[{ label: 'Change', run: () => void promptDayMark(plugin, target, mark) }]
+		[
+			{
+				label: 'Change',
+				run: () =>
+					void promptDayMark(plugin, target, mark, markPrompt(plugin, target)),
+			},
+		]
 	)
 	return true
 }

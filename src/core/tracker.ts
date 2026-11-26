@@ -66,13 +66,18 @@ export function startActions(running: Task[]): StartActions {
 /**
  * Why the day buttons cannot be used yet, or null when they can: an
  * interruption needs something running to interrupt, and ending the day
- * needs a day that started (its start set, a task in the note).
+ * needs a day that started (its start set, a task in the note). A past
+ * day needs only a task: its end defaults without a start.
  */
 export type DayButtons = { interruption: string | null; endDay: string | null }
 
-export function dayButtons(tasks: Task[], dayStart: Date | null): DayButtons {
+export function dayButtons(
+	tasks: Task[],
+	dayStart: Date | null,
+	past = false
+): DayButtons {
 	const missing = [
-		dayStart ? null : 'set its start',
+		dayStart || past ? null : 'set its start',
 		tasks.length > 0 ? null : 'add a task',
 	].filter((step) => step !== null)
 	return {

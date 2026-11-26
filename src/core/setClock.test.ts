@@ -51,14 +51,14 @@ describe('defaultClockTimes', () => {
 		expect(defaultClockTimes(tasks, day, at(7, 0)).start).toEqual(at(7, 0))
 	})
 
-	it('ends at 23:59 rather than on the next day', () => {
+	it('ends on the next day when the half hour runs past midnight', () => {
 		const tasks = parseTasks([
 			'- [x] Reading',
 			'      [clock::2026-11-23T22:00:00--2026-11-23T23:40:00]',
 		])
 		expect(defaultClockTimes(tasks, day, null)).toEqual({
 			start: at(23, 40),
-			end: at(23, 59),
+			end: new Date(2026, 10, 24, 0, 10),
 		})
 	})
 })
@@ -88,13 +88,16 @@ describe('parseClockTimes', () => {
 		})
 	})
 
-	it('refuses a start that is not before the end', () => {
-		expect(parseClockTimes('11:00', '10:00', day, [])).toEqual({
-			error: 'The start must be before the end.',
-			fields: ['start', 'end'],
+	it('reads an end before the start as the next day', () => {
+		expect(parseClockTimes('22:30', '01:00', day, [])).toEqual({
+			times: { start: at(22, 30), end: new Date(2026, 10, 24, 1, 0) },
 		})
-		expect(parseClockTimes('10:00', '10:00', day, [])).toMatchObject({
-			error: 'The start must be before the end.',
+	})
+
+	it('refuses a clock starting and ending at the same time', () => {
+		expect(parseClockTimes('10:00', '10:00', day, [])).toEqual({
+			error: 'The start and the end are the same time.',
+			fields: ['start', 'end'],
 		})
 	})
 
@@ -124,6 +127,15 @@ describe('describeClockLength', () => {
 		expect(describeClockLength({ start: at(9, 50), end: at(11, 5) })).toBe(
 			'Lasts 1h 15m'
 		)
+	})
+
+	it('says when the clock ends on the next day', () => {
+		expect(
+			describeClockLength({
+				start: at(22, 30),
+				end: new Date(2026, 10, 24, 1, 0),
+			})
+		).toBe('Ends the next day · lasts 2h 30m')
 	})
 })
 

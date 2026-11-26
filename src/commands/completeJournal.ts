@@ -19,7 +19,7 @@ import { confirmChoosing } from 'ui/ConfirmModal'
 import { showNotice } from 'ui/notice'
 import { showUndoNotice } from 'ui/undoNotice'
 import type TaskTimeTracker from '../main'
-import { DAY_END_COMMAND, runTimeCommand } from './frontmatterTime'
+import { promptEndOfDay } from './frontmatterTime'
 import { askUnmetResults } from './goalActions'
 import {
 	currentTarget,
@@ -44,7 +44,8 @@ export function registerCompleteJournalCommand(plugin: TaskTimeTracker) {
 }
 
 /**
- * End-of-day cleanup: ask for the end of day, even when the note has one,
+ * End-of-day cleanup: ask for the end of day, even when the note has one
+ * (a time of day only on a past day),
  * then close running clocks at it, tick every clocked task and delete the
  * tasks that were never clocked, except those with goals unless picked.
  */
@@ -56,7 +57,7 @@ export async function endDay(plugin: TaskTimeTracker) {
 		return
 	}
 
-	const at = await runTimeCommand(plugin, DAY_END_COMMAND)
+	const at = await promptEndOfDay(plugin)
 	if (!at) return
 	if (plugin.settings.askGoalResultsOnEndDay) {
 		const { toTick } = planCompletion(await readTaskNote(plugin, file))

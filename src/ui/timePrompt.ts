@@ -9,7 +9,14 @@ import { formatTimeOfDay } from 'core/timeline'
 import { focusInput } from './focusInput'
 import { createStepper } from './stepper'
 
-type Request = TimeRequest & { confirmText?: string }
+type Request = TimeRequest & {
+	confirmText?: string
+	/**
+	 * Ask for a time of day only, opening on this time: where minutes before
+	 * now mean nothing, as on a day that is over.
+	 */
+	timeOnly?: Date
+}
 
 /** Shift-clicking a stepper moves by this many minutes. */
 const BIG_STEP = 5
@@ -56,18 +63,28 @@ class TimePromptModal extends Modal {
 			contentEl.createEl('p', { text: request.description })
 		}
 
-		const choice = contentEl
-			.createDiv({ cls: 'task-time-tracker-time-choice' })
-			.createDiv({ cls: 'task-time-tracker-time-options' })
-		this.minutesEl = this.buildMinutes(
-			choice.createDiv({ cls: 'task-time-tracker-time-option' })
-		)
-		choice
-			.createDiv({ cls: 'task-time-tracker-time-or' })
-			.createSpan({ text: 'or' })
-		this.timeEl = this.buildTime(
-			choice.createDiv({ cls: 'task-time-tracker-time-option' })
-		)
+		const choice = contentEl.createDiv({ cls: 'task-time-tracker-time-choice' })
+		if (request.timeOnly) {
+			this.typedIn = 'time'
+			this.typed = formatTimeOfDay(request.timeOnly)
+			this.timeEl = this.buildTime(
+				choice.createDiv({ cls: 'task-time-tracker-time-option' }),
+				request.timeOnly
+			)
+		} else {
+			const options = choice.createDiv({
+				cls: 'task-time-tracker-time-options',
+			})
+			this.minutesEl = this.buildMinutes(
+				options.createDiv({ cls: 'task-time-tracker-time-option' })
+			)
+			options
+				.createDiv({ cls: 'task-time-tracker-time-or' })
+				.createSpan({ text: 'or' })
+			this.timeEl = this.buildTime(
+				options.createDiv({ cls: 'task-time-tracker-time-option' })
+			)
+		}
 
 		this.statusEl = contentEl.createEl('p', {
 			cls: 'task-time-tracker-prompt-status',
@@ -85,9 +102,10 @@ class TimePromptModal extends Modal {
 					.onClick(() => this.submit())
 			)
 
-		focusInput(this.minutesEl, { select: true })
+		const first = this.minutesEl ?? this.timeEl
+		if (first) focusInput(first, { select: first === this.minutesEl })
 
-		if (!request.reference) {
+		if (!request.reference && !request.timeOnly) {
 			this.shownMinute = formatTimeOfDay(new Date())
 			this.nowTimer = window.setInterval(() => this.followNow(), NOW_CHECK_MS)
 		}
@@ -128,13 +146,16 @@ class TimePromptModal extends Modal {
 		return input
 	}
 
-	private buildTime(option: HTMLElement): HTMLInputElement {
+	private buildTime(
+		option: HTMLElement,
+		initial = this.reference()
+	): HTMLInputElement {
 		option.createSpan({ cls: 'task-time-tracker-time-label', text: 'Time' })
 		const input = option.createEl('input', {
 			cls: 'task-time-tracker-time-input',
 			attr: { type: 'time', 'aria-label': 'Time' },
 		})
-		input.value = formatTimeOfDay(this.reference())
+		input.value = formatTimeOfDay(initial)
 		input.addEventListener('input', () => this.timeTyped(input.value))
 		this.submitOnEnter(input)
 		return input

@@ -181,6 +181,39 @@ export function dayEndFloor(
 	return floor
 }
 
+/** Where a past day ends when nothing says otherwise. */
+const PAST_DAY_END_HOUR = 18
+
+/**
+ * The end of day a past day's End day opens on: the end of its last clock,
+ * else an hour after its start of day, else 18:00. Never before the
+ * running clocks it closes: that time of day would mean the next day.
+ */
+export function pastDayEndDefault(
+	tasks: Task[],
+	day: Date,
+	dayStart: Date | null
+): Date {
+	let lastEnd: Date | null = null
+	for (const task of tasks) {
+		for (const { end } of task.clocks) {
+			if (end && (!lastEnd || end > lastEnd)) lastEnd = end
+		}
+	}
+	const at =
+		lastEnd ??
+		(dayStart
+			? addMinutes(dayStart, 60)
+			: new Date(
+					day.getFullYear(),
+					day.getMonth(),
+					day.getDate(),
+					PAST_DAY_END_HOUR
+				))
+	const floor = dayEndFloor(tasks, dayStart)
+	return floor && floor.at > at ? floor.at : at
+}
+
 /**
  * The end of day typed for the note of `day`: a time of day on that day,
  * or on the next one when it is before `floor` (a day ending past

@@ -8,7 +8,7 @@ import {
 	formatLocalDateTime,
 	readFrontmatterTime,
 } from './time'
-import { atTime } from './typedTime'
+import { atTime, pastDayEndDefault } from './typedTime'
 import { NOTICE_ICON } from './noticeText'
 
 export type DayMark = 'start' | 'end'
@@ -127,4 +127,44 @@ export function describeMarkChanges(
 export function describeMarkSet(mark: DayMark, at: Date, now: Date): string {
 	const when = atTime(at, now)
 	return `${LABEL[mark]} set to ${when.startsWith('at ') ? when.slice(3) : when}.`
+}
+
+/** Where a past day starts when nothing says otherwise. */
+const PAST_DAY_START_HOUR = 8
+
+/**
+ * The time a past day's start or end prompt opens on, as only a time of day
+ * is asked there: the mark already set; else, for the start, the first
+ * clock's start or 08:00, and for the end, `pastDayEndDefault`. End day
+ * (`endingDay`) always opens on that default, ending the day afresh.
+ */
+export function pastDayMarkDefault(
+	mark: DayMark,
+	tasks: Task[],
+	day: Date,
+	marks: { dayStart: Date | null; dayEnd: Date | null },
+	endingDay = false
+): Date {
+	const { dayStart, dayEnd } = marks
+	if (mark === 'end') {
+		return dayEnd && !endingDay
+			? dayEnd
+			: pastDayEndDefault(tasks, day, dayStart)
+	}
+	if (dayStart) return dayStart
+	let first: Date | null = null
+	for (const task of tasks) {
+		for (const { start } of task.clocks) {
+			if (!first || start < first) first = start
+		}
+	}
+	return (
+		first ??
+		new Date(
+			day.getFullYear(),
+			day.getMonth(),
+			day.getDate(),
+			PAST_DAY_START_HOUR
+		)
+	)
 }

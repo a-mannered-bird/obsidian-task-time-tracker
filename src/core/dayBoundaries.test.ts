@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
+import { parseTasks } from './parser'
 import {
+	pastDayMarkDefault,
 	describeMarkChanges,
 	describeMarkSet,
 	endDayWithLastClock,
@@ -171,6 +173,46 @@ describe('describeMarkSet', () => {
 		)
 		expect(describeMarkSet('end', new Date(2026, 10, 16, 23, 45), now)).toBe(
 			'🌇 End of day set to yesterday at 23:45.'
+		)
+	})
+})
+
+describe('pastDayMarkDefault', () => {
+	const day = new Date(2026, 10, 11)
+	const tasks = parseTasks([
+		'- [x] Write plugin',
+		'      [clock::2026-11-11T09:00:00--2026-11-11T12:00:00]',
+		'- [x] Emails',
+		'      [clock::2026-11-11T08:15:00--2026-11-11T08:45:00]',
+	])
+	const marks = {
+		dayStart: new Date(2026, 10, 11, 7, 30),
+		dayEnd: new Date(2026, 10, 11, 19, 0),
+	}
+	const none = { dayStart: null, dayEnd: null }
+
+	it('opens on the mark already set', () => {
+		expect(pastDayMarkDefault('start', tasks, day, marks)).toEqual(
+			marks.dayStart
+		)
+		expect(pastDayMarkDefault('end', tasks, day, marks)).toEqual(marks.dayEnd)
+	})
+
+	it('starts at the first clock, else at 08:00', () => {
+		expect(pastDayMarkDefault('start', tasks, day, none)).toEqual(
+			new Date(2026, 10, 11, 8, 15)
+		)
+		expect(pastDayMarkDefault('start', [], day, none)).toEqual(
+			new Date(2026, 10, 11, 8, 0)
+		)
+	})
+
+	it('ends where the last clock ended, even over the end set when ending the day', () => {
+		expect(pastDayMarkDefault('end', tasks, day, none)).toEqual(
+			new Date(2026, 10, 11, 12, 0)
+		)
+		expect(pastDayMarkDefault('end', tasks, day, marks, true)).toEqual(
+			new Date(2026, 10, 11, 12, 0)
 		)
 	})
 })

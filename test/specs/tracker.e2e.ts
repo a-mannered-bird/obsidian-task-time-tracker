@@ -9,6 +9,7 @@ import {
 	expectTimeMinutesAgo,
 	minutesField,
 	setTimeInput,
+	timeField,
 	typeMinutes,
 	typeTime,
 } from './support/timePrompt'
@@ -954,7 +955,7 @@ describe('tracker tab', function () {
 		])
 	})
 
-	it('only sets clocks on a past note, from where the last one ended', async function () {
+	it('only sets clocks on a past note, from where the last one ended, new tasks included', async function () {
 		let content = `${['- [ ] Chores', '- [ ] Email'].join('\n')}\n`
 		await obsidianPage.write(pastNote.path, content)
 		await openTracker(pastNote.path)
@@ -962,7 +963,10 @@ describe('tracker tab', function () {
 
 		// Nothing starts or stops on a day that is over: the bar only plans,
 		// and the rows only set clocks.
-		await expect(browser.$('input[aria-label="Task to plan"]')).toBeDisplayed()
+		await expect(browser.$('input[aria-label="Task to plan"]')).toHaveAttribute(
+			'placeholder',
+			'Add a task to August 2, 2026'
+		)
 		await expect(button('Add a clock to Chores')).toBeDisplayed()
 		// Positive matchers only (see AGENTS.md): the trace mislabels `.not`.
 		for (const label of ['Plan mode', 'Start Chores', 'Start Chores at…']) {
@@ -998,12 +1002,22 @@ describe('tracker tab', function () {
 		await expect(clock.end).toHaveValue('08:30')
 		await expect(clock.status).toHaveText('Lasts 30m')
 
-		// An end before the start is refused as typed, and on submit.
+		// An end before the start is on the next day.
 		await setTimeInput(clock.end, '07:30')
-		await expect(clock.status).toHaveText('The start must be before the end.')
+		await expect(clock.status).toHaveText('Ends the next day · lasts 23h 30m')
+		await expect(clock.end).toHaveAttribute('aria-invalid', 'false')
+
+		// The same time as the start makes no clock: refused as typed, and
+		// on submit.
+		await setTimeInput(clock.end, '08:00')
+		await expect(clock.status).toHaveText(
+			'The start and the end are the same time.'
+		)
 		await expect(clock.end).toHaveAttribute('aria-invalid', 'true')
 		await clock.modal.$('button=Add clock').click()
-		await expect(clock.status).toHaveText('The start must be before the end.')
+		await expect(clock.status).toHaveText(
+			'The start and the end are the same time.'
+		)
 
 		await setTimeInput(clock.end, '09:15')
 		await expect(clock.status).toHaveText('Lasts 1h 15m')
@@ -1013,6 +1027,19 @@ describe('tracker tab', function () {
 			{ start: `${pastNote.date}T08:00:00`, end: `${pastNote.date}T09:15:00` },
 		])
 
+		// The day's first clock asks when the day started, as a time of day
+		// only, opening on the clock's start.
+		const dayStart = await modalTitled('Start of day')
+		await expect(timeField(dayStart)).toHaveValue('08:00')
+		assert.strictEqual(await minutesField(dayStart).isExisting(), false)
+		await typeTime(dayStart, '07:45')
+		await dayStart.$('button=OK').click()
+		content = await waitForChange(content, pastNote.path)
+		assert.match(
+			content,
+			new RegExp(`^---\nday_start: ${pastNote.date}T07:45:00\n---\n`)
+		)
+
 		// The next clock opens where the note's last one ended.
 		clock = await openClock('Email')
 		await expect(clock.start).toHaveValue('09:15')
@@ -1020,21 +1047,147 @@ describe('tracker tab', function () {
 		await clock.modal.$('button=Add clock').click()
 		content = await waitForChange(content, pastNote.path)
 
+		// A task added from the bar comes with its clock, from where the
+		// last one ended.
+		const bar = browser.$('input[aria-label="Task to plan"]')
+		await bar.setValue('Laundry')
+		await expect(browser.$('[role="option"][aria-selected="true"]')).toHaveText(
+			expect.stringContaining('Laundry')
+		)
+		await browser.keys('Enter')
+		let modal = await modalTitled('Add a clock to "Laundry"')
+		await expect(modal.$('input[aria-label="Start"]')).toHaveValue('09:45')
+		await expect(modal.$('input[aria-label="End"]')).toHaveValue('10:15')
+		await modal.$('button=Add clock').click()
+		content = await waitForChange(content, pastNote.path)
+
+		// Dismissed, the prompt adds nothing, not even the task.
+		await bar.setValue('Groceries')
+		await expect(browser.$('[role="option"][aria-selected="true"]')).toHaveText(
+			expect.stringContaining('Groceries')
+		)
+		await browser.keys('Enter')
+		modal = await modalTitled('Add a clock to "Groceries"')
+		await modal.$('button=Cancel').click()
+
 		// A task's clocks may not overlap: the time would count twice.
 		clock = await openClock('Chores')
-		await expect(clock.start).toHaveValue('09:45')
+		await expect(clock.start).toHaveValue('10:15')
 		await setTimeInput(clock.start, '09:00')
 		await expect(clock.status).toHaveText(
 			"It overlaps this task's clock 08:00–09:15."
 		)
 		await clock.modal.$('button=Cancel').click()
 
+		content = await obsidianPage.read(pastNote.path)
 		assert.deepStrictEqual(content.trimEnd().split('\n'), [
+			'---',
+			`day_start: ${pastNote.date}T07:45:00`,
+			'---',
 			'- [ ] Chores',
 			`      [clock::${pastNote.date}T08:00:00--${pastNote.date}T09:15:00]`,
 			'- [ ] Email',
 			`      [clock::${pastNote.date}T09:15:00--${pastNote.date}T09:45:00]`,
+			'- [ ] Laundry',
+			`      [clock::${pastNote.date}T09:45:00--${pastNote.date}T10:15:00]`,
 		])
+	})
+
+	it('ends a past day at a time of day, from where its last clock ended', async function () {
+		const before = [
+			'- [ ] Chores',
+			`      [clock::${pastNote.date}T08:00:00--${pastNote.date}T09:15:00]`,
+			'- [ ] Email',
+			'',
+		].join('\n')
+		await obsidianPage.write(pastNote.path, before)
+		await openTracker(pastNote.path)
+
+		// No start of day is needed on a past day, only a task.
+		const endDayButton = browser.$('button=End day')
+		await expect(endDayButton).toBeEnabled()
+		await endDayButton.click()
+		const setEnd = await modalTitled('When does the tracking period end?')
+		// Only a time of day: minutes before now mean nothing on a day that
+		// is over. It opens where the last clock ended.
+		const time = timeField(setEnd)
+		await expect(time).toHaveValue('09:15')
+		assert.strictEqual(await minutesField(setEnd).isExisting(), false)
+		await expect(setEnd.$('p*= at 09:15')).toBeDisplayed()
+		await typeTime(setEnd, '17:30')
+		await setEnd.$('button=OK').click()
+
+		const modal = await modalTitled('End day')
+		await expect(modal.$('li=Email')).toBeDisplayed()
+		await modal.$('button=End day').click()
+		// The end of day is written first, then the cleanup.
+		await browser.waitUntil(
+			async () =>
+				(await obsidianPage.read(pastNote.path)).includes('- [x] Chores'),
+			{ timeoutMsg: 'the day was not ended' }
+		)
+		const content = await obsidianPage.read(pastNote.path)
+		assert.deepStrictEqual(content.trimEnd().split('\n'), [
+			'---',
+			`day_end: ${pastNote.date}T17:30:00`,
+			'---',
+			'- [x] Chores',
+			`      [clock::${pastNote.date}T08:00:00--${pastNote.date}T09:15:00]`,
+		])
+	})
+
+	it('sets the start and end of a past day at a time of day', async function () {
+		const before = [
+			'- [x] Chores',
+			`      [clock::${pastNote.date}T08:20:00--${pastNote.date}T09:15:00]`,
+			'- [x] Email',
+			`      [clock::${pastNote.date}T13:00:00--${pastNote.date}T13:40:00]`,
+			'',
+		].join('\n')
+		await obsidianPage.write(pastNote.path, before)
+		await openTracker(pastNote.path)
+
+		/** Pressed through the DOM: the notice of the last write covers the header. */
+		async function press(label: string) {
+			await browser.execute(
+				(el) => el.click(),
+				await button(label).getElement()
+			)
+		}
+
+		// Without a start of day, it opens on the first clock's start.
+		await press('Set start of day')
+		const start = await modalTitled('When does the tracking period start?')
+		await expect(timeField(start)).toHaveValue('08:20')
+		assert.strictEqual(await minutesField(start).isExisting(), false)
+		await typeTime(start, '08:00')
+		await start.$('button=OK').click()
+		let content = await waitForChange(before, pastNote.path)
+		assert.match(
+			content,
+			new RegExp(`\nday_start: ${pastNote.date}T08:00:00\n`)
+		)
+
+		// Without an end of day, it opens where the last clock ended.
+		await press('Set end of day')
+		const end = await modalTitled('When does the tracking period end?')
+		await expect(timeField(end)).toHaveValue('13:40')
+		assert.strictEqual(await minutesField(end).isExisting(), false)
+		await typeTime(end, '18:30')
+		await end.$('button=OK').click()
+		content = await waitForChange(content, pastNote.path)
+		assert.deepStrictEqual(content.trimEnd().split('\n').slice(0, 4), [
+			'---',
+			`day_start: ${pastNote.date}T08:00:00`,
+			`day_end: ${pastNote.date}T18:30:00`,
+			'---',
+		])
+
+		// Set, a mark opens on itself.
+		await press('Start of day 08:00, change')
+		const again = await modalTitled('When does the tracking period start?')
+		await expect(timeField(again)).toHaveValue('08:00')
+		await again.$('button=Cancel').click()
 	})
 
 	it('teaches Toggle task from… on the Stop at… button', async function () {
