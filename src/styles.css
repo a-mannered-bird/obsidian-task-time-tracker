@@ -248,6 +248,21 @@
 .task-time-tracker-manager-modal {
 	width: min(56em, 90vw);
 	max-width: 90vw;
+	/* Obsidian's cap for dialogs (85vh, the whole screen on phones): the
+	   modal keeps that height whatever the rows, so switching tabs or
+	   filtering never resizes it. Only the table scrolls. */
+	height: var(--dialog-max-height);
+}
+
+.task-time-tracker-manager-modal .modal-content,
+.task-time-tracker-manager-modal [role='tabpanel']:not([hidden]) {
+	display: flex;
+	flex-direction: column;
+	min-height: 0;
+}
+
+.task-time-tracker-manager-modal [role='tabpanel']:not([hidden]) {
+	flex: 1;
 }
 
 /* The daily view's tabs and the management modal's. */
@@ -334,7 +349,8 @@
 }
 
 .task-time-tracker-manager-modal .table-wrapper {
-	max-height: 60vh;
+	flex: 1;
+	min-height: 0;
 	overflow-y: auto;
 }
 
