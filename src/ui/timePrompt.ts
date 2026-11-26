@@ -6,6 +6,7 @@ import {
 	timeOfDayBefore,
 } from 'core/typedTime'
 import { formatTimeOfDay } from 'core/timeline'
+import { getMinutesBetween } from 'core/time'
 import { focusInput } from './focusInput'
 import { createStepper } from './stepper'
 
@@ -210,9 +211,17 @@ class TimePromptModal extends Modal {
 		this.typed = value
 		this.typedIn = 'time'
 		const reference = this.reference()
-		const parsed = this.request.parse(value, reference)
-		if (this.minutesEl && 'at' in parsed) {
-			this.minutesEl.value = String(minutesBefore(parsed.at, reference))
+		const { initial } = this.request
+		if (this.minutesEl && this.pristine && initial) {
+			// The initial time may be no answer (a stop at the clock's start),
+			// which parses to an error: count from it directly, minute by
+			// minute as the tracker's timer does.
+			this.minutesEl.value = String(getMinutesBetween(initial, reference))
+		} else {
+			const parsed = this.request.parse(value, reference)
+			if (this.minutesEl && 'at' in parsed) {
+				this.minutesEl.value = String(minutesBefore(parsed.at, reference))
+			}
 		}
 		this.showStatus()
 	}
