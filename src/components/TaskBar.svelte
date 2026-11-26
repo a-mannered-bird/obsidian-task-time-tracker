@@ -46,6 +46,8 @@
 		noteHeading: string
 		/** Set by the last pressed button; the tab's rows follow it too. */
 		mode?: BarMode
+		/** A past day: picking only plans, nothing starts there. */
+		planOnly?: boolean
 	}
 
 	let {
@@ -54,6 +56,7 @@
 		placeholders,
 		noteHeading,
 		mode = $bindable(INITIAL_BAR_MODE),
+		planOnly = false,
 	}: Props = $props()
 
 	/** Other notes' tasks listed before anything is typed, or once typed. */
@@ -77,7 +80,9 @@
 	let input = $state<HTMLInputElement | null>(null)
 
 	const actions = $derived(startActions(tasks.filter(isRunning)))
-	const action = $derived(barAction(mode, actions))
+	const action = $derived<BarAction>(
+		planOnly ? 'plan' : barAction(mode, actions)
+	)
 	const starting = $derived(action === 'start' || action === 'switch')
 
 	const options = $derived(
@@ -208,7 +213,7 @@
 				bind:value={query}
 				type="text"
 				role="combobox"
-				aria-label="Task to start"
+				aria-label={planOnly ? 'Task to plan' : 'Task to start'}
 				aria-expanded={open && options.length > 0}
 				aria-controls={LISTBOX_ID}
 				aria-autocomplete="list"
@@ -266,51 +271,53 @@
 		{/if}
 	</div>
 
-	<button
-		class="start-button"
-		class:mod-cta={starting}
-		aria-label={actions.primary === 'switch' ? SWITCH_MODE : 'Start'}
-		aria-pressed={starting}
-		use:instantTooltip={() => [
-			...(actions.primary === 'switch'
-				? [[strong(SWITCH_MODE)], SWITCH_MODE_HINT]
-				: []),
-			controlHint(plugin, actions.primary),
-		]}
-		use:icon={startIcon(actions.primary)}
-		onmousedown={keepFocus}
-		onclick={() => press('primary')}
-	></button>
-	{#if actions.alongside}
+	{#if !planOnly}
 		<button
-			class="alongside-button"
-			class:mod-cta={action === 'alongside'}
-			aria-label={TOGGLE_MODE}
-			aria-pressed={action === 'alongside'}
+			class="start-button"
+			class:mod-cta={starting}
+			aria-label={actions.primary === 'switch' ? SWITCH_MODE : 'Start'}
+			aria-pressed={starting}
 			use:instantTooltip={() => [
-				[strong(TOGGLE_MODE)],
-				TOGGLE_MODE_HINT,
-				controlHint(plugin, 'alongside'),
+				...(actions.primary === 'switch'
+					? [[strong(SWITCH_MODE)], SWITCH_MODE_HINT]
+					: []),
+				controlHint(plugin, actions.primary),
 			]}
-			use:icon={startIcon('alongside')}
+			use:icon={startIcon(actions.primary)}
 			onmousedown={keepFocus}
-			onclick={() => press('alongside')}
+			onclick={() => press('primary')}
+		></button>
+		{#if actions.alongside}
+			<button
+				class="alongside-button"
+				class:mod-cta={action === 'alongside'}
+				aria-label={TOGGLE_MODE}
+				aria-pressed={action === 'alongside'}
+				use:instantTooltip={() => [
+					[strong(TOGGLE_MODE)],
+					TOGGLE_MODE_HINT,
+					controlHint(plugin, 'alongside'),
+				]}
+				use:icon={startIcon('alongside')}
+				onmousedown={keepFocus}
+				onclick={() => press('alongside')}
+			></button>
+		{/if}
+		<button
+			class="plan-button"
+			class:mod-cta={action === 'plan'}
+			aria-label={PLAN_MODE}
+			aria-pressed={action === 'plan'}
+			use:instantTooltip={() => [
+				[strong(PLAN_MODE)],
+				PLAN_MODE_HINT,
+				controlHint(plugin, 'plan'),
+			]}
+			use:icon={'list-plus'}
+			onmousedown={keepFocus}
+			onclick={() => press('plan')}
 		></button>
 	{/if}
-	<button
-		class="plan-button"
-		class:mod-cta={action === 'plan'}
-		aria-label={PLAN_MODE}
-		aria-pressed={action === 'plan'}
-		use:instantTooltip={() => [
-			[strong(PLAN_MODE)],
-			PLAN_MODE_HINT,
-			controlHint(plugin, 'plan'),
-		]}
-		use:icon={'list-plus'}
-		onmousedown={keepFocus}
-		onclick={() => press('plan')}
-	></button>
 </div>
 
 <style>

@@ -20,12 +20,19 @@ export async function typeMinutes(
 	await expect(field).toHaveValue(minutes)
 }
 
+/** Set the time field to `HH:MM`. */
+export async function typeTime(modal: ChainablePromiseElement, time: string) {
+	await setTimeInput(timeField(modal), time)
+}
+
 /**
- * Set the time field to `HH:MM`. Set through the DOM: keystrokes into a time
+ * Set a time input to `HH:MM`. Set through the DOM: keystrokes into a time
  * input depend on the locale's 12 or 24 hour segments.
  */
-export async function typeTime(modal: ChainablePromiseElement, time: string) {
-	const field = timeField(modal)
+export async function setTimeInput(
+	field: ChainablePromiseElement,
+	time: string
+) {
 	const element = await field.getElement()
 	await browser.execute(
 		(el, value) => {

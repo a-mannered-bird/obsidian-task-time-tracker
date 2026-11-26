@@ -13,6 +13,7 @@
 		getDailyNoteFile,
 		getDailyNoteName,
 		isDailyNote,
+		isPastDay,
 		isSameDay,
 		resolveTarget,
 		type DailyTarget,
@@ -108,6 +109,11 @@
 		void log
 		now = new Date()
 	})
+
+	/** Over: the tracker only sets clocks there, nothing starts or stops. */
+	const past = $derived(
+		target ? isPastDay(app, dailyNotes(), target, now) : false
+	)
 
 	/*
 	 * Goal sounds play here rather than in a tab, so a goal reached while the
@@ -321,6 +327,7 @@
 				{log}
 				{overnight}
 				{otherDay}
+				{past}
 				{loading}
 				{now}
 				oneditgoal={editGoal}

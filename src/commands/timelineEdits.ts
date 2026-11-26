@@ -80,7 +80,19 @@ export async function addClockLine(
 		includeVault: true,
 	})
 	if (!picked) return false
-	const target: ClockTarget = picked
+	return addClockTo(plugin, file, picked, times)
+}
+
+/**
+ * Give the task a clock with these times (adding the task to the note when
+ * it is new), with Undo. True when the clock was written.
+ */
+export function addClockTo(
+	plugin: TaskTimeTracker,
+	file: TFile,
+	target: ClockTarget,
+	times: FinishedClockTimes
+): Promise<boolean> {
 	return writeNewClock(
 		plugin,
 		file,

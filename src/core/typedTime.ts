@@ -37,6 +37,12 @@ function onDay(typed: { hours: number; minutes: number }, day: Date): Date {
 	)
 }
 
+/** A typed time of day (`14:30`) on `day`; null for anything else. */
+export function parseTimeOfDay(text: string, day: Date): Date | null {
+	const typed = read(text)
+	return typed && 'hours' in typed ? onDay(typed, day) : null
+}
+
 /**
  * The end typed for clocks that started at `latestStart`: a time of day on
  * that day, or on the next one when that is not after the start (work past

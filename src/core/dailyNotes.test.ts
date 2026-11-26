@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest'
 import type { App, TFile } from 'obsidian'
 import {
 	addDays,
-	asksTrackingTime,
 	getAdjacentDailyNoteFile,
+	isPastDay,
 	getDailyNoteDate,
 	getDailyNoteName,
 	getDailyNotePath,
@@ -184,35 +184,35 @@ describe('getAdjacentDailyNoteFile', () => {
 	})
 })
 
-describe('asksTrackingTime', () => {
-	const app = appStub(null, ['Journal/2026-08-13.md', 'Journal/2026-08-15.md'])
-	const target = (day: number, path: string) => ({
-		date: new Date(2026, 7, day),
-		path,
-		file: file(path),
+describe('isPastDay', () => {
+	const target = (day: number) => {
+		const path = `Journal/2026-08-${day}.md`
+		return { date: new Date(2026, 7, day), path, file: file(path) }
+	}
+
+	it('is past when a later note follows, even yesterday', () => {
+		const app = appStub(null, [
+			'Journal/2026-08-15.md',
+			'Journal/2026-08-16.md',
+		])
+		expect(isPastDay(app, config, target(15), date)).toBe(true)
 	})
 
-	it('asks on a past note followed by a later one', () => {
-		expect(
-			asksTrackingTime(app, config, target(13, 'Journal/2026-08-13.md'), date)
-		).toBe(true)
+	it('keeps yesterday live while it is the latest note, for work past midnight', () => {
+		const app = appStub(null, ['Journal/2026-08-15.md'])
+		expect(isPastDay(app, config, target(15), date)).toBe(false)
 	})
 
-	it('tracks at now on the latest note, even a past one, and on today', () => {
-		expect(
-			asksTrackingTime(app, config, target(15, 'Journal/2026-08-15.md'), date)
-		).toBe(false)
-		const withTomorrow = appStub(null, [
+	it('is past for the latest note from the day before yesterday on', () => {
+		const app = appStub(null, ['Journal/2026-08-14.md'])
+		expect(isPastDay(app, config, target(14), date)).toBe(true)
+	})
+
+	it('is never past for today', () => {
+		const app = appStub(null, [
 			'Journal/2026-08-16.md',
 			'Journal/2026-08-17.md',
 		])
-		expect(
-			asksTrackingTime(
-				withTomorrow,
-				config,
-				target(16, 'Journal/2026-08-16.md'),
-				date
-			)
-		).toBe(false)
+		expect(isPastDay(app, config, target(16), date)).toBe(false)
 	})
 })

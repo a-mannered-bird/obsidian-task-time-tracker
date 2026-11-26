@@ -2,6 +2,7 @@ import { addIcon } from 'obsidian'
 
 export const STOP_AT_ICON = 'task-time-tracker-stop-at'
 export const START_AT_ICON = 'task-time-tracker-start-at'
+export const SET_CLOCK_ICON = 'task-time-tracker-set-clock'
 
 /** Lucide's clock, left open at the bottom right for a badge (as in `clock-arrow-up`). */
 const OPEN_CLOCK =
@@ -16,7 +17,10 @@ function lucideStyle(paths: string): string {
 	return `<g transform="scale(${100 / 24})" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">${paths}</g>`
 }
 
-/** Stop and start at a chosen time: the row's stop and play glyphs on a clock. */
+/**
+ * Stop and start at a chosen time: the row's stop and play glyphs on a
+ * clock; a plus on it adds a whole clock, start and end.
+ */
 export function registerCustomIcons() {
 	addIcon(
 		STOP_AT_ICON,
@@ -29,5 +33,9 @@ export function registerCustomIcons() {
 		lucideStyle(
 			`${OPEN_CLOCK}<path d="M15.5 14.8v7.4a.6.6 0 0 0 .9.5l5.6-3.7a.6.6 0 0 0 0-1l-5.6-3.7a.6.6 0 0 0-.9.5z"/>`
 		)
+	)
+	addIcon(
+		SET_CLOCK_ICON,
+		lucideStyle(`${OPEN_CLOCK}<path d="M18.5 15v7"/><path d="M15 18.5h7"/>`)
 	)
 }

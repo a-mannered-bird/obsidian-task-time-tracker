@@ -1,25 +1,32 @@
 import { type TFile } from 'obsidian'
 import { describeNoteTaskRemoval } from 'core/confirmations'
 import { extractTaskBlocks } from 'core/consolidate'
-import { asksTrackingTime, type DailyTarget } from 'core/dailyNotes'
+import type { DailyLog } from 'core/dailyLogs'
 import {
 	recordWrites,
 	rewriteNote,
 	type RewriteOutcome,
 } from 'core/noteRewrite'
 import { setNoteTaskTags } from 'core/rowTags'
+import {
+	defaultClockTimes,
+	describeClockDay,
+	parseClockTimes,
+} from 'core/setClock'
 import { moveTaskLine, removeTaskLine, type TaskMove } from 'core/tracker'
 import { askingTime, type TaskChoice, type ToggleOptions } from 'core/toggle'
 import { NOTICE_ICON, noticeTask } from 'core/noticeText'
 import { BUSY_NOTICE, CLOCKS_CHANGED_NOTICE } from 'core/trackingRun'
 import { describeStart, parseEndTime, parseStartTime } from 'core/typedTime'
+import type { Task } from 'types/tasks'
 import { confirmAction } from 'ui/ConfirmActionModal'
+import { promptClock } from 'ui/SetClockModal'
 import { showNotice } from 'ui/notice'
 import { promptTime } from 'ui/timePrompt'
 import { showUndoNotice } from 'ui/undoNotice'
 import type TaskTimeTracker from '../main'
-import { retimeClockLine } from './timelineEdits'
-import { currentTarget, noteIo, readNoteContent } from './target'
+import { addClockTo, retimeClockLine } from './timelineEdits'
+import { noteIo, readNoteContent } from './target'
 import { runTrackingSteps } from './tracking'
 import { undoNoteWrite } from './undo'
 
@@ -94,20 +101,6 @@ export function setInterruptionStop(plugin: TaskTimeTracker): Promise<void> {
 	return runFromTab(plugin, [
 		{ switch: true, interruption: true, timeTravel: true },
 	])
-}
-
-/**
- * On a past note followed by a later one, now is the wrong time to track
- * at, so each step asks when it happened.
- */
-function trackingSteps(
-	plugin: TaskTimeTracker,
-	target: DailyTarget,
-	steps: ToggleOptions[]
-): ToggleOptions[] {
-	return asksTrackingTime(plugin.app, plugin.getDailyNotesConfig(), target)
-		? steps.map(askingTime)
-		: steps
 }
 
 /** Stop a running task at the moment the last stopped task ended. */
@@ -200,16 +193,16 @@ export async function deleteTaskFromNote(
 	}
 }
 
-/** Run the steps from the tab, asking the time on a past note. */
+/**
+ * Run the steps from the tab. Never on a past day, where the tab only sets
+ * clocks (`isPastDay`): the latest note tracks at now, even past midnight.
+ */
 function runFromTab(
 	plugin: TaskTimeTracker,
 	steps: ToggleOptions[],
 	choice?: TaskChoice
 ): Promise<void> {
-	const target = currentTarget(plugin)
-	return runTrackingSteps(plugin, trackingSteps(plugin, target, steps), {
-		choice,
-	})
+	return runTrackingSteps(plugin, steps, { choice })
 }
 
 /** Ask when a running clock really started and move its start there. */
@@ -256,6 +249,31 @@ export async function setStop(
 		{ taskName, start, end: null },
 		{ start, end: at }
 	)
+}
+
+/**
+ * Ask for a clock's start and end on the note's day and give it to the
+ * task: how a past day's tasks get their time, as nothing runs there.
+ */
+export async function setClock(
+	plugin: TaskTimeTracker,
+	log: DailyLog,
+	task: Task
+): Promise<void> {
+	const times = await promptClock(plugin.app, {
+		title: `Add a clock to "${task.name}"`,
+		description: describeClockDay(log.date, new Date()),
+		initial: defaultClockTimes(log.tasks, log.date, log.dayStart),
+		parse: (start, end) => parseClockTimes(start, end, log.date, task.clocks),
+	})
+	if (times) {
+		await addClockTo(
+			plugin,
+			log.file,
+			{ name: task.name, tags: task.tags },
+			times
+		)
+	}
 }
 
 /** Tell about a write that did not happen; true when it did. */

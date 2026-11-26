@@ -45,6 +45,21 @@ describe('trackerLayout', () => {
 		expect(names(layout.done)).toEqual(['Breakfast', 'Read news'])
 	})
 
+	it('lists a clock left running on a past day with the idle tasks', () => {
+		const layout = trackerLayout(
+			parseTasks([
+				'- [x] Chores',
+				'      [clock::2026-11-12T10:42:00]',
+				'- [ ] Email',
+				'      [clock::2026-11-12T11:00:00]',
+			]),
+			true
+		)
+		expect(layout.running).toEqual([])
+		expect(names(layout.open)).toEqual(['Email'])
+		expect(names(layout.done)).toEqual(['Chores'])
+	})
+
 	it('keeps a ticked task that still runs among the running ones', () => {
 		const layout = trackerLayout(
 			parseTasks(['- [x] Chores', '      [clock::2026-11-12T10:42:00]'])
@@ -334,6 +349,28 @@ describe('rowActions', () => {
 	it('does not offer to start from the last task end before any ended', () => {
 		const fresh = parseTasks(['- [ ] Email'])
 		expect(rowActions(fresh[0]!, fresh, 'start')[0]).toBe('show-task')
+	})
+
+	it('offers nothing that starts, stops or migrates on a past day', () => {
+		const pastActions = (name: string) =>
+			rowActions(tasks.find((task) => task.name === name)!, tasks, null)
+		expect(pastActions('Write blog post')).toEqual([
+			'move-down',
+			'move-to-bottom',
+			'show-task',
+			'show-last-clock',
+			'show-in-manager',
+			'delete-last-clock',
+			'delete-task',
+		])
+		// A clock left running there is shown like a finished one.
+		expect(pastActions('Email')).toEqual([
+			'show-task',
+			'show-last-clock',
+			'show-in-manager',
+			'delete-last-clock',
+			'delete-task',
+		])
 	})
 
 	it('offers the way of starting that the row buttons do not', () => {

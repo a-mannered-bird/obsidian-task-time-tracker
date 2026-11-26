@@ -15,6 +15,7 @@
 		moveTask,
 		setDuration,
 		setInterruptionDuration,
+		setClock,
 		setInterruptionStop,
 		setStop,
 		startTask,
@@ -58,7 +59,7 @@
 		type TaskMove,
 	} from 'core/tracker'
 	import type { Task } from 'types/tasks'
-	import { START_AT_ICON, STOP_AT_ICON } from 'ui/customIcons'
+	import { SET_CLOCK_ICON, START_AT_ICON, STOP_AT_ICON } from 'ui/customIcons'
 	import { icon } from 'ui/icon'
 	import { openTaskManager } from 'ui/TaskManagerModal'
 	import { rowMotion } from 'ui/rowMotion'
@@ -76,6 +77,8 @@
 		overnight: OvernightNote | null
 		/** How the note's day is called when it is not today, else null. */
 		otherDay: string | null
+		/** The note's day is over: clocks are set there, never started or stopped. */
+		past: boolean
 		loading: boolean
 		/** The view's clock, ticking each minute. */
 		now: Date
@@ -83,8 +86,16 @@
 		oneditgoal: (goalId: string) => void
 	}
 
-	const { plugin, log, overnight, otherDay, loading, now, oneditgoal }: Props =
-		$props()
+	const {
+		plugin,
+		log,
+		overnight,
+		otherDay,
+		past,
+		loading,
+		now,
+		oneditgoal,
+	}: Props = $props()
 
 	const motion = rowMotion()
 	$effect.pre(() => {
@@ -102,7 +113,7 @@
 
 	const tasks = $derived(log?.tasks ?? [])
 	const duplicate = $derived(findDuplicateTask(tasks))
-	const layout = $derived(trackerLayout(tasks))
+	const layout = $derived(trackerLayout(tasks, past))
 	let barMode = $state<BarMode>(INITIAL_BAR_MODE)
 	const rowStarts = $derived(rowStart(barMode, startActions(layout.running)))
 	const paused = $derived(pausedByInterruption(tasks))
@@ -472,7 +483,7 @@
 	function openRowMenu(event: MouseEvent, task: Task) {
 		const menu = new Menu()
 		let group: MenuGroup | null = null
-		for (const action of rowActions(task, tasks, rowStarts)) {
+		for (const action of rowActions(task, tasks, past ? null : rowStarts)) {
 			const item = ROW_ITEMS[action]
 			if (group && item.group !== group) menu.addSeparator()
 			group = item.group
@@ -669,23 +680,36 @@
 
 {#snippet idleActions(task: Task)}
 	<span class="row-actions">
-		<button
-			class="row-button"
-			use:instantTooltip={() => [controlHint(plugin, rowStarts)]}
-			aria-label={START_LABELS[rowStarts](task.name)}
-			use:icon={startIcon(rowStarts)}
-			onclick={() => start(task, rowStarts)}
-		></button>
-		<button
-			class="row-button"
-			use:instantTooltip={() => [
-				controlHint(plugin, rowStarts === 'switch' ? 'switchAt' : 'startAt'),
-			]}
-			aria-label={`${START_LABELS[rowStarts](task.name)} at…`}
-			use:icon={START_AT_ICON}
-			onclick={() => void startTaskAt(plugin, taskChoice(task), rowStarts)}
-		></button>
-		{@render moreButton(task)}
+		{#if past}
+			<button
+				class="row-button"
+				use:instantTooltip={() => ['Set its start and end times']}
+				aria-label={`Add a clock to ${task.name}`}
+				use:icon={SET_CLOCK_ICON}
+				onclick={() => {
+					if (log) void setClock(plugin, log, task)
+				}}
+			></button>
+			{@render moreButton(task)}
+		{:else}
+			<button
+				class="row-button"
+				use:instantTooltip={() => [controlHint(plugin, rowStarts)]}
+				aria-label={START_LABELS[rowStarts](task.name)}
+				use:icon={startIcon(rowStarts)}
+				onclick={() => start(task, rowStarts)}
+			></button>
+			<button
+				class="row-button"
+				use:instantTooltip={() => [
+					controlHint(plugin, rowStarts === 'switch' ? 'switchAt' : 'startAt'),
+				]}
+				aria-label={`${START_LABELS[rowStarts](task.name)} at…`}
+				use:icon={START_AT_ICON}
+				onclick={() => void startTaskAt(plugin, taskChoice(task), rowStarts)}
+			></button>
+			{@render moreButton(task)}
+		{/if}
 	</span>
 {/snippet}
 
@@ -768,6 +792,7 @@
 			{plugin}
 			{tasks}
 			bind:mode={barMode}
+			planOnly={past}
 			placeholders={otherDay
 				? {
 						start: `Add a task to ${otherDay}`,
@@ -783,27 +808,29 @@
 					}}
 			noteHeading={noteDayHeading(log?.date ?? now, now)}
 		/>
-		<div class="buttons">
-			<button
-				class="interruption-button"
-				class:is-active={interruptionActive}
-				aria-pressed={interruptionActive}
-				disabled={unavailable.interruption !== null}
-				use:instantTooltip={interruptionHint}
-				onclick={() => void toggleInterruption(plugin)}
-			>
-				<span use:icon={'pause'}></span>
-				Interruption
-			</button>
-			<button
-				disabled={unavailable.endDay !== null}
-				use:instantTooltip={endDayHint}
-				onclick={() => void endDay(plugin)}
-			>
-				<span use:icon={'sunset'}></span>
-				End day
-			</button>
-		</div>
+		{#if !past}
+			<div class="buttons">
+				<button
+					class="interruption-button"
+					class:is-active={interruptionActive}
+					aria-pressed={interruptionActive}
+					disabled={unavailable.interruption !== null}
+					use:instantTooltip={interruptionHint}
+					onclick={() => void toggleInterruption(plugin)}
+				>
+					<span use:icon={'pause'}></span>
+					Interruption
+				</button>
+				<button
+					disabled={unavailable.endDay !== null}
+					use:instantTooltip={endDayHint}
+					onclick={() => void endDay(plugin)}
+				>
+					<span use:icon={'sunset'}></span>
+					End day
+				</button>
+			</div>
+		{/if}
 	</div>
 
 	{#if duplicate}
@@ -988,7 +1015,11 @@
 	{:else if layout.running.length === 0}
 		<div class="empty">
 			<p class="empty-title">Nothing tracked yet</p>
-			<p>Type what you're working on and press Start.</p>
+			<p>
+				{past
+					? 'Add the tasks of that day, then set their clocks.'
+					: "Type what you're working on and press Start."}
+			</p>
 			<p>
 				Tasks are saved as <code>- [ ]</code> lines in the daily note, so you can
 				also write your plan there.

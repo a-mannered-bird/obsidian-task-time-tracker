@@ -104,6 +104,18 @@
 	}
 }
 
+/* Set a clock: its start and end side by side, stacked when narrow. */
+.task-time-tracker-clock-fields {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(9em, 1fr));
+	gap: var(--size-4-2) var(--size-4-4);
+	margin-bottom: var(--size-4-2);
+}
+
+.task-time-tracker-time-input[aria-invalid='true'] {
+	border-color: var(--background-modifier-error);
+}
+
 /*
  * The − and + buttons sit inside the minutes field: the wrapper wears the
  * input's frame (Obsidian's input rules), the input itself goes bare.

@@ -15,11 +15,13 @@ export type TrackerLayout = {
 /**
  * The interruption task is listed only while it runs: it is not something
  * the user plans or finishes, and the Interruption button stands for it.
+ * On a past day nothing runs any more: a clock left running there keeps
+ * its task in the plan or Done, with the others.
  */
-export function trackerLayout(tasks: Task[]): TrackerLayout {
-	const running = tasks.filter(isRunning)
+export function trackerLayout(tasks: Task[], past = false): TrackerLayout {
+	const running = past ? [] : tasks.filter(isRunning)
 	const idle = tasks.filter(
-		(task) => !isRunning(task) && task.name !== INTERRUPTION_TASK
+		(task) => !running.includes(task) && task.name !== INTERRUPTION_TASK
 	)
 	return {
 		running,
@@ -233,19 +235,20 @@ export type RowAction =
 
 /**
  * The menu of a row of the note's `tasks`, whose buttons start it with
- * `start`: the menu offers the other way of starting while something runs.
- * Stopping at the last task end is offered only when that end is after the
- * running clock started; moves only within the row's section (plan or
- * Done), where they can be seen.
+ * `start`, or null on a past day, where clocks are only set afterwards:
+ * nothing starts, stops or migrates there. The menu offers the other way
+ * of starting while something runs. Stopping at the last task end is
+ * offered only when that end is after the running clock started; moves
+ * only within the row's section (plan or Done), where they can be seen.
  */
 export function rowActions(
 	task: Task,
 	tasks: Task[],
-	start: RowStart
+	start: RowStart | null
 ): RowAction[] {
 	const lastEnd = lastTaskEnd(tasks)
 	const running = task.clocks.find((clock) => clock.end === null)
-	if (running) {
+	if (running && start !== null) {
 		return [
 			...when(
 				lastEnd !== null && lastEnd > running.start,
@@ -266,11 +269,12 @@ export function rowActions(
 	const notFirst = index > 0
 	const notLast = index >= 0 && index < section.length - 1
 	const clocked = task.clocks.length > 0
+	const live = start !== null
 	return [
 		...when(start === 'alongside', 'switch-to'),
 		...when(start === 'switch', 'start-alongside'),
-		...when(lastEnd !== null, 'start-from-last-end'),
-		...when(clocked, 'migrate-last-clock'),
+		...when(live && lastEnd !== null, 'start-from-last-end'),
+		...when(live && clocked, 'migrate-last-clock'),
 		...when(notFirst, 'move-up'),
 		...when(notLast, 'move-down'),
 		...when(notLast, 'move-to-bottom'),

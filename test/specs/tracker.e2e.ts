@@ -8,6 +8,7 @@ import {
 	answerStartOfDay,
 	expectTimeMinutesAgo,
 	minutesField,
+	setTimeInput,
 	typeMinutes,
 	typeTime,
 } from './support/timePrompt'
@@ -953,52 +954,87 @@ describe('tracker tab', function () {
 		])
 	})
 
-	it('asks when tasks start and stop on a past note followed by a later one', async function () {
+	it('only sets clocks on a past note, from where the last one ended', async function () {
 		let content = `${['- [ ] Chores', '- [ ] Email'].join('\n')}\n`
 		await obsidianPage.write(pastNote.path, content)
 		await openTracker(pastNote.path)
 		await expect(browser.$("span*=You're viewing")).toBeDisplayed()
 
-		/** Answer the time prompt the start or stop opened. */
-		async function answerTime(title: string, time: string) {
-			const modal = await modalTitled(title)
-			await typeTime(modal, time)
-			// Not today: the line under the fields names the note's day.
-			await expect(modal.$(`p*= at ${time}`)).toBeDisplayed()
-			await modal.$('button=OK').click()
+		// Nothing starts or stops on a day that is over: the bar only plans,
+		// and the rows only set clocks.
+		await expect(browser.$('input[aria-label="Task to plan"]')).toBeDisplayed()
+		await expect(button('Add a clock to Chores')).toBeDisplayed()
+		// Positive matchers only (see AGENTS.md): the trace mislabels `.not`.
+		for (const label of ['Plan mode', 'Start Chores', 'Start Chores at…']) {
+			assert.strictEqual(await button(label).isExisting(), false, label)
+		}
+		assert.strictEqual(
+			await browser.$('button*=Interruption').isExisting(),
+			false
+		)
+		await browser.execute(
+			(el) => el.click(),
+			await button('More actions for Chores').getElement()
+		)
+		const firstItem = browser.$('.menu').$('.menu-item-title')
+		await expect(firstItem).toHaveText('Move down')
+		await browser.keys('Escape')
+
+		/** Open a row's clock prompt: its fields and the line under them. */
+		async function openClock(name: string) {
+			await button(`Add a clock to ${name}`).click()
+			const modal = await modalTitled(`Add a clock to "${name}"`)
+			return {
+				modal,
+				start: modal.$('input[aria-label="Start"]'),
+				end: modal.$('input[aria-label="End"]'),
+				status: modal.$('p[role="status"]'),
+			}
 		}
 
-		// A time of day lands on the note's day, not today.
-		await button('Start Chores').click()
-		await answerTime('When does "Chores" start?', '09:00')
-		// The first task of the note asks when its day started, on its day too.
-		await answerStartOfDay('08:30')
+		// No clock and no start of day yet: 08:00, for half an hour.
+		let clock = await openClock('Chores')
+		await expect(clock.start).toHaveValue('08:00')
+		await expect(clock.end).toHaveValue('08:30')
+		await expect(clock.status).toHaveText('Lasts 30m')
+
+		// An end before the start is refused as typed, and on submit.
+		await setTimeInput(clock.end, '07:30')
+		await expect(clock.status).toHaveText('The start must be before the end.')
+		await expect(clock.end).toHaveAttribute('aria-invalid', 'true')
+		await clock.modal.$('button=Add clock').click()
+		await expect(clock.status).toHaveText('The start must be before the end.')
+
+		await setTimeInput(clock.end, '09:15')
+		await expect(clock.status).toHaveText('Lasts 1h 15m')
+		await clock.modal.$('button=Add clock').click()
 		content = await waitForChange(content, pastNote.path)
-		assert.match(
-			content,
-			new RegExp(`\\nday_start: ${pastNote.date}T08:30:00\\n`)
+		assert.deepStrictEqual(clocksOf(content, '- [ ] Chores'), [
+			{ start: `${pastNote.date}T08:00:00`, end: `${pastNote.date}T09:15:00` },
+		])
+
+		// The next clock opens where the note's last one ended.
+		clock = await openClock('Email')
+		await expect(clock.start).toHaveValue('09:15')
+		await expect(clock.end).toHaveValue('09:45')
+		await clock.modal.$('button=Add clock').click()
+		content = await waitForChange(content, pastNote.path)
+
+		// A task's clocks may not overlap: the time would count twice.
+		clock = await openClock('Chores')
+		await expect(clock.start).toHaveValue('09:45')
+		await setTimeInput(clock.start, '09:00')
+		await expect(clock.status).toHaveText(
+			"It overlaps this task's clock 08:00–09:15."
 		)
-		assert.deepStrictEqual(clocksOf(content, '- [ ] Chores'), [
-			{ start: `${pastNote.date}T09:00:00`, end: null },
-		])
-		await expect(button('Stop Chores')).toBeDisplayed()
+		await clock.modal.$('button=Cancel').click()
 
-		await button('Switch to Email').click()
-		await answerTime('When to switch to "Email"?', '10:30')
-		content = await waitForChange(content, pastNote.path)
-		assert.deepStrictEqual(clocksOf(content, '- [ ] Chores'), [
-			{ start: `${pastNote.date}T09:00:00`, end: `${pastNote.date}T10:30:00` },
+		assert.deepStrictEqual(content.trimEnd().split('\n'), [
+			'- [ ] Chores',
+			`      [clock::${pastNote.date}T08:00:00--${pastNote.date}T09:15:00]`,
+			'- [ ] Email',
+			`      [clock::${pastNote.date}T09:15:00--${pastNote.date}T09:45:00]`,
 		])
-		await expect(button('Stop Email')).toBeDisplayed()
-
-		// Before Email's start (10:30), a time of day means past midnight.
-		await button('Stop Email').click()
-		await answerTime('When does "Email" stop?', '00:15')
-		content = await waitForChange(content, pastNote.path)
-		assert.deepStrictEqual(clocksOf(content, '- [ ] Email'), [
-			{ start: `${pastNote.date}T10:30:00`, end: '2026-08-03T00:15:00' },
-		])
-		await expect(button('Start Email')).toBeDisplayed()
 	})
 
 	it('teaches Toggle task from… on the Stop at… button', async function () {
@@ -1399,6 +1435,13 @@ describe('tracker tab', function () {
 		await expect(filter).toHaveValue('')
 		await expect(rows.$('.name=Email')).toBeDisplayed()
 		await expect(rows.$('.name=Emails')).toBeDisplayed()
+
+		// Left open, the modal covers the view the next test waits on.
+		await browser.keys('Escape')
+		await browser.waitUntil(
+			async () => !(await browser.$('.modal-container').isExisting()),
+			{ timeoutMsg: 'the task manager stayed open' }
+		)
 	})
 
 	it('opens the tag manager from the view menu', async function () {
