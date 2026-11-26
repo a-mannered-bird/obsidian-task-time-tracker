@@ -20,6 +20,7 @@ import {
 	type TaskTimeTrackerSettings,
 } from './settings'
 import { registerCustomIcons } from './ui/customIcons'
+import { SoundPlayer } from './ui/goalSounds'
 import { openTaskManager } from './ui/TaskManagerModal'
 import { assignDateTimeType } from './ui/propertyTypes'
 import { DAY_END_PROPERTY, DAY_START_PROPERTY } from './core/time'
@@ -43,6 +44,8 @@ export default class TaskTimeTracker extends Plugin {
 
 	/** The user's last change of each note in an editor, by path. */
 	userEdits = new Map<string, UserEdit>()
+	/** Goal sounds, silent while the setting is off. */
+	readonly sounds = new SoundPlayer(() => this.settings.playSounds)
 	/** Command names by id within the plugin, for the shortcut tooltips. */
 	readonly commandNames = new Map<string, string>()
 
@@ -71,6 +74,7 @@ export default class TaskTimeTracker extends Plugin {
 	async onload() {
 		await this.loadSettings()
 		registerCustomIcons()
+		this.register(() => this.sounds.close())
 		this.dailyLogs.register(this)
 		registerUserEditLog(this)
 

@@ -43,6 +43,11 @@
 		type GoalSuggestion,
 	} from 'core/goalCards'
 	import {
+		cardsEntering,
+		goalStates,
+		type GoalStates,
+	} from 'core/goalCrossings'
+	import {
 		achievedField,
 		targetField,
 		stepTypedTimeTarget,
@@ -203,23 +208,19 @@
 	 * cards already done when it opened, or on another note, do not.
 	 */
 	let shownPath: string | null = null
-	let doneIds = new Set<string>()
+	let shownStates: GoalStates = new Map()
 	let popped = $state(new Set<string>())
 	$effect(() => {
 		const path = log?.file.path ?? null
-		const done = new Set(
-			[...cards, ...tagCards]
-				.filter((card) => card.state === 'done')
-				.map((card) => card.id)
-		)
+		const all = [...cards, ...tagCards]
 		if (path === shownPath) {
-			const fresh = [...done].filter((id) => !doneIds.has(id))
+			const fresh = cardsEntering(shownStates, all, 'done')
 			if (fresh.length) popped = new Set([...popped, ...fresh])
 		} else {
 			popped = new Set()
 		}
 		shownPath = path
-		doneIds = done
+		shownStates = goalStates(all)
 	})
 
 	function color(card: GoalCard): string {

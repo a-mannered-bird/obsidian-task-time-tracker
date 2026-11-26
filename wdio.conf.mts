@@ -94,6 +94,8 @@ export const config: WebdriverIO.Config = {
 				await app.vault.adapter.remove(dataPath)
 			}
 			await plugin.loadSettings()
+			// Goals crossed by the specs would chime through the hidden windows.
+			plugin.settings.playSounds = false
 			await plugin.saveSettings()
 		})
 	},

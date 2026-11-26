@@ -69,6 +69,8 @@ export interface TaskTimeTrackerSettings {
 	hiddenGoalBars: GoalKey[]
 	/** Goal suggestions dismissed for a day (see pruneDismissals). */
 	dismissedGoalSuggestions: GoalSuggestionDismissal[]
+	/** A sound when a goal is reached, another when an "at most" one goes over. */
+	playSounds: boolean
 	/** End day asks for the goals its ticked tasks have not reached. */
 	askGoalResultsOnEndDay: boolean
 	/** End day's "Has goals" boxes start ticked, deleting those tasks. */
@@ -102,6 +104,7 @@ export const DEFAULT_SETTINGS: TaskTimeTrackerSettings = {
 	goalBadges: [],
 	goalGrouping: DEFAULT_GOAL_GROUPINGS,
 	askGoalResultsOnEndDay: true,
+	playSounds: true,
 	deleteGoalTasksOnEndDay: false,
 	stampTexts: DEFAULT_STAMP_TEXTS,
 	timelineFitOnOpen: true,
@@ -241,6 +244,18 @@ export class TaskTimeTrackerSettingTab extends PluginSettingTab {
 					this.display()
 				})
 			})
+
+		new Setting(containerEl)
+			.setName('Play sounds')
+			.setDesc(
+				'A chime when a goal is reached, a warning when an "at most" goal goes over its limit, while the daily view is open.'
+			)
+			.addToggle((toggle) =>
+				toggle.setValue(settings.playSounds).onChange(async (value) => {
+					settings.playSounds = value
+					await this.plugin.saveSettings()
+				})
+			)
 
 		new Setting(containerEl)
 			.setName('Ask for goal results when ending a day')

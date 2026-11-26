@@ -19,6 +19,12 @@
 	} from 'core/dailyNotes'
 	import type { DailyLog } from 'core/dailyLogs'
 	import {
+		crossingSound,
+		goalStates,
+		noteGoalCards,
+		type GoalStates,
+	} from 'core/goalCrossings'
+	import {
 		describeDay,
 		findOvernightClocks,
 		type OvernightNote,
@@ -89,6 +95,29 @@
 			: null
 	)
 
+	/*
+	 * Goal sounds play here rather than in a tab, so a goal reached while the
+	 * tracker shows sounds too. Only crossings seen while a note stays shown
+	 * play: not the goals already done or over when it opens.
+	 */
+	let now = $state(new Date())
+	$effect(() => {
+		void log
+		now = new Date()
+	})
+	let soundPath: string | null = null
+	let soundStates: GoalStates = new Map()
+	$effect(() => {
+		const path = log?.file.path ?? null
+		const cards = log ? noteGoalCards(log, now) : []
+		if (path !== null && path === soundPath) {
+			const sound = crossingSound(soundStates, cards)
+			if (sound) plugin.sounds.play(sound)
+		}
+		soundPath = path
+		soundStates = goalStates(cards)
+	})
+
 	let latestReload = 0
 
 	async function reload() {
@@ -150,6 +179,8 @@
 	}
 
 	onMount(() => {
+		// Time goals cross as clocks run, with no note change to tell.
+		const tick = window.setInterval(() => (now = new Date()), 60 * 1000)
 		const unsubscribe = plugin.dailyLogs.onChange(() => void reload())
 		const leafRef = app.workspace.on('active-leaf-change', () => void reload())
 		// The log store only reports notes it parsed, so a note created or
@@ -164,6 +195,7 @@
 		// active file is not known yet and would resolve to today's note.
 		app.workspace.onLayoutReady(() => void reload())
 		return () => {
+			window.clearInterval(tick)
 			unsubscribe()
 			app.workspace.offref(leafRef)
 			app.vault.offref(createRef)
