@@ -494,33 +494,46 @@ describe('describeClockEdit', () => {
 	})
 })
 
+const until = at(24)
+
 describe('drawnTimes', () => {
 	it('snaps both ends, whichever way the drag goes', () => {
 		const clock = { start: at(9), end: at(10, 15) }
-		expect(drawnTimes(at(9, 7), at(10, 20), grid)).toEqual(clock)
-		expect(drawnTimes(at(10, 20), at(9, 7), grid)).toEqual(clock)
+		expect(drawnTimes(at(9, 7), at(10, 20), grid, until)).toEqual(clock)
+		expect(drawnTimes(at(10, 20), at(9, 7), grid, until)).toEqual(clock)
 	})
 
 	it('makes a barely moved drag one step long', () => {
-		expect(drawnTimes(at(9, 5), at(9, 6), grid)).toEqual({
+		expect(drawnTimes(at(9, 5), at(9, 6), grid, until)).toEqual({
 			start: at(9),
 			end: at(9, 15),
 		})
 	})
 
-	it('stops at now, and draws nothing that would start after it', () => {
+	it('reaches past now, to plan time ahead', () => {
 		// now is 14:00.
-		expect(drawnTimes(at(13, 30), at(15), grid)).toEqual({
+		expect(drawnTimes(at(13, 30), at(15), grid, until)).toEqual({
 			start: at(13, 30),
-			end: at(14),
+			end: at(15),
 		})
-		expect(drawnTimes(at(13, 55), at(14, 30), grid)).toBeNull()
+		expect(drawnTimes(at(14, 30), at(15), grid, until)).toEqual({
+			start: at(14, 30),
+			end: at(15),
+		})
+	})
+
+	it('stops at the end of the timeline, and draws nothing starting there', () => {
+		expect(drawnTimes(at(23, 30), at(24, 30), grid, until)).toEqual({
+			start: at(23, 30),
+			end: at(24),
+		})
+		expect(drawnTimes(at(24), at(24, 30), grid, until)).toBeNull()
 	})
 })
 
 describe('clickedTimes', () => {
 	it('starts on the grid line above the click and lasts half an hour', () => {
-		expect(clickedTimes(at(9, 14), grid)).toEqual({
+		expect(clickedTimes(at(9, 14), grid, until)).toEqual({
 			start: at(9),
 			end: at(9, 30),
 		})
@@ -528,26 +541,36 @@ describe('clickedTimes', () => {
 
 	it('starts on a magnet within reach, to follow a clock', () => {
 		const options = { ...grid, magnets: [at(9, 20)], magnetMs: minutes(5) }
-		expect(clickedTimes(at(9, 22), options)).toEqual({
+		expect(clickedTimes(at(9, 22), options, until)).toEqual({
 			start: at(9, 20),
 			end: at(9, 50),
 		})
 	})
 
 	it('starts on the minute clicked when snapping is off', () => {
-		expect(clickedTimes(at(9, 7, 40), { ...grid, free: true })).toEqual({
+		expect(clickedTimes(at(9, 7, 40), { ...grid, free: true }, until)).toEqual({
 			start: at(9, 7),
 			end: at(9, 37),
 		})
 	})
 
-	it('stops at now, and adds nothing on a click after it', () => {
+	it('reaches past now, to plan time ahead', () => {
 		// now is 14:00.
-		expect(clickedTimes(at(13, 40), grid)).toEqual({
-			start: at(13, 30),
-			end: at(14),
+		expect(clickedTimes(at(13, 50), grid, until)).toEqual({
+			start: at(13, 45),
+			end: at(14, 15),
 		})
-		expect(clickedTimes(at(14, 5), grid)).toBeNull()
+		expect(clickedTimes(at(14, 5), grid, until)).toEqual({
+			start: at(14),
+			end: at(14, 30),
+		})
+	})
+
+	it('stops at the end of the timeline', () => {
+		expect(clickedTimes(at(23, 50), grid, until)).toEqual({
+			start: at(23, 45),
+			end: at(24),
+		})
 	})
 })
 

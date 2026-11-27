@@ -523,14 +523,16 @@ export function retimeClock(
 
 /**
  * The clock drawn by dragging over empty space from `anchor` to `pointer`,
- * either way: both ends snap like a dragged edge, the clock is at least one
- * step long, and it never reaches past now (time not yet worked). Null when
- * nothing that long fits before now.
+ * either way: both ends snap like a dragged edge and the clock is at least
+ * one step long. It may lie after now, to plan time ahead; it is cut at
+ * `until`, the end of the timeline. Null when nothing that long fits
+ * before it.
  */
 export function drawnTimes(
 	anchor: Date,
 	pointer: Date,
-	options: SnapOptions
+	options: SnapOptions,
+	until: Date
 ): FinishedClockTimes | null {
 	const minimum = (options.free ? 1 : options.stepMinutes) * MINUTE
 	const from = snap(anchor, options).valueOf()
@@ -541,7 +543,7 @@ export function drawnTimes(
 		if (to < from) start = end - minimum
 		else end = start + minimum
 	}
-	end = Math.min(end, options.now.valueOf())
+	end = Math.min(end, until.valueOf())
 	if (end - start < minimum) return null
 	return { start: new Date(start), end: new Date(end) }
 }
@@ -552,20 +554,20 @@ export const CLICKED_CLOCK_MINUTES = 30
  * The clock a click on empty space adds, 30 minutes from where clicked.
  * It starts on the grid line above the pointer rather than the nearest one,
  * so the new block covers the spot clicked; a magnet within reach wins, to
- * follow a clock. It is cut at now; null when not even a step fits before.
+ * follow a clock. Unlike a drawn clock it may lie after now, to plan time
+ * ahead. It is cut at `until`, the end of the timeline; null when not even
+ * a step fits before it.
  */
 export function clickedTimes(
 	at: Date,
-	options: SnapOptions
+	options: SnapOptions,
+	until: Date
 ): FinishedClockTimes | null {
 	const minimum = (options.free ? 1 : options.stepMinutes) * MINUTE
 	const start = options.free
 		? Math.floor(at.valueOf() / MINUTE) * MINUTE
 		: (magnetFor(at, options) ?? gridFloor(at, options.stepMinutes)).valueOf()
-	const end = Math.min(
-		start + CLICKED_CLOCK_MINUTES * MINUTE,
-		options.now.valueOf()
-	)
+	const end = Math.min(start + CLICKED_CLOCK_MINUTES * MINUTE, until.valueOf())
 	if (end - start < minimum) return null
 	return { start: new Date(start), end: new Date(end) }
 }

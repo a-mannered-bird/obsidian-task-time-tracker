@@ -3,6 +3,7 @@ import { browser, expect } from '@wdio/globals'
 import { obsidianPage } from 'wdio-obsidian-service'
 import { TEST_IDS } from '../../src/components/testIds'
 import { openDailyView } from './support/dailyView'
+import { dayNote, isoDateTime } from './support/days'
 import { clickNoticeButton, noticeWith } from './support/notices'
 import { resetVault } from './support/vault'
 
@@ -14,6 +15,10 @@ import { resetVault } from './support/vault'
  */
 
 const NOTE = '2026-08-03.md'
+const HOUR_MS = 60 * 60 * 1000
+
+/** `HH:MM`, as the timeline labels times. */
+const timeOfDay = (date: Date) => isoDateTime(date).slice(11, 16)
 
 const block = (label: string) => browser.$(`[aria-label="${label}"]`)
 
@@ -549,6 +554,114 @@ describe('timeline tab', function () {
 				'      [clock::2026-08-03T08:30:00--2026-08-03T09:00:00]\n' +
 					'      [clock::2026-08-03T09:15:00--2026-08-03T09:45:00]'
 			)
+		)
+	})
+
+	/**
+	 * Today's note with Chores running for the last hour, on its timeline:
+	 * the running block ends at now, so `px` pixels below it at the default
+	 * zoom is that many minutes ahead.
+	 */
+	async function openTodayRunning(px: number) {
+		const now = new Date()
+		const today = dayNote(0)
+		const midnight = new Date(now)
+		midnight.setHours(0, 0, 0, 0)
+		const started = new Date(
+			Math.max(now.valueOf() - HOUR_MS, midnight.valueOf())
+		)
+		const content = `- [ ] Chores\n      [clock::${isoDateTime(started)}]\n`
+		await obsidianPage.write(today.path, content)
+		await setNoteViews({ [today.path]: { zoom: 60 } })
+		await obsidianPage.openFile(today.path)
+		await openDailyView('Timeline')
+		const running = block(`Chores, ${timeOfDay(started)} to now`)
+		await expect(running).toBeDisplayed()
+		const ahead = await browser.execute(
+			(el, px) => {
+				const rect = el.getBoundingClientRect()
+				return {
+					x: Math.round(rect.left + rect.width / 2),
+					y: Math.round(rect.bottom + px),
+				}
+			},
+			await running.getElement(),
+			px
+		)
+		return { today, content, ahead }
+	}
+
+	/** Pick Chores for the new clock, returning the range the picker offered. */
+	async function pickChores(): Promise<{ from: string; to: string }> {
+		const picker = browser.$('.prompt')
+		await expect(picker).toBeDisplayed()
+		const placeholder = await picker.$('input').getAttribute('placeholder')
+		const [, from = '', to = ''] =
+			/^Task for (\d\d:\d\d)–(\d\d:\d\d)$/.exec(placeholder ?? '') ?? []
+		await browser.keys([...'Chores'])
+		const row = picker.$('.suggestion-item*=Chores')
+		await expect(row).toBeDisplayed()
+		await row.click()
+		await expect(block(`Chores, ${from} to ${to}`)).toBeDisplayed()
+		return { from, to }
+	}
+
+	const clockLine = (date: string, from: string, to: string) =>
+		`      [clock::${date}T${from}:00--${date}T${to}:00]\n`
+
+	const minutesOf = (time: string) =>
+		Number(time.slice(0, 2)) * 60 + Number(time.slice(3))
+
+	it('adds a clock past now on a click, to plan time ahead', async function () {
+		// The clock must fit before midnight, where today's timeline ends.
+		if (new Date().getHours() >= 23) this.skip()
+		const { today, content, ahead } = await openTodayRunning(40)
+
+		const clickedAt = timeOfDay(new Date())
+		await browser
+			.action('pointer', { parameters: { pointerType: 'mouse' } })
+			.move(ahead)
+			.perform()
+		await expect(
+			browser.$(`[data-testid="${TEST_IDS.timelineClickSlot}"]`)
+		).toExist()
+		await browser
+			.action('pointer', { parameters: { pointerType: 'mouse' } })
+			.move(ahead)
+			.down()
+			.up()
+			.perform()
+
+		const { from, to } = await pickChores()
+		// On the grid line above 40 minutes ahead: 25 to 40 minutes from now.
+		assert.ok(from > clickedAt, `${from} is not after ${clickedAt}`)
+		assert.strictEqual(
+			await obsidianPage.read(today.path),
+			content + clockLine(today.date, from, to)
+		)
+	})
+
+	it('draws a clock past now, to plan time ahead', async function () {
+		// From 40 minutes ahead, an hour long, before midnight.
+		if (new Date().getHours() >= 22) this.skip()
+		const { today, content, ahead } = await openTodayRunning(40)
+
+		const drawnAt = timeOfDay(new Date())
+		await browser
+			.action('pointer', { parameters: { pointerType: 'mouse' } })
+			.move(ahead)
+			.down()
+			.move({ origin: 'pointer', y: 60 })
+			.up()
+			.perform()
+
+		const { from, to } = await pickChores()
+		// Both ends snap to the nearest 15 minutes, 60 px (an hour) apart.
+		assert.ok(from > drawnAt, `${from} is not after ${drawnAt}`)
+		assert.strictEqual(minutesOf(to) - minutesOf(from), 60)
+		assert.strictEqual(
+			await obsidianPage.read(today.path),
+			content + clockLine(today.date, from, to)
 		)
 	})
 

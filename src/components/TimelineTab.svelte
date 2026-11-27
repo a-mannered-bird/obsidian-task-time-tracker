@@ -365,11 +365,17 @@
 	}
 
 	function updateClickSlot() {
-		const times =
+		clickSlot =
 			hover && log && !press && !picking && selectedId === null
-				? clickedTimes(timeAt(hover.clientY), snapOptions(hover, ''))
+				? clickedAt(timeAt(hover.clientY), hover)
 				: null
-		clickSlot = times && fitsInAxis(times) ? times : null
+	}
+
+	/** The clock a click adds, within the timeline. */
+	function clickedAt(at: Date, event: PointerEvent): FinishedClockTimes | null {
+		if (!axis) return null
+		const times = clickedTimes(at, snapOptions(event, ''), axis.end)
+		return times && fitsInAxis(times) ? times : null
 	}
 
 	function startPress(
@@ -460,10 +466,12 @@
 			current.active = true
 		}
 		if (current.kind === 'create') {
+			if (!axis) return
 			const times = drawnTimes(
 				current.anchor,
 				timeAt(event.clientY),
-				snapOptions(event, '')
+				snapOptions(event, ''),
+				axis.end
 			)
 			if (times && fitsInAxis(times)) drawn = times
 			return
@@ -499,7 +507,7 @@
 			const times = current.active
 				? drawn
 				: current.clickAdds
-					? clickedTimes(current.anchor, snapOptions(event, ''))
+					? clickedAt(current.anchor, event)
 					: null
 			if (times && fitsInAxis(times)) {
 				drawn = times
