@@ -32,6 +32,7 @@ import {
 import { confirmAction } from 'ui/ConfirmActionModal'
 import { pickOption } from 'ui/OptionSuggestModal'
 import { withProgressNotice } from 'ui/progressNotice'
+import { deviceEmojiHint } from 'ui/emojiHint'
 import { promptText } from 'ui/TextPromptModal'
 import type TaskTimeTracker from '../main'
 import { reportOutcome } from './taskActions'
@@ -307,6 +308,7 @@ export async function chooseMetricEmoji(
 			? 'Shown on every time goal. Empty for the default.'
 			: `Shown on every ${metric} goal and its tracker bars. Empty for the default.`,
 		label: 'Emoji',
+		hint: deviceEmojiHint(),
 		initialValue: plugin.settings.metricSettings[metric]?.emoji ?? '',
 		placeholder: isTime ? TIME_GOAL_EMOJI : METRIC_GOAL_EMOJI,
 	})

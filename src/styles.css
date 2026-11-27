@@ -786,9 +786,23 @@
 	cursor: pointer;
 }
 
+/* Sized and lit like the tracker's tag slot, the other button showing a tag's emoji. */
 .task-time-tracker-manager-modal .emoji {
 	display: inline-flex;
 	align-items: center;
+	justify-content: center;
+	width: 24px;
+	height: 24px;
+	border-radius: var(--radius-s);
+}
+
+.task-time-tracker-manager-modal .emoji:hover:not(:disabled) {
+	background: var(--background-modifier-hover);
+}
+
+body.is-mobile .task-time-tracker-manager-modal .emoji {
+	width: 36px;
+	height: 36px;
 }
 
 .task-time-tracker-manager-modal .emoji.unset {

@@ -16,6 +16,7 @@ import {
 import { TAG_FORMAT_HELP, typedTag } from 'core/taskEdits'
 import { confirmAction } from 'ui/ConfirmActionModal'
 import { withProgressNotice } from 'ui/progressNotice'
+import { deviceEmojiHint } from 'ui/emojiHint'
 import { promptText } from 'ui/TextPromptModal'
 import type TaskTimeTracker from '../main'
 import { reportOutcome } from './taskActions'
@@ -179,6 +180,7 @@ export async function chooseTagEmoji(
 		title: `Emoji of ${tag}`,
 		description: `Shown for ${tag} in the task pickers, on the tracker and on its tag goals. Empty for none.`,
 		label: 'Emoji',
+		hint: deviceEmojiHint(),
 		initialValue:
 			settings.tagMappings.find((mapping) => mapping.tag === tag)?.emoji ?? '',
 		placeholder,

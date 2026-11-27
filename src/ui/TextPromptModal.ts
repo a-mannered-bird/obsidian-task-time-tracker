@@ -18,6 +18,8 @@ type Options = {
 	title: string
 	description?: string
 	label: string
+	/** How to fill the input, under its label. */
+	hint?: string
 	initialValue?: string
 	placeholder?: string
 	confirmText?: string
@@ -71,8 +73,10 @@ class TextPromptModal extends Modal {
 			this.contentEl.createEl('p', { text: this.options.description })
 		}
 
-		const { label, inputType, step, placeholder } = this.options
-		const control = new Setting(this.contentEl).setName(label).controlEl
+		const { label, hint, inputType, step, placeholder } = this.options
+		const setting = new Setting(this.contentEl).setName(label)
+		if (hint) setting.setDesc(hint)
+		const control = setting.controlEl
 		const input =
 			inputType === 'number' && step
 				? createStepper(control, {
