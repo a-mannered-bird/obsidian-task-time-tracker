@@ -502,6 +502,14 @@
 	margin-right: 0.5em;
 }
 
+.task-time-tracker-manager-modal .dropdown.rule {
+	/* The widest label, "Default (Average)", would push the Issues column out
+	   of the modal at Obsidian's dropdown size. */
+	font-size: var(--font-ui-smaller);
+	padding-inline: 0.5em 1.6em;
+	background-position: right 0.4em center;
+}
+
 .task-time-tracker-manager-modal .issues-cell {
 	white-space: nowrap;
 }

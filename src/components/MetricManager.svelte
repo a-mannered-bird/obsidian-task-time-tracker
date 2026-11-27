@@ -404,7 +404,9 @@
 						</td>
 						<td class="nowrap">
 							{#if info.kind === 'time'}
-								<span title="Time goals have no name to rename, merge or delete"
+								<span
+									class="muted"
+									title="Time goals have no name to rename, merge or delete"
 									>{label}</span
 								>
 							{:else}
@@ -444,7 +446,7 @@
 								<span class="muted">—</span>
 							{:else}
 								<select
-									class="dropdown"
+									class="dropdown rule"
 									aria-label="How {info.metric} adds up"
 									disabled={busy}
 									value={own?.rule ?? ''}
