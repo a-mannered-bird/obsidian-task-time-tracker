@@ -53,6 +53,7 @@
 	import type { ClockKey, ClockTimes, FinishedClockTimes } from 'types/tasks'
 	import { icon } from 'ui/icon'
 	import { findScroller } from 'ui/scroller'
+	import { TEST_IDS } from './testIds'
 	import type TaskTimeTracker from '../main'
 
 	type Props = {
@@ -86,6 +87,10 @@
 	let ghost = $state<{ id: string; times: ClockTimes } | null>(null)
 	/** A new clock drawn over empty space, shown until its task is picked. */
 	let drawn = $state<FinishedClockTimes | null>(null)
+	/** The clock a click would add where the mouse rests on empty space. */
+	let clickSlot = $state<FinishedClockTimes | null>(null)
+	/** The mouse over empty space, replayed when the canvas scrolls under it. */
+	let hover: PointerEvent | null = null
 	/** Where the start or end of day line being dragged would land. */
 	let markGhost = $state<{ mark: DayMark; at: Date } | null>(null)
 	/** A start or end of day being written, shown until the note reloads. */
@@ -336,6 +341,7 @@
 		if (event.target !== event.currentTarget) return
 		const clickAdds = selectedId === null
 		selectedId = null
+		clickSlot = null
 		if (event.button !== 0 || !log || picking) return
 		flushNudge()
 		startPress(
@@ -343,6 +349,27 @@
 			event,
 			event.pointerType !== 'touch'
 		)
+	}
+
+	function onLanesPointerMove(event: PointerEvent) {
+		hover =
+			event.pointerType === 'mouse' && event.target === event.currentTarget
+				? event
+				: null
+		updateClickSlot()
+	}
+
+	function onLanesPointerLeave() {
+		hover = null
+		clickSlot = null
+	}
+
+	function updateClickSlot() {
+		const times =
+			hover && log && !press && !picking && selectedId === null
+				? clickedTimes(timeAt(hover.clientY), snapOptions(hover, ''))
+				: null
+		clickSlot = times && fitsInAxis(times) ? times : null
 	}
 
 	function startPress(
@@ -416,6 +443,7 @@
 	/** Scrolling moves the canvas under a still pointer; the drag follows it. */
 	function onScroll() {
 		if (press?.armed) updateDrag(press)
+		if (hover) updateClickSlot()
 		if (!log || !scroller || placing || scrolledFor !== log.file.path) return
 		if (placedAt !== null && Math.abs(scroller.scrollTop - placedAt) < 1) return
 		placedAt = null
@@ -996,7 +1024,12 @@
 		{/if}
 
 		<!-- svelte-ignore a11y_no_static_element_interactions -- drawing a clock is pointer-only; the clock can be added from the tracker tab -->
-		<div class="lanes" onpointerdown={onLanesPointerDown}>
+		<div
+			class="lanes"
+			onpointerdown={onLanesPointerDown}
+			onpointermove={onLanesPointerMove}
+			onpointerleave={onLanesPointerLeave}
+		>
 			{#each shown as block (block.id)}
 				{@const place = layout.get(block.id)}
 				{@const top = yOnAxis(block.start)}
@@ -1068,6 +1101,16 @@
 					{/if}
 				{/if}
 			{/each}
+			{#if clickSlot && !drawn}
+				{@const slotTop = yOnAxis(clickSlot.start)}
+				<div
+					class="click-slot"
+					aria-hidden="true"
+					data-testid={TEST_IDS.timelineClickSlot}
+					style:top="{slotTop}px"
+					style:height="{yOnAxis(clickSlot.end) - slotTop}px"
+				></div>
+			{/if}
 			{#if drawn}
 				{@const drawnTop = yOnAxis(drawn.start)}
 				<div
@@ -1280,6 +1323,17 @@
 		touch-action: none;
 		box-shadow: 0 0 0 2px var(--interactive-accent);
 		z-index: 3;
+	}
+
+	/* Under the blocks, which may cross it: only the empty space shows it. */
+	.click-slot {
+		position: absolute;
+		left: 0;
+		right: 0;
+		box-sizing: border-box;
+		border: 1px dashed var(--text-faint);
+		border-radius: var(--radius-s);
+		pointer-events: none;
 	}
 
 	.block.ghost {

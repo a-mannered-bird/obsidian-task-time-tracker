@@ -1,6 +1,7 @@
 import assert from 'node:assert'
 import { browser, expect } from '@wdio/globals'
 import { obsidianPage } from 'wdio-obsidian-service'
+import { TEST_IDS } from '../../src/components/testIds'
 import { openDailyView } from './support/dailyView'
 import { clickNoticeButton, noticeWith } from './support/notices'
 import { resetVault } from './support/vault'
@@ -496,6 +497,35 @@ describe('timeline tab', function () {
 		await clickNoticeButton(noticeWith('Added "Retro" 10:00–10:30'), 'Undo')
 		await expect(block('Task A, 09:00 to 09:30')).toBeDisplayed()
 		assert.strictEqual(await waitForChange(added), before)
+	})
+
+	it('outlines the clock a click would add on hovering empty space', async function () {
+		await openTimeline()
+
+		// 40 px above 09:15 is 08:35, in the step starting at 08:30: the
+		// outline spans 08:30–09:00, ending where Task A starts.
+		await browser
+			.action('pointer', { parameters: { pointerType: 'mouse' } })
+			.move({ origin: block('Task A, 09:00 to 09:30'), y: -40 })
+			.perform()
+		const slot = browser.$(`[data-testid="${TEST_IDS.timelineClickSlot}"]`)
+		await expect(slot).toExist()
+		const { slotHeight, gapToTaskA } = await browser.execute(
+			(slot, taskA) => {
+				const outline = slot.getBoundingClientRect()
+				return {
+					slotHeight: Math.round(outline.height),
+					gapToTaskA: Math.round(
+						taskA.getBoundingClientRect().top - outline.bottom
+					),
+				}
+			},
+			await slot.getElement(),
+			await block('Task A, 09:00 to 09:30').getElement()
+		)
+		// Half an hour at the default zoom of 60 px per hour.
+		assert.strictEqual(slotHeight, 30)
+		assert.strictEqual(gapToTaskA, 0)
 	})
 
 	it('adds a half-hour clock on a click on empty space', async function () {

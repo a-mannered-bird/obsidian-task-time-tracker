@@ -338,11 +338,13 @@ Five slices, each usable and reviewed on its own; every slice is checked at mobi
 - **Zoom and scroll per note:** each note's view is saved, by path, in `timelineViews` (the 100 most recently changed notes; `rememberView`): the zoom chosen in it (−/+, Fit, wheel, pinch) and, once scrolled or zoomed, the time at the top of the view (a time, not pixels, so it holds across zoom and axis changes). A note without a zoom opens fitted to its day, as Fit does, without saving it, so it keeps following the day as it grows; with nothing to fit, at the default zoom. A note never scrolled opens as before (fitted: the start of the range; else now, the start of day, the first clock); a scrolled one opens with that time at the top, even when fitted. Placing a note on open saves nothing. Replaces the global `timelineZoom` and the "Open fitted to the day" setting (`timelineFitOnOpen`), both dropped from saved data. A view still settling is saved when the note changes or the view closes.
 - **Room to draw:** blocks stop short of the lanes' right edge (24 px, 40 px on mobile), so a clock can always be drawn there, beside the clocks of a busy hour.
 - **Click to add:** a click or tap on empty space (no drag) adds a 30-minute clock through the same task picker as a drawn one (`clickedTimes`): it starts on the grid line above the pointer rather than the nearest, so the block covers the spot clicked, or on a magnet within reach (to follow a clock); cut at now, nothing on a click after it. On touch, a tap that only clears a long-press selection adds nothing.
+- **Click slot outline** (added 2026-11-27): with a mouse over empty space, a dashed outline shows the clock a click there would add (`clickedTimes`, so the same grid line, magnets and cut at now), under the blocks; none on touch, while pressing or while the task picker is open.
 
 ## Phase 16: Timeline zoom and scroll per note, adding clocks by click
 
 - [x] `rememberView` / `readNoteViews` / `clickedTimes` in core, tested; settings migrated.
 - [x] Per-note zoom and scroll, the free strip and click to add in `TimelineTab.svelte`; E2E for the fitted note without a zoom, the zoom and the scroll remembered across notes, a click adding a clock, and a drawing in the free strip.
+- [x] Dashed outline of the clock a click would add, on hovering empty space with a mouse; E2E for its span.
 - [ ] Try the tap to add and the free strip on a real touch device.
 
 ## Decisions (2026-11-26): metric management
