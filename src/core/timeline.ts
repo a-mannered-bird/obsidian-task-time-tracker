@@ -303,7 +303,7 @@ export function magnetsFor(
  * snap (magnet first, then the grid); a move keeps the duration and snaps
  * whichever edge lands on a magnet, else the start. Untouched edges keep
  * their seconds. A running clock counts as ending now: moving it or its end
- * finishes it (see `constrain`).
+ * finishes it, even past now (see `constrain`).
  */
 export function dragTimes(
 	original: ClockTimes,
@@ -424,8 +424,9 @@ function gridFloor(date: Date, stepMinutes: number): Date {
 /**
  * A block never gets shorter than one step (never zero-length), and a
  * running clock's start never passes now. A running clock moved or ended
- * before now is finished there; one that would end at now or later is left
- * running as it was, since time not yet worked cannot be clocked.
+ * anywhere but now is finished there, past now too, to plan time ahead;
+ * one that would end right at now (where its end snaps) is left running
+ * as it was.
  */
 function constrain(
 	original: ClockTimes,
@@ -448,8 +449,9 @@ function constrain(
 			constrained = { start: original.start, end: new Date(earliest) }
 		}
 	}
-	const reachesNow = !constrained.end || constrained.end >= options.now
-	return original.end === null && reachesNow ? original : constrained
+	const endsNow =
+		!constrained.end || constrained.end.valueOf() === options.now.valueOf()
+	return original.end === null && endsNow ? original : constrained
 }
 
 /**

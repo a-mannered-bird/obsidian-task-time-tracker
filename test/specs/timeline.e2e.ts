@@ -316,8 +316,8 @@ describe('timeline tab', function () {
 			)
 		)
 
-		// A running clock cannot move later (it would end past now); Alt
-		// moves its start, and it keeps running.
+		// On a past day a running clock ends at the end of the axis, so it
+		// cannot move later; Alt moves its start, and it keeps running.
 		await focus('Lunch, 12:00 to now')
 		await browser.keys('ArrowDown')
 		await browser.keys(['Alt', 'ArrowUp'])
@@ -663,6 +663,30 @@ describe('timeline tab', function () {
 			await obsidianPage.read(today.path),
 			content + clockLine(today.date, from, to)
 		)
+	})
+
+	it('moves a running clock past now, finishing it there', async function () {
+		// Ending a step after now, before midnight.
+		if (new Date().getHours() >= 23) this.skip()
+		const { today, content } = await openTodayRunning(0)
+		const [, started = ''] = /\[clock::(\S+)\]/.exec(content) ?? []
+		const running = `Chores, ${started.slice(11, 16)} to now`
+
+		await focus(running)
+		const movedAt = isoDateTime(new Date())
+		await browser.keys('ArrowDown')
+		await browser.waitUntil(
+			async () => (await obsidianPage.read(today.path)) !== content,
+			{ timeoutMsg: `${today.path} was not rewritten` }
+		)
+		const moved = await obsidianPage.read(today.path)
+		const [, start = '', end = ''] = /\[clock::(\S+)--(\S+)\]/.exec(moved) ?? []
+		await expect(
+			block(`Chores, ${start.slice(11, 16)} to ${end.slice(11, 16)}`)
+		).toBeDisplayed()
+		// Finished an hour (its time so far) after a start moved down a step.
+		assert.ok(start > started, `${start} is not after ${started}`)
+		assert.ok(end > movedAt, `${end} is not after ${movedAt}`)
 	})
 
 	it('draws a clock beside the clocks of a busy hour, in the space kept free', async function () {

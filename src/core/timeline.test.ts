@@ -342,13 +342,22 @@ describe('dragTimes', () => {
 		})
 	})
 
-	it('leaves a running clock running when it would end at now or later', () => {
+	it('finishes a running clock past now, to plan time ahead', () => {
 		const running = { start: at(13), end: null }
-		expect(dragTimes(running, 'move', minutes(30), grid)).toEqual(running)
+		expect(dragTimes(running, 'move', minutes(30), grid)).toEqual({
+			start: at(13, 30),
+			end: at(14, 30),
+		})
+		expect(dragTimes(running, 'end', minutes(50), grid)).toEqual({
+			start: at(13),
+			end: at(14, 45),
+		})
+	})
+
+	it('leaves a running clock running when its end lands at now', () => {
+		const running = { start: at(13), end: null }
+		// 14:05 snaps back to 14:00, now.
 		expect(dragTimes(running, 'end', minutes(5), grid)).toEqual(running)
-		// Too short to finish before now: one step from 13:50 is 14:05.
-		const late = { start: at(13, 50), end: null }
-		expect(dragTimes(late, 'end', -minutes(20), grid)).toEqual(late)
 	})
 
 	it('keeps a running clock running and its start before now', () => {
@@ -422,13 +431,16 @@ describe('nudgeTimes', () => {
 		expect(nudgeTimes(short, 'end', -1, 15, now)).toEqual(short)
 	})
 
-	it('finishes a running clock moved up, and leaves it moved down', () => {
+	it('finishes a running clock moved either way', () => {
 		const running = { start: at(13), end: null }
 		expect(nudgeTimes(running, 'move', -1, 15, now)).toEqual({
 			start: at(12, 45),
 			end: at(13, 45),
 		})
-		expect(nudgeTimes(running, 'move', 1, 15, now)).toEqual(running)
+		expect(nudgeTimes(running, 'move', 1, 15, now)).toEqual({
+			start: at(13, 15),
+			end: at(14, 15),
+		})
 		expect(nudgeTimes(running, 'end', -1, 15, now)).toEqual({
 			start: at(13),
 			end: at(13, 45),

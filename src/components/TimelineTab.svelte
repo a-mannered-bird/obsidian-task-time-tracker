@@ -175,9 +175,10 @@
 			: null
 	)
 	/**
-	 * Latest time an edit may reach. A running clock of an older note ends at
-	 * the real now, far past its axis: edited as ending at the axis end, its
-	 * end can be dragged back onto the day to finish it.
+	 * Where a running clock counts as ending while edited. A running clock
+	 * of an older note ends at the real now, far past its axis: edited as
+	 * ending at the axis end, its end can be dragged back onto the day to
+	 * finish it.
 	 */
 	const editLimit = $derived(axis && now > axis.end ? axis.end : now)
 	const hours = $derived.by(() => {
