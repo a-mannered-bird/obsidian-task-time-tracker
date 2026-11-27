@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import { fakeVault } from '../test/fakeVault'
-import { filterTagInfos, sortTagInfos, tagInfos } from './tagManager'
+import {
+	describeTagGoals,
+	filterTagInfos,
+	sortTagInfos,
+	tagInfos,
+} from './tagManager'
 import { VaultTaskIndex } from './vaultTaskIndex'
 
 const NOTES: Record<string, string> = {
@@ -14,6 +19,7 @@ const NOTES: Record<string, string> = {
 		'---',
 		'tag_goals:',
 		'  - "#sport 1h"',
+		'  - "#work <6h"',
 		'---',
 		'- [ ] Deep work #work',
 		'      [clock::2026-08-02T09:00:00--2026-08-02T09:20:00]',
@@ -38,6 +44,7 @@ describe('tagInfos', () => {
 				// 9:00–10:30 covered once on the 1st (the two clocks overlap),
 				// plus 20 minutes on the 2nd.
 				totalMinutes: 90 + 20,
+				goals: [{ metric: 'time', noteCount: 1 }],
 			},
 			{
 				tag: '#focus',
@@ -45,6 +52,7 @@ describe('tagInfos', () => {
 				noteCount: 1,
 				lastUsed: new Date('2026-08-01T00:00:00'),
 				totalMinutes: 60,
+				goals: [],
 			},
 			{
 				tag: '#sport',
@@ -52,6 +60,7 @@ describe('tagInfos', () => {
 				noteCount: 1,
 				lastUsed: new Date('2026-08-02T00:00:00'),
 				totalMinutes: 0,
+				goals: [{ metric: 'time', noteCount: 1 }],
 			},
 			{
 				tag: '#chores',
@@ -59,6 +68,7 @@ describe('tagInfos', () => {
 				noteCount: 0,
 				lastUsed: null,
 				totalMinutes: 0,
+				goals: [],
 			},
 		])
 	})
@@ -93,5 +103,23 @@ describe('filterTagInfos and sortTagInfos', () => {
 			'#focus',
 			'#work',
 		])
+	})
+})
+
+describe('the goal: query on tags', () => {
+	it('matches the tags with a goal of the metric, exactly or as typed', async () => {
+		const infos = tagInfos(await notes(), [], new Date())
+		const tags = (query: string) =>
+			filterTagInfos(infos, query).map((info) => info.tag)
+		expect(tags('goal:time')).toEqual(['#work', '#sport'])
+		expect(tags('goal:TI')).toEqual(['#work', '#sport'])
+		expect(tags('goal:distance')).toEqual([])
+	})
+
+	it('describes the goals of a tag', async () => {
+		const infos = tagInfos(await notes(), [], new Date())
+		expect(describeTagGoals(infos.find((info) => info.tag === '#work')!)).toBe(
+			'Has a time goal on 1 note'
+		)
 	})
 })

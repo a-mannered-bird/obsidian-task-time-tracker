@@ -1,10 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import {
-	exactNameQuery,
-	filterTaskInfos,
-	metricQuery,
-	sortTaskInfos,
-} from './taskManager'
+import { metricQuery } from './goalQuery'
+import { exactNameQuery, filterTaskInfos, sortTaskInfos } from './taskManager'
 import type { VaultTaskInfo } from './vaultTaskIndex'
 
 const info = (

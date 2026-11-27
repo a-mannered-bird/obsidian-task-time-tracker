@@ -52,6 +52,7 @@ class ManagerModal extends Modal {
 				close: () => this.close(),
 				tab: this.tab,
 				taskQuery: this.queries.task ?? '',
+				tagQuery: '',
 				metricQuery: this.queries.metric ?? '',
 			},
 		})

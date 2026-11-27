@@ -1,3 +1,5 @@
+import { TIME_GOAL_LABEL } from './goalCards'
+import { filterByGoalQuery } from './goalQuery'
 import { tagCoveredMinutes } from './tagGoals'
 import type { IndexedNote } from './vaultTaskIndex'
 
@@ -12,7 +14,11 @@ export type TagInfo = {
 	lastUsed: Date | null
 	/** Covered time of the tag's tasks, summed over the notes. */
 	totalMinutes: number
+	/** The metrics of the tag's goals, each with the notes setting one. */
+	goals: TagGoalUse[]
 }
+
+export type TagGoalUse = { metric: string; noteCount: number }
 
 export type TagSortKey = 'notes' | 'tag' | 'tasks' | 'lastUsed' | 'total'
 
@@ -36,6 +42,7 @@ export function tagInfos(
 				noteCount: 0,
 				lastUsed: null,
 				totalMinutes: 0,
+				goals: [],
 			}
 			infos.set(tag, info)
 		}
@@ -52,6 +59,13 @@ export function tagInfos(
 			if (!info.lastUsed || note.date > info.lastUsed) info.lastUsed = note.date
 			info.totalMinutes += tagCoveredMinutes(note.tasks, tag, now)
 		}
+		// Tag goals are all time goals until metric tag goals exist.
+		for (const tag of new Set(note.tagGoals.map((goal) => goal.tag))) {
+			const goals = infoOf(tag).goals
+			const use = goals.find((goal) => goal.metric === TIME_GOAL_LABEL)
+			if (use) use.noteCount++
+			else goals.push({ metric: TIME_GOAL_LABEL, noteCount: 1 })
+		}
 		for (const task of note.tasks) {
 			for (const tag of task.tags) {
 				const names = tasks.get(tag) ?? new Set<string>()
@@ -65,8 +79,15 @@ export function tagInfos(
 	return sortTagInfos([...infos.values()], 'notes')
 }
 
-/** Tags containing the query, case folded; the leading `#` is optional. */
+/**
+ * Tags containing the query, case folded; the leading `#` is optional.
+ * `goal:<metric>` matches the tags with a goal of that metric instead.
+ */
 export function filterTagInfos(infos: TagInfo[], query: string): TagInfo[] {
+	const withGoal = filterByGoalQuery(infos, query, (info) =>
+		info.goals.map((goal) => goal.metric)
+	)
+	if (withGoal) return withGoal
 	const needle = query.trim().toLowerCase()
 	if (!needle) return infos
 	return infos.filter((info) => info.tag.toLowerCase().includes(needle))
@@ -101,4 +122,14 @@ function compare(a: TagInfo, b: TagInfo, key: TagSortKey): number {
 		case 'total':
 			return a.totalMinutes - b.totalMinutes
 	}
+}
+
+/** The tooltip of a tag's goal marker, one line per metric. */
+export function describeTagGoals(info: TagInfo): string {
+	return info.goals
+		.map(({ metric, noteCount }) => {
+			const notes = noteCount === 1 ? 'note' : 'notes'
+			return `Has a ${metric} goal on ${noteCount} ${notes}`
+		})
+		.join('\n')
 }

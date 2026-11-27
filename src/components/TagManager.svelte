@@ -19,6 +19,7 @@
 		type TaskIssue,
 	} from 'core/issues'
 	import {
+		describeTagGoals,
 		filterTagInfos,
 		sortTagInfos,
 		tagInfos,
@@ -26,6 +27,7 @@
 		type TagSortKey,
 	} from 'core/tagManager'
 	import { formatHoursMinutes, formatLocalDateTime } from 'core/time'
+	import { metricEmoji } from 'core/goalStyle'
 	import type { TagMapping } from 'types/tags'
 	import { openColorMenu } from 'ui/colorMenu'
 	import { icon } from 'ui/icon'
@@ -36,16 +38,19 @@
 		plugin: TaskTimeTracker
 		/** Show the Tasks tab filtered to the tag. */
 		showTasks: (tag: string) => void
+		/** The filter, bound so the Goals tab can point at tags with a goal. */
+		query: string
 	}
 
-	const { plugin, showTasks }: Props = $props()
+	let { plugin, showTasks, query = $bindable() }: Props = $props()
 
 	let infos = $state<TagInfo[] | null>(null)
 	// A local mirror of the settings so the rows re-render on change.
 	// svelte-ignore state_referenced_locally
 	let mappings = $state<TagMapping[]>([...plugin.settings.tagMappings])
+	// svelte-ignore state_referenced_locally
+	let metricSettings = $state({ ...plugin.settings.metricSettings })
 	let issues = $state<Map<string, TaskIssue[]>>(new Map())
-	let query = $state('')
 	let issuesOnly = $state(false)
 	const filtering = $derived(query !== '' || issuesOnly)
 
@@ -93,6 +98,7 @@
 	async function load() {
 		await plugin.vaultTasks.ensureBuilt()
 		mappings = [...plugin.settings.tagMappings]
+		metricSettings = { ...plugin.settings.metricSettings }
 		infos = tagInfos(
 			plugin.vaultTasks.notes(),
 			mappings.map((mapping) => mapping.tag),
@@ -343,6 +349,17 @@
 							>
 								{info.tag}
 							</button>
+							{#if info.goals.length > 0}
+								<span
+									class="tag-goal-marker muted"
+									role="img"
+									aria-label={describeTagGoals(info)}
+									title={describeTagGoals(info)}
+									>{info.goals
+										.map((goal) => metricEmoji(goal.metric, metricSettings))
+										.join('')}</span
+								>
+							{/if}
 						</td>
 						<td class="numeric">
 							{#if info.taskCount > 0}

@@ -10,6 +10,7 @@ import {
 	METRIC_GOAL_EMOJI,
 	tagGoalCards,
 	TIME_GOAL_EMOJI,
+	TIME_GOAL_LABEL,
 	type GoalCard,
 } from './goalCards'
 import {
@@ -100,9 +101,14 @@ export function withTagStyle(
 }
 
 export function goalEmoji(goal: Goal, settings: MetricSettings): string {
+	return metricEmoji(goalLabel(goal), settings)
+}
+
+/** A metric's emoji (`time` for time goals), its default when unset. */
+export function metricEmoji(metric: string, settings: MetricSettings): string {
 	return (
-		settings[goalLabel(goal)]?.emoji ??
-		(goal.kind === 'time' ? TIME_GOAL_EMOJI : METRIC_GOAL_EMOJI)
+		settings[metric]?.emoji ??
+		(metric === TIME_GOAL_LABEL ? TIME_GOAL_EMOJI : METRIC_GOAL_EMOJI)
 	)
 }
 

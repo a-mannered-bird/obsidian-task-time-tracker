@@ -10,16 +10,13 @@
 		renameMetric,
 		updateMetricSettings,
 	} from 'commands/metricActions'
-	import {
-		METRIC_GOAL_EMOJI,
-		TIME_GOAL_EMOJI,
-		TIME_GOAL_LABEL,
-	} from 'core/goalCards'
+	import { TIME_GOAL_LABEL } from 'core/goalCards'
 	import { defaultAggregation } from 'core/goals'
 	import {
 		AGGREGATION_RULE_NAMES,
 		AGGREGATION_RULES,
 		isAggregationRule,
+		metricEmoji,
 		metricRuleOf,
 		type MetricSettings,
 	} from 'core/goalStyle'
@@ -34,6 +31,7 @@
 		type TaskIssue,
 	} from 'core/issues'
 	import {
+		describeMetricTags,
 		describeMetricTotal,
 		filterMetricInfos,
 		metricInfos,
@@ -42,7 +40,7 @@
 		type MetricSortKey,
 		type NamedMetricInfo,
 	} from 'core/metricManager'
-	import { metricQuery } from 'core/taskManager'
+	import { metricQuery } from 'core/goalQuery'
 	import { formatLocalDateTime } from 'core/time'
 	import { openColorMenu } from 'ui/colorMenu'
 	import { icon } from 'ui/icon'
@@ -54,11 +52,13 @@
 		plugin: TaskTimeTracker
 		/** Show the Tasks tab with this filter. */
 		showTasks: (query: string) => void
+		/** Show the Tags tab with this filter. */
+		showTags: (query: string) => void
 		/** The filter, bound so an opener can point at one metric. */
 		query: string
 	}
 
-	let { plugin, showTasks, query = $bindable() }: Props = $props()
+	let { plugin, showTasks, showTags, query = $bindable() }: Props = $props()
 
 	let infos = $state<MetricInfo[] | null>(null)
 	// A local mirror of the settings so the rows re-render on change.
@@ -125,8 +125,7 @@
 		infos = metricInfos(
 			plugin.vaultTasks.notes(),
 			Object.keys(settings).filter((name) => name !== TIME_GOAL_LABEL),
-			metricRuleOf(settings),
-			new Date()
+			metricRuleOf(settings)
 		)
 		issues = issuesByTask(
 			visibleIssues(
@@ -399,7 +398,7 @@
 								onclick={() =>
 									void runAction(() => chooseMetricEmoji(plugin, info.metric))}
 							>
-								{own?.emoji ?? (isTime ? TIME_GOAL_EMOJI : METRIC_GOAL_EMOJI)}
+								{metricEmoji(info.metric, settings)}
 							</button>
 						</td>
 						<td class="nowrap">
@@ -460,7 +459,18 @@
 								</select>
 							{/if}
 						</td>
-						<td class="numeric">
+						<td class="numeric nowrap">
+							{#if info.tags.length > 0}
+								<button
+									class="link tag-goals"
+									title={describeMetricTags(info)}
+									aria-label="Show the tags of {label}"
+									onclick={() => showTags(metricQuery(info.metric))}
+								>
+									<span use:icon={'tag'}></span>{info.tags.length}
+								</button>
+								<span class="muted">·</span>
+							{/if}
 							{#if info.taskCount > 0}
 								<button
 									class="link"

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { fakeVault } from '../test/fakeVault'
 import { metricRuleOf } from './goalStyle'
 import {
+	describeMetricTags,
 	describeMetricTotal,
 	filterMetricInfos,
 	metricInfos,
@@ -12,6 +13,10 @@ import { VaultTaskIndex } from './vaultTaskIndex'
 
 const NOTES: Record<string, string> = {
 	'2026-08-03.md': [
+		'---',
+		'tag_goals:',
+		'  - "#sport 1h"',
+		'---',
 		'- [ ] Run',
 		'      [goal::distance 8/10 km]',
 		'      [goal::pace 5.2/<6 min/km]',
@@ -27,6 +32,11 @@ const NOTES: Record<string, string> = {
 		'      [clock::2026-08-01T09:00:00--2026-08-01T10:00:00]',
 	].join('\n'),
 	'2026-08-02.md': [
+		'---',
+		'tag_goals:',
+		'  - "#work <6h"',
+		'  - "#sport 1h"',
+		'---',
 		'- [ ] Run',
 		'      [goal::distance 5/10 km]',
 		'      [goal::pace 5.5/<6 min/km]',
@@ -48,8 +58,7 @@ describe('metricInfos', () => {
 		const infos = metricInfos(
 			await notes(),
 			['steps', 'distance'],
-			metricRuleOf({}),
-			new Date()
+			metricRuleOf({})
 		)
 		expect(infos).toEqual([
 			{
@@ -58,7 +67,10 @@ describe('metricInfos', () => {
 				taskCount: 1,
 				noteCount: 2,
 				lastUsed: new Date('2026-08-03T00:00:00'),
-				total: 60 + 45,
+				// Counted apart: tag goals do not add to the task notes.
+				tags: ['#sport', '#work'],
+				tagNoteCount: 2,
+				total: null,
 			},
 			{
 				kind: 'metric',
@@ -66,6 +78,8 @@ describe('metricInfos', () => {
 				taskCount: 2,
 				noteCount: 3,
 				lastUsed: new Date('2026-08-03T00:00:00'),
+				tags: [],
+				tagNoteCount: 0,
 				unit: 'km',
 				units: [
 					{ unit: 'km', count: 3 },
@@ -81,6 +95,8 @@ describe('metricInfos', () => {
 				taskCount: 1,
 				noteCount: 2,
 				lastUsed: new Date('2026-08-03T00:00:00'),
+				tags: [],
+				tagNoteCount: 0,
 				unit: 'min/km',
 				units: [{ unit: 'min/km', count: 2 }],
 				// A rate averages by default: (5.5 + 5.2) / 2.
@@ -93,6 +109,8 @@ describe('metricInfos', () => {
 				taskCount: 0,
 				noteCount: 0,
 				lastUsed: null,
+				tags: [],
+				tagNoteCount: 0,
 				unit: '',
 				units: [],
 				total: null,
@@ -106,8 +124,7 @@ describe('metricInfos', () => {
 			const infos = metricInfos(
 				await notes(),
 				[],
-				metricRuleOf({ distance: { rule } }),
-				new Date()
+				metricRuleOf({ distance: { rule } })
 			)
 			return infos.find((info) => info.metric === 'distance')?.total
 		}
@@ -119,23 +136,13 @@ describe('metricInfos', () => {
 
 describe('filterMetricInfos and sortMetricInfos', () => {
 	it('filters case-insensitively', async () => {
-		const infos = metricInfos(
-			await notes(),
-			['steps'],
-			metricRuleOf({}),
-			new Date()
-		)
+		const infos = metricInfos(await notes(), ['steps'], metricRuleOf({}))
 		expect(names(filterMetricInfos(infos, 'ST'))).toEqual(['distance', 'steps'])
 		expect(filterMetricInfos(infos, ' ')).toEqual(infos)
 	})
 
 	it('keeps the time row first and the metrics without a total last', async () => {
-		const infos = metricInfos(
-			await notes(),
-			['steps'],
-			metricRuleOf({}),
-			new Date()
-		)
+		const infos = metricInfos(await notes(), ['steps'], metricRuleOf({}))
 		expect(names(sortMetricInfos(infos, 'metric', false))).toEqual([
 			'time',
 			'steps',
@@ -159,19 +166,23 @@ describe('filterMetricInfos and sortMetricInfos', () => {
 
 describe('describeMetricTotal', () => {
 	it('gives the total its unit and names the results left out', async () => {
-		const infos = metricInfos(
-			await notes(),
-			['steps'],
-			metricRuleOf({}),
-			new Date()
-		)
+		const infos = metricInfos(await notes(), ['steps'], metricRuleOf({}))
 		const total = (metric: string) =>
 			describeMetricTotal(infos.find((info) => info.metric === metric)!)
-		expect(total('time')).toEqual({ text: '1h 45m', title: null })
+		expect(total('time')).toEqual({ text: '—', title: null })
 		expect(total('distance')).toEqual({
 			text: '13 km',
 			title: 'Leaves out 1 value in mi',
 		})
 		expect(total('steps')).toEqual({ text: '—', title: null })
+	})
+})
+
+describe('describeMetricTags', () => {
+	it('counts the tags and the notes setting their goals', async () => {
+		const infos = metricInfos(await notes(), [], metricRuleOf({}))
+		expect(describeMetricTags(infos[0]!)).toBe(
+			'2 tags with a time goal, on 2 notes: #sport, #work'
+		)
 	})
 })

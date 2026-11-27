@@ -1,3 +1,4 @@
+import { filterByGoalQuery } from './goalQuery'
 import { isTag } from './taskEdits'
 import type { VaultTaskInfo } from './vaultTaskIndex'
 
@@ -9,13 +10,6 @@ export type TaskSortKey = 'usage' | 'name' | 'lastUsed' | 'total'
 /** The filter showing only the task of that name: the name in quotes. */
 export function exactNameQuery(name: string): string {
 	return `"${name}"`
-}
-
-const GOAL_QUERY_PREFIX = 'goal:'
-
-/** The filter showing the tasks with a goal of that metric (`time` for time goals). */
-export function metricQuery(metric: string): string {
-	return `${GOAL_QUERY_PREFIX}${metric}`
 }
 
 /**
@@ -38,15 +32,8 @@ export function filterTaskInfos(
 		const tagged = infos.filter((info) => info.lineTags.includes(trimmed))
 		if (tagged.length > 0) return tagged
 	}
-	if (trimmed.startsWith(GOAL_QUERY_PREFIX)) {
-		const metric = trimmed.slice(GOAL_QUERY_PREFIX.length).trim()
-		const withGoal = infos.filter((info) => info.goalLabels.includes(metric))
-		if (withGoal.length > 0) return withGoal
-		const partial = metric.toLowerCase()
-		return infos.filter((info) =>
-			info.goalLabels.some((label) => label.toLowerCase().includes(partial))
-		)
-	}
+	const withGoal = filterByGoalQuery(infos, trimmed, (info) => info.goalLabels)
+	if (withGoal) return withGoal
 	const needle = trimmed.toLowerCase()
 	if (!needle) return infos
 	return infos.filter(

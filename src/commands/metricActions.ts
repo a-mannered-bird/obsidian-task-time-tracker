@@ -39,8 +39,7 @@ function namedMetrics(plugin: TaskTimeTracker): NamedMetricInfo[] {
 	return metricInfos(
 		plugin.vaultTasks.notes(),
 		Object.keys(metricSettings).filter((name) => name !== TIME_GOAL_LABEL),
-		metricRuleOf(metricSettings),
-		new Date()
+		metricRuleOf(metricSettings)
 	).filter((info): info is NamedMetricInfo => info.kind === 'metric')
 }
 

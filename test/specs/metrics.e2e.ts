@@ -298,4 +298,43 @@ describe('metric management', function () {
 			['- [ ] Swim', '      [goal::laps 14/30 laps]', ''].join('\n')
 		)
 	})
+
+	it('links the time goals to the tags with a time goal', async function () {
+		await writeNote('2026-08-02.md', [
+			'---',
+			'tag_goals:',
+			'  - "#focus 2h"',
+			'  - "#routine <1h"',
+			'---',
+			'- [ ] Deep work #focus',
+			'      [goal::2h]',
+		])
+		const panel = await openMetrics()
+		await expectMetrics(panel, [])
+		// Time against goals of different tasks and days adds up to nothing.
+		await expectTotal(panel, 1, '—')
+		const tagLink = panel.$('button[aria-label="Show the tags of Time goals"]')
+		await expect(tagLink).toHaveText('2')
+		await expect(tagLink).toHaveAttribute(
+			'title',
+			'2 tags with a time goal, on 1 note: #focus, #routine'
+		)
+
+		await tagLink.click()
+		const modal = browser.$(MODAL)
+		await expect(modal.$('[role="tab"][aria-selected="true"]')).toHaveText(
+			'Tags'
+		)
+		const tags = modal.$('[role="tabpanel"][aria-label="Tags"]')
+		await expect(tags.$('input[aria-label="Filter tags"]')).toHaveValue(
+			'goal:time'
+		)
+		// #routine also tags a task of the 1st: 2 notes, so it comes first.
+		await expect(tags.$('tbody')).toHaveChildren(2)
+		await expect(tags.$('tbody tr:nth-child(1) .name')).toHaveText('#routine')
+		await expect(tags.$('tbody tr:nth-child(2) .name')).toHaveText('#focus')
+		await expect(
+			tags.$('tbody tr:nth-child(1) [role="img"][title^="Has a time goal"]')
+		).toHaveAttribute('aria-label', 'Has a time goal on 1 note')
+	})
 })

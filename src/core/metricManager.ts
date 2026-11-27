@@ -1,8 +1,6 @@
-import { taskMinutes } from './aggregate'
 import { TIME_GOAL_LABEL } from './goalCards'
 import { formatGoalNumber } from './goalEdits'
 import { aggregate, type AggregationRuleOf } from './goals'
-import { formatHoursMinutes } from './time'
 import type { IndexedNote } from './vaultTaskIndex'
 
 type MetricCounts = {
@@ -12,14 +10,20 @@ type MetricCounts = {
 	noteCount: number
 	/** The most recent of those notes; null for a metric no note uses. */
 	lastUsed: Date | null
+	/** Tags with a tag goal of the metric in some note, sorted. */
+	tags: string[]
+	/** Notes with at least one tag goal of the metric. */
+	tagNoteCount: number
 }
 
-/** The time goals' row: its Total is the clocked time of their tasks. */
+/**
+ * The time goals' row. It has no Total: summing time against goals of
+ * different tasks, days and directions answers no question.
+ */
 export type TimeMetricInfo = MetricCounts & {
 	kind: 'time'
 	metric: typeof TIME_GOAL_LABEL
-	/** Minutes clocked by each task on the days it had a time goal. */
-	total: number
+	total: null
 }
 
 export type NamedMetricInfo = MetricCounts & {
@@ -45,13 +49,13 @@ export type MetricSortKey = 'notes' | 'metric' | 'tasks' | 'lastUsed' | 'total'
 
 type Result = { value: number; unit: string }
 
-type Accumulator = MetricCounts & {
+type Accumulator = Omit<MetricCounts, 'tags'> & {
 	tasks: Set<string>
+	tags: Set<string>
 	/** By unit, counted in goal lines. */
 	units: Map<string, number>
 	latestUnit: { unit: string; date: Date } | null
 	results: Result[]
-	minutes: number
 }
 
 /**
@@ -62,8 +66,7 @@ type Accumulator = MetricCounts & {
 export function metricInfos(
 	notes: IndexedNote[],
 	settingsMetrics: string[],
-	ruleOf: AggregationRuleOf,
-	now: Date
+	ruleOf: AggregationRuleOf
 ): MetricInfo[] {
 	const byMetric = new Map<string, Accumulator>()
 	const accumulatorOf = (metric: string) => {
@@ -73,11 +76,12 @@ export function metricInfos(
 				taskCount: 0,
 				noteCount: 0,
 				lastUsed: null,
+				tagNoteCount: 0,
 				tasks: new Set(),
+				tags: new Set(),
 				units: new Map(),
 				latestUnit: null,
 				results: [],
-				minutes: 0,
 			}
 			byMetric.set(metric, acc)
 		}
@@ -95,13 +99,7 @@ export function metricInfos(
 				const acc = accumulatorOf(metric)
 				acc.tasks.add(task.name)
 				inNote.add(metric)
-				if (goal.kind === 'time') {
-					// A line holding two time goals still clocked its time once.
-					if (task.goals.find((g) => g.kind === 'time') === goal) {
-						acc.minutes += taskMinutes(task, now)
-					}
-					continue
-				}
+				if (goal.kind === 'time') continue
 				acc.units.set(goal.unit, (acc.units.get(goal.unit) ?? 0) + 1)
 				// Strictly newer: within a note, the first line's unit stands.
 				if (!acc.latestUnit || note.date > acc.latestUnit.date) {
@@ -116,6 +114,12 @@ export function metricInfos(
 			const acc = accumulatorOf(metric)
 			acc.noteCount++
 			acc.lastUsed = note.date
+		}
+		// Tag goals are all time goals until metric tag goals exist.
+		if (note.tagGoals.length > 0) {
+			const acc = accumulatorOf(TIME_GOAL_LABEL)
+			for (const goal of note.tagGoals) acc.tags.add(goal.tag)
+			acc.tagNoteCount++
 		}
 	}
 	for (const metric of settingsMetrics) accumulatorOf(metric)
@@ -135,9 +139,11 @@ function metricInfo(
 		taskCount: acc.tasks.size,
 		noteCount: acc.noteCount,
 		lastUsed: acc.lastUsed,
+		tags: [...acc.tags].sort((a, b) => a.localeCompare(b)),
+		tagNoteCount: acc.tagNoteCount,
 	}
 	if (metric === TIME_GOAL_LABEL) {
-		return { kind: 'time', metric, ...counts, total: acc.minutes }
+		return { kind: 'time', metric, ...counts, total: null }
 	}
 	const unit = acc.latestUnit?.unit ?? ''
 	const current = acc.results.filter((result) => result.unit === unit)
@@ -212,16 +218,13 @@ function compare(a: MetricInfo, b: MetricInfo, key: MetricSortKey): number {
 }
 
 /**
- * The Total cell: the time row's clocked time, a metric's total with its
- * unit; `title` says which results were left out for their unit.
+ * The Total cell: a metric's total with its unit; `title` says which
+ * results were left out for their unit.
  */
 export function describeMetricTotal(info: MetricInfo): {
 	text: string
 	title: string | null
 } {
-	if (info.kind === 'time') {
-		return { text: formatHoursMinutes(info.total), title: null }
-	}
 	if (info.total === null) return { text: '—', title: null }
 	const text = [formatGoalNumber(info.total, false), info.unit]
 		.filter(Boolean)
@@ -235,4 +238,11 @@ export function describeMetricTotal(info: MetricInfo): {
 		text,
 		title: `Leaves out ${info.leftOut} ${values} in ${others.join(', ')}`,
 	}
+}
+
+/** The tooltip of the link to the tags with a goal of the metric. */
+export function describeMetricTags(info: MetricInfo): string {
+	const tags = info.tags.length === 1 ? 'tag' : 'tags'
+	const notes = info.tagNoteCount === 1 ? 'note' : 'notes'
+	return `${info.tags.length} ${tags} with a ${info.metric} goal, on ${info.tagNoteCount} ${notes}: ${info.tags.join(', ')}`
 }
