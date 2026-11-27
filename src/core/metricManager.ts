@@ -1,6 +1,8 @@
 import { taskMinutes } from './aggregate'
 import { TIME_GOAL_LABEL } from './goalCards'
+import { formatGoalNumber } from './goalEdits'
 import { aggregate, type AggregationRuleOf } from './goals'
+import { formatHoursMinutes } from './time'
 import type { IndexedNote } from './vaultTaskIndex'
 
 type MetricCounts = {
@@ -101,7 +103,8 @@ export function metricInfos(
 					continue
 				}
 				acc.units.set(goal.unit, (acc.units.get(goal.unit) ?? 0) + 1)
-				if (!acc.latestUnit || note.date >= acc.latestUnit.date) {
+				// Strictly newer: within a note, the first line's unit stands.
+				if (!acc.latestUnit || note.date > acc.latestUnit.date) {
 					acc.latestUnit = { unit: goal.unit, date: note.date }
 				}
 				if (goal.achieved !== null) {
@@ -205,5 +208,31 @@ function compare(a: MetricInfo, b: MetricInfo, key: MetricSortKey): number {
 			return (a.lastUsed?.valueOf() ?? 0) - (b.lastUsed?.valueOf() ?? 0)
 		case 'total':
 			return (a.total ?? 0) - (b.total ?? 0)
+	}
+}
+
+/**
+ * The Total cell: the time row's clocked time, a metric's total with its
+ * unit; `title` says which results were left out for their unit.
+ */
+export function describeMetricTotal(info: MetricInfo): {
+	text: string
+	title: string | null
+} {
+	if (info.kind === 'time') {
+		return { text: formatHoursMinutes(info.total), title: null }
+	}
+	if (info.total === null) return { text: '—', title: null }
+	const text = [formatGoalNumber(info.total, false), info.unit]
+		.filter(Boolean)
+		.join(' ')
+	if (info.leftOut === 0) return { text, title: null }
+	const others = info.units
+		.map(({ unit }) => unit || 'no unit')
+		.filter((unit) => unit !== (info.unit || 'no unit'))
+	const values = info.leftOut === 1 ? 'value' : 'values'
+	return {
+		text,
+		title: `Leaves out ${info.leftOut} ${values} in ${others.join(', ')}`,
 	}
 }

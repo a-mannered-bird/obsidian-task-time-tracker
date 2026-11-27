@@ -19,7 +19,7 @@ const TASKS_PANEL = '[role="tabpanel"][aria-label="Tasks"]'
 async function openTags() {
 	await browser.executeObsidianCommand('obsidian-task-time-tracker:manage-tags')
 	const modal = browser.$(MODAL)
-	await expect(modal.$('.modal-title')).toHaveText('Manage tasks and tags')
+	await expect(modal.$('.modal-title')).toHaveText('Manage tracking data')
 	await expect(modal.$('[role="tab"][aria-selected="true"]')).toHaveText('Tags')
 	const panel = modal.$(TAGS_PANEL)
 	await expect(panel.$('table')).toBeDisplayed()

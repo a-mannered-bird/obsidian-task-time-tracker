@@ -36,7 +36,11 @@
 	import { showCrossingNotices } from 'ui/goalNotices'
 	import { icon } from 'ui/icon'
 	import { instantTooltip } from 'ui/tooltip'
-	import { openTagManager, openTaskManager } from 'ui/TaskManagerModal'
+	import {
+		openMetricManager,
+		openTagManager,
+		openTaskManager,
+	} from 'ui/TaskManagerModal'
 	import GoalsTab from './GoalsTab.svelte'
 	import TimelineTab from './TimelineTab.svelte'
 	import TrackerTab from './TrackerTab.svelte'
@@ -189,6 +193,12 @@
 				.setTitle(titleWithShortcut(plugin, 'Manage tags', 'manageTags'))
 				.setIcon('tags')
 				.onClick(() => openTagManager(plugin))
+		)
+		menu.addItem((item) =>
+			item
+				.setTitle(titleWithShortcut(plugin, 'Manage metrics', 'manageMetrics'))
+				.setIcon('gauge')
+				.onClick(() => openMetricManager(plugin))
 		)
 		menu.showAtMouseEvent(event)
 	}

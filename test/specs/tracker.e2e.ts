@@ -1574,7 +1574,7 @@ describe('tracker tab', function () {
 		await openTracker()
 
 		await chooseFromRowMenu('Email', 'Show in task manager')
-		const modal = await modalTitled('Manage tasks and tags')
+		const modal = await modalTitled('Manage tracking data')
 		// Quoted, the filter matches the name exactly: not "Emails" too.
 		const filter = modal.$('input[aria-label="Filter tasks"]')
 		await expect(filter).toHaveValue('"Email"')
@@ -1605,7 +1605,7 @@ describe('tracker tab', function () {
 		const item = browser.$('.menu-item-title*=Manage tags')
 		await expect(item).toBeDisplayed()
 		await item.click()
-		const modal = await modalTitled('Manage tasks and tags')
+		const modal = await modalTitled('Manage tracking data')
 		await expect(modal.$('[role="tab"][aria-selected="true"]')).toHaveText(
 			'Tags'
 		)

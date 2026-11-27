@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { fakeVault } from '../test/fakeVault'
 import { metricRuleOf } from './goalStyle'
 import {
+	describeMetricTotal,
 	filterMetricInfos,
 	metricInfos,
 	sortMetricInfos,
@@ -153,5 +154,24 @@ describe('filterMetricInfos and sortMetricInfos', () => {
 			'distance',
 			'steps',
 		])
+	})
+})
+
+describe('describeMetricTotal', () => {
+	it('gives the total its unit and names the results left out', async () => {
+		const infos = metricInfos(
+			await notes(),
+			['steps'],
+			metricRuleOf({}),
+			new Date()
+		)
+		const total = (metric: string) =>
+			describeMetricTotal(infos.find((info) => info.metric === metric)!)
+		expect(total('time')).toEqual({ text: '1h 45m', title: null })
+		expect(total('distance')).toEqual({
+			text: '13 km',
+			title: 'Leaves out 1 value in mi',
+		})
+		expect(total('steps')).toEqual({ text: '—', title: null })
 	})
 })

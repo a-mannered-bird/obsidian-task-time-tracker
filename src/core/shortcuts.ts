@@ -22,6 +22,7 @@ export const CONTROL_COMMANDS = {
 	endDay: 'complete-journal-entry',
 	manageTasks: 'manage-tasks',
 	manageTags: 'manage-tags',
+	manageMetrics: 'manage-metrics',
 	acceptSuggestions: 'accept-goal-suggestions',
 	rejectSuggestions: 'reject-goal-suggestions',
 	resetSuggestions: 'reset-goal-suggestions',

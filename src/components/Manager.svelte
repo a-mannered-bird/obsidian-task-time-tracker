@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type TaskTimeTracker from '../main'
 	import type { ManagerTab } from './managerTable.svelte'
+	import MetricManager from './MetricManager.svelte'
 	import TagManager from './TagManager.svelte'
 	import TaskManager from './TaskManager.svelte'
 
@@ -10,18 +11,21 @@
 		tab: ManagerTab
 		/** The Tasks tab's filter when it opens. */
 		taskQuery: string
+		/** The Metrics tab's filter when it opens. */
+		metricQuery: string
 	}
 
 	// Both tabs stay mounted, so each keeps its filter, sort and selection.
-	let { plugin, close, tab, taskQuery }: Props = $props()
+	let { plugin, close, tab, taskQuery, metricQuery }: Props = $props()
 
 	const TABS: { id: ManagerTab; label: string }[] = [
 		{ id: 'tasks', label: 'Tasks' },
 		{ id: 'tags', label: 'Tags' },
+		{ id: 'metrics', label: 'Metrics' },
 	]
 
-	function showTasks(tag: string) {
-		taskQuery = tag
+	function showTasks(query: string) {
+		taskQuery = query
 		tab = 'tasks'
 	}
 </script>
@@ -45,4 +49,7 @@
 </div>
 <div role="tabpanel" aria-label="Tags" hidden={tab !== 'tags'}>
 	<TagManager {plugin} {showTasks} />
+</div>
+<div role="tabpanel" aria-label="Metrics" hidden={tab !== 'metrics'}>
+	<MetricManager {plugin} {showTasks} bind:query={metricQuery} />
 </div>

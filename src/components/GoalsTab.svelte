@@ -72,6 +72,7 @@
 	import { suggestionFlight } from 'ui/suggestionFlight'
 	import { selectOnFocus } from 'ui/selectOnFocus'
 	import { instantTooltip } from 'ui/tooltip'
+	import { openMetricManager } from 'ui/TaskManagerModal'
 	import type TaskTimeTracker from '../main'
 
 	type Props = {
@@ -363,6 +364,14 @@
 					if (await chooseGoalBadge(plugin, card.key)) goalSettings++
 				})
 		)
+		if (tag === null) {
+			menu.addItem((item) =>
+				item
+					.setTitle('Manage metric')
+					.setIcon('gauge')
+					.onClick(() => openMetricManager(plugin, goalLabel(card.goal)))
+			)
+		}
 		menu.addItem((item) =>
 			item
 				.setTitle('Delete goal')

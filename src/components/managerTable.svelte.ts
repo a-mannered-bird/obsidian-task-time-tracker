@@ -1,6 +1,6 @@
 import { SearchComponent } from 'obsidian'
 
-export type ManagerTab = 'tasks' | 'tags'
+export type ManagerTab = 'tasks' | 'tags' | 'metrics'
 
 /**
  * Ticked rows of a management table, by key. A shift-click ticks every row

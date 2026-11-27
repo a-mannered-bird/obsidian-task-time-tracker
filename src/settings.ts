@@ -2,33 +2,26 @@ import { App, PluginSettingTab, Setting } from 'obsidian'
 import type { NoteViews } from './core/timeline'
 import { ISSUE_KINDS, ISSUE_TITLES, type IssueKind } from './core/issues'
 import type TaskTimeTracker from './main'
-import { openTagManager, openTaskManager } from './ui/TaskManagerModal'
+import {
+	openMetricManager,
+	openTagManager,
+	openTaskManager,
+} from './ui/TaskManagerModal'
 import type { TagMapping } from './types/tags'
 import {
-	AGGREGATION_RULE_NAMES,
-	AGGREGATION_RULES,
 	DEFAULT_STAMP_TEXTS,
 	DONE_BADGE_CHOICE_NAMES,
 	DONE_BADGE_CHOICES,
-	isAggregationRule,
 	isDoneBadgeChoice,
 	parseStampTexts,
 	usesStamps,
-	withMetricSetting,
 	type DoneBadgeChoice,
 	type GoalBadge,
-	type MetricSetting,
 	type MetricSettings,
 } from './core/goalStyle'
-import {
-	METRIC_GOAL_EMOJI,
-	TIME_GOAL_EMOJI,
-	TIME_GOAL_LABEL,
-	type GoalSuggestionDismissal,
-} from './core/goalCards'
+import { type GoalSuggestionDismissal } from './core/goalCards'
 import type { GoalKey } from './core/goalEdits'
 import { DEFAULT_GOAL_GROUPINGS, type GoalGroupings } from './core/goalCards'
-import { openColorMenu } from './ui/colorMenu'
 
 export interface TaskTimeTrackerSettings {
 	/**
@@ -106,44 +99,6 @@ export const DEFAULT_SETTINGS: TaskTimeTrackerSettings = {
 	lastDailyViewTab: 'tracker',
 	timelineViews: {},
 	tagMappings: [],
-}
-
-export const UNUSED_METRIC_WARNING =
-	'No goal line uses this metric any more. Its settings stay until you delete them.'
-
-/**
- * A round color swatch at the end of the setting's controls, opening the
- * color menu. Not a <button>: Obsidian's mobile styles stretch those full
- * width. Dashed while no color is set.
- */
-function addColorSwatch(
-	setting: Setting,
-	label: string,
-	color: {
-		get: () => string | undefined
-		set: (color: string | undefined) => Promise<void>
-	}
-) {
-	const swatch = setting.controlEl.createSpan({
-		cls: 'task-time-tracker-swatch-button',
-		attr: { role: 'button', tabindex: '0', 'aria-label': label },
-	})
-	const paint = () => {
-		swatch.style.setProperty('--swatch-color', color.get() ?? 'transparent')
-		swatch.toggleClass('has-color', Boolean(color.get()))
-	}
-	const pick = (event: MouseEvent) =>
-		openColorMenu(event, color.get(), (picked) => {
-			void color.set(picked ?? undefined).then(paint)
-		})
-	swatch.addEventListener('click', pick)
-	swatch.addEventListener('keydown', (event) => {
-		if (event.key !== 'Enter' && event.key !== ' ') return
-		event.preventDefault()
-		const rect = swatch.getBoundingClientRect()
-		pick(new MouseEvent('click', { clientX: rect.left, clientY: rect.bottom }))
-	})
-	paint()
 }
 
 export class TaskTimeTrackerSettingTab extends PluginSettingTab {
@@ -259,95 +214,16 @@ export class TaskTimeTrackerSettingTab extends PluginSettingTab {
 				)
 		}
 
-		const index = this.plugin.vaultTasks
-		if (!index.isReady) {
-			void index.ensureBuilt().then(() => this.display())
-		}
-		const used = new Set(index.metrics().map(({ metric }) => metric))
-		const metrics = [
-			TIME_GOAL_LABEL,
-			...new Set([
-				...used,
-				...Object.keys(settings.metricSettings).filter(
-					(name) => name !== TIME_GOAL_LABEL
-				),
-			]),
-		]
 		new Setting(containerEl)
-			.setName('Metrics')
+			.setName('Manage metrics')
 			.setDesc(
-				'Color and emoji of each metric in the goal cards and the tracker bars, and how its values add up when tasks merge or a range is summed. Rates (a unit with /) average by default, the others add up.'
+				'Color and emoji of each metric in the goal cards and the tracker bars, and how its values add up when tasks merge or a range is summed. Rename, merge, delete metrics and change their unit there too; also available as a command.'
 			)
-		for (const metric of metrics) {
-			const unused =
-				index.isReady && metric !== TIME_GOAL_LABEL && !used.has(metric)
-			this.displayMetricSetting(containerEl, metric, unused)
-		}
-	}
-
-	/** `unused`: set here, but in no goal line of any note any more. */
-	private displayMetricSetting(
-		containerEl: HTMLElement,
-		metric: string,
-		unused: boolean
-	) {
-		const { settings } = this.plugin
-		const current = (): MetricSetting => settings.metricSettings[metric] ?? {}
-		const update = async (change: MetricSetting) => {
-			settings.metricSettings = withMetricSetting(
-				settings.metricSettings,
-				metric,
-				change
-			)
-			await this.plugin.saveSettings()
-		}
-		const isTime = metric === TIME_GOAL_LABEL
-		const setting = new Setting(containerEl)
-			.setName(isTime ? 'Time goals' : metric)
-			.setClass('task-time-tracker-metric-setting')
-		if (unused) {
-			setting.setDesc(UNUSED_METRIC_WARNING)
-			setting.descEl.addClass('mod-warning')
-		}
-
-		addColorSwatch(setting, `Color of ${metric}`, {
-			get: () => current().color,
-			set: (color) => update({ color }),
-		})
-		setting.addText((text) => {
-			text.inputEl.addClass('task-time-tracker-emoji-input')
-			text.inputEl.setAttribute('aria-label', `Emoji of ${metric}`)
-			text
-				.setPlaceholder(isTime ? TIME_GOAL_EMOJI : METRIC_GOAL_EMOJI)
-				.setValue(current().emoji ?? '')
-				.onChange((value) => void update({ emoji: value.trim() || undefined }))
-		})
-		if (!isTime) {
-			setting.addDropdown((dropdown) => {
-				dropdown.selectEl.setAttribute('aria-label', `How ${metric} adds up`)
-				dropdown.addOption('', 'Default')
-				for (const rule of AGGREGATION_RULES) {
-					dropdown.addOption(rule, AGGREGATION_RULE_NAMES[rule])
-				}
-				dropdown.setValue(current().rule ?? '').onChange((value) => {
-					void update({ rule: isAggregationRule(value) ? value : undefined })
-				})
-			})
-		}
-		if (unused) {
-			setting.addExtraButton((button) =>
+			.addButton((button) =>
 				button
-					.setIcon('trash')
-					.setTooltip(`Delete the settings of ${metric}`)
-					.onClick(async () => {
-						const all = { ...settings.metricSettings }
-						delete all[metric]
-						settings.metricSettings = all
-						await this.plugin.saveSettings()
-						this.display()
-					})
+					.setButtonText('Open')
+					.onClick(() => openMetricManager(this.plugin))
 			)
-		}
 	}
 
 	private displayTaskManagementSection(containerEl: HTMLElement) {

@@ -23,7 +23,11 @@ import {
 import { registerCustomIcons } from './ui/customIcons'
 import { hideCrossingNotices } from './ui/goalNotices'
 import { SoundPlayer } from './ui/goalSounds'
-import { openTagManager, openTaskManager } from './ui/TaskManagerModal'
+import {
+	openMetricManager,
+	openTagManager,
+	openTaskManager,
+} from './ui/TaskManagerModal'
 import { assignDateTimeType } from './ui/propertyTypes'
 import { DAY_END_PROPERTY, DAY_START_PROPERTY } from './core/time'
 import { DailyItemView, DAILY_VIEW } from './views/DailyItemView'
@@ -108,6 +112,13 @@ export default class TaskTimeTracker extends Plugin {
 			name: 'Manage tags',
 			icon: 'tags',
 			callback: () => openTagManager(this),
+		})
+
+		this.addCommand({
+			id: 'manage-metrics',
+			name: 'Manage metrics',
+			icon: 'gauge',
+			callback: () => openMetricManager(this),
 		})
 
 		registerTrackingCommands(this)

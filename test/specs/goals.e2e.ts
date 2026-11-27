@@ -928,64 +928,6 @@ describe('goals tab', function () {
 		}
 	})
 
-	it('warns about the settings of a metric no note uses, and deletes them', async function () {
-		const saved = await browser.executeObsidian(
-			({ plugins }) => plugins.obsidianTaskTimeTracker.settings.metricSettings
-		)
-		await browser.executeObsidian(async ({ plugins }) => {
-			const plugin = plugins.obsidianTaskTimeTracker
-			plugin.settings.metricSettings = { steps: { emoji: '👟' } }
-			await plugin.vaultTasks.ensureBuilt()
-		})
-		const main = await browser.getWindowHandle()
-		try {
-			// This Obsidian opens the settings in their own window.
-			await browser.executeObsidian(({ app }) => {
-				const setting = (
-					app as unknown as {
-						setting: { open(): void; openTabById(id: string): void }
-					}
-				).setting
-				setting.open()
-				setting.openTabById('obsidian-task-time-tracker')
-			})
-			await browser.waitUntil(
-				async () => (await browser.getWindowHandles()).length > 1,
-				{ timeoutMsg: 'the settings window did not open' }
-			)
-			const handles = await browser.getWindowHandles()
-			const settingsWindow = handles.find((handle) => handle !== main)
-			assert.ok(settingsWindow)
-			await browser.switchToWindow(settingsWindow)
-
-			const warning = browser.$(
-				'.setting-item-description=No goal line uses this metric any more. Its settings stay until you delete them.'
-			)
-			await expect(warning).toBeDisplayed()
-			const row = warning.$('../..')
-			await expect(row.$('.setting-item-name')).toHaveText('steps')
-			await row.$('[aria-label="Delete the settings of steps"]').click()
-			// The tab redraws without the row.
-			await expect(browser.$('.setting-item-name=Time goals')).toBeDisplayed()
-			await browser.switchToWindow(main)
-			assert.deepStrictEqual(
-				await browser.executeObsidian(
-					({ plugins }) =>
-						plugins.obsidianTaskTimeTracker.settings.metricSettings
-				),
-				{}
-			)
-		} finally {
-			await browser.switchToWindow(main)
-			await browser.executeObsidian(async ({ app, plugins }, values) => {
-				;(app as unknown as { setting: { close(): void } }).setting.close()
-				const plugin = plugins.obsidianTaskTimeTracker
-				plugin.settings.metricSettings = values
-				await plugin.saveSettings()
-			}, saved)
-		}
-	})
-
 	it('sets, edits and deletes a tag goal measured by covered time', async function () {
 		let content = await writeNote(today.path, [
 			'- [ ] Write #work',
