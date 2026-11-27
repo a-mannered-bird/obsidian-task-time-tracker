@@ -326,6 +326,7 @@
 									void runAction(() => chooseTagEmoji(plugin, info.tag))}
 							>
 								{#if mapping?.emoji}{mapping.emoji}{:else}<span
+										class="emoji-icon"
 										use:icon={'smile-plus'}
 									></span>{/if}
 							</button>

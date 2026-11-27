@@ -172,8 +172,7 @@ export async function deleteTags(
 /** Ask for the tag's emoji; empty removes it. Resolves true when it changed. */
 export async function chooseTagEmoji(
 	plugin: TaskTimeTracker,
-	tag: string,
-	placeholder?: string
+	tag: string
 ): Promise<boolean> {
 	const { settings } = plugin
 	const typed = await promptText(plugin.app, {
@@ -183,7 +182,6 @@ export async function chooseTagEmoji(
 		hint: deviceEmojiHint(),
 		initialValue:
 			settings.tagMappings.find((mapping) => mapping.tag === tag)?.emoji ?? '',
-		placeholder,
 	})
 	if (typed === null) return false
 	settings.tagMappings = withTagStyle(settings.tagMappings, tag, {

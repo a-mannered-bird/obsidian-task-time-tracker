@@ -5,11 +5,7 @@ import {
 	IRREVERSIBLE_NOTE,
 	plural,
 } from 'core/confirmations'
-import {
-	TIME_GOAL_EMOJI,
-	TIME_GOAL_LABEL,
-	METRIC_GOAL_EMOJI,
-} from 'core/goalCards'
+import { TIME_GOAL_LABEL } from 'core/goalCards'
 import {
 	metricRuleOf,
 	withMetricSetting,
@@ -310,7 +306,6 @@ export async function chooseMetricEmoji(
 		label: 'Emoji',
 		hint: deviceEmojiHint(),
 		initialValue: plugin.settings.metricSettings[metric]?.emoji ?? '',
-		placeholder: isTime ? TIME_GOAL_EMOJI : METRIC_GOAL_EMOJI,
 	})
 	if (typed === null) return false
 	await updateMetricSettings(plugin, [metric], {

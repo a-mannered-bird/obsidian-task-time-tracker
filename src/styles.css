@@ -796,6 +796,17 @@
 	border-radius: var(--radius-s);
 }
 
+/* A block, not inline: an inline box adds the line's descender space under
+   the icon and lifts it off the button's centre. */
+.task-time-tracker-manager-modal .emoji-icon {
+	display: flex;
+}
+
+.task-time-tracker-manager-modal .emoji-icon svg {
+	width: 16px;
+	height: 16px;
+}
+
 .task-time-tracker-manager-modal .emoji:hover:not(:disabled) {
 	background: var(--background-modifier-hover);
 }

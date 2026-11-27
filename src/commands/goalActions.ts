@@ -48,7 +48,6 @@ import { startOfDay } from 'core/dailyNotes'
 import {
 	DONE_BADGE_CHOICE_NAMES,
 	DONE_BADGE_CHOICES,
-	goalEmoji,
 	ownGoalBadge,
 	type DoneBadgeChoice,
 } from 'core/goalStyle'
@@ -384,7 +383,7 @@ export async function chooseGoalEmoji(
 	card: Pick<GoalCard, 'goal' | 'tag'>
 ): Promise<boolean> {
 	const { goal, tag } = card
-	if (tag !== null) return chooseTagEmoji(plugin, tag, goalEmoji(goal, {}))
+	if (tag !== null) return chooseTagEmoji(plugin, tag)
 	return chooseMetricEmoji(plugin, goalLabel(goal))
 }
 
