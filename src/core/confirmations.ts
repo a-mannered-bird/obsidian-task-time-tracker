@@ -141,13 +141,13 @@ export function describeMetricConsolidation(
 	targetExists: boolean
 ): string[] {
 	const target =
-		targetMetric === null ? 'the surviving metric' : quote(targetMetric)
+		targetMetric === null ? 'the surviving goal' : quote(targetMetric)
 	const scope = goalLineScope(preview)
 	return [
 		sourceMetrics.length === 1 && !targetExists
 			? `Rename ${quote(sourceMetrics[0]!)} to ${target} on ${scope}.`
 			: `Merge ${sourceMetrics.map(quote).join(', ')} into ${target} on ${scope}. Units are never converted.`,
-		...combinedGoals(preview, "the surviving metric's rule"),
+		...combinedGoals(preview, "the surviving goal's rule"),
 	]
 }
 

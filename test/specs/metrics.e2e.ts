@@ -5,16 +5,16 @@ import { obsidianPage } from 'wdio-obsidian-service'
 import { resetVault } from './support/vault'
 
 /**
- * The Metrics tab of the management modal: metric rename, merge, delete and
+ * The Goals tab of the management modal (metrics in the code): metric rename, merge, delete and
  * unit change through the real UI, asserting the exact markdown written and
  * every UI transition on the way (positive, single-element matchers only,
  * for the trace recorder).
  */
 
 const MODAL = '.task-time-tracker-manager-modal'
-const METRICS_PANEL = '[role="tabpanel"][aria-label="Metrics"]'
+const GOALS_PANEL = '[role="tabpanel"][aria-label="Goals"]'
 
-/** The modal on its Metrics tab, reached by the Manage metrics command. */
+/** The modal on its Goals tab, reached by the Manage goals command. */
 async function openMetrics() {
 	await browser.executeObsidianCommand(
 		'obsidian-task-time-tracker:manage-metrics'
@@ -22,9 +22,9 @@ async function openMetrics() {
 	const modal = browser.$(MODAL)
 	await expect(modal.$('.modal-title')).toHaveText('Manage tracking data')
 	await expect(modal.$('[role="tab"][aria-selected="true"]')).toHaveText(
-		'Metrics'
+		'Goals'
 	)
-	const panel = modal.$(METRICS_PANEL)
+	const panel = modal.$(GOALS_PANEL)
 	await expect(panel.$('table')).toBeDisplayed()
 	return panel
 }
@@ -189,7 +189,7 @@ describe('metric management', function () {
 		await expect(panel).toHaveText(expect.stringContaining('2 selected'))
 		await clickButton(panel, 'Merge…')
 
-		const confirm = await expectModal('Merge 2 metrics')
+		const confirm = await expectModal('Merge 2 goals')
 		await expect(confirm).toHaveText(
 			expect.stringContaining('2 goals will be combined on 1 day')
 		)

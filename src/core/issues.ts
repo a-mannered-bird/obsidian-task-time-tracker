@@ -93,10 +93,10 @@ export const ISSUE_TITLES: Record<IssueKind, string> = {
 	'stale-clock': 'Clock still running in a past note',
 	'outside-day': 'Clock outside the start and end of day',
 	'goal-syntax': 'Goal line not understood',
-	'unit-drift': 'Metric written with several units',
+	'unit-drift': 'Goal written with several units',
 	'similar-tag': 'Tag close to another tag',
-	'similar-metric': 'Metric close to another metric',
-	'metric-units': 'Metric with several units',
+	'similar-metric': 'Goal close to another goal',
+	'metric-units': 'Goal with several units',
 }
 
 /** What the user chose not to see again (see visibleIssues). */
@@ -267,7 +267,7 @@ export function describeIssue(issue: TaskIssue): string {
 		case 'similar-tag':
 			return `Tag close to ${issue.other}`
 		case 'similar-metric':
-			return `Metric close to "${issue.other}"`
+			return `Goal close to "${issue.other}"`
 		case 'metric-units':
 			return `Units: ${issue.units
 				.map(({ unit, count }) => `${unitName(unit)} (${count})`)

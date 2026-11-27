@@ -77,7 +77,7 @@
 	const selection = new RowSelection()
 
 	type Header = { key: MetricSortKey; label: string; numeric?: boolean }
-	const NAME_HEADER: Header = { key: 'metric', label: 'Metric' }
+	const NAME_HEADER: Header = { key: 'metric', label: 'Goal' }
 	const COUNT_HEADERS: Header[] = [
 		{ key: 'tasks', label: 'Tasks', numeric: true },
 		{ key: 'notes', label: 'Notes', numeric: true },
@@ -232,8 +232,8 @@
 	<div
 		class="search"
 		use:searchField={{
-			placeholder: 'Filter metrics',
-			label: 'Filter metrics',
+			placeholder: 'Filter goals',
+			label: 'Filter goals',
 			get: () => query,
 			set: (value) => (query = value),
 		}}
@@ -247,14 +247,14 @@
 		Issues only
 	</button>
 	{#if rows !== null && infos !== null && rows.length !== infos.length}
-		<span class="muted">{rows.length} of {infos.length} metrics</span>
+		<span class="muted">{rows.length} of {infos.length} goals</span>
 	{/if}
 </div>
 
 <div class="selection-bar" class:idle={selected.length === 0}>
 	{#if selected.length === 0}
 		<span class="muted">
-			No metric selected. Tick metrics to rename, merge, recolor or delete them
+			No goal selected. Tick goals to rename, merge, recolor or delete them
 			together.
 		</span>
 	{:else}
@@ -263,14 +263,14 @@
 			{@const metric = singleSelected}
 			<button
 				disabled={busy}
-				title="Rename the selected metric on every goal line"
+				title="Rename the selected goal on every goal line"
 				onclick={() => void runAction(() => renameMetric(plugin, metric))}
 			>
 				Rename…
 			</button>
 			<button
 				disabled={busy}
-				title="Change the unit written on the selected metric's goal lines; values are not converted"
+				title="Change the unit written on the selected goal's lines; values are not converted"
 				onclick={() => void runAction(() => changeMetricUnit(plugin, metric))}
 			>
 				Change unit…
@@ -278,7 +278,7 @@
 		{:else}
 			<button
 				disabled={busy}
-				title="Merge the selected metrics into one: pick the surviving metric, every daily note is rewritten"
+				title="Merge the selected goals into one: pick the surviving goal, every daily note is rewritten"
 				onclick={() => void runAction(() => mergeMetrics(plugin, selected))}
 			>
 				Merge…
@@ -286,7 +286,7 @@
 		{/if}
 		<button
 			disabled={busy}
-			title="Give the selected metrics the same color (or remove their color)"
+			title="Give the selected goals the same color (or remove their color)"
 			onclick={(event) =>
 				openColorMenu(
 					event,
@@ -300,14 +300,14 @@
 		<button
 			class="mod-warning"
 			disabled={busy}
-			title="Delete every goal line of the selected metrics and their settings; asks for confirmation, cannot be undone"
+			title="Delete every line of the selected goals and their settings; asks for confirmation, cannot be undone"
 			onclick={() => void runAction(() => deleteMetrics(plugin, selected))}
 		>
 			Delete…
 		</button>
 		<button
 			class="clear"
-			title="Untick every metric"
+			title="Untick every goal"
 			onclick={() => selection.clear()}
 		>
 			Clear
@@ -330,7 +330,7 @@
 	<p class="muted">Scanning vault goals…</p>
 {:else if rows.length === 0}
 	<div class="no-results">
-		<span class="muted">No metric matches.</span>
+		<span class="muted">No goal matches.</span>
 		{#if filtering}
 			<button onclick={clearFilters}>Clear filters</button>
 		{/if}
@@ -343,7 +343,7 @@
 					<th class="select-cell">
 						<input
 							type="checkbox"
-							aria-label="Select every matching metric"
+							aria-label="Select every matching goal"
 							checked={allSelected}
 							indeterminate={someSelected}
 							onchange={() => selection.toggleAll(selectable)}

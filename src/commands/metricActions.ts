@@ -59,7 +59,7 @@ export async function renameMetric(
 	const typed = await promptText(plugin.app, {
 		title: `Rename ${metric}`,
 		description:
-			'Every goal line of it is updated, in every daily note. Renaming to another metric merges the two.',
+			'Every line of it is updated, in every daily note. Renaming to another goal merges the two.',
 		label: 'New name',
 		initialValue: metric,
 		confirmText: 'Rename',
@@ -109,7 +109,7 @@ export async function mergeMetrics(
 		namedMetrics(plugin).find((info) => metrics.includes(info.metric))
 			?.metric ?? metrics[0]!
 	const confirmed = await confirmAction(plugin.app, {
-		title: `Merge ${plural(metrics.length, 'metric')}`,
+		title: `Merge ${plural(metrics.length, 'goal')}`,
 		message: [
 			// The counts do not depend on which metric survives.
 			...describeMetricConsolidation(
@@ -124,7 +124,7 @@ export async function mergeMetrics(
 			IRREVERSIBLE_NOTE,
 		],
 		choice: {
-			label: 'Surviving metric',
+			label: 'Surviving goal',
 			options: metrics,
 			initial: survivorDefault,
 		},
@@ -178,7 +178,7 @@ export async function deleteMetrics(
 		title:
 			metrics.length === 1
 				? `Delete ${metrics[0]}`
-				: `Delete ${plural(metrics.length, 'metric')}`,
+				: `Delete ${plural(metrics.length, 'goal')}`,
 		message: [
 			describeMetricDeletion(metrics, preview),
 			...(destructive ? [IRREVERSIBLE_NOTE] : []),

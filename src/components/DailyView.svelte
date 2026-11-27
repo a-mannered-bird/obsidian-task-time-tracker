@@ -194,7 +194,7 @@
 		)
 		menu.addItem((item) =>
 			item
-				.setTitle(titleWithShortcut(plugin, 'Manage metrics', 'manageMetrics'))
+				.setTitle(titleWithShortcut(plugin, 'Manage goals', 'manageMetrics'))
 				.setIcon('gauge')
 				.onClick(() => openMetricManager(plugin))
 		)

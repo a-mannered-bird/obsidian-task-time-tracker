@@ -63,10 +63,10 @@ export type MetricEditResult = {
  */
 export function metricNameProblem(name: string): string | null {
 	const trimmed = name.trim()
-	if (!trimmed) return 'Write a metric name'
+	if (!trimmed) return 'Write a goal name'
 	if (trimmed === TIME_GOAL_LABEL)
 		return `"${TIME_GOAL_LABEL}" names the time goals`
-	const problem = 'A metric name cannot contain a colon, a slash or brackets'
+	const problem = 'A goal name cannot contain a colon, a slash or brackets'
 	// Brackets would end the `[goal::…]` field early; the parser never sees them.
 	if (/[[\]]/.test(trimmed)) return problem
 	const sample: Goal = {

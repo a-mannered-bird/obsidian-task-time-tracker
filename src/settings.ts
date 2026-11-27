@@ -209,9 +209,9 @@ export class TaskTimeTrackerSettingTab extends PluginSettingTab {
 		}
 
 		new Setting(containerEl)
-			.setName('Manage metrics')
+			.setName('Manage goals')
 			.setDesc(
-				'Color and emoji of each metric in the goal cards and the tracker bars, and how its values add up when tasks merge or a range is summed. Rename, merge, delete metrics and change their unit there too; also available as a command.'
+				'Color and emoji of each goal in the goal cards and the tracker bars, and how its values add up when tasks merge or a range is summed. Rename, merge, delete goals and change their unit there too; also available as a command.'
 			)
 			.addButton((button) =>
 				button

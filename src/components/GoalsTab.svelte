@@ -367,7 +367,7 @@
 		if (tag === null) {
 			menu.addItem((item) =>
 				item
-					.setTitle('Manage metric')
+					.setTitle('Manage goal')
 					.setIcon('gauge')
 					.onClick(() => openMetricManager(plugin, goalLabel(card.goal)))
 			)

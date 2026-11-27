@@ -119,7 +119,7 @@ export default class TaskTimeTracker extends Plugin {
 
 		this.addCommand({
 			id: 'manage-metrics',
-			name: 'Manage metrics',
+			name: 'Manage goals',
 			icon: 'gauge',
 			callback: () => openMetricManager(this),
 		})

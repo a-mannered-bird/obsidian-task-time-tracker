@@ -21,7 +21,7 @@
 	const TABS: { id: ManagerTab; label: string }[] = [
 		{ id: 'tasks', label: 'Tasks' },
 		{ id: 'tags', label: 'Tags' },
-		{ id: 'metrics', label: 'Metrics' },
+		{ id: 'metrics', label: 'Goals' },
 	]
 
 	function showTasks(query: string) {
@@ -50,6 +50,6 @@
 <div role="tabpanel" aria-label="Tags" hidden={tab !== 'tags'}>
 	<TagManager {plugin} {showTasks} />
 </div>
-<div role="tabpanel" aria-label="Metrics" hidden={tab !== 'metrics'}>
+<div role="tabpanel" aria-label="Goals" hidden={tab !== 'metrics'}>
 	<MetricManager {plugin} {showTasks} bind:query={metricQuery} />
 </div>
