@@ -1,9 +1,19 @@
 import { ItemView, WorkspaceLeaf } from 'obsidian'
 import { mount, unmount } from 'svelte'
 import DailyView from '../components/DailyView.svelte'
+import type { DailyViewTab } from '../core/dailyViewTabs'
 import type TaskTimeTracker from '../main'
 
 export const DAILY_VIEW = 'task-time-tracker-daily-view'
+
+type TabSelector = { select(tab: DailyViewTab): void }
+
+/** The component's exports are untyped outside Svelte files. */
+function canSelectTab(
+	exports: Record<string, unknown>
+): exports is TabSelector {
+	return typeof exports.select === 'function'
+}
 
 export class DailyItemView extends ItemView {
 	private plugin: TaskTimeTracker
@@ -38,6 +48,11 @@ export class DailyItemView extends ItemView {
 	async remount() {
 		await this.unmountView()
 		this.mountView()
+	}
+
+	selectTab(tab: DailyViewTab) {
+		if (this.dailyView && canSelectTab(this.dailyView))
+			this.dailyView.select(tab)
 	}
 
 	private mountView() {

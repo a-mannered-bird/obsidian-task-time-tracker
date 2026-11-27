@@ -1,6 +1,7 @@
 import { Platform } from 'obsidian'
 import {
 	CONTROL_COMMANDS,
+	setShortcutHint,
 	shortcutHint,
 	type ViewControl,
 } from 'core/shortcuts'
@@ -38,6 +39,19 @@ export function controlHint(
 	control: ViewControl
 ): TooltipAside | null {
 	return commandHint(plugin, CONTROL_COMMANDS[control])
+}
+
+/**
+ * The tooltip line naming a command's shortcut, or null when none is set:
+ * for controls whose every tooltip would otherwise be an invitation to set
+ * one, such as the tab bar's.
+ */
+export function setShortcutLine(
+	plugin: TaskTimeTracker,
+	commandId: string
+): string | null {
+	const shortcut = shortcutOf(plugin, commandId)
+	return shortcut === null ? null : setShortcutHint(shortcut)
 }
 
 /**

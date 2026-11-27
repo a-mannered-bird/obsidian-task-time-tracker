@@ -1,6 +1,7 @@
 import { Plugin, type Command, type WorkspaceLeaf } from 'obsidian'
 import './styles.css'
 import { registerCompleteJournalCommand } from './commands/completeJournal'
+import { registerDailyViewTabCommands } from './commands/dailyViewTabs'
 import { registerFrontmatterTimeCommands } from './commands/frontmatterTime'
 import { registerGoalCommands } from './commands/goalActions'
 import { registerTagGoalCommands } from './commands/tagGoalActions'
@@ -9,6 +10,7 @@ import { registerPlanCommand } from './commands/plan'
 import { registerUserEditLog, type UserEdit } from './commands/userEdits'
 import { getCoreDailyNotesConfig } from './core/coreDailyNotes'
 import { DailyLogStore } from './core/dailyLogs'
+import { isDailyViewTab, type DailyViewTab } from './core/dailyViewTabs'
 import { isDailyNote, type DailyNotesConfig } from './core/dailyNotes'
 import { readGoalGroupings } from './core/goalCards'
 import { readNoteViews } from './core/timeline'
@@ -16,7 +18,6 @@ import { isDoneBadgeChoice } from './core/goalStyle'
 import { VaultTaskIndex } from './core/vaultTaskIndex'
 import {
 	DEFAULT_SETTINGS,
-	isDailyViewTab,
 	TaskTimeTrackerSettingTab,
 	type TaskTimeTrackerSettings,
 } from './settings'
@@ -99,6 +100,8 @@ export default class TaskTimeTracker extends Plugin {
 				void this.activateDailyView()
 			},
 		})
+
+		registerDailyViewTabCommands(this)
 
 		this.addCommand({
 			id: 'manage-tasks',
@@ -190,7 +193,13 @@ export default class TaskTimeTracker extends Plugin {
 		await Promise.all(views.map((view) => view.remount()))
 	}
 
-	async activateDailyView() {
+	/** Opens the daily view on one of its tabs. */
+	async openDailyViewTab(tab: DailyViewTab) {
+		const view = (await this.activateDailyView())?.view
+		if (view instanceof DailyItemView) view.selectTab(tab)
+	}
+
+	async activateDailyView(): Promise<WorkspaceLeaf | null> {
 		const { workspace } = this.app
 
 		let leaf: WorkspaceLeaf | null = null
@@ -204,5 +213,6 @@ export default class TaskTimeTracker extends Plugin {
 		}
 
 		if (leaf) await workspace.revealLeaf(leaf)
+		return leaf
 	}
 }

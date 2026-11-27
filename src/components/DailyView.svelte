@@ -6,7 +6,11 @@
 		DAY_START_COMMAND,
 	} from 'commands/frontmatterTime'
 	import { onMount } from 'svelte'
-	import { controlHint, titleWithShortcut } from 'commands/shortcuts'
+	import {
+		controlHint,
+		setShortcutLine,
+		titleWithShortcut,
+	} from 'commands/shortcuts'
 	import {
 		createDailyNote,
 		getAdjacentDailyNoteFile,
@@ -31,7 +35,7 @@
 		findOvernightClocks,
 		type OvernightNote,
 	} from 'core/overnight'
-	import type { DailyViewTab } from '../settings'
+	import { DAILY_VIEW_TABS, type DailyViewTab } from 'core/dailyViewTabs'
 	import { formatTimeOfDay } from 'core/timeline'
 	import { showCrossingNotices } from 'ui/goalNotices'
 	import { icon } from 'ui/icon'
@@ -53,12 +57,6 @@
 
 	const { app, plugin }: Props = $props()
 
-	const TABS: { id: DailyViewTab; label: string }[] = [
-		{ id: 'tracker', label: 'Tracker' },
-		{ id: 'goals', label: 'Goals' },
-		{ id: 'timeline', label: 'Timeline' },
-	]
-
 	// svelte-ignore state_referenced_locally -- deliberately only the initial value
 	let active = $state<DailyViewTab>(plugin.settings.lastDailyViewTab)
 	let target = $state<DailyTarget | null>(null)
@@ -77,7 +75,7 @@
 		select('goals')
 	}
 
-	function select(tab: DailyViewTab) {
+	export function select(tab: DailyViewTab) {
 		if (tab !== active) trackerTab?.leave()
 		active = tab
 		plugin.settings.lastDailyViewTab = tab
@@ -316,10 +314,11 @@
 	{/if}
 
 	<div class="task-time-tracker-tabs" role="tablist">
-		{#each TABS as tab (tab.id)}
+		{#each DAILY_VIEW_TABS as tab (tab.id)}
 			<button
 				type="button"
 				role="tab"
+				use:instantTooltip={() => [setShortcutLine(plugin, tab.command.id)]}
 				aria-selected={active === tab.id}
 				class:active={active === tab.id}
 				onclick={() => select(tab.id)}

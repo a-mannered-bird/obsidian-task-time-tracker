@@ -36,7 +36,13 @@ export type ViewControl = keyof typeof CONTROL_COMMANDS
  * settings when none is set (`''`).
  */
 export function shortcutHint(commandName: string, shortcut: string): string {
-	return shortcut
-		? `Shortcut: ${shortcut}`
-		: `No shortcut yet: set one for "${commandName}" in Settings → Hotkeys`
+	return (
+		setShortcutHint(shortcut) ??
+		`No shortcut yet: set one for "${commandName}" in Settings → Hotkeys`
+	)
+}
+
+/** The tooltip line naming a command's shortcut, or null when none is set. */
+export function setShortcutHint(shortcut: string): string | null {
+	return shortcut ? `Shortcut: ${shortcut}` : null
 }

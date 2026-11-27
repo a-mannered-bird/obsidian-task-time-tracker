@@ -1,5 +1,6 @@
 import { App, PluginSettingTab, Setting } from 'obsidian'
 import type { NoteViews } from './core/timeline'
+import type { DailyViewTab } from './core/dailyViewTabs'
 import { ISSUE_KINDS, ISSUE_TITLES, type IssueKind } from './core/issues'
 import type TaskTimeTracker from './main'
 import {
@@ -70,13 +71,6 @@ export interface TaskTimeTrackerSettings {
 	 * opens fitted to its day.
 	 */
 	timelineViews: NoteViews
-}
-
-const DAILY_VIEW_TABS = ['tracker', 'goals', 'timeline'] as const
-export type DailyViewTab = (typeof DAILY_VIEW_TABS)[number]
-
-export function isDailyViewTab(value: unknown): value is DailyViewTab {
-	return DAILY_VIEW_TABS.some((tab) => tab === value)
 }
 
 export const DEFAULT_SETTINGS: TaskTimeTrackerSettings = {
