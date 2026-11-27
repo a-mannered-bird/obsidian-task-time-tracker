@@ -364,7 +364,7 @@ Five slices, each usable and reviewed on its own; every slice is checked at mobi
 - [x] Core: similar-metrics and unit drift issues for the Metrics tab.
 - [x] Commands: metric rename, merge, delete and unit change flows (preview, confirmation, `runBulkEdit`, notices), emoji and settings changes. A merge combines with the rule the target has once it took in the sources' settings.
 - [x] UI: "Manage tracking data" title, Metrics tab and table, Manage metrics command (moved here: it needs the tab), daily view menu item, card ⋯ "Manage metric", settings row replacing the Metrics list.
-- [ ] E2E: metric rename, merge (asserting a combined `8/15 km`), delete (including a metric only the settings know, replacing the settings-tab spec dropped with the Metrics list) and unit change through the real UI, asserting the exact markdown.
+- [x] E2E: metric rename, merge (asserting a combined `8/15 km`), delete (including a metric only the settings know, replacing the settings-tab spec dropped with the Metrics list) and unit change through the real UI, asserting the exact markdown.
 
 ## Later
 
